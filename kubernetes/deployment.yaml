@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: claude-code
+  namespace: claude-code
+  labels:
+    app: claude-code
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: claude-code
+  template:
+    metadata:
+      labels:
+        app: claude-code
+    spec:
+      containers:
+      - name: claude-code
+        image: claude-code:latest
+        imagePullPolicy: IfNotPresent
+        command: ["sleep", "infinity"]
+        volumeMounts:
+        - name: config-volume
+          mountPath: /home/claude/.config/claude-code
+        - name: workspace-volume
+          mountPath: /home/claude/workspace
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+      volumes:
+      - name: config-volume
+        persistentVolumeClaim:
+          claimName: claude-code-config-pvc
+      - name: workspace-volume
+        persistentVolumeClaim:
+          claimName: claude-code-workspace-pvc
