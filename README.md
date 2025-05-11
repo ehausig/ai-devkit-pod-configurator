@@ -22,7 +22,7 @@ If you're using Colima for local Kubernetes development on macOS:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/claude-code-k8s.git
+git clone https://github.com/ehausig/claude-code-k8s.git
 cd claude-code-k8s
 
 # Make the script executable
