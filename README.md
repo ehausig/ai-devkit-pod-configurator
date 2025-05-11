@@ -22,7 +22,7 @@ If you're using Colima for local Kubernetes development on macOS:
 
 ```bash
 # Clone the repository
-git clone https://github.com/ehausig/claude-code-k8s.git
+git clone https://github.com/yourusername/claude-code-k8s.git
 cd claude-code-k8s
 
 # Make the script executable
@@ -203,4 +203,6 @@ This containerized approach provides several security advantages:
 
 ## License
 
-This project is provided as-is. Claude Code itself is subject to Anthropic's terms of service.
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+Claude Code itself is a product of Anthropic and subject to Anthropic's terms of service. This project provides containerization and deployment scripts only, and does not modify or redistribute Claude Code itself.
