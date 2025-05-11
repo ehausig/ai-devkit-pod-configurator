@@ -203,4 +203,6 @@ This containerized approach provides several security advantages:
 
 ## License
 
-This project is provided as-is. Claude Code itself is subject to Anthropic's terms of service.
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+Claude Code itself is a product of Anthropic and subject to Anthropic's terms of service. This project provides containerization and deployment scripts only, and does not modify or redistribute Claude Code itself.
