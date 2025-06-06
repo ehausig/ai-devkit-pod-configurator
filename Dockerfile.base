@@ -1,14 +1,11 @@
-# DEPRECATED: This file is kept for backward compatibility
-# Please use Dockerfile.base with the build-and-deploy.sh script
-# which allows you to select additional languages to include
-
 FROM ubuntu:22.04
 
-# Setup environment for arm64 architecture
+# Set architecture (defaults to arm64 for Apple Silicon)
 ARG TARGETARCH=arm64
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
+ENV TARGETARCH=${TARGETARCH}
 
 # Install dependencies (excluding Node.js)
 RUN apt-get update && apt-get install -y \
@@ -48,6 +45,8 @@ RUN which claude || (echo "Claude Code installation failed" && exit 1)
 
 # Create a directory for user configuration
 RUN mkdir -p /root/.config/claude-code
+
+# LANGUAGE_INSTALLATIONS_PLACEHOLDER
 
 # Copy entrypoint script
 COPY entrypoint.sh /entrypoint.sh

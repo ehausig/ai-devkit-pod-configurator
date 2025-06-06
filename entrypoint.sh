@@ -4,6 +4,15 @@ set -e
 # Ensure PATH includes npm global binaries
 export PATH="$PATH:/usr/local/bin:/usr/lib/node_modules/.bin"
 
+# Source all profile scripts to load language paths
+if [ -d /etc/profile.d ]; then
+    for i in /etc/profile.d/*.sh; do
+        if [ -r $i ]; then
+            . $i
+        fi
+    done
+fi
+
 # Create config directory if it doesn't exist
 CONFIG_DIR="/home/claude/.config/claude-code"
 mkdir -p "$CONFIG_DIR"

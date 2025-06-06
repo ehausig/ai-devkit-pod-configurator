@@ -1,4 +1,45 @@
-# Claude Code in Kubernetes
+### Customizing Language Options
+
+To add or modify available languages, edit the `languages.conf` file. The format is:
+```
+LANGUAGE_ID|Display Name|Installation Commands
+```
+
+For example:
+```
+PYTHON_3_13|Python 3.13|RUN apt-get update && apt-get install -y python3.13
+```
+
+The installation commands should be valid Dockerfile RUN instructions.## Features
+
+- **Containerized Claude Code**: Run Anthropic's AI coding assistant in an isolated Kubernetes environment
+- **Language Selection**: Optionally include additional programming languages and tools in your container
+- **Persistent Storage**: Configuration and workspace data persist across container restarts
+- **Security**: Runs as non-root user with proper isolation
+- **Easy Deployment**: Single script to build and deploy
+
+## Language Support
+
+The build script includes an interactive language selection menu. When you run the build script:
+
+1. The screen will clear and show a list of available languages
+2. Use **↑/↓ arrow keys** or **j/k** to move the cursor
+3. Press **SPACE** to select/deselect a language (selected items show ✓)
+4. Press **ENTER** to confirm your selections and continue
+5. Press **q** to quit without building
+
+Available languages include:
+
+- **Python**: 3.10, 3.11, 3.12
+- **Rust**: Latest stable, Nightly
+- **Go**: 1.21, 1.22
+- **Ruby**: 3.2, 3.3 (via rbenv)
+- **Java**: OpenJDK 11, 17, 21
+- **.NET**: 6.0, 8.0
+- **PHP**: 8.2, 8.3
+- **And more**: Elixir, Kotlin, Swift
+
+To add more languages, edit the `languages.conf` file.# Claude Code in Kubernetes
 
 This project provides a containerized version of Claude Code running in Kubernetes, allowing you to use Anthropic's AI coding assistant in an isolated environment rather than directly on your host OS.
 
@@ -6,9 +47,12 @@ This project provides a containerized version of Claude Code running in Kubernet
 
 ```
 claude-code-k8s/
-├── Dockerfile              # Container definition for Claude Code
+├── Dockerfile              # Container definition for Claude Code (deprecated - use Dockerfile.base)
+├── Dockerfile.base         # Base container definition
+├── languages.conf          # Language installation configurations
 ├── entrypoint.sh           # Container startup script
 ├── build-and-deploy.sh     # Helper script for building and deploying
+├── .gitignore              # Git ignore file
 ├── kubernetes/
 │   ├── namespace.yaml      # Kubernetes namespace definition
 │   ├── pvc.yaml            # Persistent volume claims for configuration and workspace
@@ -28,8 +72,11 @@ cd claude-code-k8s
 # Make the script executable
 chmod +x build-and-deploy.sh
 
-# Build and deploy
+# Build and deploy (with language selection)
 ./build-and-deploy.sh
+
+# Or build without language selection (base image only)
+./build-and-deploy.sh --no-select
 
 # Connect to the container
 kubectl exec -it -n claude-code <pod-name> -- bash
@@ -60,8 +107,14 @@ The repository includes a build script that automates the process, but you can a
 # Using the script (for Colima)
 ./build-and-deploy.sh
 
+# Skip language selection (base image only)
+./build-and-deploy.sh --no-select
+
+# Clean rebuild
+./build-and-deploy.sh --clean
+
 # Building manually
-docker build -t claude-code:latest .
+docker build -t claude-code:latest -f .build-temp/Dockerfile .
 ```
 
 For other container systems:
