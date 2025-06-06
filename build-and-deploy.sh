@@ -260,9 +260,9 @@ POD_NAME=$(kubectl get pods -n ${NAMESPACE} -l app=claude-code -o jsonpath="{.it
 echo -e "${GREEN}=== Deployment Complete ===${NC}"
 echo -e "Claude Code is now running in container: ${YELLOW}${POD_NAME}${NC}"
 echo -e "\nTo connect to the container, run:"
-echo -e "${YELLOW}kubectl exec -it -n ${NAMESPACE} ${POD_NAME} -- bash${NC}"
+echo -e "${YELLOW}kubectl exec -it -n ${NAMESPACE} ${POD_NAME} -- su - claude${NC}"
 echo -e "\nOnce connected, you can start Claude Code with:"
-echo -e "${YELLOW}cd /home/claude/workspace${NC}"
+echo -e "${YELLOW}cd workspace${NC}"
 echo -e "${YELLOW}claude${NC}"
 
 # Clean up temp directory
