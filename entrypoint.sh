@@ -18,6 +18,21 @@ CONFIG_DIR="/home/claude/.config/claude-code"
 mkdir -p "$CONFIG_DIR"
 chown -R claude:claude "$CONFIG_DIR"
 
+# Ensure the claude user owns their workspace
+chown -R claude:claude /home/claude/workspace
+
+# Fix permissions for pip if it exists
+if [ -d "/home/claude/.local" ]; then
+    chown -R claude:claude /home/claude/.local
+fi
+
+# Create .local/bin directory for user pip installs
+mkdir -p /home/claude/.local/bin
+chown -R claude:claude /home/claude/.local
+
+# Add user's local bin to PATH for claude user
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> /home/claude/.bashrc
+
 # Verify Claude Code is available
 if ! command -v claude &> /dev/null; then
     echo "ERROR: Claude Code command not found in PATH"

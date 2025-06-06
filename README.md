@@ -78,11 +78,11 @@ chmod +x build-and-deploy.sh
 # Or build without language selection (base image only)
 ./build-and-deploy.sh --no-select
 
-# Connect to the container
-kubectl exec -it -n claude-code <pod-name> -- bash
+# Connect to the container as the claude user (recommended)
+kubectl exec -it -n claude-code <pod-name> -- su - claude
 
 # Inside the container, run Claude Code
-cd /home/claude/workspace
+cd workspace
 claude
 ```
 
@@ -153,8 +153,11 @@ Find your pod and connect:
 # List pods in the claude-code namespace
 kubectl get pods -n claude-code
 
-# Connect to the pod
-kubectl exec -it -n claude-code <pod-name> -- bash
+# Connect to the pod as the claude user (recommended)
+kubectl exec -it -n claude-code <pod-name> -- su - claude
+
+# Or create an alias for easy access
+alias claude-exec='kubectl exec -it -n claude-code $(kubectl get pods -n claude-code -l app=claude-code -o jsonpath="{.items[0].metadata.name}") -- su - claude'
 ```
 
 ### 4. Authentication

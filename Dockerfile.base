@@ -57,6 +57,9 @@ RUN useradd -ms /bin/bash claude
 RUN mkdir -p /home/claude/.config/claude-code
 RUN chown -R claude:claude /home/claude/
 
+# Set up user's PATH to include .local/bin
+RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> /home/claude/.bashrc
+
 # Set up volume mount points for persistence
 VOLUME ["/home/claude/.config/claude-code", "/home/claude/workspace"]
 
