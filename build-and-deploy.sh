@@ -227,6 +227,7 @@ spec:
         app: claude-code
     spec:
       containers:
+      # Main Claude Code container
       - name: claude-code
         image: claude-code:latest
         imagePullPolicy: IfNotPresent
@@ -289,6 +290,39 @@ spec:
           limits:
             memory: "1Gi"
             cpu: "500m"
+      
+      # Filebrowser sidecar for easy file management
+      - name: filebrowser
+        image: filebrowser/filebrowser:latest
+        ports:
+        - containerPort: 8090
+          name: filebrowser
+        volumeMounts:
+        - name: workspace-volume
+          mountPath: /srv
+        - name: filebrowser-config
+          mountPath: /config
+        - name: filebrowser-db
+          mountPath: /database
+        env:
+        - name: FB_DATABASE
+          value: /database/filebrowser.db
+        - name: FB_CONFIG
+          value: /config/settings.json
+        - name: FB_ROOT
+          value: /srv
+        - name: FB_LOG
+          value: stdout
+        - name: FB_PORT
+          value: "8090"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      
       volumes:
       # Original volumes
       - name: config-volume
@@ -299,6 +333,12 @@ spec:
           claimName: claude-code-workspace-pvc
       # Writable cargo directory
       - name: cargo-dir
+        emptyDir: {}
+      # Filebrowser volumes
+      - name: filebrowser-config
+        configMap:
+          name: filebrowser-config
+      - name: filebrowser-db
         emptyDir: {}
       # Nexus proxy configuration volumes
       - name: pip-config
@@ -322,6 +362,57 @@ spec:
           - key: cargo-config.toml
             path: cargo-config.toml
           defaultMode: 0644
+---
+# Service to expose Filebrowser
+apiVersion: v1
+kind: Service
+metadata:
+  name: claude-code
+  namespace: claude-code
+spec:
+  selector:
+    app: claude-code
+  ports:
+  - name: filebrowser
+    port: 8090
+    targetPort: 8090
+  type: ClusterIP
+---
+# ConfigMap for Filebrowser settings
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: filebrowser-config
+  namespace: claude-code
+data:
+  settings.json: |
+    {
+      "port": 8090,
+      "baseURL": "",
+      "address": "0.0.0.0",
+      "log": "stdout",
+      "database": "/database/filebrowser.db",
+      "root": "/srv",
+      "username": "admin",
+      "password": "admin",
+      "branding": {
+        "name": "Claude Code Workspace",
+        "disableExternal": false,
+        "color": "#2979ff"
+      },
+      "authMethod": "password",
+      "commands": {
+        "after_save": [],
+        "before_save": []
+      },
+      "shell": ["/bin/bash", "-c"],
+      "allowEdit": true,
+      "allowNew": true,
+      "disablePreviewResize": false,
+      "disableExec": false,
+      "disableUsedPercentage": false,
+      "hideDotfiles": false
+    }
 EOF
 }
 
@@ -425,7 +516,15 @@ if [ "$NEXUS_AVAILABLE" = true ]; then
     echo -e "${GREEN}✓ Container is configured to use Nexus proxy${NC}"
 fi
 
-echo -e "\nTo connect to the container, run:"
+echo -e "\n${BLUE}File Manager Access:${NC}"
+echo -e "A web-based file manager (Filebrowser) is included for easy file uploads/downloads."
+echo -e "To access it, run:"
+echo -e "${YELLOW}kubectl port-forward -n ${NAMESPACE} service/claude-code 8090:8090${NC}"
+echo -e "Then open: ${BLUE}http://localhost:8090${NC}"
+echo -e "Default credentials: ${YELLOW}admin / admin${NC} (change after first login!)"
+
+echo -e "\n${BLUE}Claude Code Access:${NC}"
+echo -e "To connect to the container, run:"
 echo -e "${YELLOW}kubectl exec -it -n ${NAMESPACE} ${POD_NAME} -- su - claude${NC}"
 echo -e "\nOnce connected, you can start Claude Code with:"
 echo -e "${YELLOW}cd workspace${NC}"
