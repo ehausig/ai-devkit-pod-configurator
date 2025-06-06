@@ -1,45 +1,4 @@
-### Customizing Language Options
-
-To add or modify available languages, edit the `languages.conf` file. The format is:
-```
-LANGUAGE_ID|Display Name|Installation Commands
-```
-
-For example:
-```
-PYTHON_3_13|Python 3.13|RUN apt-get update && apt-get install -y python3.13
-```
-
-The installation commands should be valid Dockerfile RUN instructions.## Features
-
-- **Containerized Claude Code**: Run Anthropic's AI coding assistant in an isolated Kubernetes environment
-- **Language Selection**: Optionally include additional programming languages and tools in your container
-- **Persistent Storage**: Configuration and workspace data persist across container restarts
-- **Security**: Runs as non-root user with proper isolation
-- **Easy Deployment**: Single script to build and deploy
-
-## Language Support
-
-The build script includes an interactive language selection menu. When you run the build script:
-
-1. The screen will clear and show a list of available languages
-2. Use **↑/↓ arrow keys** or **j/k** to move the cursor
-3. Press **SPACE** to select/deselect a language (selected items show ✓)
-4. Press **ENTER** to confirm your selections and continue
-5. Press **q** to quit without building
-
-Available languages include:
-
-- **Python**: 3.10, 3.11, 3.12
-- **Rust**: Latest stable, Nightly
-- **Go**: 1.21, 1.22
-- **Ruby**: 3.2, 3.3 (via rbenv)
-- **Java**: OpenJDK 11, 17, 21
-- **.NET**: 6.0, 8.0
-- **PHP**: 8.2, 8.3
-- **And more**: Elixir, Kotlin, Swift
-
-To add more languages, edit the `languages.conf` file.# Claude Code in Kubernetes
+# Claude Code in Kubernetes
 
 This project provides a containerized version of Claude Code running in Kubernetes, allowing you to use Anthropic's AI coding assistant in an isolated environment rather than directly on your host OS.
 
@@ -52,11 +11,13 @@ claude-code-k8s/
 ├── languages.conf          # Language installation configurations
 ├── entrypoint.sh           # Container startup script
 ├── build-and-deploy.sh     # Helper script for building and deploying
+├── access-filebrowser.sh   # Convenience script for accessing the file manager
 ├── .gitignore              # Git ignore file
 ├── kubernetes/
 │   ├── namespace.yaml      # Kubernetes namespace definition
 │   ├── pvc.yaml            # Persistent volume claims for configuration and workspace
-│   └── deployment.yaml     # Deployment configuration
+│   ├── deployment.yaml     # Deployment configuration (includes Filebrowser)
+│   └── nexus-config.yaml   # Nexus proxy configuration (if using Nexus)
 └── README.md               # This documentation
 ```
 
@@ -173,11 +134,84 @@ When you start Claude Code for the first time, you'll be prompted to authenticat
    - Alternatively, you can use an Anthropic API key
    - This is obtained from your Anthropic Console account
 
+## Features
+
+- **Containerized Claude Code**: Run Anthropic's AI coding assistant in an isolated Kubernetes environment
+- **Web-based File Manager**: Built-in Filebrowser for easy file uploads/downloads through a web UI
+- **Language Selection**: Optionally include additional programming languages and tools in your container
+- **Persistent Storage**: Configuration and workspace data persist across container restarts
+- **Security**: Runs as non-root user with proper isolation
+- **Easy Deployment**: Single script to build and deploy
+
+## Language Support
+
+The build script includes an interactive language selection menu. When you run the build script:
+
+1. The screen will clear and show a list of available languages
+2. Use **↑/↓ arrow keys** or **j/k** to move the cursor
+3. Press **SPACE** to select/deselect a language (selected items show ✓)
+4. Press **ENTER** to confirm your selections and continue
+5. Press **q** to quit without building
+
+Available languages include:
+
+- **Python**: 3.10, 3.11, 3.12
+- **Rust**: Latest stable, Nightly
+- **Go**: 1.21, 1.22
+- **Ruby**: 3.2, 3.3 (via rbenv)
+- **Java**: OpenJDK 11, 17, 21
+- **.NET**: 6.0, 8.0
+- **PHP**: 8.2, 8.3
+- **And more**: Elixir, Kotlin, Swift
+
+To add more languages, edit the `languages.conf` file.
+
+### Customizing Language Options
+
+To add or modify available languages, edit the `languages.conf` file. The format is:
+```
+LANGUAGE_ID|Display Name|Installation Commands
+```
+
+For example:
+```
+PYTHON_3_13|Python 3.13|RUN apt-get update && apt-get install -y python3.13
+```
+
+The installation commands should be valid Dockerfile RUN instructions.
+
 ## Working with Files
 
-### Copying Files to/from the Container
+### Web-based File Manager (Filebrowser)
 
-Use `kubectl cp` to transfer files between your host and the container:
+Every Claude Code deployment includes Filebrowser, a web-based file manager for easy file operations.
+
+#### Accessing Filebrowser
+
+1. Start port forwarding:
+   ```bash
+   kubectl port-forward -n claude-code service/claude-code 8090:8090
+   ```
+
+2. Open in your browser: [http://localhost:8090](http://localhost:8090)
+
+3. Login with default credentials:
+   - Username: `admin`
+   - Password: `admin`
+   - **⚠️ Important**: Change the password after first login!
+
+#### Filebrowser Features
+
+- **Upload**: Drag & drop multiple files or entire folders
+- **Download**: Select files/folders and download as ZIP
+- **Edit**: Built-in text editor with syntax highlighting
+- **Search**: Find files quickly across your workspace
+- **Preview**: View images, PDFs, and other file types
+- **Terminal**: Execute commands directly (if enabled)
+
+### Command Line File Transfer
+
+You can still use `kubectl cp` for command-line file transfers:
 
 ```bash
 # Copy from local to container
