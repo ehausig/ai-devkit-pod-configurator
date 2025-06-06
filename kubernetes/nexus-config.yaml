@@ -1,0 +1,18 @@
+# kubernetes/nexus-config.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nexus-proxy-config
+  namespace: claude-code
+data:
+  pip.conf: |
+    [global]
+    index-url = http://host.lima.internal:8081/repository/pypi-proxy/simple/
+    trusted-host = host.lima.internal
+  
+  npmrc: |
+    registry=http://host.lima.internal:8081/repository/npm-proxy/
+  
+  apt-proxy.conf: |
+    Acquire::http::Proxy "http://host.lima.internal:8081/";
+    Acquire::https::Proxy "http://host.lima.internal:8081/";

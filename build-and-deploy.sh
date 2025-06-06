@@ -33,6 +33,16 @@ if ! command -v colima &> /dev/null; then
     exit 1
 fi
 
+# Function to check if Nexus is available
+check_nexus() {
+    if curl -s http://localhost:8081 > /dev/null 2>&1; then
+        echo -e "${GREEN}✓ Nexus detected at http://localhost:8081${NC}"
+        return 0
+    else
+        return 1
+    fi
+}
+
 # Function to display language selection menu
 select_languages() {
     # Clear the screen for better menu display
@@ -190,6 +200,100 @@ create_custom_dockerfile() {
     fi
 }
 
+# Function to create Nexus-aware deployment
+create_deployment_with_nexus() {
+    echo -e "${YELLOW}Creating Nexus-aware Kubernetes deployment...${NC}"
+    
+    # Create the ConfigMap first
+    kubectl apply -f kubernetes/nexus-config.yaml
+    
+    # Create a proper deployment file with Nexus configuration
+    cat > "$TEMP_DIR/deployment.yaml" << 'EOF'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: claude-code
+  namespace: claude-code
+  labels:
+    app: claude-code
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: claude-code
+  template:
+    metadata:
+      labels:
+        app: claude-code
+    spec:
+      containers:
+      - name: claude-code
+        image: claude-code:latest
+        imagePullPolicy: IfNotPresent
+        command: ["sleep", "infinity"]
+        volumeMounts:
+        # Original volume mounts
+        - name: config-volume
+          mountPath: /home/claude/.config/claude-code
+        - name: workspace-volume
+          mountPath: /home/claude/workspace
+        # Nexus proxy configuration mounts
+        - name: pip-config
+          mountPath: /home/claude/.config/pip/pip.conf
+          subPath: pip.conf
+        - name: npm-config
+          mountPath: /home/claude/.npmrc
+          subPath: npmrc
+        env:
+        # Python package proxy
+        - name: PIP_INDEX_URL
+          value: "http://host.lima.internal:8081/repository/pypi-proxy/simple/"
+        - name: PIP_TRUSTED_HOST
+          value: "host.lima.internal"
+        # Node.js package proxy
+        - name: NPM_CONFIG_REGISTRY
+          value: "http://host.lima.internal:8081/repository/npm-proxy/"
+        # Go proxy
+        - name: GOPROXY
+          value: "http://host.lima.internal:8081/repository/go-proxy/"
+        # No proxy for internal Kubernetes communication
+        - name: NO_PROXY
+          value: "localhost,127.0.0.1,.svc,.cluster.local"
+        - name: no_proxy
+          value: "localhost,127.0.0.1,.svc,.cluster.local"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+      volumes:
+      # Original volumes
+      - name: config-volume
+        persistentVolumeClaim:
+          claimName: claude-code-config-pvc
+      - name: workspace-volume
+        persistentVolumeClaim:
+          claimName: claude-code-workspace-pvc
+      # Nexus proxy configuration volumes
+      - name: pip-config
+        configMap:
+          name: nexus-proxy-config
+          items:
+          - key: pip.conf
+            path: pip.conf
+          defaultMode: 0644
+      - name: npm-config
+        configMap:
+          name: nexus-proxy-config
+          items:
+          - key: npmrc
+            path: npmrc
+          defaultMode: 0644
+EOF
+}
+
 # Check if languages.conf exists
 if [[ ! -f "$LANGUAGES_CONFIG" ]]; then
     echo -e "${RED}Error: $LANGUAGES_CONFIG not found${NC}"
@@ -213,6 +317,18 @@ fi
 
 echo -e "${GREEN}Colima with Kubernetes is running and accessible${NC}"
 
+# Check if Nexus is available
+NEXUS_AVAILABLE=false
+if check_nexus; then
+    NEXUS_AVAILABLE=true
+    # Set up Nexus build arguments
+    export DOCKER_BUILDKIT=0
+    export NEXUS_BUILD_ARGS="--build-arg PIP_INDEX_URL=http://host.lima.internal:8081/repository/pypi-proxy/simple/ --build-arg PIP_TRUSTED_HOST=host.lima.internal --build-arg NPM_REGISTRY=http://host.lima.internal:8081/repository/npm-proxy/ --build-arg GOPROXY=http://host.lima.internal:8081/repository/go-proxy/"
+    echo -e "${GREEN}Nexus proxy will be used for package downloads${NC}"
+else
+    echo -e "${YELLOW}Nexus not detected, using default package repositories${NC}"
+fi
+
 # Clean up and redeploy if needed
 if [ "$1" == "--clean" ] || [ "$1" == "-c" ]; then
     echo -e "${YELLOW}Cleaning up previous deployment...${NC}"
@@ -234,11 +350,18 @@ create_custom_dockerfile
 
 # Build the Docker image
 echo -e "${YELLOW}Building Docker image...${NC}"
-docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f "$TEMP_DIR/Dockerfile" .
+
+# Check if Nexus build args are set
+if [ -n "$NEXUS_BUILD_ARGS" ]; then
+    echo -e "${GREEN}Using Nexus proxy for package downloads${NC}"
+    docker build $NEXUS_BUILD_ARGS -t ${IMAGE_NAME}:${IMAGE_TAG} -f "$TEMP_DIR/Dockerfile" .
+else
+    docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f "$TEMP_DIR/Dockerfile" .
+fi
 
 # Load the image into colima's containerd
 echo -e "${YELLOW}Loading image into Colima...${NC}"
-colima kubernetes load ${IMAGE_NAME}:${IMAGE_TAG}
+docker save ${IMAGE_NAME}:${IMAGE_TAG} | colima ssh -- sudo ctr -n k8s.io images import -
 
 # Create namespace if it doesn't exist
 echo -e "${YELLOW}Creating Kubernetes namespace...${NC}"
@@ -248,7 +371,14 @@ kubectl apply -f kubernetes/namespace.yaml
 echo -e "${YELLOW}Applying Kubernetes resources...${NC}"
 kubectl apply -f kubernetes/namespace.yaml
 kubectl apply -f kubernetes/pvc.yaml
-kubectl apply -f kubernetes/deployment.yaml
+
+# Apply deployment based on Nexus availability
+if [ "$NEXUS_AVAILABLE" = true ]; then
+    create_deployment_with_nexus
+    kubectl apply -f "$TEMP_DIR/deployment.yaml"
+else
+    kubectl apply -f kubernetes/deployment.yaml
+fi
 
 # Wait for deployment to be ready
 echo -e "${YELLOW}Waiting for deployment to be ready...${NC}"
@@ -259,6 +389,11 @@ POD_NAME=$(kubectl get pods -n ${NAMESPACE} -l app=claude-code -o jsonpath="{.it
 
 echo -e "${GREEN}=== Deployment Complete ===${NC}"
 echo -e "Claude Code is now running in container: ${YELLOW}${POD_NAME}${NC}"
+
+if [ "$NEXUS_AVAILABLE" = true ]; then
+    echo -e "${GREEN}✓ Container is configured to use Nexus proxy${NC}"
+fi
+
 echo -e "\nTo connect to the container, run:"
 echo -e "${YELLOW}kubectl exec -it -n ${NAMESPACE} ${POD_NAME} -- su - claude${NC}"
 echo -e "\nOnce connected, you can start Claude Code with:"
