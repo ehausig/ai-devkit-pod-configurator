@@ -237,6 +237,13 @@ spec:
           mountPath: /home/claude/.config/claude-code
         - name: workspace-volume
           mountPath: /home/claude/workspace
+        # Create a writable .cargo directory
+        - name: cargo-dir
+          mountPath: /home/claude/.cargo
+        # Mount just the config file
+        - name: cargo-config
+          mountPath: /home/claude/.cargo/config.toml
+          subPath: cargo-config.toml
         # Nexus proxy configuration mounts
         - name: pip-config
           mountPath: /home/claude/.config/pip/pip.conf
@@ -256,6 +263,20 @@ spec:
         # Go proxy
         - name: GOPROXY
           value: "http://host.lima.internal:8081/repository/go-proxy/"
+        # Rust/Cargo configuration
+        - name: CARGO_HOME
+          value: "/home/claude/.cargo"
+        - name: CARGO_NET_GIT_FETCH_WITH_CLI
+          value: "true"
+        - name: CARGO_HTTP_CHECK_REVOKE
+          value: "false"
+        - name: CARGO_HTTP_TIMEOUT
+          value: "60"
+        # HTTP proxy for cargo
+        - name: HTTP_PROXY
+          value: "http://host.lima.internal:8081"
+        - name: HTTPS_PROXY
+          value: "http://host.lima.internal:8081"
         # No proxy for internal Kubernetes communication
         - name: NO_PROXY
           value: "localhost,127.0.0.1,.svc,.cluster.local"
@@ -276,6 +297,9 @@ spec:
       - name: workspace-volume
         persistentVolumeClaim:
           claimName: claude-code-workspace-pvc
+      # Writable cargo directory
+      - name: cargo-dir
+        emptyDir: {}
       # Nexus proxy configuration volumes
       - name: pip-config
         configMap:
@@ -290,6 +314,13 @@ spec:
           items:
           - key: npmrc
             path: npmrc
+          defaultMode: 0644
+      - name: cargo-config
+        configMap:
+          name: nexus-proxy-config
+          items:
+          - key: cargo-config.toml
+            path: cargo-config.toml
           defaultMode: 0644
 EOF
 }
