@@ -155,11 +155,12 @@ The build script includes an interactive language selection menu. When you run t
 
 Available languages include:
 
-- **Python**: 3.10, 3.11, 3.12
+- **Python**: 3.9, 3.11, 3.12
 - **Rust**: Latest stable, Nightly
 - **Go**: 1.21, 1.22
 - **Ruby**: 3.2, 3.3 (via rbenv)
-- **Java**: OpenJDK 11, 17, 21
+- **Java**: Eclipse Adoptium (Temurin) 11, 17, 21
+- **Scala**: 2.13, 3.x, with SBT build tool
 - **.NET**: 6.0, 8.0
 - **PHP**: 8.2, 8.3
 - **And more**: Elixir, Kotlin, Swift
