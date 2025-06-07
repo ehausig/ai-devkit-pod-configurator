@@ -72,9 +72,10 @@ select_languages() {
     # Calculate total pages
     local total_pages=$(( (total_items + items_per_page - 1) / items_per_page ))
     
-    # Hide cursor
+    # Hide cursor and disable echo
     tput civis
-    trap 'tput cnorm' EXIT
+    stty -echo
+    trap 'tput cnorm; stty echo' EXIT
     
     # Saved screen state for optimized rendering
     local last_current=-1 last_cart_cursor=-1 last_view="" last_catalog_page=-1 last_cart_page=-1
@@ -187,7 +188,7 @@ select_languages() {
     
     # Function to draw a box
     draw_box() {
-        local x=$1 y=$2 width=$3 height=$4 title=$5
+        local x=$1 y=$2 width=$3 height=$4 title=$5 bottom_text=$6
         
         tput cup $y $x
         echo -ne "┌"
@@ -208,7 +209,24 @@ select_languages() {
         
         tput cup $((y + height - 1)) $x
         echo -ne "└"
-        for ((i=0; i<width-2; i++)); do echo -ne "─"; done
+        
+        if [[ -n "$bottom_text" ]]; then
+            # Calculate centered position for bottom text
+            local text_len=${#bottom_text}
+            local center_pos=$(( (width - text_len - 4) / 2 ))
+            
+            # Draw left side of border
+            for ((i=0; i<center_pos; i++)); do echo -ne "─"; done
+            
+            # Insert bottom text
+            echo -ne " ${YELLOW}${bottom_text}${NC} "
+            
+            # Draw right side of border
+            for ((i=0; i<width-center_pos-text_len-6; i++)); do echo -ne "─"; done
+        else
+            for ((i=0; i<width-2; i++)); do echo -ne "─"; done
+        fi
+        
         echo -ne "┘"
     }
     
@@ -221,7 +239,7 @@ select_languages() {
         local display_row=3
         local last_group=""
         
-        # Clear catalog area
+        # Clear catalog area only once
         for ((row=3; row<content_height+3; row++)); do
             tput cup $row 2
             printf "%-$((catalog_width-4))s" " "
@@ -234,19 +252,19 @@ select_languages() {
             if [[ "${groups[$idx]}" != "$last_group" ]]; then
                 tput cup $display_row 2
                 case "${groups[$idx]}" in
-                    "python-version") echo -ne "${GREEN}Python Versions${NC}" ;;
-                    "python-tools") echo -ne "${GREEN}Python Tools${NC}" ;;
-                    "java-version") echo -ne "${GREEN}Java Versions${NC}" ;;
-                    "java-tools") echo -ne "${GREEN}Java Build Tools${NC}" ;;
-                    "scala-version") echo -ne "${GREEN}Scala Versions${NC}" ;;
-                    "rust-version") echo -ne "${GREEN}Rust Versions${NC}" ;;
-                    "go-version") echo -ne "${GREEN}Go Versions${NC}" ;;
-                    "ruby-version") echo -ne "${GREEN}Ruby Versions${NC}" ;;
-                    "dotnet-version") echo -ne "${GREEN}.NET Versions${NC}" ;;
-                    "php-version") echo -ne "${GREEN}PHP Versions${NC}" ;;
-                    "php-tools") echo -ne "${GREEN}PHP Tools${NC}" ;;
-                    "node-tools") echo -ne "${GREEN}Node.js Tools${NC}" ;;
-                    "standalone") echo -ne "${GREEN}Other Languages${NC}" ;;
+                    "python-version") printf "%b%s%b" "${GREEN}" "Python Versions" "${NC}" ;;
+                    "python-tools") printf "%b%s%b" "${GREEN}" "Python Tools" "${NC}" ;;
+                    "java-version") printf "%b%s%b" "${GREEN}" "Java Versions" "${NC}" ;;
+                    "java-tools") printf "%b%s%b" "${GREEN}" "Java Build Tools" "${NC}" ;;
+                    "scala-version") printf "%b%s%b" "${GREEN}" "Scala Versions" "${NC}" ;;
+                    "rust-version") printf "%b%s%b" "${GREEN}" "Rust Versions" "${NC}" ;;
+                    "go-version") printf "%b%s%b" "${GREEN}" "Go Versions" "${NC}" ;;
+                    "ruby-version") printf "%b%s%b" "${GREEN}" "Ruby Versions" "${NC}" ;;
+                    "dotnet-version") printf "%b%s%b" "${GREEN}" ".NET Versions" "${NC}" ;;
+                    "php-version") printf "%b%s%b" "${GREEN}" "PHP Versions" "${NC}" ;;
+                    "php-tools") printf "%b%s%b" "${GREEN}" "PHP Tools" "${NC}" ;;
+                    "node-tools") printf "%b%s%b" "${GREEN}" "Node.js Tools" "${NC}" ;;
+                    "standalone") printf "%b%s%b" "${GREEN}" "Other Languages" "${NC}" ;;
                 esac
                 last_group="${groups[$idx]}"
                 ((display_row++))
@@ -254,56 +272,65 @@ select_languages() {
             
             tput cup $display_row 2
             
-            # Clear line first
-            printf "%-$((catalog_width-4))s" " "
-            tput cup $display_row 2
-            
             # Cursor
-            [[ $view == "catalog" && $idx -eq $current ]] && echo -ne "${BLUE}▸${NC} " || echo -ne "  "
+            [[ $view == "catalog" && $idx -eq $current ]] && printf "%b▸%b " "${BLUE}" "${NC}" || printf "  "
             
             # Check availability
             local available=true status=""
             
             if [[ "${in_cart[$idx]}" == true ]]; then
-                echo -ne "${GREEN}✓${NC} "
+                printf "%b✓%b " "${GREEN}" "${NC}"
                 status="${GREEN}(in cart)${NC}"
             elif [[ "${groups[$idx]}" == *"-version" ]] && has_group_in_cart "${groups[$idx]}"; then
-                echo -ne "${RED}○${NC} "
+                printf "%b○%b " "${RED}" "${NC}"
                 available=false
                 local existing=$(get_group_cart_item "${groups[$idx]}")
                 status="${RED}($existing selected)${NC}"
             elif [[ -n "${requires[$idx]}" ]] && ! requirements_met "${requires[$idx]}"; then
-                echo -ne "${YELLOW}○${NC} "
+                printf "%b○%b " "${YELLOW}" "${NC}"
                 status="${YELLOW}(needs ${requires[$idx]})${NC}"
             else
-                echo -ne "○ "
+                printf "○ "
             fi
             
             # Item name
             if [[ $available == true || "${in_cart[$idx]}" == true ]]; then
-                echo -ne "${display_names[$idx]}"
+                printf "%s" "${display_names[$idx]}"
             else
-                echo -ne "${RED}${display_names[$idx]}${NC}"
+                printf "%b%s%b" "${RED}" "${display_names[$idx]}" "${NC}"
             fi
             
             # Status
             if [[ -n "$status" ]]; then
                 local name_len=${#display_names[$idx]}
                 local padding=$((catalog_width - name_len - 8))
-                [[ $padding -gt ${#status} ]] && tput cuf $((padding - ${#status})) && echo -ne "$status"
+                [[ $padding -gt ${#status} ]] && tput cuf $((padding - ${#status})) && printf "%b" "$status"
             fi
             
             ((display_row++))
         done
         
-        # Page indicator
+        # Page indicator handling - only redraw if page count > 1
         if [[ $total_pages -gt 1 ]]; then
-            tput cup $((content_height + 3)) 2
-            printf "%-$((catalog_width-4))s" " "
-            tput cup $((content_height + 3)) 2
-            echo -ne "${YELLOW}Page $((catalog_page + 1))/$total_pages${NC}"
-            tput cup $((content_height + 3)) $((catalog_width - 20))
-            echo -ne "${YELLOW}h/l: prev/next page${NC}"
+            # Redraw bottom border with centered page indicator
+            local page_text="Page $((catalog_page + 1))/$total_pages"
+            local text_len=${#page_text}
+            local center_pos=$(( (catalog_width - text_len - 4) / 2 ))
+            
+            tput cup $((content_height + 3)) 0
+            printf "└"
+            
+            # Draw left side of border
+            for ((i=0; i<center_pos; i++)); do printf "─"; done
+            
+            # Insert page indicator
+            printf " %b%s%b " "${YELLOW}" "${page_text}" "${NC}"
+            
+            # Draw right side of border (calculate exact remaining space)
+            local remaining=$((catalog_width - center_pos - text_len - 4))
+            for ((i=0; i<remaining; i++)); do printf "─"; done
+            
+            printf "┘"
         fi
     }
     
@@ -319,7 +346,7 @@ select_languages() {
         
         local cart_count=${#cart_items_array[@]}
         
-        # Clear cart area
+        # Clear cart area only once
         for ((row=3; row<content_height+3; row++)); do
             tput cup $row $((catalog_width + 4))
             printf "%-$((cart_width-4))s" " "
@@ -328,12 +355,12 @@ select_languages() {
         tput cup $display_row $((catalog_width + 4))
         
         if [[ $cart_count -eq 0 ]]; then
-            echo -e "${YELLOW}Cart is empty${NC}"
+            printf "%b%s%b" "${YELLOW}" "Cart is empty" "${NC}"
             ((display_row++))
             tput cup $display_row $((catalog_width + 4))
-            echo -e "Add items with SPACE"
+            printf "Add items with SPACE"
         else
-            echo -e "${GREEN}$cart_count items selected:${NC}"
+            printf "%b%d items selected:%b" "${GREEN}" "$cart_count" "${NC}"
             ((display_row++))
             
             # Group cart items by type and display them
@@ -351,9 +378,9 @@ select_languages() {
                             if [[ $display_row -lt $((content_height + 3)) ]]; then
                                 tput cup $display_row $((catalog_width + 4))
                                 case "$group_type" in
-                                    *-version) echo -ne "${BLUE}━ ${group_type%-version} ━${NC}" ;;
-                                    *-tools) echo -ne "${BLUE}━ ${group_type%-tools} tools ━${NC}" ;;
-                                    *) echo -ne "${BLUE}━ other ━${NC}" ;;
+                                    *-version) printf "%b━ %s ━%b" "${BLUE}" "${group_type%-version}" "${NC}" ;;
+                                    *-tools) printf "%b━ %s tools ━%b" "${BLUE}" "${group_type%-tools}" "${NC}" ;;
+                                    *) printf "%b━ other ━%b" "${BLUE}" "${NC}" ;;
                                 esac
                                 ((display_row++))
                                 group_has_items=true
@@ -365,12 +392,12 @@ select_languages() {
                             tput cup $display_row $((catalog_width + 4))
                             
                             # Cursor
-                            [[ $view == "cart" && $cart_display_count -eq $cart_cursor ]] && echo -ne "${BLUE}▸${NC} " || echo -ne "  "
+                            [[ $view == "cart" && $cart_display_count -eq $cart_cursor ]] && printf "%b▸%b " "${BLUE}" "${NC}" || printf "  "
                             
-                            echo -ne "• ${display_names[$idx]}"
+                            printf "• %s" "${display_names[$idx]}"
                             
                             # Remove hint
-                            [[ $view == "cart" && $cart_display_count -eq $cart_cursor ]] && echo -ne " ${RED}[DEL to remove]${NC}"
+                            [[ $view == "cart" && $cart_display_count -eq $cart_cursor ]] && printf " %b[DEL to remove]%b" "${RED}" "${NC}"
                             
                             ((display_row++))
                         fi
@@ -422,7 +449,7 @@ select_languages() {
             tput cup $((term_height - 1)) 0
             tput el  # Clear line
             if [[ $view == "catalog" ]]; then
-                echo -ne "${YELLOW}↑↓/jk:${NC} Navigate  ${YELLOW}SPACE:${NC} Add to cart  ${YELLOW}TAB:${NC} Switch to cart  ${YELLOW}h/l:${NC} Page  ${YELLOW}ENTER:${NC} Checkout  ${YELLOW}q:${NC} Cancel"
+                echo -ne "${YELLOW}↑↓/jk:${NC} Navigate  ${YELLOW}←→/hl:${NC} Page  ${YELLOW}SPACE:${NC} Add to cart  ${YELLOW}TAB:${NC} Switch to cart  ${YELLOW}ENTER:${NC} Checkout  ${YELLOW}q:${NC} Cancel"
             else
                 echo -ne "${YELLOW}↑↓/jk:${NC} Navigate  ${YELLOW}DEL/d:${NC} Remove  ${YELLOW}TAB:${NC} Switch to catalog  ${YELLOW}ENTER:${NC} Checkout  ${YELLOW}q:${NC} Cancel"
             fi
@@ -557,6 +584,7 @@ select_languages() {
             fi
         elif [[ "$key" =~ ^[qQ]$ ]]; then
             tput cnorm
+            stty echo
             clear
             log "Installation cancelled."
             exit 0
@@ -564,6 +592,7 @@ select_languages() {
     done
     
     tput cnorm
+    stty echo
     clear
     
     # Build final selections
