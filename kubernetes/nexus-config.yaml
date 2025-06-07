@@ -18,3 +18,22 @@ data:
     
     [source.nexus]
     registry = "sparse+http://host.lima.internal:8081/repository/cargo-crates-io/"
+---
+# Environment variables for Nexus configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nexus-env-config
+  namespace: claude-code
+data:
+  PIP_INDEX_URL: "http://host.lima.internal:8081/repository/pypi-proxy/simple/"
+  PIP_TRUSTED_HOST: "host.lima.internal"
+  NPM_CONFIG_REGISTRY: "http://host.lima.internal:8081/repository/npm-proxy/"
+  GOPROXY: "http://host.lima.internal:8081/repository/go-proxy/"
+  CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+  CARGO_HTTP_CHECK_REVOKE: "false"
+  CARGO_HTTP_TIMEOUT: "60"
+  HTTP_PROXY: "http://host.lima.internal:8081"
+  HTTPS_PROXY: "http://host.lima.internal:8081"
+  NO_PROXY: "localhost,127.0.0.1,.svc,.cluster.local"
+  no_proxy: "localhost,127.0.0.1,.svc,.cluster.local"

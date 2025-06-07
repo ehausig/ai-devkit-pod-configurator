@@ -16,58 +16,63 @@ fi
 # Create config directory if it doesn't exist
 CONFIG_DIR="/home/claude/.config/claude-code"
 mkdir -p "$CONFIG_DIR"
-chown -R claude:claude "$CONFIG_DIR"
-
-# Ensure the claude user owns their workspace
-chown -R claude:claude /home/claude/workspace
-
-# Fix permissions for pip if it exists
-if [ -d "/home/claude/.local" ]; then
-    chown -R claude:claude /home/claude/.local
-fi
 
 # Create .local/bin directory for user pip installs
 mkdir -p /home/claude/.local/bin
-chown -R claude:claude /home/claude/.local
 
 # Create .cargo directory for Rust/Cargo if it doesn't exist
-if [ ! -d /home/claude/.cargo ]; then
-    echo "Creating .cargo directory..."
-    mkdir -p /home/claude/.cargo
-fi
+mkdir -p /home/claude/.cargo
+
+# Ensure the claude user owns their directories
+chown -R claude:claude /home/claude/workspace /home/claude/.config /home/claude/.local /home/claude/.cargo
 
 # Check if cargo config is properly mounted
 if [ -f /home/claude/.cargo/config.toml ]; then
     echo "Cargo config detected at /home/claude/.cargo/config.toml"
-    echo "Contents:"
-    cat /home/claude/.cargo/config.toml
-    # Fix ownership of the entire .cargo directory and its contents
-    chown -R claude:claude /home/claude/.cargo
-    echo "Fixed ownership of .cargo directory"
-else
-    echo "WARNING: No cargo config found at /home/claude/.cargo/config.toml"
 fi
 
-# Add user's local bin to PATH for claude user
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> /home/claude/.bashrc
+# Function to add line to file if not already present
+add_if_not_exists() {
+    local line="$1"
+    local file="$2"
+    grep -qxF "$line" "$file" 2>/dev/null || echo "$line" >> "$file"
+}
 
-# Source all profile.d scripts for claude user
-echo '# Source system-wide profile scripts' >> /home/claude/.bashrc
-echo 'if [ -d /etc/profile.d ]; then' >> /home/claude/.bashrc
-echo '    for i in /etc/profile.d/*.sh; do' >> /home/claude/.bashrc
-echo '        if [ -r $i ]; then' >> /home/claude/.bashrc
-echo '            . $i' >> /home/claude/.bashrc
-echo '        fi' >> /home/claude/.bashrc
-echo '    done' >> /home/claude/.bashrc
-echo 'fi' >> /home/claude/.bashrc
+# Configure .bashrc for claude user (avoiding duplicates)
+BASHRC="/home/claude/.bashrc"
+touch "$BASHRC"
+
+# Add user's local bin to PATH
+add_if_not_exists 'export PATH="$HOME/.local/bin:$PATH"' "$BASHRC"
+
+# Source system-wide profile scripts
+if ! grep -q "Source system-wide profile scripts" "$BASHRC" 2>/dev/null; then
+    cat >> "$BASHRC" << 'EOF'
+
+# Source system-wide profile scripts
+if [ -d /etc/profile.d ]; then
+    for i in /etc/profile.d/*.sh; do
+        if [ -r $i ]; then
+            . $i
+        fi
+    done
+fi
+EOF
+fi
 
 # Add Rust/Cargo specific paths if installed
-if [ -d /opt/rust ]; then
-    echo '# Rust/Cargo paths' >> /home/claude/.bashrc
-    echo 'export PATH="/opt/rust/bin:$PATH"' >> /home/claude/.bashrc
-    echo 'export RUSTUP_HOME="/opt/rust"' >> /home/claude/.bashrc
-    echo 'export CARGO_HOME="$HOME/.cargo"' >> /home/claude/.bashrc
+if [ -d /opt/rust ] && ! grep -q "Rust/Cargo paths" "$BASHRC" 2>/dev/null; then
+    cat >> "$BASHRC" << 'EOF'
+
+# Rust/Cargo paths
+export PATH="/opt/rust/bin:$PATH"
+export RUSTUP_HOME="/opt/rust"
+export CARGO_HOME="$HOME/.cargo"
+EOF
 fi
+
+# Ensure proper ownership of .bashrc
+chown claude:claude "$BASHRC"
 
 # Verify Claude Code is available
 if ! command -v claude &> /dev/null; then

@@ -26,6 +26,88 @@ spec:
           mountPath: /home/claude/.config/claude-code
         - name: workspace-volume
           mountPath: /home/claude/workspace
+        # Nexus-specific mounts (will fail gracefully if ConfigMap doesn't exist)
+        - name: cargo-dir
+          mountPath: /home/claude/.cargo
+        - name: cargo-config
+          mountPath: /home/claude/.cargo/config.toml
+          subPath: cargo-config.toml
+        - name: pip-config
+          mountPath: /home/claude/.config/pip/pip.conf
+          subPath: pip.conf
+        - name: npm-config
+          mountPath: /home/claude/.npmrc
+          subPath: npmrc
+        env:
+        # These environment variables will be populated from ConfigMap if it exists
+        - name: PIP_INDEX_URL
+          valueFrom:
+            configMapKeyRef:
+              name: nexus-env-config
+              key: PIP_INDEX_URL
+              optional: true
+        - name: PIP_TRUSTED_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: nexus-env-config
+              key: PIP_TRUSTED_HOST
+              optional: true
+        - name: NPM_CONFIG_REGISTRY
+          valueFrom:
+            configMapKeyRef:
+              name: nexus-env-config
+              key: NPM_CONFIG_REGISTRY
+              optional: true
+        - name: GOPROXY
+          valueFrom:
+            configMapKeyRef:
+              name: nexus-env-config
+              key: GOPROXY
+              optional: true
+        - name: CARGO_HOME
+          value: "/home/claude/.cargo"
+        - name: CARGO_NET_GIT_FETCH_WITH_CLI
+          valueFrom:
+            configMapKeyRef:
+              name: nexus-env-config
+              key: CARGO_NET_GIT_FETCH_WITH_CLI
+              optional: true
+        - name: CARGO_HTTP_CHECK_REVOKE
+          valueFrom:
+            configMapKeyRef:
+              name: nexus-env-config
+              key: CARGO_HTTP_CHECK_REVOKE
+              optional: true
+        - name: CARGO_HTTP_TIMEOUT
+          valueFrom:
+            configMapKeyRef:
+              name: nexus-env-config
+              key: CARGO_HTTP_TIMEOUT
+              optional: true
+        - name: HTTP_PROXY
+          valueFrom:
+            configMapKeyRef:
+              name: nexus-env-config
+              key: HTTP_PROXY
+              optional: true
+        - name: HTTPS_PROXY
+          valueFrom:
+            configMapKeyRef:
+              name: nexus-env-config
+              key: HTTPS_PROXY
+              optional: true
+        - name: NO_PROXY
+          valueFrom:
+            configMapKeyRef:
+              name: nexus-env-config
+              key: NO_PROXY
+              optional: true
+        - name: no_proxy
+          valueFrom:
+            configMapKeyRef:
+              name: nexus-env-config
+              key: no_proxy
+              optional: true
         resources:
           requests:
             memory: "256Mi"
@@ -73,11 +155,38 @@ spec:
       - name: workspace-volume
         persistentVolumeClaim:
           claimName: claude-code-workspace-pvc
+      - name: cargo-dir
+        emptyDir: {}
       - name: filebrowser-config
         configMap:
           name: filebrowser-config
       - name: filebrowser-db
         emptyDir: {}
+      # Nexus-specific config volumes (optional: true means they won't fail if ConfigMap doesn't exist)
+      - name: pip-config
+        configMap:
+          name: nexus-proxy-config
+          items:
+          - key: pip.conf
+            path: pip.conf
+          defaultMode: 0644
+          optional: true
+      - name: npm-config
+        configMap:
+          name: nexus-proxy-config
+          items:
+          - key: npmrc
+            path: npmrc
+          defaultMode: 0644
+          optional: true
+      - name: cargo-config
+        configMap:
+          name: nexus-proxy-config
+          items:
+          - key: cargo-config.toml
+            path: cargo-config.toml
+          defaultMode: 0644
+          optional: true
 ---
 # Service to expose Filebrowser
 apiVersion: v1

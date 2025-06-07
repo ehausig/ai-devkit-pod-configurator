@@ -6,7 +6,6 @@ This project provides a containerized version of Claude Code running in Kubernet
 
 ```
 claude-code-k8s/
-├── Dockerfile              # Container definition for Claude Code (deprecated - use Dockerfile.base)
 ├── Dockerfile.base         # Base container definition
 ├── languages.conf          # Language installation configurations
 ├── entrypoint.sh           # Container startup script
