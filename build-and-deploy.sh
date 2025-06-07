@@ -69,10 +69,42 @@ select_languages() {
     local cart_width=$((term_width / 2 - 2))
     local content_height=$((term_height - 8))  # Leave room for header/footer
     local catalog_page=0 cart_page=0
-    local items_per_page=$((content_height - 2))  # Account for borders
     
-    # Calculate total pages
-    local total_pages=$(( (total_items + items_per_page - 1) / items_per_page ))
+    # Calculate pagination properly by counting actual display rows
+    # We need to figure out how many items fit per page accounting for group headers
+    local page_boundaries=()  # Array to store the starting index of each page
+    page_boundaries+=(0)  # First page starts at index 0
+    
+    local current_page_rows=0
+    local last_group_for_pagination=""
+    local page_start_idx=0
+    
+    for idx in "${!languages[@]}"; do
+        # Count group header row if this is a new group
+        if [[ "${groups[$idx]}" != "$last_group_for_pagination" ]]; then
+            ((current_page_rows++))
+            last_group_for_pagination="${groups[$idx]}"
+        fi
+        
+        # Count the item row
+        ((current_page_rows++))
+        
+        # Check if we've exceeded the page height
+        if [[ $current_page_rows -gt $((content_height - 2)) ]]; then
+            # Start a new page at this index
+            page_boundaries+=($idx)
+            current_page_rows=1  # Reset counter (this item will be first on new page)
+            
+            # Also need to count its group header if it's different from previous
+            if [[ $idx -gt 0 ]] && [[ "${groups[$idx]}" != "${groups[$((idx-1))]}" ]]; then
+                ((current_page_rows++))
+            fi
+            last_group_for_pagination="${groups[$idx]}"
+        fi
+    done
+    
+    local total_pages=${#page_boundaries[@]}
+    local items_per_page=$((content_height - 2))  # This is approximate, actual items vary per page
     
     # Hide cursor and disable echo
     tput civis
@@ -234,9 +266,14 @@ select_languages() {
     
     # Function to render catalog items for current page
     render_catalog() {
-        local start_idx=$((catalog_page * items_per_page))
-        local end_idx=$((start_idx + items_per_page))
-        [[ $end_idx -gt $total_items ]] && end_idx=$total_items
+        # Get the actual start and end indices for the current page
+        local start_idx=${page_boundaries[$catalog_page]}
+        local end_idx=$total_items
+        
+        # If there's a next page, end at the start of that page
+        if [[ $((catalog_page + 1)) -lt ${#page_boundaries[@]} ]]; then
+            end_idx=${page_boundaries[$((catalog_page + 1))]}
+        fi
         
         local display_row=3
         local last_group=""
@@ -302,19 +339,22 @@ select_languages() {
                 fi
                 
                 # Check availability
-                local available=true status=""
+                local available=true status="" status_color=""
                 
                 if [[ "${in_cart[$idx]}" == true ]]; then
                     printf "\033[0;32m✓\033[0m "
-                    status="${GREEN}(in cart)${NC}"
+                    status="(in cart)"
+                    status_color="\033[0;32m"
                 elif [[ "${groups[$idx]}" == *"-version" ]] && has_group_in_cart "${groups[$idx]}"; then
                     printf "\033[0;31m○\033[0m "
                     available=false
                     local existing=$(get_group_cart_item "${groups[$idx]}")
-                    status="${RED}($existing selected)${NC}"
+                    status="($existing selected)"
+                    status_color="\033[0;31m"
                 elif [[ -n "${requires[$idx]}" ]] && ! requirements_met "${requires[$idx]}"; then
                     printf "\033[1;33m○\033[0m "
-                    status="${YELLOW}(needs ${requires[$idx]})${NC}"
+                    status="(needs ${requires[$idx]})"
+                    status_color="\033[1;33m"
                 else
                     printf "○ "
                 fi
@@ -329,8 +369,12 @@ select_languages() {
                 # Status
                 if [[ -n "$status" ]]; then
                     local name_len=${#display_names[$idx]}
-                    local padding=$((catalog_width - name_len - 8))
-                    [[ $padding -gt ${#status} ]] && tput cuf $((padding - ${#status})) && printf "%s" "$status"
+                    local status_len=${#status}
+                    local padding=$((catalog_width - name_len - status_len - 8))
+                    if [[ $padding -gt 0 ]]; then
+                        tput cuf $padding
+                        printf "%b%s\033[0m" "$status_color" "$status"
+                    fi
                 fi
                 
                 ((display_row++))
@@ -355,12 +399,18 @@ select_languages() {
             for ((i=0; i<center_pos; i++)); do printf "─"; done
             
             # Insert page indicator
-            printf " %b%s%b " "${YELLOW}" "${page_text}" "${NC}"
+            printf " \033[1;33m%s\033[0m " "${page_text}"
             
             # Draw right side of border (calculate exact remaining space)
             local remaining=$((catalog_width - center_pos - text_len - 4))
             for ((i=0; i<remaining; i++)); do printf "─"; done
             
+            printf "┘"
+        else
+            # Draw plain bottom border when only one page
+            tput cup $((content_height + 3)) 0
+            printf "└"
+            for ((i=0; i<catalog_width-2; i++)); do printf "─"; done
             printf "┘"
         fi
     }
