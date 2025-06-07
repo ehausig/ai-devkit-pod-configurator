@@ -23,8 +23,11 @@ mkdir -p /home/claude/.local/bin
 # Create .cargo directory for Rust/Cargo if it doesn't exist
 mkdir -p /home/claude/.cargo
 
+# Create .m2 directory for Maven if it doesn't exist
+mkdir -p /home/claude/.m2
+
 # Ensure the claude user owns their directories
-chown -R claude:claude /home/claude/workspace /home/claude/.config /home/claude/.local /home/claude/.cargo
+chown -R claude:claude /home/claude/workspace /home/claude/.config /home/claude/.local /home/claude/.cargo /home/claude/.m2
 
 # Check if cargo config is properly mounted
 if [ -f /home/claude/.cargo/config.toml ]; then

@@ -38,6 +38,9 @@ spec:
         - name: npm-config
           mountPath: /home/claude/.npmrc
           subPath: npmrc
+        - name: maven-settings
+          mountPath: /home/claude/.m2/settings.xml
+          subPath: settings.xml
         env:
         # These environment variables will be populated from ConfigMap if it exists
         - name: PIP_INDEX_URL
@@ -185,6 +188,14 @@ spec:
           items:
           - key: cargo-config.toml
             path: cargo-config.toml
+          defaultMode: 0644
+          optional: true
+      - name: maven-settings
+        configMap:
+          name: nexus-proxy-config
+          items:
+          - key: settings.xml
+            path: settings.xml
           defaultMode: 0644
           optional: true
 ---
