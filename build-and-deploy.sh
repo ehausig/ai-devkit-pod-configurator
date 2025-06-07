@@ -59,6 +59,8 @@ select_languages() {
     local current=0 view="catalog" cart_cursor=0
     local total_items=${#languages[@]}
     local hint_message="" hint_timer=0
+    local catalog_first_visible=0 catalog_last_visible=0
+    local position_cursor_after_render=""
     
     # Terminal dimensions and pagination
     local term_width=$(tput cols)
@@ -238,12 +240,25 @@ select_languages() {
         
         local display_row=3
         local last_group=""
+        local first_visible_idx=-1
+        local last_visible_idx=-1
         
-        # Clear catalog area only once
+        # Clear catalog area completely with explicit character-by-character clearing
         for ((row=3; row<content_height+3; row++)); do
-            tput cup $row 2
-            printf "%-$((catalog_width-4))s" " "
+            tput cup $row 0
+            # Print left border
+            printf "│"
+            # Clear the content area explicitly
+            for ((col=1; col<catalog_width-1; col++)); do
+                printf " "
+            done
+            # Print right border
+            printf "│"
         done
+        
+        # Reset for actual rendering
+        display_row=3
+        last_group=""
         
         for ((idx=start_idx; idx<end_idx; idx++)); do
             [[ $display_row -ge $((content_height + 3)) ]] && break
@@ -268,47 +283,63 @@ select_languages() {
                 esac
                 last_group="${groups[$idx]}"
                 ((display_row++))
+                [[ $display_row -ge $((content_height + 3)) ]] && break
             fi
             
-            tput cup $display_row 2
-            
-            # Cursor
-            [[ $view == "catalog" && $idx -eq $current ]] && printf "%b▸%b " "${BLUE}" "${NC}" || printf "  "
-            
-            # Check availability
-            local available=true status=""
-            
-            if [[ "${in_cart[$idx]}" == true ]]; then
-                printf "%b✓%b " "${GREEN}" "${NC}"
-                status="${GREEN}(in cart)${NC}"
-            elif [[ "${groups[$idx]}" == *"-version" ]] && has_group_in_cart "${groups[$idx]}"; then
-                printf "%b○%b " "${RED}" "${NC}"
-                available=false
-                local existing=$(get_group_cart_item "${groups[$idx]}")
-                status="${RED}($existing selected)${NC}"
-            elif [[ -n "${requires[$idx]}" ]] && ! requirements_met "${requires[$idx]}"; then
-                printf "%b○%b " "${YELLOW}" "${NC}"
-                status="${YELLOW}(needs ${requires[$idx]})${NC}"
-            else
-                printf "○ "
+            # Only render if we still have room
+            if [[ $display_row -lt $((content_height + 3)) ]]; then
+                # Track first and last visible items
+                [[ $first_visible_idx -eq -1 ]] && first_visible_idx=$idx
+                last_visible_idx=$idx
+                
+                tput cup $display_row 2
+                
+                # Cursor - using direct escape sequences to ensure proper rendering
+                if [[ $view == "catalog" && $idx -eq $current ]]; then
+                    printf "\033[0;34m▸\033[0m "
+                else
+                    printf "  "
+                fi
+                
+                # Check availability
+                local available=true status=""
+                
+                if [[ "${in_cart[$idx]}" == true ]]; then
+                    printf "\033[0;32m✓\033[0m "
+                    status="${GREEN}(in cart)${NC}"
+                elif [[ "${groups[$idx]}" == *"-version" ]] && has_group_in_cart "${groups[$idx]}"; then
+                    printf "\033[0;31m○\033[0m "
+                    available=false
+                    local existing=$(get_group_cart_item "${groups[$idx]}")
+                    status="${RED}($existing selected)${NC}"
+                elif [[ -n "${requires[$idx]}" ]] && ! requirements_met "${requires[$idx]}"; then
+                    printf "\033[1;33m○\033[0m "
+                    status="${YELLOW}(needs ${requires[$idx]})${NC}"
+                else
+                    printf "○ "
+                fi
+                
+                # Item name
+                if [[ $available == true || "${in_cart[$idx]}" == true ]]; then
+                    printf "%s" "${display_names[$idx]}"
+                else
+                    printf "\033[0;31m%s\033[0m" "${display_names[$idx]}"
+                fi
+                
+                # Status
+                if [[ -n "$status" ]]; then
+                    local name_len=${#display_names[$idx]}
+                    local padding=$((catalog_width - name_len - 8))
+                    [[ $padding -gt ${#status} ]] && tput cuf $((padding - ${#status})) && printf "%s" "$status"
+                fi
+                
+                ((display_row++))
             fi
-            
-            # Item name
-            if [[ $available == true || "${in_cart[$idx]}" == true ]]; then
-                printf "%s" "${display_names[$idx]}"
-            else
-                printf "%b%s%b" "${RED}" "${display_names[$idx]}" "${NC}"
-            fi
-            
-            # Status
-            if [[ -n "$status" ]]; then
-                local name_len=${#display_names[$idx]}
-                local padding=$((catalog_width - name_len - 8))
-                [[ $padding -gt ${#status} ]] && tput cuf $((padding - ${#status})) && printf "%b" "$status"
-            fi
-            
-            ((display_row++))
         done
+        
+        # Store the visible range for navigation
+        catalog_first_visible=$first_visible_idx
+        catalog_last_visible=$last_visible_idx
         
         # Page indicator handling - only redraw if page count > 1
         if [[ $total_pages -gt 1 ]]; then
@@ -409,6 +440,7 @@ select_languages() {
     }
     
     # Main display loop
+    local is_rendering=false
     while true; do
         # Only clear screen on first draw
         if [[ $screen_initialized == false ]]; then
@@ -425,17 +457,71 @@ select_languages() {
             screen_initialized=true
         fi
         
-        # Update pagination when cursor moves
-        local current_page=$((current / items_per_page))
-        if [[ $current_page != $catalog_page ]]; then
-            catalog_page=$current_page
-        fi
+        # Remove the old pagination update logic since we handle it in navigation now
         
-        # Only redraw what changed
-        if [[ $last_catalog_page != $catalog_page || $last_view != $view || $last_current != $current || $force_catalog_update == true ]]; then
+        # Handle cursor positioning for page changes BEFORE checking if we need to render
+        if [[ -n "$position_cursor_after_render" ]]; then
+            # Need to render first to know visible items
+            render_catalog
+            
+            if [[ "$position_cursor_after_render" == "first" ]]; then
+                current=$catalog_first_visible
+            elif [[ "$position_cursor_after_render" == "last" ]]; then
+                current=$catalog_last_visible
+            fi
+            position_cursor_after_render=""
+            
+            # Now render again with the cursor in the right position
+            render_catalog
+            last_catalog_page=$catalog_page
+            last_current=$current
+        elif [[ $last_catalog_page != $catalog_page || $last_view != $view || $force_catalog_update == true ]]; then
+            # Full render for page changes, view changes, or forced updates
             render_catalog
             last_catalog_page=$catalog_page
             force_catalog_update=false
+        elif [[ $last_current != $current && $view == "catalog" ]]; then
+            # Optimized cursor movement on same page
+            if [[ $current -ge $catalog_first_visible && $current -le $catalog_last_visible && 
+                  $last_current -ge $catalog_first_visible && $last_current -le $catalog_last_visible ]]; then
+                # Both old and new positions are visible - just update the two affected rows
+                
+                # Function to calculate the actual screen row for an item index
+                get_screen_row_for_item() {
+                    local target_idx=$1
+                    local row=3
+                    local prev_group=""
+                    
+                    for ((idx=$catalog_first_visible; idx<=$catalog_last_visible && idx<=$target_idx; idx++)); do
+                        # Add row for group header if this is a new group
+                        if [[ "${groups[$idx]}" != "$prev_group" ]]; then
+                            prev_group="${groups[$idx]}"
+                            ((row++))
+                        fi
+                        # If this is our target, return the row
+                        if [[ $idx -eq $target_idx ]]; then
+                            echo $row
+                            return
+                        fi
+                        ((row++))
+                    done
+                }
+                
+                # Get the actual screen rows for old and new positions
+                local old_screen_row=$(get_screen_row_for_item $last_current)
+                local new_screen_row=$(get_screen_row_for_item $current)
+                
+                # Clear the old cursor position (just the cursor column)
+                tput cup $old_screen_row 2
+                printf "  "
+                
+                # Draw the new cursor
+                tput cup $new_screen_row 2
+                printf "\033[0;34m▸\033[0m "
+            else
+                # Cursor moved outside visible range - need full render
+                render_catalog
+            fi
         fi
         
         if [[ $last_cart_page != $cart_page || $last_view != $view || $last_cart_cursor != $cart_cursor || $force_cart_update == true ]]; then
@@ -469,7 +555,7 @@ select_languages() {
             hint_message=""
         fi
         
-        # Save state
+        # Save state BEFORE processing input
         last_current=$current
         last_cart_cursor=$cart_cursor
         last_view=$view
@@ -483,14 +569,28 @@ select_languages() {
             case "$key" in
                 "[A"|"OA") # Up arrow
                     if [[ $view == "catalog" ]]; then
-                        ((current > 0)) && ((current--))
+                        if [[ $current -eq $catalog_first_visible ]] && [[ $catalog_page -gt 0 ]]; then
+                            # At first visible item, go to previous page
+                            ((catalog_page--))
+                            # Set a flag to position cursor after render
+                            position_cursor_after_render="last"
+                        elif ((current > 0)); then
+                            ((current--))
+                        fi
                     else
                         ((cart_cursor > 0)) && ((cart_cursor--))
                     fi
                     ;;
                 "[B"|"OB") # Down arrow
                     if [[ $view == "catalog" ]]; then
-                        ((current < total_items - 1)) && ((current++))
+                        if [[ $current -eq $catalog_last_visible ]] && [[ $catalog_page -lt $((total_pages - 1)) ]]; then
+                            # At last visible item, go to next page
+                            ((catalog_page++))
+                            # Set a flag to position cursor after render
+                            position_cursor_after_render="first"
+                        elif ((current < total_items - 1)); then
+                            ((current++))
+                        fi
                     else
                         local cart_items_count=0
                         for ic in "${in_cart[@]}"; do [[ $ic == true ]] && ((cart_items_count++)); done
@@ -500,13 +600,13 @@ select_languages() {
                 "[D"|"OD") # Left arrow (previous page)
                     if [[ $view == "catalog" && $catalog_page -gt 0 ]]; then
                         ((catalog_page--))
-                        current=$((catalog_page * items_per_page))
+                        position_cursor_after_render="first"
                     fi
                     ;;
                 "[C"|"OC") # Right arrow (next page)
                     if [[ $view == "catalog" && $catalog_page -lt $((total_pages - 1)) ]]; then
                         ((catalog_page++))
-                        current=$((catalog_page * items_per_page))
+                        position_cursor_after_render="first"
                     fi
                     ;;
                 "[3~") # Delete key
@@ -546,7 +646,14 @@ select_languages() {
             fi
         elif [[ "$key" =~ ^[jJ]$ ]]; then
             if [[ $view == "catalog" ]]; then
-                ((current < total_items - 1)) && ((current++))
+                if [[ $current -eq $catalog_last_visible ]] && [[ $catalog_page -lt $((total_pages - 1)) ]]; then
+                    # At last visible item, go to next page
+                    ((catalog_page++))
+                    # Set a flag to position cursor after render
+                    position_cursor_after_render="first"
+                elif ((current < total_items - 1)); then
+                    ((current++))
+                fi
             else
                 local cart_items_count=0
                 for ic in "${in_cart[@]}"; do [[ $ic == true ]] && ((cart_items_count++)); done
@@ -554,19 +661,26 @@ select_languages() {
             fi
         elif [[ "$key" =~ ^[kK]$ ]]; then
             if [[ $view == "catalog" ]]; then
-                ((current > 0)) && ((current--))
+                if [[ $current -eq $catalog_first_visible ]] && [[ $catalog_page -gt 0 ]]; then
+                    # At first visible item, go to previous page
+                    ((catalog_page--))
+                    # Set a flag to position cursor after render
+                    position_cursor_after_render="last"
+                elif ((current > 0)); then
+                    ((current--))
+                fi
             else
                 ((cart_cursor > 0)) && ((cart_cursor--))
             fi
         elif [[ "$key" =~ ^[hH]$ && $view == "catalog" ]]; then
             if [[ $catalog_page -gt 0 ]]; then
                 ((catalog_page--))
-                current=$((catalog_page * items_per_page))
+                position_cursor_after_render="first"
             fi
         elif [[ "$key" =~ ^[lL]$ && $view == "catalog" ]]; then
             if [[ $catalog_page -lt $((total_pages - 1)) ]]; then
                 ((catalog_page++))
-                current=$((catalog_page * items_per_page))
+                position_cursor_after_render="first"
             fi
         elif [[ "$key" =~ ^[dD]$ && $view == "cart" ]]; then
             local cart_items_array=()
