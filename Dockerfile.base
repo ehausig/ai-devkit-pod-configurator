@@ -71,8 +71,19 @@ RUN apt-get update && \
     rm -rf /usr/local/bin/npm*
 
 # Install the latest Node.js (Claude Code requires Node.js 18+)
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
-    apt-get install -y nodejs && \
+# NodeSource repos have issues with APT proxying, so we'll download directly
+RUN if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
+        # Download Node.js binary directly through Nexus raw proxy if available
+        echo "Downloading Node.js through Nexus..." && \
+        cd /tmp && \
+        wget ${NEXUS_APT_URL}/repository/nodejs-dist/v20.18.0/node-v20.18.0-linux-arm64.tar.xz && \
+        tar -xJf node-v20.18.0-linux-arm64.tar.xz -C /usr/local --strip-components=1 && \
+        rm node-v20.18.0-linux-arm64.tar.xz ; \
+    else \
+        # Use the standard NodeSource installation
+        curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+        apt-get install -y nodejs ; \
+    fi && \
     npm install -g npm@latest
 
 # Configure npm if proxy URL is provided
@@ -91,6 +102,10 @@ RUN which claude || (echo "Claude Code installation failed" && exit 1)
 RUN mkdir -p /root/.config/claude-code
 
 # LANGUAGE_INSTALLATIONS_PLACEHOLDER
+
+# Pass Nexus configuration to language installations
+ARG USE_NEXUS_APT
+ARG NEXUS_APT_URL
 
 # Copy entrypoint script
 COPY entrypoint.sh /entrypoint.sh
