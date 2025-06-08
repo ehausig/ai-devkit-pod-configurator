@@ -8,10 +8,29 @@ ARG PIP_INDEX_URL=""
 ARG PIP_TRUSTED_HOST=""
 ARG NPM_REGISTRY=""
 ARG GOPROXY=""
+ARG USE_NEXUS_APT=""
+ARG NEXUS_APT_URL=""
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TARGETARCH=${TARGETARCH}
+
+# Configure APT to use Nexus if enabled
+RUN if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
+        echo "Configuring APT to use Nexus proxy..." && \
+        # Backup original sources.list \
+        cp /etc/apt/sources.list /etc/apt/sources.list.backup && \
+        # Clear the sources.list \
+        echo "" > /etc/apt/sources.list && \
+        # Add Nexus repositories \
+        echo "deb ${NEXUS_APT_URL}/repository/ubuntu-main/ jammy main restricted universe multiverse" >> /etc/apt/sources.list && \
+        echo "deb ${NEXUS_APT_URL}/repository/ubuntu-updates/ jammy-updates main restricted universe multiverse" >> /etc/apt/sources.list && \
+        echo "deb ${NEXUS_APT_URL}/repository/ubuntu-security/ jammy-security main restricted universe multiverse" >> /etc/apt/sources.list && \
+        # Since we're using HTTP, we need to allow insecure repositories \
+        echo 'Acquire::AllowInsecureRepositories "true";' > /etc/apt/apt.conf.d/99nexus && \
+        echo 'Acquire::AllowDowngradeToInsecureRepositories "true";' >> /etc/apt/apt.conf.d/99nexus && \
+        echo "✓ Configured APT to use Nexus proxy" ; \
+    fi
 
 # Configure package managers if proxy URLs are provided
 RUN if [ -n "$PIP_INDEX_URL" ]; then \
