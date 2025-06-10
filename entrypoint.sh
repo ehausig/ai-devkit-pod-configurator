@@ -26,8 +26,14 @@ mkdir -p /home/claude/.cargo
 # Create .m2 directory for Maven if it doesn't exist
 mkdir -p /home/claude/.m2
 
+# Create .sbt directory for SBT if it doesn't exist
+mkdir -p /home/claude/.sbt
+
+# Create .gradle directory for Gradle if it doesn't exist
+mkdir -p /home/claude/.gradle
+
 # Ensure the claude user owns their directories
-chown -R claude:claude /home/claude/workspace /home/claude/.config /home/claude/.local /home/claude/.cargo /home/claude/.m2
+chown -R claude:claude /home/claude/workspace /home/claude/.config /home/claude/.local /home/claude/.cargo /home/claude/.m2 /home/claude/.sbt /home/claude/.gradle
 
 # Check if cargo config is properly mounted
 if [ -f /home/claude/.cargo/config.toml ]; then
@@ -99,6 +105,7 @@ if [ "$(id -u)" = "0" ]; then
                          export CARGO_NET_GIT_FETCH_WITH_CLI='$CARGO_NET_GIT_FETCH_WITH_CLI' && \
                          export NO_PROXY='$NO_PROXY' && \
                          export no_proxy='$no_proxy' && \
+                         export SBT_OPTS='-Dsbt.override.build.repos=true -Dsbt.repository.config=/home/claude/.sbt/repositories' && \
                          $*"
 else
     exec "$@"

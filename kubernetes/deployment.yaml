@@ -41,6 +41,18 @@ spec:
         - name: maven-settings
           mountPath: /home/claude/.m2/settings.xml
           subPath: settings.xml
+        - name: sbt-repositories
+          mountPath: /home/claude/.sbt/repositories
+          subPath: repositories
+        - name: conda-config
+          mountPath: /home/claude/.condarc
+          subPath: condarc
+        - name: gradle-config
+          mountPath: /home/claude/.gradle/gradle.properties
+          subPath: gradle.properties
+        - name: gem-config
+          mountPath: /home/claude/.gemrc
+          subPath: gemrc
         env:
         # These environment variables will be populated from ConfigMap if it exists
         - name: PIP_INDEX_URL
@@ -111,6 +123,8 @@ spec:
               name: nexus-env-config
               key: no_proxy
               optional: true
+        - name: SBT_OPTS
+          value: "-Dsbt.override.build.repos=true -Dsbt.repository.config=/home/claude/.sbt/repositories -Dsbt.coursier=true"
         resources:
           requests:
             memory: "256Mi"
@@ -196,6 +210,38 @@ spec:
           items:
           - key: settings.xml
             path: settings.xml
+          defaultMode: 0644
+          optional: true
+      - name: sbt-repositories
+        configMap:
+          name: nexus-proxy-config
+          items:
+          - key: repositories
+            path: repositories
+          defaultMode: 0644
+          optional: true
+      - name: conda-config
+        configMap:
+          name: nexus-proxy-config
+          items:
+          - key: condarc
+            path: condarc
+          defaultMode: 0644
+          optional: true
+      - name: gradle-config
+        configMap:
+          name: nexus-proxy-config
+          items:
+          - key: gradle.properties
+            path: gradle.properties
+          defaultMode: 0644
+          optional: true
+      - name: gem-config
+        configMap:
+          name: nexus-proxy-config
+          items:
+          - key: gemrc
+            path: gemrc
           defaultMode: 0644
           optional: true
 ---

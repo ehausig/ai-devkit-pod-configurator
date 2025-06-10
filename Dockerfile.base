@@ -18,17 +18,12 @@ ENV TARGETARCH=${TARGETARCH}
 # Configure APT to use Nexus if enabled
 RUN if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
         echo "Configuring APT to use Nexus proxy..." && \
-        # Backup original sources.list \
-        cp /etc/apt/sources.list /etc/apt/sources.list.backup && \
-        # Clear the sources.list \
-        echo "" > /etc/apt/sources.list && \
-        # Add Nexus repositories \
-        echo "deb ${NEXUS_APT_URL}/repository/ubuntu-main/ jammy main restricted universe multiverse" >> /etc/apt/sources.list && \
-        echo "deb ${NEXUS_APT_URL}/repository/ubuntu-updates/ jammy-updates main restricted universe multiverse" >> /etc/apt/sources.list && \
+        # Set APT proxy \
+        echo "Acquire::http::Proxy \"${NEXUS_APT_URL}/\";" > /etc/apt/apt.conf.d/00proxy && \
+        # Configure APT sources to use Nexus repositories \
+        echo "deb ${NEXUS_APT_URL}/repository/ubuntu-main/ jammy main restricted universe multiverse" > /etc/apt/sources.list && \
         echo "deb ${NEXUS_APT_URL}/repository/ubuntu-security/ jammy-security main restricted universe multiverse" >> /etc/apt/sources.list && \
-        # Since we're using HTTP, we need to allow insecure repositories \
-        echo 'Acquire::AllowInsecureRepositories "true";' > /etc/apt/apt.conf.d/99nexus && \
-        echo 'Acquire::AllowDowngradeToInsecureRepositories "true";' >> /etc/apt/apt.conf.d/99nexus && \
+        echo "deb ${NEXUS_APT_URL}/repository/ubuntu-updates/ jammy-updates main restricted universe multiverse" >> /etc/apt/sources.list && \
         echo "✓ Configured APT to use Nexus proxy" ; \
     fi
 
@@ -58,6 +53,7 @@ RUN apt-get update && apt-get install -y \
     pkg-config \
     libssl-dev \
     unzip \
+    xz-utils \
     --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
@@ -70,20 +66,16 @@ RUN apt-get update && \
     rm -rf /usr/local/bin/node* && \
     rm -rf /usr/local/bin/npm*
 
-# Install the latest Node.js (Claude Code requires Node.js 18+)
-# NodeSource repos have issues with APT proxying, so we'll download directly
-RUN if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
-        # Download Node.js binary directly through Nexus raw proxy if available
-        echo "Downloading Node.js through Nexus..." && \
-        cd /tmp && \
-        wget ${NEXUS_APT_URL}/repository/nodejs-dist/v20.18.0/node-v20.18.0-linux-arm64.tar.xz && \
-        tar -xJf node-v20.18.0-linux-arm64.tar.xz -C /usr/local --strip-components=1 && \
-        rm node-v20.18.0-linux-arm64.tar.xz ; \
-    else \
-        # Use the standard NodeSource installation
-        curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
-        apt-get install -y nodejs ; \
-    fi && \
+# Install Node.js 20.x (Claude Code requires Node.js 18+)
+# Direct binary installation to avoid repository issues with proxy
+RUN export DEBIAN_FRONTEND=noninteractive && \
+    ARCH=$(dpkg --print-architecture) && \
+    NODE_ARCH=${ARCH} && \
+    if [ "${ARCH}" = "arm64" ]; then NODE_ARCH="arm64"; elif [ "${ARCH}" = "amd64" ]; then NODE_ARCH="x64"; fi && \
+    NODE_VERSION="v20.18.0" && \
+    wget -q https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz && \
+    tar -xJf node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz -C /usr/local --strip-components=1 && \
+    rm node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz && \
     npm install -g npm@latest
 
 # Configure npm if proxy URL is provided
