@@ -20,7 +20,8 @@ spec:
       - name: claude-code
         image: claude-code:latest
         imagePullPolicy: IfNotPresent
-        command: ["sleep", "infinity"]
+        # Remove the command override so entrypoint.sh runs
+        # The entrypoint will handle setup and then run sleep infinity
         volumeMounts:
         - name: config-volume
           mountPath: /home/claude/.config/claude-code

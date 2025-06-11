@@ -1,0 +1,27 @@
+# Claude Code Environment Configuration
+
+## Project Overview
+This workspace is configured with a custom development environment built specifically for your project needs.
+
+## Development Preferences
+<!-- Feel free to customize this section with your preferences -->
+
+### Code Style
+- Prefer clear, readable code with descriptive variable names
+- Follow language-specific conventions and best practices
+- Include helpful comments for complex logic
+
+### Testing Approach
+- Write tests for critical functionality
+- Use appropriate testing frameworks for each language
+
+### Documentation
+- Keep README files up to date
+- Document API endpoints and function signatures
+- Include examples where helpful
+
+## Project-Specific Notes
+<!-- Add any project-specific information here -->
+
+<!-- ENVIRONMENT_TOOLS_MARKER -->
+<!-- Auto-generated content below - do not edit manually -->

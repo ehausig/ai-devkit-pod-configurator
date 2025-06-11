@@ -32,8 +32,40 @@ mkdir -p /home/claude/.sbt
 # Create .gradle directory for Gradle if it doesn't exist
 mkdir -p /home/claude/.gradle
 
+# Copy CLAUDE.md to workspace if it exists in the image but not in the mounted volume
+echo "Checking for CLAUDE.md..."
+if [ -f /tmp/CLAUDE.md ]; then
+    echo "Found /tmp/CLAUDE.md"
+    if [ ! -f /home/claude/workspace/CLAUDE.md ]; then
+        echo "Copying CLAUDE.md to workspace..."
+        cp /tmp/CLAUDE.md /home/claude/workspace/CLAUDE.md
+        echo "CLAUDE.md copied successfully"
+    else
+        echo "CLAUDE.md already exists in workspace"
+    fi
+else
+    echo "No /tmp/CLAUDE.md found in image"
+fi
+
 # Ensure the claude user owns their directories
-chown -R claude:claude /home/claude/workspace /home/claude/.config /home/claude/.local /home/claude/.cargo /home/claude/.m2 /home/claude/.sbt /home/claude/.gradle
+# Use || true to prevent script from exiting on chown errors for read-only mounts
+chown -R claude:claude /home/claude/workspace 2>/dev/null || true
+chown -R claude:claude /home/claude/.config/claude-code 2>/dev/null || true
+chown -R claude:claude /home/claude/.local 2>/dev/null || true
+# Skip chown for directories that might be mounted from ConfigMaps
+# These are typically mounted as read-only
+if [ ! -f /home/claude/.cargo/config.toml ]; then
+    chown -R claude:claude /home/claude/.cargo 2>/dev/null || true
+fi
+if [ ! -f /home/claude/.m2/settings.xml ]; then
+    chown -R claude:claude /home/claude/.m2 2>/dev/null || true
+fi
+if [ ! -f /home/claude/.sbt/repositories ]; then
+    chown -R claude:claude /home/claude/.sbt 2>/dev/null || true
+fi
+if [ ! -f /home/claude/.gradle/gradle.properties ]; then
+    chown -R claude:claude /home/claude/.gradle 2>/dev/null || true
+fi
 
 # Check if cargo config is properly mounted
 if [ -f /home/claude/.cargo/config.toml ]; then
@@ -124,21 +156,36 @@ if ! command -v claude &> /dev/null; then
     exit 1
 fi
 
+echo "Claude Code is available at: $(which claude)"
+
 # Switch to claude user and execute the command
 if [ "$(id -u)" = "0" ]; then
-    echo "Switching to claude user..."
-    # Preserve environment variables that are important for proxies
-    exec su - claude -c "export PIP_INDEX_URL='$PIP_INDEX_URL' && \
-                         export PIP_TRUSTED_HOST='$PIP_TRUSTED_HOST' && \
-                         export NPM_CONFIG_REGISTRY='$NPM_CONFIG_REGISTRY' && \
-                         export GOPROXY='$GOPROXY' && \
-                         export CARGO_REGISTRIES_CRATES_IO_PROTOCOL='$CARGO_REGISTRIES_CRATES_IO_PROTOCOL' && \
-                         export CARGO_HTTP_CHECK_REVOKE='$CARGO_HTTP_CHECK_REVOKE' && \
-                         export CARGO_NET_GIT_FETCH_WITH_CLI='$CARGO_NET_GIT_FETCH_WITH_CLI' && \
-                         export NO_PROXY='$NO_PROXY' && \
-                         export no_proxy='$no_proxy' && \
-                         export SBT_OPTS='-Dsbt.override.build.repos=true -Dsbt.repository.config=/home/claude/.sbt/repositories' && \
-                         $*"
+    echo "Running as root, preparing to switch to claude user..."
+    # If no command specified, sleep indefinitely
+    if [ $# -eq 0 ]; then
+        echo "No command specified, running sleep infinity to keep container alive..."
+        exec sleep infinity
+    else
+        echo "Switching to claude user to run: $*"
+        # Preserve environment variables that are important for proxies
+        exec su - claude -c "export PIP_INDEX_URL='$PIP_INDEX_URL' && \
+                             export PIP_TRUSTED_HOST='$PIP_TRUSTED_HOST' && \
+                             export NPM_CONFIG_REGISTRY='$NPM_CONFIG_REGISTRY' && \
+                             export GOPROXY='$GOPROXY' && \
+                             export CARGO_REGISTRIES_CRATES_IO_PROTOCOL='$CARGO_REGISTRIES_CRATES_IO_PROTOCOL' && \
+                             export CARGO_HTTP_CHECK_REVOKE='$CARGO_HTTP_CHECK_REVOKE' && \
+                             export CARGO_NET_GIT_FETCH_WITH_CLI='$CARGO_NET_GIT_FETCH_WITH_CLI' && \
+                             export NO_PROXY='$NO_PROXY' && \
+                             export no_proxy='$no_proxy' && \
+                             export SBT_OPTS='-Dsbt.override.build.repos=true -Dsbt.repository.config=/home/claude/.sbt/repositories' && \
+                             $*"
+    fi
 else
-    exec "$@"
+    echo "Running as non-root user..."
+    if [ $# -eq 0 ]; then
+        echo "No command specified, running sleep infinity..."
+        exec sleep infinity
+    else
+        exec "$@"
+    fi
 fi

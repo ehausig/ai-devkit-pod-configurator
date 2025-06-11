@@ -887,6 +887,9 @@ select_languages() {
         
         # Group selections by type
         SELECTED_INSTALLATIONS=""
+        SELECTED_LANGUAGES=()
+        SELECTED_DISPLAY_NAMES=()
+        SELECTED_GROUPS=()
         local last_display_group=""
         
         # Build groups in same order as main menu
@@ -940,6 +943,10 @@ select_languages() {
                 if [[ "${in_cart[$i]}" == true ]] && [[ "${groups[$i]}" == "$group_type" ]]; then
                     echo -e "    ${GREEN}✓${NC} ${display_names[$i]}"
                     SELECTED_INSTALLATIONS+="\n${installations[$i]}\n"
+                    # Store selections for CLAUDE.md generation
+                    SELECTED_LANGUAGES+=("${languages[$i]}")
+                    SELECTED_DISPLAY_NAMES+=("${display_names[$i]}")
+                    SELECTED_GROUPS+=("${groups[$i]}")
                 fi
             done
         done
@@ -962,11 +969,76 @@ select_languages() {
     set -e
 }
 
+# Global variables for selected items
+declare -a SELECTED_LANGUAGES
+declare -a SELECTED_DISPLAY_NAMES
+declare -a SELECTED_GROUPS
+
+# Function to generate CLAUDE.md from template and selections
+generate_claude_md() {
+    local claude_template="CLAUDE.md.template"
+    local claude_output="$TEMP_DIR/CLAUDE.md"
+    
+    # Check if template exists
+    if [[ ! -f "$claude_template" ]]; then
+        log "Warning: $claude_template not found, skipping CLAUDE.md generation"
+        return
+    fi
+    
+    log "Generating CLAUDE.md from template..."
+    
+    # Copy template up to marker
+    sed '/<!-- ENVIRONMENT_TOOLS_MARKER -->/q' "$claude_template" > "$claude_output"
+    
+    # Generate simple list of installed tools
+    echo "" >> "$claude_output"
+    echo "## Installed Development Environment" >> "$claude_output"
+    echo "" >> "$claude_output"
+    echo "This container includes the following tools and languages:" >> "$claude_output"
+    echo "" >> "$claude_output"
+    
+    # Track which display groups we've shown
+    local last_display_group=""
+    
+    # Process selected items
+    for i in "${!SELECTED_LANGUAGES[@]}"; do
+        local display_name="${SELECTED_DISPLAY_NAMES[$i]}"
+        local group="${SELECTED_GROUPS[$i]}"
+        
+        # Determine display group
+        local display_group=""
+        if [[ "$group" == *"-version" ]]; then
+            display_group="Programming Languages"
+        elif [[ "$group" == "dev-tools" ]]; then
+            display_group="Development Tools"
+        else
+            display_group="Other Tools"
+        fi
+        
+        # Show group header if it changed
+        if [[ "$display_group" != "$last_display_group" ]]; then
+            echo "" >> "$claude_output"
+            echo "### $display_group" >> "$claude_output"
+            last_display_group="$display_group"
+        fi
+        
+        # Simply list the tool
+        echo "- $display_name" >> "$claude_output"
+    done
+    
+    log "CLAUDE.md content generated"
+    log "Debug: CLAUDE.md exists at $claude_output: $([ -f "$claude_output" ] && echo "YES" || echo "NO")"
+    log "Debug: CLAUDE.md size: $([ -f "$claude_output" ] && wc -c < "$claude_output" || echo "0") bytes"
+    
+    success "Generated CLAUDE.md with environment information"
+}
+
 # Function to create custom Dockerfile
 create_custom_dockerfile() {
     mkdir -p "$TEMP_DIR"
     cp Dockerfile.base "$TEMP_DIR/Dockerfile"
     
+    # First, handle language installations
     if [[ -n "$SELECTED_INSTALLATIONS" ]]; then
         echo -e "$SELECTED_INSTALLATIONS" > "$TEMP_DIR/installations.txt"
         sed -i.bak "/# LANGUAGE_INSTALLATIONS_PLACEHOLDER/r $TEMP_DIR/installations.txt" "$TEMP_DIR/Dockerfile"
@@ -975,6 +1047,29 @@ create_custom_dockerfile() {
     else
         sed -i.bak "/# LANGUAGE_INSTALLATIONS_PLACEHOLDER/d" "$TEMP_DIR/Dockerfile"
         rm -f "$TEMP_DIR/Dockerfile.bak"
+    fi
+    
+    # Generate CLAUDE.md
+    if [[ ${#SELECTED_LANGUAGES[@]} -gt 0 ]]; then
+        generate_claude_md
+    else
+        log "No selections made, generating CLAUDE.md for base image"
+        generate_claude_md
+    fi
+    
+    # Insert CLAUDE.md copy instruction BEFORE the VOLUME instruction
+    if [[ -f "$TEMP_DIR/CLAUDE.md" ]]; then
+        log "CLAUDE.md generated successfully, adding to Dockerfile"
+        # Find the line with VOLUME and insert before it
+        sed -i.bak '/^# Set up volume mount points/i\
+\
+# Copy CLAUDE.md configuration to temp location (will be copied to workspace at runtime)\
+COPY CLAUDE.md /tmp/CLAUDE.md\
+RUN chmod 644 /tmp/CLAUDE.md\
+' "$TEMP_DIR/Dockerfile"
+        rm -f "$TEMP_DIR/Dockerfile.bak"
+    else
+        log "Warning: CLAUDE.md was not generated"
     fi
 }
 
@@ -1021,11 +1116,27 @@ main() {
     create_custom_dockerfile
     
     log "Building Docker image..."
-    if [[ -n "$NEXUS_BUILD_ARGS" ]]; then
-        success "Using Nexus proxy for package downloads"
-        docker build $NEXUS_BUILD_ARGS -t ${IMAGE_NAME}:${IMAGE_TAG} -f "$TEMP_DIR/Dockerfile" .
+    # Ensure CLAUDE.md and entrypoint.sh are in the build context
+    if [[ -f "$TEMP_DIR/CLAUDE.md" ]]; then
+        # Copy the current entrypoint.sh to ensure we have the latest version
+        cp entrypoint.sh "$TEMP_DIR/"
+        cd "$TEMP_DIR"
+        log "Building from $TEMP_DIR with CLAUDE.md"
+        if [[ -n "$NEXUS_BUILD_ARGS" ]]; then
+            success "Using Nexus proxy for package downloads"
+            docker build $NEXUS_BUILD_ARGS -t ${IMAGE_NAME}:${IMAGE_TAG} .
+        else
+            docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
+        fi
+        cd ..
     else
-        docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f "$TEMP_DIR/Dockerfile" .
+        # Fallback to original build method
+        if [[ -n "$NEXUS_BUILD_ARGS" ]]; then
+            success "Using Nexus proxy for package downloads"
+            docker build $NEXUS_BUILD_ARGS -t ${IMAGE_NAME}:${IMAGE_TAG} -f "$TEMP_DIR/Dockerfile" .
+        else
+            docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f "$TEMP_DIR/Dockerfile" .
+        fi
     fi
     
     # Deploy
@@ -1070,7 +1181,9 @@ main() {
     echo -e "${YELLOW}claude${NC}"
     
     log "\nCleaning up temporary files..."
-    rm -rf "$TEMP_DIR"
+    # Temporarily disable cleanup for debugging
+    # rm -rf "$TEMP_DIR"
+    log "Debug: Temporary files preserved in $TEMP_DIR"
 }
 
 # Run main

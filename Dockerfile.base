@@ -106,6 +106,7 @@ RUN chmod +x /entrypoint.sh
 # Create a non-root user to run Claude Code
 RUN useradd -ms /bin/bash claude
 RUN mkdir -p /home/claude/.config/claude-code
+RUN mkdir -p /home/claude/workspace
 RUN chown -R claude:claude /home/claude/
 
 # Set up user's PATH to include .local/bin
@@ -134,9 +135,6 @@ ENV PIP_TRUSTED_HOST=${PIP_TRUSTED_HOST}
 ENV NPM_CONFIG_REGISTRY=${NPM_REGISTRY}
 ENV GOPROXY=${GOPROXY}
 
-# Set up volume mount points for persistence
-VOLUME ["/home/claude/.config/claude-code", "/home/claude/workspace"]
-
 # Switch to the claude user for runtime (but not for entrypoint)
 USER claude
 WORKDIR /home/claude
@@ -144,4 +142,6 @@ WORKDIR /home/claude
 # Switch back to root for the entrypoint
 USER root
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["bash"]
+
+# Set up volume mount points for persistence - MUST be last!
+VOLUME ["/home/claude/.config/claude-code", "/home/claude/workspace"]
