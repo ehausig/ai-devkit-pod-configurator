@@ -462,7 +462,7 @@ select_languages() {
             ((display_row++))
             
             # Group cart items by type and display them
-            local group_order=("elixir-version" "go-version" "java-version" "kotlin-version" "python-version" "ruby-version" "rust-version" "scala-version" "dev-tools")
+            local group_order=("elixir-version" "go-version" "java-version" "kotlin-version" "python-version" "ruby-version" "rust-version" "scala-version" "typescript-version" "dev-tools")
             local cart_display_count=0
             
             for group_type in "${group_order[@]}"; do
