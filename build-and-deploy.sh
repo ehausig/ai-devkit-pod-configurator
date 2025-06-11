@@ -854,28 +854,106 @@ select_languages() {
     stty echo
     clear
     
-    # Build final selections
-    SELECTED_INSTALLATIONS=""
-    success "Building container with:"
+    # Build final selections with consistent styling
+    local term_width=$(tput cols)
+    
+    # Draw header
+    tput cup 0 0
+    for ((i=0; i<term_width; i++)); do echo -ne "${BLUE}━${NC}"; done
+    
+    local title="Build Configuration Summary"
+    local title_len=${#title}
+    local title_pos=$(( (term_width - title_len) / 2 ))
+    tput cup 1 $title_pos
+    echo -ne "${YELLOW}${title}${NC}"
+    
+    tput cup 2 0
+    for ((i=0; i<term_width; i++)); do echo -ne "${BLUE}━${NC}"; done
+    
+    echo ""
     echo ""
     
-    local any_selected=false
-    local last_group=""
-    
-    for i in "${!languages[@]}"; do
-        if [[ "${in_cart[$i]}" == true ]]; then
-            [[ "${groups[$i]}" != "$last_group" ]] && echo "" && last_group="${groups[$i]}"
-            echo -e "  ✓ ${display_names[$i]}"
-            SELECTED_INSTALLATIONS+="\n${installations[$i]}\n"
-            any_selected=true
-        fi
+    # Count selections
+    local selection_count=0
+    for i in "${!in_cart[@]}"; do
+        [[ "${in_cart[$i]}" == true ]] && ((selection_count++))
     done
     
-    [[ $any_selected == false ]] && echo -e "  No additional languages (base image only)"
+    if [[ $selection_count -eq 0 ]]; then
+        echo -e "${YELLOW}No additional components selected (base image only)${NC}"
+    else
+        echo -e "${GREEN}Selected $selection_count components:${NC}"
+        echo ""
+        
+        # Group selections by type
+        SELECTED_INSTALLATIONS=""
+        local last_display_group=""
+        
+        # Build groups in same order as main menu
+        local group_order=()
+        local seen_groups=()
+        for idx in "${!groups[@]}"; do
+            local group="${groups[$idx]}"
+            local already_seen=false
+            for seen in "${seen_groups[@]}"; do
+                [[ "$seen" == "$group" ]] && already_seen=true && break
+            done
+            if [[ $already_seen == false ]]; then
+                group_order+=("$group")
+                seen_groups+=("$group")
+            fi
+        done
+        
+        # Display selected items grouped
+        for group_type in "${group_order[@]}"; do
+            local group_has_items=false
+            local display_group=""
+            
+            # Determine display group
+            if [[ "$group_type" == *"-version" ]]; then
+                display_group="Languages"
+            elif [[ "$group_type" == "dev-tools" ]]; then
+                display_group="Dev Tools"
+            else
+                display_group="$group_type"
+            fi
+            
+            # Check if we should show this group header
+            if [[ "$display_group" != "$last_display_group" ]]; then
+                # Check if this group has any selected items
+                for i in "${!languages[@]}"; do
+                    if [[ "${in_cart[$i]}" == true ]] && [[ "${groups[$i]}" == "$group_type" ]]; then
+                        group_has_items=true
+                        break
+                    fi
+                done
+                
+                if [[ $group_has_items == true ]]; then
+                    [[ -n "$last_display_group" ]] && echo ""
+                    echo -e "  ${BLUE}━ ${display_group} ━${NC}"
+                    last_display_group="$display_group"
+                fi
+            fi
+            
+            # Display items in this group
+            for i in "${!languages[@]}"; do
+                if [[ "${in_cart[$i]}" == true ]] && [[ "${groups[$i]}" == "$group_type" ]]; then
+                    echo -e "    ${GREEN}✓${NC} ${display_names[$i]}"
+                    SELECTED_INSTALLATIONS+="\n${installations[$i]}\n"
+                fi
+            done
+        done
+    fi
     
     echo ""
+    echo ""
+    
+    # Draw separator
+    for ((i=0; i<term_width; i++)); do echo -ne "${BLUE}─${NC}"; done
+    echo ""
+    
     log "Ready to build with this configuration?"
-    echo -n "Press ENTER to continue or 'q' to quit: "
+    echo -ne "Press ${GREEN}ENTER${NC} to continue or ${RED}'q'${NC} to quit: "
     read -r CONFIRM
     
     [[ "$CONFIRM" =~ ^[qQ]$ ]] && log "Build cancelled." && exit 0
