@@ -10,6 +10,7 @@ claude-code-k8s/
 ├── languages.conf          # Language installation configurations
 ├── entrypoint.sh           # Container startup script
 ├── build-and-deploy.sh     # Helper script for building and deploying
+├── cleanup-colima.sh       # Disk cleanup utility for Colima
 ├── access-filebrowser.sh   # Convenience script for accessing the file manager
 ├── .gitignore              # Git ignore file
 ├── kubernetes/
@@ -29,8 +30,8 @@ If you're using Colima for local Kubernetes development on macOS:
 git clone https://github.com/ehausig/claude-code-k8s.git
 cd claude-code-k8s
 
-# Make the script executable
-chmod +x build-and-deploy.sh
+# Make the scripts executable
+chmod +x build-and-deploy.sh cleanup-colima.sh
 
 # Build and deploy (with language selection)
 ./build-and-deploy.sh
@@ -283,13 +284,16 @@ If your cluster doesn't support dynamic provisioning, you may need to create per
    This means Colima is running low on disk space. To fix:
    
    ```bash
-   # Option 1: Clean up disk space
+   # Option 1: Use the cleanup script
+   ./cleanup-colima.sh
+   
+   # Option 2: Manual cleanup
    colima ssh -- docker system prune -a --volumes
    
    # Check disk usage after cleanup
    colima ssh -- df -h /
    
-   # Option 2: If cleanup isn't enough, recreate Colima with more disk
+   # Option 3: If cleanup isn't enough, recreate Colima with more disk
    colima stop
    colima delete
    colima start --kubernetes --disk 100
