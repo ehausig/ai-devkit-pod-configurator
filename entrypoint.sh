@@ -80,36 +80,6 @@ export CARGO_HOME="$HOME/.cargo"
 EOF
 fi
 
-# Initialize conda for claude user if conda is installed
-if [ -f /opt/conda/bin/conda ]; then
-    echo "Conda installation detected, configuring for claude user..."
-    
-    # Copy .condarc to claude's home if it exists
-    if [ -f /root/.condarc ] && [ ! -f /home/claude/.condarc ]; then
-        cp /root/.condarc /home/claude/.condarc
-        chown claude:claude /home/claude/.condarc
-    fi
-    
-    # Ensure conda is in PATH for claude user
-    if ! grep -q "/opt/conda/bin" "$BASHRC" 2>/dev/null; then
-        echo 'export PATH="/opt/conda/bin:$PATH"' >> "$BASHRC"
-    fi
-    
-    # Check if conda is already initialized in .bashrc
-    if ! grep -q "conda initialize" "$BASHRC" 2>/dev/null; then
-        echo "Running conda init for claude user..."
-        # Create a temporary script to run as claude user
-        cat > /tmp/conda_init.sh << 'CONDA_INIT_EOF'
-#!/bin/bash
-export PATH="/opt/conda/bin:$PATH"
-/opt/conda/bin/conda init bash
-CONDA_INIT_EOF
-        chmod +x /tmp/conda_init.sh
-        su - claude -c "/tmp/conda_init.sh"
-        rm -f /tmp/conda_init.sh
-    fi
-fi
-
 # Ensure proper ownership of .bashrc
 chown claude:claude "$BASHRC"
 
