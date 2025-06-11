@@ -86,6 +86,32 @@ if [ -f /opt/conda/bin/conda ] && [ -f /root/.condarc ] && [ ! -f /home/claude/.
     chown claude:claude /home/claude/.condarc
 fi
 
+# Configure bundler for claude user if Ruby is installed
+if command -v ruby &> /dev/null && command -v bundle &> /dev/null; then
+    # Create .bundle directory for bundler config
+    mkdir -p /home/claude/.bundle
+    
+    # Configure bundler to install gems to user's home directory
+    cat > /home/claude/.bundle/config << 'EOF'
+---
+BUNDLE_PATH: "/home/claude/.bundle"
+BUNDLE_BIN: "/home/claude/.local/bin"
+EOF
+    
+    # Ensure proper ownership
+    chown -R claude:claude /home/claude/.bundle
+    
+    # Add gem bin paths to .bashrc if not already present
+    if ! grep -q "Ruby gem paths" "$BASHRC" 2>/dev/null; then
+        cat >> "$BASHRC" << 'EOF'
+
+# Ruby gem paths
+export GEM_HOME="$HOME/.bundle"
+export PATH="$HOME/.local/bin:$HOME/.bundle/bin:$PATH"
+EOF
+    fi
+fi
+
 # Ensure proper ownership of .bashrc
 chown claude:claude "$BASHRC"
 
