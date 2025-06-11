@@ -80,6 +80,12 @@ export CARGO_HOME="$HOME/.cargo"
 EOF
 fi
 
+# Initialize conda for claude user if conda is installed
+if [ -f /opt/conda/bin/conda ] && ! grep -q "conda initialize" "$BASHRC" 2>/dev/null; then
+    # Run conda init as claude user
+    su - claude -c "/opt/conda/bin/conda init bash >/dev/null 2>&1"
+fi
+
 # Ensure proper ownership of .bashrc
 chown claude:claude "$BASHRC"
 
