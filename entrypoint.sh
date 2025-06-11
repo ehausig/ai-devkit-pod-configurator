@@ -80,6 +80,12 @@ export CARGO_HOME="$HOME/.cargo"
 EOF
 fi
 
+# Copy .condarc to claude's home if conda is installed and .condarc exists
+if [ -f /opt/conda/bin/conda ] && [ -f /root/.condarc ] && [ ! -f /home/claude/.condarc ]; then
+    cp /root/.condarc /home/claude/.condarc
+    chown claude:claude /home/claude/.condarc
+fi
+
 # Ensure proper ownership of .bashrc
 chown claude:claude "$BASHRC"
 
