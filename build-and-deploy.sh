@@ -67,7 +67,7 @@ select_languages() {
     local term_height=$(tput lines)
     local catalog_width=$((term_width / 2 - 2))
     local cart_width=$((term_width / 2 - 2))
-    local content_height=$((term_height - 8))  # Leave room for header/footer
+    local content_height=$((term_height - 10))  # Adjusted for new header
     local catalog_page=0 cart_page=0
     
     # Calculate pagination properly by counting actual display rows
@@ -296,13 +296,13 @@ select_languages() {
             end_idx=${page_boundaries[$((catalog_page + 1))]}
         fi
         
-        local display_row=3
+        local display_row=5
         local last_group=""
         local first_visible_idx=-1
         local last_visible_idx=-1
         
         # Clear catalog area completely with explicit character-by-character clearing
-        for ((row=3; row<content_height+3; row++)); do
+        for ((row=5; row<content_height+5; row++)); do
             tput cup $row 0
             # Print left border
             printf "│"
@@ -315,11 +315,11 @@ select_languages() {
         done
         
         # Reset for actual rendering
-        display_row=3
+        display_row=5
         last_group=""
         
         for ((idx=start_idx; idx<end_idx; idx++)); do
-            [[ $display_row -ge $((content_height + 3)) ]] && break
+            [[ $display_row -ge $((content_height + 5)) ]] && break
             
             # Determine the display group (Languages or Dev Tools)
             local display_group=""
@@ -337,11 +337,11 @@ select_languages() {
                 printf "%b%s%b" "${GREEN}" "$display_group" "${NC}"
                 last_group="$display_group"
                 ((display_row++))
-                [[ $display_row -ge $((content_height + 3)) ]] && break
+                [[ $display_row -ge $((content_height + 5)) ]] && break
             fi
             
             # Only render if we still have room
-            if [[ $display_row -lt $((content_height + 3)) ]]; then
+            if [[ $display_row -lt $((content_height + 5)) ]]; then
                 # Track first and last visible items
                 [[ $first_visible_idx -eq -1 ]] && first_visible_idx=$idx
                 last_visible_idx=$idx
@@ -409,7 +409,7 @@ select_languages() {
             local text_len=${#page_text}
             local center_pos=$(( (catalog_width - text_len - 4) / 2 ))
             
-            tput cup $((content_height + 3)) 0
+            tput cup $((content_height + 5)) 0
             printf "└"
             
             # Draw left side of border
@@ -434,7 +434,7 @@ select_languages() {
     
     # Function to render cart items
     render_cart() {
-        local display_row=3
+        local display_row=5
         local cart_items_array=()
         
         # Collect cart items
@@ -445,7 +445,7 @@ select_languages() {
         local cart_count=${#cart_items_array[@]}
         
         # Clear cart area only once
-        for ((row=3; row<content_height+3; row++)); do
+        for ((row=5; row<content_height+5; row++)); do
             tput cup $row $((catalog_width + 4))
             printf "%-$((cart_width-4))s" " "
         done
@@ -461,37 +461,84 @@ select_languages() {
             printf "%b%d items selected:%b" "${GREEN}" "$cart_count" "${NC}"
             ((display_row++))
             
-            # Group cart items by type and display them
-            local group_order=("go-version" "java-version" "kotlin-version" "python-version" "ruby-version" "rust-version" "scala-version" "typescript-version" "dev-tools")
+            # Dynamically build group order from the order they appear in languages.conf
+            local group_order=()
+            local seen_groups=()
+            
+            # Collect unique groups in the order they appear
+            for idx in "${!groups[@]}"; do
+                local group="${groups[$idx]}"
+                local already_seen=false
+                for seen in "${seen_groups[@]}"; do
+                    if [[ "$seen" == "$group" ]]; then
+                        already_seen=true
+                        break
+                    fi
+                done
+                if [[ $already_seen == false ]]; then
+                    group_order+=("$group")
+                    seen_groups+=("$group")
+                fi
+            done
+            
             local cart_display_count=0
             
             for group_type in "${group_order[@]}"; do
                 local group_has_items=false
+                local current_display_group=""
+                
+                # First determine what the display group should be for this group_type
+                if [[ "$group_type" == *"-version" ]]; then
+                    current_display_group="Languages"
+                elif [[ "$group_type" == "dev-tools" ]]; then
+                    current_display_group="Dev Tools"
+                else
+                    current_display_group="$group_type"
+                fi
+                
+                # Check if we should show a header for this display group
+                local should_show_header=true
+                for prev_type in "${group_order[@]}"; do
+                    # Stop when we reach the current group
+                    [[ "$prev_type" == "$group_type" ]] && break
+                    
+                    # Check if any previous group had the same display group
+                    local prev_display_group=""
+                    if [[ "$prev_type" == *"-version" ]]; then
+                        prev_display_group="Languages"
+                    elif [[ "$prev_type" == "dev-tools" ]]; then
+                        prev_display_group="Dev Tools"
+                    else
+                        prev_display_group="$prev_type"
+                    fi
+                    
+                    # If we've already shown this display group header, skip it
+                    if [[ "$prev_display_group" == "$current_display_group" ]]; then
+                        # Check if that previous group actually had items in cart
+                        for idx in "${!in_cart[@]}"; do
+                            if [[ "${in_cart[$idx]}" == true ]] && [[ "${groups[$idx]}" == "$prev_type" ]]; then
+                                should_show_header=false
+                                break
+                            fi
+                        done
+                    fi
+                done
                 
                 for idx in "${!in_cart[@]}"; do
                     if [[ "${in_cart[$idx]}" == true ]] && [[ "${groups[$idx]}" == "$group_type" ]]; then
-                        # Only display group header once
-                        if [[ $group_has_items == false ]]; then
+                        # Only display group header once per display group
+                        if [[ $group_has_items == false ]] && [[ $should_show_header == true ]]; then
                             ((display_row++))
-                            if [[ $display_row -lt $((content_height + 3)) ]]; then
+                            if [[ $display_row -lt $((content_height + 5)) ]]; then
                                 tput cup $display_row $((catalog_width + 4))
-                                case "$group_type" in
-                                    *-version) 
-                                        local lang_name="${group_type%-version}"
-                                        # Capitalize first letter
-                                        lang_name="$(echo ${lang_name:0:1} | tr '[:lower:]' '[:upper:]')${lang_name:1}"
-                                        printf "%b━ %s ━%b" "${BLUE}" "$lang_name" "${NC}" 
-                                        ;;
-                                    "dev-tools") printf "%b━ Dev Tools ━%b" "${BLUE}" "${NC}" ;;
-                                    *) printf "%b━ %s ━%b" "${BLUE}" "$group_type" "${NC}" ;;
-                                esac
+                                printf "%b━ %s ━%b" "${BLUE}" "$current_display_group" "${NC}"
                                 ((display_row++))
                                 group_has_items=true
                             fi
                         fi
                         
                         # Display item if within view
-                        if [[ $display_row -lt $((content_height + 3)) ]]; then
+                        if [[ $display_row -lt $((content_height + 5)) ]]; then
                             tput cup $display_row $((catalog_width + 4))
                             
                             # Cursor
@@ -517,14 +564,30 @@ select_languages() {
         # Only clear screen on first draw
         if [[ $screen_initialized == false ]]; then
             clear
-            info "═══ Claude Code Dev Kit Builder ═══"
-            echo ""
-            draw_box 0 2 $catalog_width $((content_height + 2)) "Available Languages"
-            draw_box $((catalog_width + 2)) 2 $cart_width $((content_height + 2)) "Build Stack"
+            
+            # Center and style the title
+            local title="Claude Code Dev Kit Builder"
+            local title_len=${#title}
+            local title_pos=$(( (term_width - title_len) / 2 ))
+            
+            # Draw a nice header with the title
+            tput cup 0 0
+            for ((i=0; i<term_width; i++)); do echo -ne "${BLUE}━${NC}"; done
+            
+            tput cup 1 $title_pos
+            echo -ne "${YELLOW}${title}${NC}"
+            
+            tput cup 2 0
+            for ((i=0; i<term_width; i++)); do echo -ne "${BLUE}━${NC}"; done
+            
+            echo ""  # Move to line 3
+            draw_box 0 4 $catalog_width $((content_height + 2)) "Available Components"
+            draw_box $((catalog_width + 2)) 4 $cart_width $((content_height + 2)) "Build Stack"
             
             # Instructions
             tput cup $((term_height - 2)) 0
-            echo -e "${BLUE}─────────────────────────────────────────────────────────────────────────────${NC}"
+            # Draw line across full terminal width
+            for ((i=0; i<term_width; i++)); do echo -ne "${BLUE}─${NC}"; done
             
             screen_initialized=true
         fi
@@ -561,7 +624,7 @@ select_languages() {
                 # Function to calculate the actual screen row for an item index
                 get_screen_row_for_item() {
                     local target_idx=$1
-                    local row=3
+                    local row=5
                     local prev_display_group=""
                     
                     for ((idx=$catalog_first_visible; idx<=$catalog_last_visible && idx<=$target_idx; idx++)); do
@@ -625,14 +688,14 @@ select_languages() {
         
         # Display hint message
         if [[ $hint_timer -gt 0 ]]; then
-            tput cup 1 0
+            tput cup 3 0
             tput el
             local hint_pos=$(( (term_width - ${#hint_message}) / 2 ))
-            tput cup 1 $hint_pos
+            tput cup 3 $hint_pos
             echo -ne "${YELLOW}$hint_message${NC}"
             ((hint_timer--))
         elif [[ $hint_timer -eq 0 && -n "$hint_message" ]]; then
-            tput cup 1 0
+            tput cup 3 0
             tput el
             hint_message=""
         fi
