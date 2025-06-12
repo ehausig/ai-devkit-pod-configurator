@@ -98,7 +98,7 @@ else
             echo "  2. Login and authorize GitHub CLI"
             echo "  3. Copy the one-time code shown and enter it here"
             echo ""
-            gh auth login --web --git-protocol https
+            gh auth login --web
             
             if gh auth status &>/dev/null; then
                 success "GitHub CLI authenticated"
@@ -118,7 +118,7 @@ else
             echo ""
             echo "Create a token at: https://github.com/settings/tokens/new"
             echo ""
-            gh auth login --with-token --git-protocol https
+            gh auth login --with-token
             
             if gh auth status &>/dev/null; then
                 success "GitHub CLI authenticated"
