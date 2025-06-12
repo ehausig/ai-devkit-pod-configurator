@@ -1083,6 +1083,15 @@ RUN chmod 644 /tmp/CLAUDE.md\
     else
         log "Warning: CLAUDE.md was not generated"
     fi
+    
+    # Always copy settings.local.json.template to the image
+    sed -i.bak '/^# Set up volume mount points/i\
+\
+# Copy settings.local.json template to temp location (will be copied to .claude at runtime)\
+COPY settings.local.json.template /tmp/settings.local.json.template\
+RUN chmod 644 /tmp/settings.local.json.template\
+' "$TEMP_DIR/Dockerfile"
+    rm -f "$TEMP_DIR/Dockerfile.bak"
 }
 
 # No longer need this function - deployment.yaml handles both scenarios
@@ -1133,6 +1142,7 @@ main() {
         # Copy the current entrypoint.sh to ensure we have the latest version
         cp entrypoint.sh "$TEMP_DIR/"
         cp setup-git.sh "$TEMP_DIR/"
+        cp settings.local.json.template "$TEMP_DIR/"
         cd "$TEMP_DIR"
         log "Building from $TEMP_DIR with CLAUDE.md"
         if [[ -n "$NEXUS_BUILD_ARGS" ]]; then
