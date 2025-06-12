@@ -66,6 +66,18 @@ echo ""
 if gh auth status &>/dev/null; then
     success "Already authenticated with GitHub"
     gh auth status
+    
+    # Check if git is configured to use gh
+    if ! git config --global credential.helper | grep -q "gh auth git-credential" 2>/dev/null; then
+        echo ""
+        log "Git is not configured to use GitHub CLI credentials"
+        read -p "Configure git to use GitHub CLI for authentication? (Y/n): " -n 1 -r
+        echo ""
+        if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+            gh auth setup-git
+            success "Git configured to use GitHub CLI credentials"
+        fi
+    fi
 else
     info "You need to authenticate with GitHub to use gh CLI"
     echo ""
@@ -86,7 +98,15 @@ else
             echo "  2. Login and authorize GitHub CLI"
             echo "  3. Copy the one-time code shown and enter it here"
             echo ""
-            gh auth login --web
+            gh auth login --web --git-protocol https
+            
+            if gh auth status &>/dev/null; then
+                success "GitHub CLI authenticated"
+                echo ""
+                log "Configuring git to use GitHub CLI for authentication..."
+                gh auth setup-git
+                success "Git configured to use GitHub CLI credentials"
+            fi
             ;;
         2)
             log "Starting GitHub authentication via token..."
@@ -98,7 +118,15 @@ else
             echo ""
             echo "Create a token at: https://github.com/settings/tokens/new"
             echo ""
-            gh auth login --with-token
+            gh auth login --with-token --git-protocol https
+            
+            if gh auth status &>/dev/null; then
+                success "GitHub CLI authenticated"
+                echo ""
+                log "Configuring git to use GitHub CLI for authentication..."
+                gh auth setup-git
+                success "Git configured to use GitHub CLI credentials"
+            fi
             ;;
         3)
             info "Skipping GitHub authentication"
@@ -166,4 +194,12 @@ info "Next steps:"
 echo "  • cd ~/workspace"
 echo "  • gh repo clone <owner>/<repo>"
 echo "  • claude"
+echo ""
+
+# Add troubleshooting section
+info "Troubleshooting:"
+echo "  • If 'git push' fails, run: gh auth setup-git"
+echo "  • For SSH instead of HTTPS: gh config set git_protocol ssh"
+echo "  • Check auth status: gh auth status"
+echo "  • View git config: git config --global --list | grep credential"
 echo ""
