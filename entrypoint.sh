@@ -160,6 +160,34 @@ fi
 # Ensure proper ownership of .bashrc
 chown claude:claude "$BASHRC"
 
+# Add welcome message to .bashrc
+if ! grep -q "Claude Code Welcome" "$BASHRC" 2>/dev/null; then
+    cat >> "$BASHRC" << 'EOF'
+
+# Claude Code Welcome Message
+if [ -n "$PS1" ] && [ -z "$CLAUDE_WELCOME_SHOWN" ]; then
+    export CLAUDE_WELCOME_SHOWN=1
+    echo ""
+    echo "Welcome to Claude Code Development Kit! 🚀"
+    echo ""
+    echo "Quick Start:"
+    echo "  • cd workspace      - Navigate to your workspace"
+    echo "  • claude           - Start Claude Code"
+    echo "  • claude --help    - Show available commands"
+    echo ""
+    if [ -f ~/.claude/CLAUDE.md ]; then
+        # Count installed tools
+        TOOL_COUNT=$(grep -E "^- " ~/.claude/CLAUDE.md 2>/dev/null | wc -l)
+        if [ $TOOL_COUNT -gt 5 ]; then
+            echo "Environment: $TOOL_COUNT development tools installed"
+            echo "  • cat ~/.claude/CLAUDE.md - View installed tools & guidelines"
+            echo ""
+        fi
+    fi
+fi
+EOF
+fi
+
 # Verify Claude Code is available
 if ! command -v claude &> /dev/null; then
     echo "ERROR: Claude Code command not found in PATH"
