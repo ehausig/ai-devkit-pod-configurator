@@ -175,6 +175,12 @@ if [ -n "$PS1" ] && [ -z "$CLAUDE_WELCOME_SHOWN" ]; then
     echo "  • claude           - Start Claude Code"
     echo "  • claude --help    - Show available commands"
     echo ""
+    # Check if git is configured
+    GIT_NAME=$(git config --global user.name 2>/dev/null || echo "")
+    if [ -z "$GIT_NAME" ]; then
+        echo "  ⚠️  Git not configured - run 'setup-git.sh' to configure"
+        echo ""
+    fi
     if [ -f ~/.claude/CLAUDE.md ]; then
         # Count installed tools only in the "Installed Development Environment" section
         TOOL_COUNT=$(sed -n '/## Installed Development Environment/,/^##[^#]/p' ~/.claude/CLAUDE.md 2>/dev/null | grep -E "^- " | wc -l)

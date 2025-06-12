@@ -1002,6 +1002,7 @@ generate_claude_md() {
     echo "- Node.js 20.18.0" >> "$claude_output"
     echo "- npm (latest)" >> "$claude_output"
     echo "- Git" >> "$claude_output"
+    echo "- GitHub CLI (gh)" >> "$claude_output"
     echo "- Claude Code (@anthropic-ai/claude-code)" >> "$claude_output"
     
     # Track which display groups we've shown
@@ -1131,6 +1132,7 @@ main() {
     if [[ -f "$TEMP_DIR/CLAUDE.md" ]]; then
         # Copy the current entrypoint.sh to ensure we have the latest version
         cp entrypoint.sh "$TEMP_DIR/"
+        cp setup-git.sh "$TEMP_DIR/"
         cd "$TEMP_DIR"
         log "Building from $TEMP_DIR with CLAUDE.md"
         if [[ -n "$NEXUS_BUILD_ARGS" ]]; then
