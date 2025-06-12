@@ -215,6 +215,56 @@ Use descriptive branch names that align with the change type:
 - `refactor/description` - Code refactoring
 - `test/description` - Test additions or updates
 
+### GitHub Repository Setup
+When creating repositories with Claude Code, configure them for efficient autonomous workflow:
+
+1. **Enable Auto-merge**: Allow PRs to be automatically merged when checks pass
+   ```bash
+   gh repo edit --enable-auto-merge
+   ```
+
+2. **Disable PR approval requirements** for personal/development repos:
+   ```bash
+   # Via GitHub UI: Settings → Branches → Edit protection rules
+   # Uncheck "Require pull request reviews before merging"
+   # Or set "Required approving reviews" to 0
+   ```
+
+3. **Alternative: Use direct commits** for trusted automation:
+   ```bash
+   # For solo projects, consider working directly on main
+   git checkout main
+   git add .
+   git commit -m "feat: add new feature"
+   git push
+   ```
+
+4. **For team projects**, consider:
+   - **Separate bot account**: Create a GitHub App or bot user for Claude's operations
+   - **CODEOWNERS file**: Assign automatic reviewers for different paths
+   - **Branch protection exceptions**: Allow certain users/apps to bypass rules
+
+### Recommended Solo Developer Workflow
+For maximum efficiency when working alone with Claude Code:
+```bash
+# 1. Create feature branch and make changes
+git checkout -b feat/new-feature
+# ... make changes ...
+git add .
+git commit -m "feat: implement new feature"
+
+# 2. Push and create PR with auto-merge
+git push -u origin feat/new-feature
+gh pr create --title "feat: implement new feature" --body "Description"
+gh pr merge --auto --squash --delete-branch
+
+# 3. Or for simpler flow, work directly on main
+git checkout main
+# ... make changes ...
+git commit -am "feat: implement new feature"
+git push
+```
+
 ### Pull Request Template
 When creating PRs, include:
 ```markdown
@@ -249,6 +299,7 @@ Claude Code can help automate:
 3. **PR Descriptions**: Generate PR description from commits and changes
 4. **Issue Linking**: Automatically reference issues based on branch names
 5. **Changelog Updates**: Generate entries from conventional commits
+6. **Auto-merge Setup**: Configure repos for efficient autonomous workflow
 
 Example automation workflow:
 ```bash
@@ -256,7 +307,14 @@ Example automation workflow:
 # "create a new feature branch for adding user authentication"
 # "prepare a commit message for these changes"
 # "draft a PR description for this branch"
+# "setup this repo for auto-merge"
+# "merge this PR when checks pass"
 ```
+
+For personal projects, consider asking Claude to:
+- "Enable auto-merge on this repository"
+- "Create and merge a PR for these changes"
+- "Setup branch protection with auto-merge enabled"
 
 ## Language-Specific Configurations
 
