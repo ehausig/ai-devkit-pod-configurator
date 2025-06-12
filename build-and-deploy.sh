@@ -1187,7 +1187,7 @@ main() {
     
     info "\nClaude Code Access:"
     echo -e "To connect to the container, run:"
-    echo -e "${YELLOW}kubectl exec -it -n ${NAMESPACE} ${POD_NAME} -- su - claude${NC}"
+    echo -e "${YELLOW}kubectl exec -it -n ${NAMESPACE} ${POD_NAME} -c claude-code -- su - claude${NC}"
     echo -e "\nOnce connected, you can start Claude Code with:"
     echo -e "${YELLOW}cd workspace${NC}"
     echo -e "${YELLOW}claude${NC}"
