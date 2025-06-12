@@ -997,8 +997,16 @@ generate_claude_md() {
     echo "This container includes the following tools and languages:" >> "$claude_output"
     echo "" >> "$claude_output"
     
+    # Always include base tools that are installed by default
+    echo "### Base Tools" >> "$claude_output"
+    echo "- Node.js 20.18.0" >> "$claude_output"
+    echo "- npm (latest)" >> "$claude_output"
+    echo "- Git" >> "$claude_output"
+    echo "- Python 3 (system)" >> "$claude_output"
+    echo "- Claude Code (@anthropic-ai/claude-code)" >> "$claude_output"
+    
     # Track which display groups we've shown
-    local last_display_group=""
+    local last_display_group="Base Tools"
     
     # Process selected items
     for i in "${!SELECTED_LANGUAGES[@]}"; do
@@ -1054,6 +1062,10 @@ create_custom_dockerfile() {
         generate_claude_md
     else
         log "No selections made, generating CLAUDE.md for base image"
+        # Initialize empty arrays so generate_claude_md works correctly
+        SELECTED_LANGUAGES=()
+        SELECTED_DISPLAY_NAMES=()
+        SELECTED_GROUPS=()
         generate_claude_md
     fi
     
