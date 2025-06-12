@@ -20,6 +20,9 @@ mkdir -p "$CONFIG_DIR"
 # Create .local/bin directory for user pip installs
 mkdir -p /home/claude/.local/bin
 
+# Create .npm-global directory for user npm installs
+mkdir -p /home/claude/.npm-global
+
 # Create .cargo directory for Rust/Cargo if it doesn't exist
 mkdir -p /home/claude/.cargo
 
@@ -84,7 +87,13 @@ BASHRC="/home/claude/.bashrc"
 touch "$BASHRC"
 
 # Add user's local bin to PATH
-add_if_not_exists 'export PATH="$HOME/.local/bin:$PATH"' "$BASHRC"
+add_if_not_exists 'export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"' "$BASHRC"
+add_if_not_exists 'export NPM_CONFIG_PREFIX="$HOME/.npm-global"' "$BASHRC"
+
+# Add terminal configuration for better CLI support
+add_if_not_exists 'export TERM=xterm-256color' "$BASHRC"
+add_if_not_exists 'export FORCE_COLOR=1' "$BASHRC"
+add_if_not_exists 'export CI=false' "$BASHRC"
 
 # Source system-wide profile scripts
 if ! grep -q "Source system-wide profile scripts" "$BASHRC" 2>/dev/null; then

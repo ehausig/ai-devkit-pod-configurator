@@ -84,14 +84,51 @@ RUN if [ -n "$NPM_REGISTRY" ]; then \
         echo "✓ Configured npm to use proxy" ; \
     fi
 
-# Install Claude Code globally
+# Create a non-root user to run Claude Code
+RUN useradd -ms /bin/bash claude
+RUN mkdir -p /home/claude/.config/claude-code
+RUN mkdir -p /home/claude/workspace
+RUN mkdir -p /home/claude/.npm-global
+RUN chown -R claude:claude /home/claude/
+
+# Set up user's PATH to include .local/bin and npm global
+RUN echo 'export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"' >> /home/claude/.bashrc
+RUN echo 'export NPM_CONFIG_PREFIX="$HOME/.npm-global"' >> /home/claude/.bashrc
+
+# Configure npm for the claude user if proxy URL is provided
+RUN if [ -n "$NPM_REGISTRY" ]; then \
+        echo "registry=${NPM_REGISTRY}" > /home/claude/.npmrc && \
+        echo "prefix=/home/claude/.npm-global" >> /home/claude/.npmrc && \
+        chown claude:claude /home/claude/.npmrc && \
+        echo "✓ Configured npm for claude user" ; \
+    else \
+        echo "prefix=/home/claude/.npm-global" > /home/claude/.npmrc && \
+        chown claude:claude /home/claude/.npmrc ; \
+    fi
+
+# Switch to claude user to install Claude Code in user directory
+USER claude
+ENV NPM_CONFIG_PREFIX=/home/claude/.npm-global
+ENV PATH="/home/claude/.npm-global/bin:${PATH}"
+
+# Install Claude Code as claude user
 RUN npm install -g @anthropic-ai/claude-code
 
 # Verify Claude Code installation
 RUN which claude || (echo "Claude Code installation failed" && exit 1)
 
-# Create a directory for user configuration
-RUN mkdir -p /root/.config/claude-code
+# Switch back to root for remaining setup
+USER root
+
+# Configure pip for the claude user if proxy URL is provided
+RUN if [ -n "$PIP_INDEX_URL" ]; then \
+        mkdir -p /home/claude/.config/pip && \
+        echo "[global]" > /home/claude/.config/pip/pip.conf && \
+        echo "index-url = ${PIP_INDEX_URL}" >> /home/claude/.config/pip/pip.conf && \
+        echo "trusted-host = ${PIP_TRUSTED_HOST}" >> /home/claude/.config/pip/pip.conf && \
+        chown -R claude:claude /home/claude/.config/pip && \
+        echo "✓ Configured pip for claude user" ; \
+    fi
 
 # LANGUAGE_INSTALLATIONS_PLACEHOLDER
 
@@ -102,12 +139,6 @@ ARG NEXUS_APT_URL
 # Copy entrypoint script
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
-
-# Create a non-root user to run Claude Code
-RUN useradd -ms /bin/bash claude
-RUN mkdir -p /home/claude/.config/claude-code
-RUN mkdir -p /home/claude/workspace
-RUN chown -R claude:claude /home/claude/
 
 # Set up user's PATH to include .local/bin
 RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> /home/claude/.bashrc
@@ -134,6 +165,10 @@ ENV PIP_INDEX_URL=${PIP_INDEX_URL}
 ENV PIP_TRUSTED_HOST=${PIP_TRUSTED_HOST}
 ENV NPM_CONFIG_REGISTRY=${NPM_REGISTRY}
 ENV GOPROXY=${GOPROXY}
+
+# Ensure npm paths are available for all users
+ENV NPM_CONFIG_PREFIX=/home/claude/.npm-global
+ENV PATH="/home/claude/.npm-global/bin:${PATH}"
 
 # Switch to the claude user for runtime (but not for entrypoint)
 USER claude
