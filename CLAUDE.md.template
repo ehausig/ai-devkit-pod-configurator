@@ -157,6 +157,17 @@ How to run tests
 - Do not attempt to access the host file system outside the container
 - If a task requires access outside ~, explain the limitation and suggest alternatives
 
+### Claude Code Permissions
+This environment includes pre-configured permissions in `~/workspace/.claude/settings.local.json` that:
+- **Allow** operations within `~/workspace/` (creating, editing, running code)
+- **Allow** git and GitHub CLI operations
+- **Allow** package manager operations (npm, pip, cargo, etc.)
+- **Deny** destructive operations outside workspace
+- **Deny** system modifications requiring sudo
+- **Deny** access to sensitive credential files
+
+To view or modify permissions: `cat ~/workspace/.claude/settings.local.json`
+
 ### General Security Practices
 - Never commit sensitive information (API keys, passwords, tokens)
 - Use environment variables for configuration secrets

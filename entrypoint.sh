@@ -38,16 +38,19 @@ mkdir -p /home/claude/.gradle
 # Create .claude directory for global Claude configuration
 mkdir -p /home/claude/.claude
 
+# Create .claude directory in workspace for project-specific settings
+mkdir -p /home/claude/workspace/.claude
+
 # Copy settings.local.json from template if it doesn't exist
 echo "Checking for settings.local.json..."
 if [ -f /tmp/settings.local.json.template ]; then
     echo "Found /tmp/settings.local.json.template"
-    if [ ! -f /home/claude/.claude/settings.local.json ]; then
-        echo "Copying settings.local.json to .claude folder..."
-        cp /tmp/settings.local.json.template /home/claude/.claude/settings.local.json
-        echo "settings.local.json copied successfully to /home/claude/.claude/"
+    if [ ! -f /home/claude/workspace/.claude/settings.local.json ]; then
+        echo "Copying settings.local.json to workspace/.claude folder..."
+        cp /tmp/settings.local.json.template /home/claude/workspace/.claude/settings.local.json
+        echo "settings.local.json copied successfully to /home/claude/workspace/.claude/"
     else
-        echo "settings.local.json already exists in .claude folder"
+        echo "settings.local.json already exists in workspace/.claude folder"
     fi
 else
     echo "No /tmp/settings.local.json.template found in image"
