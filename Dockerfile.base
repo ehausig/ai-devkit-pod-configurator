@@ -88,6 +88,7 @@ RUN if [ -n "$NPM_REGISTRY" ]; then \
 RUN useradd -ms /bin/bash claude
 RUN mkdir -p /home/claude/.config/claude-code
 RUN mkdir -p /home/claude/workspace
+RUN mkdir -p /home/claude/.claude
 RUN mkdir -p /home/claude/.npm-global
 RUN chown -R claude:claude /home/claude/
 

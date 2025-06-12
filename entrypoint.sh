@@ -35,16 +35,19 @@ mkdir -p /home/claude/.sbt
 # Create .gradle directory for Gradle if it doesn't exist
 mkdir -p /home/claude/.gradle
 
-# Copy CLAUDE.md to workspace if it exists in the image but not in the mounted volume
+# Create .claude directory for global Claude configuration
+mkdir -p /home/claude/.claude
+
+# Copy CLAUDE.md to .claude folder if it exists in the image but not in the mounted volume
 echo "Checking for CLAUDE.md..."
 if [ -f /tmp/CLAUDE.md ]; then
     echo "Found /tmp/CLAUDE.md"
-    if [ ! -f /home/claude/workspace/CLAUDE.md ]; then
-        echo "Copying CLAUDE.md to workspace..."
-        cp /tmp/CLAUDE.md /home/claude/workspace/CLAUDE.md
-        echo "CLAUDE.md copied successfully"
+    if [ ! -f /home/claude/.claude/CLAUDE.md ]; then
+        echo "Copying CLAUDE.md to .claude folder..."
+        cp /tmp/CLAUDE.md /home/claude/.claude/CLAUDE.md
+        echo "CLAUDE.md copied successfully to /home/claude/.claude/"
     else
-        echo "CLAUDE.md already exists in workspace"
+        echo "CLAUDE.md already exists in .claude folder"
     fi
 else
     echo "No /tmp/CLAUDE.md found in image"
@@ -52,6 +55,7 @@ fi
 
 # Ensure the claude user owns their directories
 # Use || true to prevent script from exiting on chown errors for read-only mounts
+chown -R claude:claude /home/claude/.claude 2>/dev/null || true
 chown -R claude:claude /home/claude/workspace 2>/dev/null || true
 chown -R claude:claude /home/claude/.config/claude-code 2>/dev/null || true
 chown -R claude:claude /home/claude/.local 2>/dev/null || true
