@@ -1002,7 +1002,6 @@ generate_claude_md() {
     echo "- Node.js 20.18.0" >> "$claude_output"
     echo "- npm (latest)" >> "$claude_output"
     echo "- Git" >> "$claude_output"
-    echo "- Python 3 (system)" >> "$claude_output"
     echo "- Claude Code (@anthropic-ai/claude-code)" >> "$claude_output"
     
     # Track which display groups we've shown

@@ -176,11 +176,11 @@ if [ -n "$PS1" ] && [ -z "$CLAUDE_WELCOME_SHOWN" ]; then
     echo "  • claude --help    - Show available commands"
     echo ""
     if [ -f ~/.claude/CLAUDE.md ]; then
-        # Count installed tools
-        TOOL_COUNT=$(grep -E "^- " ~/.claude/CLAUDE.md 2>/dev/null | wc -l)
-        if [ $TOOL_COUNT -gt 5 ]; then
+        # Count installed tools only in the "Installed Development Environment" section
+        TOOL_COUNT=$(sed -n '/## Installed Development Environment/,/^##[^#]/p' ~/.claude/CLAUDE.md 2>/dev/null | grep -E "^- " | wc -l)
+        if [ $TOOL_COUNT -gt 0 ]; then
             echo "Environment: $TOOL_COUNT development tools installed"
-            echo "  • cat ~/.claude/CLAUDE.md - View installed tools & guidelines"
+            echo "  • cat ~/.claude/CLAUDE.md - View full configuration & guidelines"
             echo ""
         fi
     fi
