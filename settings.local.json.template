@@ -3,7 +3,7 @@
     "allow": [
       "Bash(git:*)",
       "Bash(gh:*)",
-      "Bash(mkdir:~/workspace/*)",
+      "Bash(mkdir:*)",
       "Bash(touch:~/workspace/*)",
       "Bash(cp:~/workspace/*)",
       "Bash(mv:~/workspace/*)",
@@ -29,6 +29,7 @@
       "Bash(make:*)",
       "Bash(node:~/workspace/*)",
       "Bash(python:~/workspace/*)",
+      "Bash(python test:*)",
       "Bash(ruby:~/workspace/*)",
       "Bash(java:~/workspace/*)",
       "Bash(curl:*)",
