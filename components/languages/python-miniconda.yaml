@@ -1,0 +1,33 @@
+id: PYTHON_MINICONDA
+name: Python (Miniconda)
+group: python-version
+requires: []
+description: Python distribution with conda package manager
+installation:
+  dockerfile: |
+    RUN ARCH=$(uname -m) && \
+        if [ "$ARCH" = "x86_64" ]; then \
+            MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh"; \
+        elif [ "$ARCH" = "aarch64" ]; then \
+            MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-aarch64.sh"; \
+        else \
+            echo "Unsupported architecture: $ARCH" && exit 1; \
+        fi && \
+        wget --quiet "$MINICONDA_URL" -O ~/miniconda.sh && \
+        /bin/bash ~/miniconda.sh -b -p /opt/conda && \
+        rm ~/miniconda.sh && \
+        /opt/conda/bin/conda clean -a -y && \
+        echo 'export PATH=/opt/conda/bin:$PATH' >> /etc/profile.d/conda.sh && \
+        echo 'if [ -f /opt/conda/bin/conda ]; then eval "$(/opt/conda/bin/conda shell.bash hook)"; fi' >> /etc/skel/.bashrc
+  nexus_config: |
+    if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then
+        echo "channels:" > /root/.condarc
+        echo "  - ${NEXUS_APT_URL}/repository/conda-forge-proxy/" >> /root/.condarc
+        echo "  - ${NEXUS_APT_URL}/repository/conda-proxy/" >> /root/.condarc
+        echo "ssl_verify: false" >> /root/.condarc
+        echo "channel_priority: strict" >> /root/.condarc
+        echo "show_channel_urls: true" >> /root/.condarc
+        echo "default_channels: []" >> /root/.condarc
+        cp /root/.condarc /opt/conda/.condarc
+    fi
+  test_command: conda --version

@@ -1,0 +1,18 @@
+id: SCALA_2_13
+name: Scala 2.13
+group: scala-version
+requires:
+  - java-version
+description: Scala 2.13 - Object-oriented and functional programming language
+version: "2.13.12"
+installation:
+  dockerfile: |
+    RUN export DEBIAN_FRONTEND=noninteractive && \
+        apt-get update && \
+        apt-get install -y wget && \
+        wget https://downloads.lightbend.com/scala/2.13.12/scala-2.13.12.deb && \
+        dpkg -i scala-2.13.12.deb && \
+        rm scala-2.13.12.deb && \
+        apt-get install -f -y && \
+        rm -rf /var/lib/apt/lists/*
+  test_command: scala -version

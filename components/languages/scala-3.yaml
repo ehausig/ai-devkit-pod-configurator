@@ -1,0 +1,20 @@
+id: SCALA_3
+name: Scala 3
+group: scala-version
+requires:
+  - java-version
+description: Scala 3 (Dotty) - Next generation of Scala
+version: "3.3.1"
+installation:
+  dockerfile: |
+    RUN export DEBIAN_FRONTEND=noninteractive && \
+        apt-get update && \
+        apt-get install -y wget unzip && \
+        rm -rf /var/lib/apt/lists/* && \
+        cd /tmp && \
+        wget https://github.com/lampepfl/dotty/releases/download/3.3.1/scala3-3.3.1.zip && \
+        unzip scala3-3.3.1.zip && \
+        mv scala3-3.3.1 /opt/scala3 && \
+        rm scala3-3.3.1.zip && \
+        echo 'export PATH=/opt/scala3/bin:$PATH' >> /etc/profile.d/scala3.sh
+  test_command: scala -version

@@ -1,0 +1,14 @@
+id: MAVEN
+name: Maven (Java build tool)
+group: build-tools
+requires:
+  - java-version
+description: Apache Maven - Build automation and dependency management for Java
+installation:
+  dockerfile: |
+    RUN export DEBIAN_FRONTEND=noninteractive && \
+        apt-get update && \
+        apt-get install -y maven && \
+        rm -rf /var/lib/apt/lists/* && \
+        mkdir -p /home/claude/.m2
+  test_command: mvn --version

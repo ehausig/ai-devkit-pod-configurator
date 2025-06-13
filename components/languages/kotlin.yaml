@@ -1,0 +1,20 @@
+id: KOTLIN
+name: Kotlin
+group: kotlin-version
+requires:
+  - java-version
+description: Modern programming language for JVM and Android development
+version: "1.9.22"
+installation:
+  dockerfile: |
+    RUN export DEBIAN_FRONTEND=noninteractive && \
+        apt-get update && \
+        apt-get install -y zip unzip && \
+        rm -rf /var/lib/apt/lists/* && \
+        cd /tmp && \
+        wget https://github.com/JetBrains/kotlin/releases/download/v1.9.22/kotlin-compiler-1.9.22.zip && \
+        unzip kotlin-compiler-1.9.22.zip && \
+        mv kotlinc /opt/kotlin && \
+        rm kotlin-compiler-1.9.22.zip && \
+        echo 'export PATH=/opt/kotlin/bin:$PATH' >> /etc/profile.d/kotlin.sh
+  test_command: kotlinc -version
