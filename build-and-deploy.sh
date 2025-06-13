@@ -1200,13 +1200,15 @@ main() {
     echo -e "To connect to the container, run:"
     echo -e "${YELLOW}kubectl exec -it -n ${NAMESPACE} ${POD_NAME} -c claude-code -- su - claude${NC}"
     echo -e "\nOnce connected, you can start Claude Code with:"
-    echo -e "${YELLOW}cd workspace${NC}"
     echo -e "${YELLOW}claude${NC}"
+}
+
+# Run main
+main "$@"
     
     log "\nCleaning up temporary files..."
-    # Temporarily disable cleanup for debugging
-    # rm -rf "$TEMP_DIR"
-    log "Debug: Temporary files preserved in $TEMP_DIR"
+    rm -rf "$TEMP_DIR"
+    success "Temporary files cleaned up"
 }
 
 # Run main

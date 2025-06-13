@@ -120,6 +120,9 @@ add_if_not_exists 'export CI=false' "$BASHRC"
 # Automatically cd to workspace on login
 add_if_not_exists 'cd ~/workspace 2>/dev/null || true' "$BASHRC"
 
+# Set a custom prompt
+add_if_not_exists 'export PS1="\[\033[01;32m\]claude@ai-devkit\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]$ "' "$BASHRC"
+
 # Source system-wide profile scripts
 if ! grep -q "Source system-wide profile scripts" "$BASHRC" 2>/dev/null; then
     cat >> "$BASHRC" << 'EOF'
