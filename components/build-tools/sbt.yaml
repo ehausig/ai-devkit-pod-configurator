@@ -15,16 +15,16 @@ installation:
         apt-get install -y sbt && \
         rm -rf /var/lib/apt/lists/*
   nexus_config: |
-    if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then
-        echo "deb ${NEXUS_APT_URL}/repository/sbt-apt-proxy/ /" | tee /etc/apt/sources.list.d/sbt.list
-        mkdir -p /etc/skel/.sbt
-        echo "[repositories]" > /etc/skel/.sbt/repositories
-        echo "local" >> /etc/skel/.sbt/repositories
-        echo "nexus: ${NEXUS_APT_URL}/repository/maven-public/" >> /etc/skel/.sbt/repositories
-        echo "" >> /etc/skel/.bashrc
-        echo "# Coursier configuration for Nexus" >> /etc/skel/.bashrc
-        echo "export COURSIER_REPOSITORIES=\"${NEXUS_APT_URL}/repository/maven-public/\"" >> /etc/skel/.bashrc
-        echo "# Force SBT to use only configured repositories" >> /etc/skel/.bashrc
-        echo "export SBT_OPTS=\"-Dsbt.override.build.repos=true\"" >> /etc/skel/.bashrc
+    if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
+        echo "deb ${NEXUS_APT_URL}/repository/sbt-apt-proxy/ /" | tee /etc/apt/sources.list.d/sbt.list && \
+        mkdir -p /etc/skel/.sbt && \
+        echo "[repositories]" > /etc/skel/.sbt/repositories && \
+        echo "local" >> /etc/skel/.sbt/repositories && \
+        echo "nexus: ${NEXUS_APT_URL}/repository/maven-public/" >> /etc/skel/.sbt/repositories && \
+        echo "" >> /etc/skel/.bashrc && \
+        echo "# Coursier configuration for Nexus" >> /etc/skel/.bashrc && \
+        echo "export COURSIER_REPOSITORIES=\"${NEXUS_APT_URL}/repository/maven-public/\"" >> /etc/skel/.bashrc && \
+        echo "# Force SBT to use only configured repositories" >> /etc/skel/.bashrc && \
+        echo "export SBT_OPTS=\"-Dsbt.override.build.repos=true\"" >> /etc/skel/.bashrc; \
     fi
   test_command: sbt --version

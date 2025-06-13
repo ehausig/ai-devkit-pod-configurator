@@ -19,9 +19,9 @@ installation:
         echo 'export GEM_HOME="$HOME/.bundle"' >> /etc/skel/.bashrc && \
         echo 'export PATH="$HOME/.local/bin:$HOME/.bundle/bin:$PATH"' >> /etc/skel/.bashrc
   nexus_config: |
-    if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then
-        gem sources --remove https://rubygems.org/
-        gem sources --add ${NEXUS_APT_URL}/repository/rubygems-proxy/
-        echo "gem: --source ${NEXUS_APT_URL}/repository/rubygems-proxy/" > /etc/skel/.gemrc
+    if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
+        gem sources --remove https://rubygems.org/ && \
+        gem sources --add ${NEXUS_APT_URL}/repository/rubygems-proxy/ && \
+        echo "gem: --source ${NEXUS_APT_URL}/repository/rubygems-proxy/" > /etc/skel/.gemrc; \
     fi
   test_command: ruby --version

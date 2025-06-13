@@ -20,14 +20,14 @@ installation:
         echo 'export PATH=/opt/conda/bin:$PATH' >> /etc/profile.d/conda.sh && \
         echo 'if [ -f /opt/conda/bin/conda ]; then eval "$(/opt/conda/bin/conda shell.bash hook)"; fi' >> /etc/skel/.bashrc
   nexus_config: |
-    if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then
-        echo "channels:" > /root/.condarc
-        echo "  - ${NEXUS_APT_URL}/repository/conda-forge-proxy/" >> /root/.condarc
-        echo "  - ${NEXUS_APT_URL}/repository/conda-proxy/" >> /root/.condarc
-        echo "ssl_verify: false" >> /root/.condarc
-        echo "channel_priority: strict" >> /root/.condarc
-        echo "show_channel_urls: true" >> /root/.condarc
-        echo "default_channels: []" >> /root/.condarc
-        cp /root/.condarc /opt/conda/.condarc
+    if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
+        echo "channels:" > /root/.condarc && \
+        echo "  - ${NEXUS_APT_URL}/repository/conda-forge-proxy/" >> /root/.condarc && \
+        echo "  - ${NEXUS_APT_URL}/repository/conda-proxy/" >> /root/.condarc && \
+        echo "ssl_verify: false" >> /root/.condarc && \
+        echo "channel_priority: strict" >> /root/.condarc && \
+        echo "show_channel_urls: true" >> /root/.condarc && \
+        echo "default_channels: []" >> /root/.condarc && \
+        cp /root/.condarc /opt/conda/.condarc; \
     fi
   test_command: conda --version

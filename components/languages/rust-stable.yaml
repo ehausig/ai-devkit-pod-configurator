@@ -14,12 +14,12 @@ installation:
         ln -s /opt/rust/bin/* /usr/local/bin/ && \
         /opt/rust/bin/rustup default stable
   nexus_config: |
-    if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then
-        mkdir -p /etc/skel/.cargo
-        echo '[source.crates-io]' > /etc/skel/.cargo/config.toml
-        echo 'replace-with = "nexus"' >> /etc/skel/.cargo/config.toml
-        echo '' >> /etc/skel/.cargo/config.toml
-        echo '[source.nexus]' >> /etc/skel/.cargo/config.toml
-        echo "registry = \"sparse+${NEXUS_APT_URL}/repository/cargo-proxy/\"" >> /etc/skel/.cargo/config.toml
+    if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
+        mkdir -p /etc/skel/.cargo && \
+        echo '[source.crates-io]' > /etc/skel/.cargo/config.toml && \
+        echo 'replace-with = "nexus"' >> /etc/skel/.cargo/config.toml && \
+        echo '' >> /etc/skel/.cargo/config.toml && \
+        echo '[source.nexus]' >> /etc/skel/.cargo/config.toml && \
+        echo "registry = \"sparse+${NEXUS_APT_URL}/repository/cargo-proxy/\"" >> /etc/skel/.cargo/config.toml; \
     fi
   test_command: rustc --version

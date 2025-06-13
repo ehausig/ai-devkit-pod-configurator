@@ -18,8 +18,8 @@ installation:
         mv /opt/gradle-${GRADLE_VERSION} /opt/gradle && \
         echo 'export PATH=/opt/gradle/bin:$PATH' >> /etc/profile.d/gradle.sh
   nexus_config: |
-    if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then
-        mkdir -p /etc/skel/.gradle
+    if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
+        mkdir -p /etc/skel/.gradle && \
         cat > /etc/skel/.gradle/init.gradle << 'EOF'
     allprojects {
         repositories {
