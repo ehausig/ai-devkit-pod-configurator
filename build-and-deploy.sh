@@ -566,7 +566,7 @@ select_languages() {
             clear
             
             # Center and style the title
-            local title="Claude Code Dev Kit Builder"
+            local title="Container Configurator"
             local title_len=${#title}
             local title_pos=$(( (term_width - title_len) / 2 ))
             
@@ -1098,7 +1098,7 @@ RUN chmod 644 /tmp/settings.local.json.template\
 
 # Main execution
 main() {
-    log "=== Building Claude Code Container for Kubernetes ==="
+    log "=== Starting Container Configurator ==="
     
     check_deps
     
@@ -1185,7 +1185,7 @@ main() {
     POD_NAME=$(kubectl get pods -n ${NAMESPACE} -l app=claude-code -o jsonpath="{.items[0].metadata.name}")
     
     success "=== Deployment Complete ==="
-    echo -e "Claude Code is now running in container: ${YELLOW}${POD_NAME}${NC}"
+    echo -e "Your AI Dev Build is now running in container: ${YELLOW}${POD_NAME}${NC}"
     
     [[ "$NEXUS_AVAILABLE" = true ]] && success "✓ Container is configured to use Nexus proxy"
     
@@ -1196,19 +1196,11 @@ main() {
     echo -e "Then open: ${BLUE}http://localhost:8090${NC}"
     echo -e "Default credentials: ${YELLOW}admin / admin${NC} (change after first login!)"
     
-    info "\nClaude Code Access:"
+    info "\nContainer Access:"
     echo -e "To connect to the container, run:"
     echo -e "${YELLOW}kubectl exec -it -n ${NAMESPACE} ${POD_NAME} -c claude-code -- su - claude${NC}"
     echo -e "\nOnce connected, you can start Claude Code with:"
     echo -e "${YELLOW}claude${NC}"
-}
-
-# Run main
-main "$@"
-    
-    log "\nCleaning up temporary files..."
-    rm -rf "$TEMP_DIR"
-    success "Temporary files cleaned up"
 }
 
 # Run main
