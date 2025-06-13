@@ -110,8 +110,8 @@ select_languages() {
                 local prev_display_group=""
                 if [[ "${groups[$((idx-1))]}" == *"-version" ]]; then
                     prev_display_group="Languages"
-                elif [[ "${groups[$((idx-1))]}" == "dev-tools" ]]; then
-                    prev_display_group="Dev Tools"
+                elif [[ "${groups[$((idx-1))]}" == "build-tools" ]]; then
+                    prev_display_group="Build Tools"
                 else
                     prev_display_group="${groups[$((idx-1))]}"
                 fi
@@ -321,12 +321,12 @@ select_languages() {
         for ((idx=start_idx; idx<end_idx; idx++)); do
             [[ $display_row -ge $((content_height + 5)) ]] && break
             
-            # Determine the display group (Languages or Dev Tools)
+            # Determine the display group (Languages or Build Tools)
             local display_group=""
             if [[ "${groups[$idx]}" == *"-version" ]]; then
                 display_group="Languages"
-            elif [[ "${groups[$idx]}" == "dev-tools" ]]; then
-                display_group="Dev Tools"
+            elif [[ "${groups[$idx]}" == "build-tools" ]]; then
+                display_group="Build Tools"
             else
                 display_group="${groups[$idx]}"
             fi
@@ -490,8 +490,8 @@ select_languages() {
                 # First determine what the display group should be for this group_type
                 if [[ "$group_type" == *"-version" ]]; then
                     current_display_group="Languages"
-                elif [[ "$group_type" == "dev-tools" ]]; then
-                    current_display_group="Dev Tools"
+                elif [[ "$group_type" == "build-tools" ]]; then
+                    current_display_group="Build Tools"
                 else
                     current_display_group="$group_type"
                 fi
@@ -506,8 +506,8 @@ select_languages() {
                     local prev_display_group=""
                     if [[ "$prev_type" == *"-version" ]]; then
                         prev_display_group="Languages"
-                    elif [[ "$prev_type" == "dev-tools" ]]; then
-                        prev_display_group="Dev Tools"
+                    elif [[ "$prev_type" == "build-tools" ]]; then
+                        prev_display_group="Build Tools"
                     else
                         prev_display_group="$prev_type"
                     fi
@@ -566,7 +566,7 @@ select_languages() {
             clear
             
             # Center and style the title
-            local title="Claude Code Dev Kit Builder"
+            local title="Container Configurator"
             local title_len=${#title}
             local title_pos=$(( (term_width - title_len) / 2 ))
             
@@ -632,8 +632,8 @@ select_languages() {
                         local display_group=""
                         if [[ "${groups[$idx]}" == *"-version" ]]; then
                             display_group="Languages"
-                        elif [[ "${groups[$idx]}" == "dev-tools" ]]; then
-                            display_group="Dev Tools"
+                        elif [[ "${groups[$idx]}" == "build-tools" ]]; then
+                            display_group="Build Tools"
                         else
                             display_group="${groups[$idx]}"
                         fi
@@ -915,8 +915,8 @@ select_languages() {
             # Determine display group
             if [[ "$group_type" == *"-version" ]]; then
                 display_group="Languages"
-            elif [[ "$group_type" == "dev-tools" ]]; then
-                display_group="Dev Tools"
+            elif [[ "$group_type" == "build-tools" ]]; then
+                display_group="Build Tools"
             else
                 display_group="$group_type"
             fi
@@ -1017,8 +1017,8 @@ generate_claude_md() {
         local display_group=""
         if [[ "$group" == *"-version" ]]; then
             display_group="Programming Languages"
-        elif [[ "$group" == "dev-tools" ]]; then
-            display_group="Development Tools"
+        elif [[ "$group" == "build-tools" ]]; then
+            display_group="Build Tools"
         else
             display_group="Other Tools"
         fi
@@ -1098,7 +1098,7 @@ RUN chmod 644 /tmp/settings.local.json.template\
 
 # Main execution
 main() {
-    log "=== Building Claude Code Container for Kubernetes ==="
+    log "=== Starting Container Configurator ==="
     
     check_deps
     
@@ -1185,7 +1185,7 @@ main() {
     POD_NAME=$(kubectl get pods -n ${NAMESPACE} -l app=claude-code -o jsonpath="{.items[0].metadata.name}")
     
     success "=== Deployment Complete ==="
-    echo -e "Claude Code is now running in container: ${YELLOW}${POD_NAME}${NC}"
+    echo -e "Your AI Dev Build is now running in container: ${YELLOW}${POD_NAME}${NC}"
     
     [[ "$NEXUS_AVAILABLE" = true ]] && success "✓ Container is configured to use Nexus proxy"
     
@@ -1196,17 +1196,11 @@ main() {
     echo -e "Then open: ${BLUE}http://localhost:8090${NC}"
     echo -e "Default credentials: ${YELLOW}admin / admin${NC} (change after first login!)"
     
-    info "\nClaude Code Access:"
+    info "\nContainer Access:"
     echo -e "To connect to the container, run:"
     echo -e "${YELLOW}kubectl exec -it -n ${NAMESPACE} ${POD_NAME} -c claude-code -- su - claude${NC}"
     echo -e "\nOnce connected, you can start Claude Code with:"
-    echo -e "${YELLOW}cd workspace${NC}"
     echo -e "${YELLOW}claude${NC}"
-    
-    log "\nCleaning up temporary files..."
-    # Temporarily disable cleanup for debugging
-    # rm -rf "$TEMP_DIR"
-    log "Debug: Temporary files preserved in $TEMP_DIR"
 }
 
 # Run main

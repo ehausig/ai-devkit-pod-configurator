@@ -117,6 +117,12 @@ add_if_not_exists 'export TERM=xterm-256color' "$BASHRC"
 add_if_not_exists 'export FORCE_COLOR=1' "$BASHRC"
 add_if_not_exists 'export CI=false' "$BASHRC"
 
+# Automatically cd to workspace on login
+add_if_not_exists 'cd ~/workspace 2>/dev/null || true' "$BASHRC"
+
+# Set a custom prompt
+add_if_not_exists 'export PS1="\[\033[01;32m\]claude@ai-devkit\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]$ "' "$BASHRC"
+
 # Source system-wide profile scripts
 if ! grep -q "Source system-wide profile scripts" "$BASHRC" 2>/dev/null; then
     cat >> "$BASHRC" << 'EOF'
@@ -189,9 +195,9 @@ if [ -n "$PS1" ] && [ -z "$CLAUDE_WELCOME_SHOWN" ]; then
     echo "Welcome to Claude Code Development Kit! 🚀"
     echo ""
     echo "Quick Start:"
-    echo "  • cd workspace      - Navigate to your workspace"
     echo "  • claude           - Start Claude Code"
     echo "  • claude --help    - Show available commands"
+    echo "  • tree             - View directory structure"
     echo ""
     # Check if git is configured
     GIT_NAME=$(git config --global user.name 2>/dev/null || echo "")
