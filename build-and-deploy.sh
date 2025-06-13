@@ -110,8 +110,8 @@ select_languages() {
                 local prev_display_group=""
                 if [[ "${groups[$((idx-1))]}" == *"-version" ]]; then
                     prev_display_group="Languages"
-                elif [[ "${groups[$((idx-1))]}" == "dev-tools" ]]; then
-                    prev_display_group="Dev Tools"
+                elif [[ "${groups[$((idx-1))]}" == "build-tools" ]]; then
+                    prev_display_group="Build Tools"
                 else
                     prev_display_group="${groups[$((idx-1))]}"
                 fi
@@ -321,12 +321,12 @@ select_languages() {
         for ((idx=start_idx; idx<end_idx; idx++)); do
             [[ $display_row -ge $((content_height + 5)) ]] && break
             
-            # Determine the display group (Languages or Dev Tools)
+            # Determine the display group (Languages or Build Tools)
             local display_group=""
             if [[ "${groups[$idx]}" == *"-version" ]]; then
                 display_group="Languages"
-            elif [[ "${groups[$idx]}" == "dev-tools" ]]; then
-                display_group="Dev Tools"
+            elif [[ "${groups[$idx]}" == "build-tools" ]]; then
+                display_group="Build Tools"
             else
                 display_group="${groups[$idx]}"
             fi
@@ -490,8 +490,8 @@ select_languages() {
                 # First determine what the display group should be for this group_type
                 if [[ "$group_type" == *"-version" ]]; then
                     current_display_group="Languages"
-                elif [[ "$group_type" == "dev-tools" ]]; then
-                    current_display_group="Dev Tools"
+                elif [[ "$group_type" == "build-tools" ]]; then
+                    current_display_group="Build Tools"
                 else
                     current_display_group="$group_type"
                 fi
@@ -506,8 +506,8 @@ select_languages() {
                     local prev_display_group=""
                     if [[ "$prev_type" == *"-version" ]]; then
                         prev_display_group="Languages"
-                    elif [[ "$prev_type" == "dev-tools" ]]; then
-                        prev_display_group="Dev Tools"
+                    elif [[ "$prev_type" == "build-tools" ]]; then
+                        prev_display_group="Build Tools"
                     else
                         prev_display_group="$prev_type"
                     fi
@@ -632,8 +632,8 @@ select_languages() {
                         local display_group=""
                         if [[ "${groups[$idx]}" == *"-version" ]]; then
                             display_group="Languages"
-                        elif [[ "${groups[$idx]}" == "dev-tools" ]]; then
-                            display_group="Dev Tools"
+                        elif [[ "${groups[$idx]}" == "build-tools" ]]; then
+                            display_group="Build Tools"
                         else
                             display_group="${groups[$idx]}"
                         fi
@@ -915,8 +915,8 @@ select_languages() {
             # Determine display group
             if [[ "$group_type" == *"-version" ]]; then
                 display_group="Languages"
-            elif [[ "$group_type" == "dev-tools" ]]; then
-                display_group="Dev Tools"
+            elif [[ "$group_type" == "build-tools" ]]; then
+                display_group="Build Tools"
             else
                 display_group="$group_type"
             fi
@@ -1017,8 +1017,8 @@ generate_claude_md() {
         local display_group=""
         if [[ "$group" == *"-version" ]]; then
             display_group="Programming Languages"
-        elif [[ "$group" == "dev-tools" ]]; then
-            display_group="Development Tools"
+        elif [[ "$group" == "build-tools" ]]; then
+            display_group="Build Tools"
         else
             display_group="Other Tools"
         fi
