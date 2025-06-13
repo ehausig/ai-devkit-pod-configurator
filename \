@@ -933,6 +933,7 @@ declare -a SELECTED_GROUPS
 declare -a SELECTED_CATEGORIES
 
 # Function to extract installation commands from YAML files
+# Function to extract installation commands from YAML files
 extract_installation_from_yaml() {
     local yaml_file=$1
     local in_dockerfile=false
@@ -972,9 +973,11 @@ extract_installation_from_yaml() {
                 dockerfile_content+="$line"$'\n'
             fi
         elif [[ $in_nexus == true ]]; then
-            # For nexus content, preserve it as-is after removing YAML indent
+            # For nexus content, similar handling
             if [[ "$line" =~ ^"    " ]]; then
                 nexus_content+="${line:4}"$'\n'
+            else
+                nexus_content+="$line"$'\n'
             fi
         fi
     done < "$yaml_file"
@@ -982,9 +985,7 @@ extract_installation_from_yaml() {
     # Combine dockerfile and nexus content if applicable
     local full_content="$dockerfile_content"
     if [[ -n "$nexus_content" ]]; then
-        # The nexus_config should already be properly formatted in the YAML
-        # Just wrap it in RUN
-        full_content+=$'\n'"# Nexus configuration"$'\n'"RUN ${nexus_content}"
+        full_content+=$'\n'"# Nexus configuration"$'\n'"$nexus_content"
     fi
     
     echo -n "$full_content"

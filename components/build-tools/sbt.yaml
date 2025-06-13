@@ -1,8 +1,7 @@
 id: SBT
 name: SBT (Scala build tool)
 group: build-tools
-requires:
-  - java-version
+requires: java-version
 description: Simple Build Tool - Interactive build tool for Scala and Java
 installation:
   dockerfile: |

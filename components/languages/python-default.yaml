@@ -1,7 +1,7 @@
 id: PYTHON_DEFAULT
 name: Python 3.10 (Ubuntu Default)
 group: python-version
-requires: []
+requires: ""
 description: Ubuntu's default Python 3 installation
 installation:
   dockerfile: |

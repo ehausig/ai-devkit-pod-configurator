@@ -1,8 +1,7 @@
 id: GRADLE
 name: Gradle (Java build tool)
 group: build-tools
-requires:
-  - java-version
+requires: java-version
 description: Build automation tool for Java, Kotlin, and Groovy projects
 version: "8.5"
 installation:

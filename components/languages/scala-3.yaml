@@ -1,8 +1,7 @@
 id: SCALA_3
 name: Scala 3
 group: scala-version
-requires:
-  - java-version
+requires: java-version
 description: Scala 3 (Dotty) - Next generation of Scala
 version: "3.3.1"
 installation:

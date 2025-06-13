@@ -1,8 +1,7 @@
 id: KOTLIN
 name: Kotlin
 group: kotlin-version
-requires:
-  - java-version
+requires: java-version
 description: Modern programming language for JVM and Android development
 version: "1.9.22"
 installation:
