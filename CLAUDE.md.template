@@ -1,0 +1,326 @@
+# Universal Development Guidelines
+
+## Communication Style
+
+Please communicate in a conversational, helpful manner similar to Claude chat. Be clear and informative while maintaining a friendly tone. Provide context for decisions and explain complex concepts when needed.
+
+## Git Commit Conventions
+
+Follow the Conventional Commits specification (https://www.conventionalcommits.org/):
+
+```
+<type>(<scope>): <subject>
+
+<body>
+
+<footer>
+```
+
+### Allowed Types:
+- `feat`: New feature
+- `fix`: Bug fix
+- `docs`: Documentation only changes
+- `style`: Changes that don't affect code meaning (formatting, missing semicolons, etc.)
+- `refactor`: Code change that neither fixes a bug nor adds a feature
+- `perf`: Performance improvements
+- `test`: Adding or updating tests
+- `chore`: Changes to build process, auxiliary tools, or maintenance tasks
+- `ci`: Changes to CI configuration files and scripts
+- `build`: Changes affecting build system or external dependencies
+
+### Guidelines:
+- Subject line: max 50 characters, imperative mood ("add" not "added")
+- Body: wrap at 72 characters, explain what and why (not how)
+- Footer: reference issues, breaking changes with `BREAKING CHANGE:`
+- Scope is optional but encouraged when relevant
+
+### Examples:
+```
+feat(auth): add OAuth2 integration
+
+Implement OAuth2 flow for third-party authentication providers.
+Supports Google and GitHub initially.
+
+Closes #123
+```
+
+```
+fix: prevent race condition in data sync
+
+The synchronization logic now uses proper mutex locking to prevent
+concurrent writes to the shared data structure.
+```
+
+## Code Philosophy
+
+### General Principles
+- **Start Simple**: Write the simplest solution that works correctly
+- **Iterate Thoughtfully**: Only add abstractions when complexity demands it
+- **Be Idiomatic**: Follow the conventions and patterns of the language
+- **Clarity First**: Readable code is better than clever code
+
+### Development Approach
+- Use Test-Driven Development (TDD) when appropriate
+- Write tests for critical functionality and edge cases
+- Avoid premature optimization and over-engineering
+- Apply SOLID principles only when they add clear value
+
+### Code Quality
+- Use descriptive, meaningful variable and function names
+- Follow language-specific naming conventions
+- Add comments for complex algorithms or business logic
+- Keep functions focused and reasonably sized
+- Handle errors appropriately for the language and context
+
+## Project Structure
+
+### Workspace Organization
+- The `~/workspace` directory contains individual project folders
+- Each project should have its own subdirectory under `~/workspace`
+- Initialize git repositories at the project root level (e.g., `~/workspace/my-project/`), never directly in `~/workspace`
+- Follow language-specific conventions for internal project structure
+
+### Example Structure:
+```
+~/workspace/
+├── project-one/
+│   ├── .git/
+│   ├── README.md
+│   └── [language-specific structure]
+├── project-two/
+│   ├── .git/
+│   ├── README.md
+│   └── [language-specific structure]
+└── experiments/
+    └── [unversioned experimental code]
+```
+
+## Documentation Standards
+
+### README.md Template
+Create a README.md with the following initial structure:
+
+```markdown
+# Project Name
+
+Brief description of what this project does and why it exists.
+
+## Getting Started
+
+### Prerequisites
+- List any requirements
+
+### Installation
+\```bash
+# Installation commands
+\```
+
+### Usage
+\```bash
+# Basic usage examples
+\```
+
+## Development
+
+### Setup
+Steps for development environment setup
+
+### Testing
+How to run tests
+
+### Contributing
+<!-- Guidelines for contributing to the project -->
+
+## API Documentation
+<!-- API endpoint documentation -->
+
+## Deployment
+<!-- Deployment instructions and considerations -->
+
+## License
+
+[License type] - see LICENSE file for details
+```
+
+### Documentation Guidelines
+- Start with a minimal README and expand as the project matures
+- Document complex algorithms inline with clear comments
+- Use language-specific documentation formats (JSDoc, docstrings, etc.)
+- Rely on git commit messages as the changelog during development
+- Consider adding a formal CHANGELOG.md when approaching release
+
+## Security Considerations
+
+### File System Access
+- **Never** access or manipulate files outside of the claude user's home directory (~)
+- All file operations should be contained within ~/workspace or other subdirectories of ~
+- Do not attempt to access the host file system outside the container
+- If a task requires access outside ~, explain the limitation and suggest alternatives
+
+### Claude Code Permissions
+This environment includes pre-configured permissions in `~/workspace/.claude/settings.local.json` that:
+- **Allow** operations within `~/workspace/` (creating, editing, running code)
+- **Allow** git and GitHub CLI operations
+- **Allow** package manager operations (npm, pip, cargo, etc.)
+- **Deny** destructive operations outside workspace
+- **Deny** system modifications requiring sudo
+- **Deny** access to sensitive credential files
+
+To view or modify permissions: `cat ~/workspace/.claude/settings.local.json`
+
+### General Security Practices
+- Never commit sensitive information (API keys, passwords, tokens)
+- Use environment variables for configuration secrets
+- Validate and sanitize all user inputs
+- Follow OWASP guidelines for web applications
+- Keep dependencies updated for security patches
+
+## Dependency Management
+
+### Philosophy
+- **Start Minimal**: Only add dependencies that provide substantial value
+- **Security First**: Regularly audit dependencies for known vulnerabilities
+- **Version Stability**: Pin exact versions in lock files for reproducibility
+- **Regular Maintenance**: Update dependencies periodically, testing thoroughly
+- **License Compliance**: Ensure all dependencies are compatible with project license
+- **Prefer Standard**: Use language standard library when reasonable
+
+### Guidelines
+- Document why each dependency is needed
+- Evaluate the maintenance status of dependencies
+- Consider the size and complexity added by each dependency
+- Group dependency updates into logical commits
+
+## Code Review Preferences
+
+When reviewing code changes:
+- **Correctness**: Ensure the code does what it's supposed to do
+- **Readability**: Code should be clear and self-documenting
+- **Maintainability**: Consider future developers (including yourself)
+- **Testing**: Verify adequate test coverage for new functionality
+- **Security**: Look for potential vulnerabilities or unsafe practices
+- **Performance**: Flag obvious performance issues, but avoid premature optimization
+- **Conventions**: Ensure consistency with project standards
+
+Provide constructive feedback with specific suggestions for improvement.
+
+## Git Workflow
+
+### Branch Naming Convention
+Use descriptive branch names that align with the change type:
+- `feat/short-description` - New features
+- `fix/issue-number-description` - Bug fixes (e.g., `fix/123-login-error`)
+- `chore/description` - Maintenance tasks
+- `docs/description` - Documentation updates
+- `refactor/description` - Code refactoring
+- `test/description` - Test additions or updates
+
+### GitHub Repository Setup
+When creating repositories with Claude Code, configure them for efficient autonomous workflow:
+
+1. **Enable Auto-merge**: Allow PRs to be automatically merged when checks pass
+   ```bash
+   gh repo edit --enable-auto-merge
+   ```
+
+2. **Disable PR approval requirements** for personal/development repos:
+   ```bash
+   # Via GitHub UI: Settings → Branches → Edit protection rules
+   # Uncheck "Require pull request reviews before merging"
+   # Or set "Required approving reviews" to 0
+   ```
+
+3. **Alternative: Use direct commits** for trusted automation:
+   ```bash
+   # For solo projects, consider working directly on main
+   git checkout main
+   git add .
+   git commit -m "feat: add new feature"
+   git push
+   ```
+
+4. **For team projects**, consider:
+   - **Separate bot account**: Create a GitHub App or bot user for Claude's operations
+   - **CODEOWNERS file**: Assign automatic reviewers for different paths
+   - **Branch protection exceptions**: Allow certain users/apps to bypass rules
+
+### Recommended Solo Developer Workflow
+For maximum efficiency when working alone with Claude Code:
+```bash
+# 1. Create feature branch and make changes
+git checkout -b feat/new-feature
+# ... make changes ...
+git add .
+git commit -m "feat: implement new feature"
+
+# 2. Push and create PR with auto-merge
+git push -u origin feat/new-feature
+gh pr create --title "feat: implement new feature" --body "Description"
+gh pr merge --auto --squash --delete-branch
+
+# 3. Or for simpler flow, work directly on main
+git checkout main
+# ... make changes ...
+git commit -am "feat: implement new feature"
+git push
+```
+
+### Pull Request Template
+When creating PRs, include:
+```markdown
+## Description
+Brief description of changes
+
+## Type of Change
+- [ ] Bug fix (non-breaking change fixing an issue)
+- [ ] New feature (non-breaking change adding functionality)
+- [ ] Breaking change (fix or feature causing existing functionality to change)
+- [ ] Documentation update
+
+## Testing
+- [ ] Tests pass locally
+- [ ] Added new tests for new functionality
+- [ ] Existing tests updated as needed
+
+## Checklist
+- [ ] Code follows project style guidelines
+- [ ] Self-review completed
+- [ ] Comments added for complex logic
+- [ ] Documentation updated if needed
+
+## Related Issues
+Closes #(issue number)
+```
+
+### Automation Opportunities
+Claude Code can help automate:
+1. **Branch Creation**: `feat: add user authentication` → creates `feat/add-user-authentication`
+2. **Commit Messages**: Analyze changes and suggest conventional commit messages
+3. **PR Descriptions**: Generate PR description from commits and changes
+4. **Issue Linking**: Automatically reference issues based on branch names
+5. **Changelog Updates**: Generate entries from conventional commits
+6. **Auto-merge Setup**: Configure repos for efficient autonomous workflow
+
+Example automation workflow:
+```bash
+# Claude could help with commands like:
+# "create a new feature branch for adding user authentication"
+# "prepare a commit message for these changes"
+# "draft a PR description for this branch"
+# "setup this repo for auto-merge"
+# "merge this PR when checks pass"
+```
+
+For personal projects, consider asking Claude to:
+- "Enable auto-merge on this repository"
+- "Create and merge a PR for these changes"
+- "Setup branch protection with auto-merge enabled"
+
+## Language-Specific Configurations
+
+<!-- ENVIRONMENT_TOOLS_MARKER -->
+<!-- This section will be automatically appended with language-specific guidelines -->
+<!-- Do not edit below this line -->
+
+---
+*Note: Language-specific configurations and tooling preferences will be automatically appended below by the setup script.*

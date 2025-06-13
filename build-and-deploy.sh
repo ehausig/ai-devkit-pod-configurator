@@ -67,7 +67,7 @@ select_languages() {
     local term_height=$(tput lines)
     local catalog_width=$((term_width / 2 - 2))
     local cart_width=$((term_width / 2 - 2))
-    local content_height=$((term_height - 8))  # Leave room for header/footer
+    local content_height=$((term_height - 10))  # Adjusted for new header
     local catalog_page=0 cart_page=0
     
     # Calculate pagination properly by counting actual display rows
@@ -76,14 +76,24 @@ select_languages() {
     page_boundaries+=(0)  # First page starts at index 0
     
     local current_page_rows=0
-    local last_group_for_pagination=""
+    local last_display_group=""
     local page_start_idx=0
     
     for idx in "${!languages[@]}"; do
-        # Count group header row if this is a new group
-        if [[ "${groups[$idx]}" != "$last_group_for_pagination" ]]; then
+        # Determine the display group
+        local display_group=""
+        if [[ "${groups[$idx]}" == *"-version" ]]; then
+            display_group="Languages"
+        elif [[ "${groups[$idx]}" == "dev-tools" ]]; then
+            display_group="Dev Tools"
+        else
+            display_group="${groups[$idx]}"
+        fi
+        
+        # Count group header row if this is a new display group
+        if [[ "$display_group" != "$last_display_group" ]]; then
             ((current_page_rows++))
-            last_group_for_pagination="${groups[$idx]}"
+            last_display_group="$display_group"
         fi
         
         # Count the item row
@@ -96,10 +106,21 @@ select_languages() {
             current_page_rows=1  # Reset counter (this item will be first on new page)
             
             # Also need to count its group header if it's different from previous
-            if [[ $idx -gt 0 ]] && [[ "${groups[$idx]}" != "${groups[$((idx-1))]}" ]]; then
-                ((current_page_rows++))
+            if [[ $idx -gt 0 ]]; then
+                local prev_display_group=""
+                if [[ "${groups[$((idx-1))]}" == *"-version" ]]; then
+                    prev_display_group="Languages"
+                elif [[ "${groups[$((idx-1))]}" == "dev-tools" ]]; then
+                    prev_display_group="Dev Tools"
+                else
+                    prev_display_group="${groups[$((idx-1))]}"
+                fi
+                
+                if [[ "$display_group" != "$prev_display_group" ]]; then
+                    ((current_page_rows++))
+                fi
             fi
-            last_group_for_pagination="${groups[$idx]}"
+            last_display_group="$display_group"
         fi
     done
     
@@ -179,7 +200,7 @@ select_languages() {
             fi
             
             in_cart[$index]=true
-            [[ -z "$hint_message" ]] && hint_message="✓ Added ${display_names[$index]} to cart" && hint_timer=20
+            [[ -z "$hint_message" ]] && hint_message="✓ Added ${display_names[$index]} to stack" && hint_timer=20
         else
             in_cart[$index]=false
             
@@ -275,13 +296,13 @@ select_languages() {
             end_idx=${page_boundaries[$((catalog_page + 1))]}
         fi
         
-        local display_row=3
+        local display_row=5
         local last_group=""
         local first_visible_idx=-1
         local last_visible_idx=-1
         
         # Clear catalog area completely with explicit character-by-character clearing
-        for ((row=3; row<content_height+3; row++)); do
+        for ((row=5; row<content_height+5; row++)); do
             tput cup $row 0
             # Print left border
             printf "│"
@@ -294,37 +315,33 @@ select_languages() {
         done
         
         # Reset for actual rendering
-        display_row=3
+        display_row=5
         last_group=""
         
         for ((idx=start_idx; idx<end_idx; idx++)); do
-            [[ $display_row -ge $((content_height + 3)) ]] && break
+            [[ $display_row -ge $((content_height + 5)) ]] && break
             
-            # Group headers
-            if [[ "${groups[$idx]}" != "$last_group" ]]; then
+            # Determine the display group (Languages or Dev Tools)
+            local display_group=""
+            if [[ "${groups[$idx]}" == *"-version" ]]; then
+                display_group="Languages"
+            elif [[ "${groups[$idx]}" == "dev-tools" ]]; then
+                display_group="Dev Tools"
+            else
+                display_group="${groups[$idx]}"
+            fi
+            
+            # Group headers - only show when display group changes
+            if [[ "$display_group" != "$last_group" ]]; then
                 tput cup $display_row 2
-                case "${groups[$idx]}" in
-                    "python-version") printf "%b%s%b" "${GREEN}" "Python Versions" "${NC}" ;;
-                    "python-tools") printf "%b%s%b" "${GREEN}" "Python Tools" "${NC}" ;;
-                    "java-version") printf "%b%s%b" "${GREEN}" "Java Versions" "${NC}" ;;
-                    "java-tools") printf "%b%s%b" "${GREEN}" "Java Build Tools" "${NC}" ;;
-                    "scala-version") printf "%b%s%b" "${GREEN}" "Scala Versions" "${NC}" ;;
-                    "rust-version") printf "%b%s%b" "${GREEN}" "Rust Versions" "${NC}" ;;
-                    "go-version") printf "%b%s%b" "${GREEN}" "Go Versions" "${NC}" ;;
-                    "ruby-version") printf "%b%s%b" "${GREEN}" "Ruby Versions" "${NC}" ;;
-                    "dotnet-version") printf "%b%s%b" "${GREEN}" ".NET Versions" "${NC}" ;;
-                    "php-version") printf "%b%s%b" "${GREEN}" "PHP Versions" "${NC}" ;;
-                    "php-tools") printf "%b%s%b" "${GREEN}" "PHP Tools" "${NC}" ;;
-                    "node-tools") printf "%b%s%b" "${GREEN}" "Node.js Tools" "${NC}" ;;
-                    "standalone") printf "%b%s%b" "${GREEN}" "Other Languages" "${NC}" ;;
-                esac
-                last_group="${groups[$idx]}"
+                printf "%b%s%b" "${GREEN}" "$display_group" "${NC}"
+                last_group="$display_group"
                 ((display_row++))
-                [[ $display_row -ge $((content_height + 3)) ]] && break
+                [[ $display_row -ge $((content_height + 5)) ]] && break
             fi
             
             # Only render if we still have room
-            if [[ $display_row -lt $((content_height + 3)) ]]; then
+            if [[ $display_row -lt $((content_height + 5)) ]]; then
                 # Track first and last visible items
                 [[ $first_visible_idx -eq -1 ]] && first_visible_idx=$idx
                 last_visible_idx=$idx
@@ -343,7 +360,7 @@ select_languages() {
                 
                 if [[ "${in_cart[$idx]}" == true ]]; then
                     printf "\033[0;32m✓\033[0m "
-                    status="(in cart)"
+                    status="(in stack)"
                     status_color="\033[0;32m"
                 elif [[ "${groups[$idx]}" == *"-version" ]] && has_group_in_cart "${groups[$idx]}"; then
                     printf "\033[0;31m○\033[0m "
@@ -392,7 +409,7 @@ select_languages() {
             local text_len=${#page_text}
             local center_pos=$(( (catalog_width - text_len - 4) / 2 ))
             
-            tput cup $((content_height + 3)) 0
+            tput cup $((content_height + 5)) 0
             printf "└"
             
             # Draw left side of border
@@ -417,7 +434,7 @@ select_languages() {
     
     # Function to render cart items
     render_cart() {
-        local display_row=3
+        local display_row=5
         local cart_items_array=()
         
         # Collect cart items
@@ -428,7 +445,7 @@ select_languages() {
         local cart_count=${#cart_items_array[@]}
         
         # Clear cart area only once
-        for ((row=3; row<content_height+3; row++)); do
+        for ((row=5; row<content_height+5; row++)); do
             tput cup $row $((catalog_width + 4))
             printf "%-$((cart_width-4))s" " "
         done
@@ -436,7 +453,7 @@ select_languages() {
         tput cup $display_row $((catalog_width + 4))
         
         if [[ $cart_count -eq 0 ]]; then
-            printf "%b%s%b" "${YELLOW}" "Cart is empty" "${NC}"
+            printf "%b%s%b" "${YELLOW}" "Build stack is empty" "${NC}"
             ((display_row++))
             tput cup $display_row $((catalog_width + 4))
             printf "Add items with SPACE"
@@ -444,32 +461,84 @@ select_languages() {
             printf "%b%d items selected:%b" "${GREEN}" "$cart_count" "${NC}"
             ((display_row++))
             
-            # Group cart items by type and display them
-            local group_order=("python-version" "python-tools" "java-version" "java-tools" "scala-version" "rust-version" "go-version" "ruby-version" "dotnet-version" "php-version" "php-tools" "node-tools" "standalone")
+            # Dynamically build group order from the order they appear in languages.conf
+            local group_order=()
+            local seen_groups=()
+            
+            # Collect unique groups in the order they appear
+            for idx in "${!groups[@]}"; do
+                local group="${groups[$idx]}"
+                local already_seen=false
+                for seen in "${seen_groups[@]}"; do
+                    if [[ "$seen" == "$group" ]]; then
+                        already_seen=true
+                        break
+                    fi
+                done
+                if [[ $already_seen == false ]]; then
+                    group_order+=("$group")
+                    seen_groups+=("$group")
+                fi
+            done
+            
             local cart_display_count=0
             
             for group_type in "${group_order[@]}"; do
                 local group_has_items=false
+                local current_display_group=""
+                
+                # First determine what the display group should be for this group_type
+                if [[ "$group_type" == *"-version" ]]; then
+                    current_display_group="Languages"
+                elif [[ "$group_type" == "dev-tools" ]]; then
+                    current_display_group="Dev Tools"
+                else
+                    current_display_group="$group_type"
+                fi
+                
+                # Check if we should show a header for this display group
+                local should_show_header=true
+                for prev_type in "${group_order[@]}"; do
+                    # Stop when we reach the current group
+                    [[ "$prev_type" == "$group_type" ]] && break
+                    
+                    # Check if any previous group had the same display group
+                    local prev_display_group=""
+                    if [[ "$prev_type" == *"-version" ]]; then
+                        prev_display_group="Languages"
+                    elif [[ "$prev_type" == "dev-tools" ]]; then
+                        prev_display_group="Dev Tools"
+                    else
+                        prev_display_group="$prev_type"
+                    fi
+                    
+                    # If we've already shown this display group header, skip it
+                    if [[ "$prev_display_group" == "$current_display_group" ]]; then
+                        # Check if that previous group actually had items in cart
+                        for idx in "${!in_cart[@]}"; do
+                            if [[ "${in_cart[$idx]}" == true ]] && [[ "${groups[$idx]}" == "$prev_type" ]]; then
+                                should_show_header=false
+                                break
+                            fi
+                        done
+                    fi
+                done
                 
                 for idx in "${!in_cart[@]}"; do
                     if [[ "${in_cart[$idx]}" == true ]] && [[ "${groups[$idx]}" == "$group_type" ]]; then
-                        # Only display group header once
-                        if [[ $group_has_items == false ]]; then
+                        # Only display group header once per display group
+                        if [[ $group_has_items == false ]] && [[ $should_show_header == true ]]; then
                             ((display_row++))
-                            if [[ $display_row -lt $((content_height + 3)) ]]; then
+                            if [[ $display_row -lt $((content_height + 5)) ]]; then
                                 tput cup $display_row $((catalog_width + 4))
-                                case "$group_type" in
-                                    *-version) printf "%b━ %s ━%b" "${BLUE}" "${group_type%-version}" "${NC}" ;;
-                                    *-tools) printf "%b━ %s tools ━%b" "${BLUE}" "${group_type%-tools}" "${NC}" ;;
-                                    *) printf "%b━ other ━%b" "${BLUE}" "${NC}" ;;
-                                esac
+                                printf "%b━ %s ━%b" "${BLUE}" "$current_display_group" "${NC}"
                                 ((display_row++))
                                 group_has_items=true
                             fi
                         fi
                         
                         # Display item if within view
-                        if [[ $display_row -lt $((content_height + 3)) ]]; then
+                        if [[ $display_row -lt $((content_height + 5)) ]]; then
                             tput cup $display_row $((catalog_width + 4))
                             
                             # Cursor
@@ -495,14 +564,30 @@ select_languages() {
         # Only clear screen on first draw
         if [[ $screen_initialized == false ]]; then
             clear
-            info "═══ Claude Code Language Selection ═══"
-            echo ""
-            draw_box 0 2 $catalog_width $((content_height + 2)) "Available Languages"
-            draw_box $((catalog_width + 2)) 2 $cart_width $((content_height + 2)) "Shopping Cart"
+            
+            # Center and style the title
+            local title="Claude Code Dev Kit Builder"
+            local title_len=${#title}
+            local title_pos=$(( (term_width - title_len) / 2 ))
+            
+            # Draw a nice header with the title
+            tput cup 0 0
+            for ((i=0; i<term_width; i++)); do echo -ne "${BLUE}━${NC}"; done
+            
+            tput cup 1 $title_pos
+            echo -ne "${YELLOW}${title}${NC}"
+            
+            tput cup 2 0
+            for ((i=0; i<term_width; i++)); do echo -ne "${BLUE}━${NC}"; done
+            
+            echo ""  # Move to line 3
+            draw_box 0 4 $catalog_width $((content_height + 2)) "Available Components"
+            draw_box $((catalog_width + 2)) 4 $cart_width $((content_height + 2)) "Build Stack"
             
             # Instructions
             tput cup $((term_height - 2)) 0
-            echo -e "${BLUE}─────────────────────────────────────────────────────────────────────────────${NC}"
+            # Draw line across full terminal width
+            for ((i=0; i<term_width; i++)); do echo -ne "${BLUE}─${NC}"; done
             
             screen_initialized=true
         fi
@@ -539,13 +624,23 @@ select_languages() {
                 # Function to calculate the actual screen row for an item index
                 get_screen_row_for_item() {
                     local target_idx=$1
-                    local row=3
-                    local prev_group=""
+                    local row=5
+                    local prev_display_group=""
                     
                     for ((idx=$catalog_first_visible; idx<=$catalog_last_visible && idx<=$target_idx; idx++)); do
-                        # Add row for group header if this is a new group
-                        if [[ "${groups[$idx]}" != "$prev_group" ]]; then
-                            prev_group="${groups[$idx]}"
+                        # Determine the display group
+                        local display_group=""
+                        if [[ "${groups[$idx]}" == *"-version" ]]; then
+                            display_group="Languages"
+                        elif [[ "${groups[$idx]}" == "dev-tools" ]]; then
+                            display_group="Dev Tools"
+                        else
+                            display_group="${groups[$idx]}"
+                        fi
+                        
+                        # Add row for group header if this is a new display group
+                        if [[ "$display_group" != "$prev_display_group" ]]; then
+                            prev_display_group="$display_group"
                             ((row++))
                         fi
                         # If this is our target, return the row
@@ -585,22 +680,22 @@ select_languages() {
             tput cup $((term_height - 1)) 0
             tput el  # Clear line
             if [[ $view == "catalog" ]]; then
-                echo -ne "${YELLOW}↑↓/jk:${NC} Navigate  ${YELLOW}←→/hl:${NC} Page  ${YELLOW}SPACE:${NC} Add to cart  ${YELLOW}TAB:${NC} Switch to cart  ${YELLOW}ENTER:${NC} Checkout  ${YELLOW}q:${NC} Cancel"
+                echo -ne "${YELLOW}↑↓/jk:${NC} Navigate  ${YELLOW}←→/hl:${NC} Page  ${YELLOW}SPACE:${NC} Add to stack  ${YELLOW}TAB:${NC} Switch to stack  ${YELLOW}ENTER:${NC} Build  ${YELLOW}q:${NC} Cancel"
             else
-                echo -ne "${YELLOW}↑↓/jk:${NC} Navigate  ${YELLOW}DEL/d:${NC} Remove  ${YELLOW}TAB:${NC} Switch to catalog  ${YELLOW}ENTER:${NC} Checkout  ${YELLOW}q:${NC} Cancel"
+                echo -ne "${YELLOW}↑↓/jk:${NC} Navigate  ${YELLOW}DEL/d:${NC} Remove  ${YELLOW}TAB:${NC} Switch to catalog  ${YELLOW}ENTER:${NC} Build  ${YELLOW}q:${NC} Cancel"
             fi
         fi
         
         # Display hint message
         if [[ $hint_timer -gt 0 ]]; then
-            tput cup 1 0
+            tput cup 3 0
             tput el
             local hint_pos=$(( (term_width - ${#hint_message}) / 2 ))
-            tput cup 1 $hint_pos
+            tput cup 3 $hint_pos
             echo -ne "${YELLOW}$hint_message${NC}"
             ((hint_timer--))
         elif [[ $hint_timer -eq 0 && -n "$hint_message" ]]; then
-            tput cup 1 0
+            tput cup 3 0
             tput el
             hint_message=""
         fi
@@ -759,28 +854,113 @@ select_languages() {
     stty echo
     clear
     
-    # Build final selections
-    SELECTED_INSTALLATIONS=""
-    success "Building container with:"
+    # Build final selections with consistent styling
+    local term_width=$(tput cols)
+    
+    # Draw header
+    tput cup 0 0
+    for ((i=0; i<term_width; i++)); do echo -ne "${BLUE}━${NC}"; done
+    
+    local title="Build Configuration Summary"
+    local title_len=${#title}
+    local title_pos=$(( (term_width - title_len) / 2 ))
+    tput cup 1 $title_pos
+    echo -ne "${YELLOW}${title}${NC}"
+    
+    tput cup 2 0
+    for ((i=0; i<term_width; i++)); do echo -ne "${BLUE}━${NC}"; done
+    
+    echo ""
     echo ""
     
-    local any_selected=false
-    local last_group=""
-    
-    for i in "${!languages[@]}"; do
-        if [[ "${in_cart[$i]}" == true ]]; then
-            [[ "${groups[$i]}" != "$last_group" ]] && echo "" && last_group="${groups[$i]}"
-            echo -e "  ✓ ${display_names[$i]}"
-            SELECTED_INSTALLATIONS+="\n${installations[$i]}\n"
-            any_selected=true
-        fi
+    # Count selections
+    local selection_count=0
+    for i in "${!in_cart[@]}"; do
+        [[ "${in_cart[$i]}" == true ]] && ((selection_count++))
     done
     
-    [[ $any_selected == false ]] && echo -e "  No additional languages (base image only)"
+    if [[ $selection_count -eq 0 ]]; then
+        echo -e "${YELLOW}No additional components selected (base image only)${NC}"
+    else
+        echo -e "${GREEN}Selected $selection_count components:${NC}"
+        echo ""
+        
+        # Group selections by type
+        SELECTED_INSTALLATIONS=""
+        SELECTED_LANGUAGES=()
+        SELECTED_DISPLAY_NAMES=()
+        SELECTED_GROUPS=()
+        local last_display_group=""
+        
+        # Build groups in same order as main menu
+        local group_order=()
+        local seen_groups=()
+        for idx in "${!groups[@]}"; do
+            local group="${groups[$idx]}"
+            local already_seen=false
+            for seen in "${seen_groups[@]}"; do
+                [[ "$seen" == "$group" ]] && already_seen=true && break
+            done
+            if [[ $already_seen == false ]]; then
+                group_order+=("$group")
+                seen_groups+=("$group")
+            fi
+        done
+        
+        # Display selected items grouped
+        for group_type in "${group_order[@]}"; do
+            local group_has_items=false
+            local display_group=""
+            
+            # Determine display group
+            if [[ "$group_type" == *"-version" ]]; then
+                display_group="Languages"
+            elif [[ "$group_type" == "dev-tools" ]]; then
+                display_group="Dev Tools"
+            else
+                display_group="$group_type"
+            fi
+            
+            # Check if we should show this group header
+            if [[ "$display_group" != "$last_display_group" ]]; then
+                # Check if this group has any selected items
+                for i in "${!languages[@]}"; do
+                    if [[ "${in_cart[$i]}" == true ]] && [[ "${groups[$i]}" == "$group_type" ]]; then
+                        group_has_items=true
+                        break
+                    fi
+                done
+                
+                if [[ $group_has_items == true ]]; then
+                    [[ -n "$last_display_group" ]] && echo ""
+                    echo -e "  ${BLUE}━ ${display_group} ━${NC}"
+                    last_display_group="$display_group"
+                fi
+            fi
+            
+            # Display items in this group
+            for i in "${!languages[@]}"; do
+                if [[ "${in_cart[$i]}" == true ]] && [[ "${groups[$i]}" == "$group_type" ]]; then
+                    echo -e "    ${GREEN}✓${NC} ${display_names[$i]}"
+                    SELECTED_INSTALLATIONS+="\n${installations[$i]}\n"
+                    # Store selections for CLAUDE.md generation
+                    SELECTED_LANGUAGES+=("${languages[$i]}")
+                    SELECTED_DISPLAY_NAMES+=("${display_names[$i]}")
+                    SELECTED_GROUPS+=("${groups[$i]}")
+                fi
+            done
+        done
+    fi
     
     echo ""
+    echo ""
+    
+    # Draw separator
+    for ((i=0; i<term_width; i++)); do echo -ne "${BLUE}─${NC}"; done
+    echo ""
+    
     log "Ready to build with this configuration?"
-    echo -n "Press ENTER to continue or 'q' to quit: "
+    echo -ne "Press ${GREEN}ENTER${NC} to continue or ${RED}'q'${NC} to quit: "
     read -r CONFIRM
     
     [[ "$CONFIRM" =~ ^[qQ]$ ]] && log "Build cancelled." && exit 0
@@ -789,11 +969,84 @@ select_languages() {
     set -e
 }
 
+# Global variables for selected items
+declare -a SELECTED_LANGUAGES
+declare -a SELECTED_DISPLAY_NAMES
+declare -a SELECTED_GROUPS
+
+# Function to generate CLAUDE.md from template and selections
+generate_claude_md() {
+    local claude_template="CLAUDE.md.template"
+    local claude_output="$TEMP_DIR/CLAUDE.md"
+    
+    # Check if template exists
+    if [[ ! -f "$claude_template" ]]; then
+        log "Warning: $claude_template not found, skipping CLAUDE.md generation"
+        return
+    fi
+    
+    log "Generating CLAUDE.md from template..."
+    
+    # Copy template up to marker
+    sed '/<!-- ENVIRONMENT_TOOLS_MARKER -->/q' "$claude_template" > "$claude_output"
+    
+    # Generate simple list of installed tools
+    echo "" >> "$claude_output"
+    echo "## Installed Development Environment" >> "$claude_output"
+    echo "" >> "$claude_output"
+    echo "This container includes the following tools and languages:" >> "$claude_output"
+    echo "" >> "$claude_output"
+    
+    # Always include base tools that are installed by default
+    echo "### Base Tools" >> "$claude_output"
+    echo "- Node.js 20.18.0" >> "$claude_output"
+    echo "- npm (latest)" >> "$claude_output"
+    echo "- Git" >> "$claude_output"
+    echo "- GitHub CLI (gh)" >> "$claude_output"
+    echo "- Claude Code (@anthropic-ai/claude-code)" >> "$claude_output"
+    
+    # Track which display groups we've shown
+    local last_display_group="Base Tools"
+    
+    # Process selected items
+    for i in "${!SELECTED_LANGUAGES[@]}"; do
+        local display_name="${SELECTED_DISPLAY_NAMES[$i]}"
+        local group="${SELECTED_GROUPS[$i]}"
+        
+        # Determine display group
+        local display_group=""
+        if [[ "$group" == *"-version" ]]; then
+            display_group="Programming Languages"
+        elif [[ "$group" == "dev-tools" ]]; then
+            display_group="Development Tools"
+        else
+            display_group="Other Tools"
+        fi
+        
+        # Show group header if it changed
+        if [[ "$display_group" != "$last_display_group" ]]; then
+            echo "" >> "$claude_output"
+            echo "### $display_group" >> "$claude_output"
+            last_display_group="$display_group"
+        fi
+        
+        # Simply list the tool
+        echo "- $display_name" >> "$claude_output"
+    done
+    
+    log "CLAUDE.md content generated"
+    log "Debug: CLAUDE.md exists at $claude_output: $([ -f "$claude_output" ] && echo "YES" || echo "NO")"
+    log "Debug: CLAUDE.md size: $([ -f "$claude_output" ] && wc -c < "$claude_output" || echo "0") bytes"
+    
+    success "Generated CLAUDE.md with environment information"
+}
+
 # Function to create custom Dockerfile
 create_custom_dockerfile() {
     mkdir -p "$TEMP_DIR"
     cp Dockerfile.base "$TEMP_DIR/Dockerfile"
     
+    # First, handle language installations
     if [[ -n "$SELECTED_INSTALLATIONS" ]]; then
         echo -e "$SELECTED_INSTALLATIONS" > "$TEMP_DIR/installations.txt"
         sed -i.bak "/# LANGUAGE_INSTALLATIONS_PLACEHOLDER/r $TEMP_DIR/installations.txt" "$TEMP_DIR/Dockerfile"
@@ -803,6 +1056,42 @@ create_custom_dockerfile() {
         sed -i.bak "/# LANGUAGE_INSTALLATIONS_PLACEHOLDER/d" "$TEMP_DIR/Dockerfile"
         rm -f "$TEMP_DIR/Dockerfile.bak"
     fi
+    
+    # Generate CLAUDE.md
+    if [[ ${#SELECTED_LANGUAGES[@]} -gt 0 ]]; then
+        generate_claude_md
+    else
+        log "No selections made, generating CLAUDE.md for base image"
+        # Initialize empty arrays so generate_claude_md works correctly
+        SELECTED_LANGUAGES=()
+        SELECTED_DISPLAY_NAMES=()
+        SELECTED_GROUPS=()
+        generate_claude_md
+    fi
+    
+    # Insert CLAUDE.md copy instruction BEFORE the VOLUME instruction
+    if [[ -f "$TEMP_DIR/CLAUDE.md" ]]; then
+        log "CLAUDE.md generated successfully, adding to Dockerfile"
+        # Find the line with VOLUME and insert before it
+        sed -i.bak '/^# Set up volume mount points/i\
+\
+# Copy CLAUDE.md configuration to temp location (will be copied to workspace at runtime)\
+COPY CLAUDE.md /tmp/CLAUDE.md\
+RUN chmod 644 /tmp/CLAUDE.md\
+' "$TEMP_DIR/Dockerfile"
+        rm -f "$TEMP_DIR/Dockerfile.bak"
+    else
+        log "Warning: CLAUDE.md was not generated"
+    fi
+    
+    # Always copy settings.local.json.template to the image
+    sed -i.bak '/^# Set up volume mount points/i\
+\
+# Copy settings.local.json template to temp location (will be copied to .claude at runtime)\
+COPY settings.local.json.template /tmp/settings.local.json.template\
+RUN chmod 644 /tmp/settings.local.json.template\
+' "$TEMP_DIR/Dockerfile"
+    rm -f "$TEMP_DIR/Dockerfile.bak"
 }
 
 # No longer need this function - deployment.yaml handles both scenarios
@@ -826,7 +1115,7 @@ main() {
     if check_nexus; then
         NEXUS_AVAILABLE=true
         export DOCKER_BUILDKIT=0
-        export NEXUS_BUILD_ARGS="--build-arg PIP_INDEX_URL=http://host.lima.internal:8081/repository/pypi-proxy/simple/ --build-arg PIP_TRUSTED_HOST=host.lima.internal --build-arg NPM_REGISTRY=http://host.lima.internal:8081/repository/npm-proxy/ --build-arg GOPROXY=http://host.lima.internal:8081/repository/go-proxy/ --build-arg USE_NEXUS_APT=true --build-arg NEXUS_APT_URL=http://host.lima.internal:8081"
+        export NEXUS_BUILD_ARGS="--build-arg PIP_INDEX_URL=http://host.lima.internal:8081/repository/pypi-proxy/simple --build-arg PIP_TRUSTED_HOST=host.lima.internal --build-arg NPM_REGISTRY=http://host.lima.internal:8081/repository/npm-proxy/ --build-arg GOPROXY=http://host.lima.internal:8081/repository/go-proxy/ --build-arg USE_NEXUS_APT=true --build-arg NEXUS_APT_URL=http://host.lima.internal:8081"
         success "Nexus proxy will be used for package downloads"
     else
         log "Nexus not detected, using default package repositories"
@@ -848,11 +1137,29 @@ main() {
     create_custom_dockerfile
     
     log "Building Docker image..."
-    if [[ -n "$NEXUS_BUILD_ARGS" ]]; then
-        success "Using Nexus proxy for package downloads"
-        docker build $NEXUS_BUILD_ARGS -t ${IMAGE_NAME}:${IMAGE_TAG} -f "$TEMP_DIR/Dockerfile" .
+    # Ensure CLAUDE.md and entrypoint.sh are in the build context
+    if [[ -f "$TEMP_DIR/CLAUDE.md" ]]; then
+        # Copy the current entrypoint.sh to ensure we have the latest version
+        cp entrypoint.sh "$TEMP_DIR/"
+        cp setup-git.sh "$TEMP_DIR/"
+        cp settings.local.json.template "$TEMP_DIR/"
+        cd "$TEMP_DIR"
+        log "Building from $TEMP_DIR with CLAUDE.md"
+        if [[ -n "$NEXUS_BUILD_ARGS" ]]; then
+            success "Using Nexus proxy for package downloads"
+            docker build $NEXUS_BUILD_ARGS -t ${IMAGE_NAME}:${IMAGE_TAG} .
+        else
+            docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
+        fi
+        cd ..
     else
-        docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f "$TEMP_DIR/Dockerfile" .
+        # Fallback to original build method
+        if [[ -n "$NEXUS_BUILD_ARGS" ]]; then
+            success "Using Nexus proxy for package downloads"
+            docker build $NEXUS_BUILD_ARGS -t ${IMAGE_NAME}:${IMAGE_TAG} -f "$TEMP_DIR/Dockerfile" .
+        else
+            docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f "$TEMP_DIR/Dockerfile" .
+        fi
     fi
     
     # Deploy
@@ -891,13 +1198,15 @@ main() {
     
     info "\nClaude Code Access:"
     echo -e "To connect to the container, run:"
-    echo -e "${YELLOW}kubectl exec -it -n ${NAMESPACE} ${POD_NAME} -- su - claude${NC}"
+    echo -e "${YELLOW}kubectl exec -it -n ${NAMESPACE} ${POD_NAME} -c claude-code -- su - claude${NC}"
     echo -e "\nOnce connected, you can start Claude Code with:"
     echo -e "${YELLOW}cd workspace${NC}"
     echo -e "${YELLOW}claude${NC}"
     
     log "\nCleaning up temporary files..."
-    rm -rf "$TEMP_DIR"
+    # Temporarily disable cleanup for debugging
+    # rm -rf "$TEMP_DIR"
+    log "Debug: Temporary files preserved in $TEMP_DIR"
 }
 
 # Run main

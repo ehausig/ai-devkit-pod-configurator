@@ -6,7 +6,7 @@ metadata:
 data:
   pip.conf: |
     [global]
-    index-url = http://host.lima.internal:8081/repository/pypi-proxy/simple/
+    index-url = http://host.lima.internal:8081/repository/pypi-proxy/simple
     trusted-host = host.lima.internal
   
   npmrc: |
@@ -17,7 +17,7 @@ data:
     replace-with = "nexus"
     
     [source.nexus]
-    registry = "sparse+http://host.lima.internal:8081/repository/cargo-crates-io/"
+    registry = "sparse+http://host.lima.internal:8081/repository/cargo-proxy/"
   
   settings.xml: |
     <?xml version="1.0" encoding="UTF-8"?>
@@ -32,41 +32,29 @@ data:
           <url>http://host.lima.internal:8081/repository/maven-public/</url>
         </mirror>
       </mirrors>
-      
-      <servers>
-        <server>
-          <id>nexus</id>
-          <username>admin</username>
-          <password>admin123</password>
-        </server>
-      </servers>
-      
-      <profiles>
-        <profile>
-          <id>nexus</id>
-          <repositories>
-            <repository>
-              <id>central</id>
-              <url>http://host.lima.internal:8081/repository/maven-public/</url>
-              <releases><enabled>true</enabled></releases>
-              <snapshots><enabled>true</enabled></snapshots>
-            </repository>
-          </repositories>
-          <pluginRepositories>
-            <pluginRepository>
-              <id>central</id>
-              <url>http://host.lima.internal:8081/repository/maven-public/</url>
-              <releases><enabled>true</enabled></releases>
-              <snapshots><enabled>true</enabled></snapshots>
-            </pluginRepository>
-          </pluginRepositories>
-        </profile>
-      </profiles>
-      
-      <activeProfiles>
-        <activeProfile>nexus</activeProfile>
-      </activeProfiles>
     </settings>
+  
+  repositories: |
+    [repositories]
+    local
+    nexus: http://host.lima.internal:8081/repository/maven-public/, allowInsecureProtocol
+  
+  condarc: |
+    channels:
+      - http://host.lima.internal:8081/repository/conda-forge-proxy/
+      - http://host.lima.internal:8081/repository/conda-proxy/
+    ssl_verify: false
+    channel_priority: strict
+    show_channel_urls: true
+    default_channels: []
+  
+  gradle.properties: |
+    systemProp.nexus.url=http://host.lima.internal:8081/repository/maven-public/
+  
+  gemrc: |
+    ---
+    :sources:
+    - http://host.lima.internal:8081/repository/rubygems-proxy/
 ---
 # Environment variables for Nexus configuration
 apiVersion: v1
@@ -75,14 +63,12 @@ metadata:
   name: nexus-env-config
   namespace: claude-code
 data:
-  PIP_INDEX_URL: "http://host.lima.internal:8081/repository/pypi-proxy/simple/"
+  PIP_INDEX_URL: "http://host.lima.internal:8081/repository/pypi-proxy/simple"
   PIP_TRUSTED_HOST: "host.lima.internal"
   NPM_CONFIG_REGISTRY: "http://host.lima.internal:8081/repository/npm-proxy/"
-  GOPROXY: "http://host.lima.internal:8081/repository/go-proxy/"
+  GOPROXY: "http://host.lima.internal:8081/repository/go-proxy/,direct"
   CARGO_NET_GIT_FETCH_WITH_CLI: "true"
   CARGO_HTTP_CHECK_REVOKE: "false"
   CARGO_HTTP_TIMEOUT: "60"
-  HTTP_PROXY: "http://host.lima.internal:8081"
-  HTTPS_PROXY: "http://host.lima.internal:8081"
   NO_PROXY: "localhost,127.0.0.1,.svc,.cluster.local"
   no_proxy: "localhost,127.0.0.1,.svc,.cluster.local"

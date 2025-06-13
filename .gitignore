@@ -22,6 +22,12 @@ Thumbs.db
 
 # Kubernetes generated files
 *.kubeconfig
+*.yaml.bak
 
 # Docker
 .dockerignore.local
+
+# Local test files
+test/
+tmp/
+

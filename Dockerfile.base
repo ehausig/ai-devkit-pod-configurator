@@ -18,17 +18,12 @@ ENV TARGETARCH=${TARGETARCH}
 # Configure APT to use Nexus if enabled
 RUN if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
         echo "Configuring APT to use Nexus proxy..." && \
-        # Backup original sources.list \
-        cp /etc/apt/sources.list /etc/apt/sources.list.backup && \
-        # Clear the sources.list \
-        echo "" > /etc/apt/sources.list && \
-        # Add Nexus repositories \
-        echo "deb ${NEXUS_APT_URL}/repository/ubuntu-main/ jammy main restricted universe multiverse" >> /etc/apt/sources.list && \
-        echo "deb ${NEXUS_APT_URL}/repository/ubuntu-updates/ jammy-updates main restricted universe multiverse" >> /etc/apt/sources.list && \
+        # Set APT proxy \
+        echo "Acquire::http::Proxy \"${NEXUS_APT_URL}/\";" > /etc/apt/apt.conf.d/00proxy && \
+        # Configure APT sources to use Nexus repositories \
+        echo "deb ${NEXUS_APT_URL}/repository/ubuntu-main/ jammy main restricted universe multiverse" > /etc/apt/sources.list && \
         echo "deb ${NEXUS_APT_URL}/repository/ubuntu-security/ jammy-security main restricted universe multiverse" >> /etc/apt/sources.list && \
-        # Since we're using HTTP, we need to allow insecure repositories \
-        echo 'Acquire::AllowInsecureRepositories "true";' > /etc/apt/apt.conf.d/99nexus && \
-        echo 'Acquire::AllowDowngradeToInsecureRepositories "true";' >> /etc/apt/apt.conf.d/99nexus && \
+        echo "deb ${NEXUS_APT_URL}/repository/ubuntu-updates/ jammy-updates main restricted universe multiverse" >> /etc/apt/sources.list && \
         echo "✓ Configured APT to use Nexus proxy" ; \
     fi
 
@@ -58,9 +53,19 @@ RUN apt-get update && apt-get install -y \
     pkg-config \
     libssl-dev \
     unzip \
+    xz-utils \
     --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# Install GitHub CLI (gh)
+RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | gpg --dearmor -o /usr/share/keyrings/githubcli-archive-keyring.gpg && \
+    chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null && \
+    apt-get update && \
+    apt-get install -y gh && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Remove any existing Node.js installation
 RUN apt-get update && \
@@ -70,20 +75,16 @@ RUN apt-get update && \
     rm -rf /usr/local/bin/node* && \
     rm -rf /usr/local/bin/npm*
 
-# Install the latest Node.js (Claude Code requires Node.js 18+)
-# NodeSource repos have issues with APT proxying, so we'll download directly
-RUN if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
-        # Download Node.js binary directly through Nexus raw proxy if available
-        echo "Downloading Node.js through Nexus..." && \
-        cd /tmp && \
-        wget ${NEXUS_APT_URL}/repository/nodejs-dist/v20.18.0/node-v20.18.0-linux-arm64.tar.xz && \
-        tar -xJf node-v20.18.0-linux-arm64.tar.xz -C /usr/local --strip-components=1 && \
-        rm node-v20.18.0-linux-arm64.tar.xz ; \
-    else \
-        # Use the standard NodeSource installation
-        curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
-        apt-get install -y nodejs ; \
-    fi && \
+# Install Node.js 20.x (Claude Code requires Node.js 18+)
+# Direct binary installation to avoid repository issues with proxy
+RUN export DEBIAN_FRONTEND=noninteractive && \
+    ARCH=$(dpkg --print-architecture) && \
+    NODE_ARCH=${ARCH} && \
+    if [ "${ARCH}" = "arm64" ]; then NODE_ARCH="arm64"; elif [ "${ARCH}" = "amd64" ]; then NODE_ARCH="x64"; fi && \
+    NODE_VERSION="v20.18.0" && \
+    wget -q https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz && \
+    tar -xJf node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz -C /usr/local --strip-components=1 && \
+    rm node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz && \
     npm install -g npm@latest
 
 # Configure npm if proxy URL is provided
@@ -92,14 +93,52 @@ RUN if [ -n "$NPM_REGISTRY" ]; then \
         echo "✓ Configured npm to use proxy" ; \
     fi
 
-# Install Claude Code globally
+# Create a non-root user to run Claude Code
+RUN useradd -ms /bin/bash claude
+RUN mkdir -p /home/claude/.config/claude-code
+RUN mkdir -p /home/claude/workspace
+RUN mkdir -p /home/claude/.claude
+RUN mkdir -p /home/claude/.npm-global
+RUN chown -R claude:claude /home/claude/
+
+# Set up user's PATH to include .local/bin and npm global
+RUN echo 'export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"' >> /home/claude/.bashrc
+RUN echo 'export NPM_CONFIG_PREFIX="$HOME/.npm-global"' >> /home/claude/.bashrc
+
+# Configure npm for the claude user if proxy URL is provided
+RUN if [ -n "$NPM_REGISTRY" ]; then \
+        echo "registry=${NPM_REGISTRY}" > /home/claude/.npmrc && \
+        echo "prefix=/home/claude/.npm-global" >> /home/claude/.npmrc && \
+        chown claude:claude /home/claude/.npmrc && \
+        echo "✓ Configured npm for claude user" ; \
+    else \
+        echo "prefix=/home/claude/.npm-global" > /home/claude/.npmrc && \
+        chown claude:claude /home/claude/.npmrc ; \
+    fi
+
+# Switch to claude user to install Claude Code in user directory
+USER claude
+ENV NPM_CONFIG_PREFIX=/home/claude/.npm-global
+ENV PATH="/home/claude/.npm-global/bin:${PATH}"
+
+# Install Claude Code as claude user
 RUN npm install -g @anthropic-ai/claude-code
 
 # Verify Claude Code installation
 RUN which claude || (echo "Claude Code installation failed" && exit 1)
 
-# Create a directory for user configuration
-RUN mkdir -p /root/.config/claude-code
+# Switch back to root for remaining setup
+USER root
+
+# Configure pip for the claude user if proxy URL is provided
+RUN if [ -n "$PIP_INDEX_URL" ]; then \
+        mkdir -p /home/claude/.config/pip && \
+        echo "[global]" > /home/claude/.config/pip/pip.conf && \
+        echo "index-url = ${PIP_INDEX_URL}" >> /home/claude/.config/pip/pip.conf && \
+        echo "trusted-host = ${PIP_TRUSTED_HOST}" >> /home/claude/.config/pip/pip.conf && \
+        chown -R claude:claude /home/claude/.config/pip && \
+        echo "✓ Configured pip for claude user" ; \
+    fi
 
 # LANGUAGE_INSTALLATIONS_PLACEHOLDER
 
@@ -111,10 +150,9 @@ ARG NEXUS_APT_URL
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Create a non-root user to run Claude Code
-RUN useradd -ms /bin/bash claude
-RUN mkdir -p /home/claude/.config/claude-code
-RUN chown -R claude:claude /home/claude/
+# Copy git setup script for user convenience
+COPY setup-git.sh /usr/local/bin/setup-git.sh
+RUN chmod +x /usr/local/bin/setup-git.sh
 
 # Set up user's PATH to include .local/bin
 RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> /home/claude/.bashrc
@@ -142,8 +180,9 @@ ENV PIP_TRUSTED_HOST=${PIP_TRUSTED_HOST}
 ENV NPM_CONFIG_REGISTRY=${NPM_REGISTRY}
 ENV GOPROXY=${GOPROXY}
 
-# Set up volume mount points for persistence
-VOLUME ["/home/claude/.config/claude-code", "/home/claude/workspace"]
+# Ensure npm paths are available for all users
+ENV NPM_CONFIG_PREFIX=/home/claude/.npm-global
+ENV PATH="/home/claude/.npm-global/bin:${PATH}"
 
 # Switch to the claude user for runtime (but not for entrypoint)
 USER claude
@@ -152,4 +191,6 @@ WORKDIR /home/claude
 # Switch back to root for the entrypoint
 USER root
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["bash"]
+
+# Set up volume mount points for persistence - MUST be last!
+VOLUME ["/home/claude/.config/claude-code", "/home/claude/workspace"]
