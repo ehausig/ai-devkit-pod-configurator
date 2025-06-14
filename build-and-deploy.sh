@@ -450,11 +450,8 @@ select_components() {
                     status="(in stack)"
                     status_color="\033[0;32m"
                 elif [[ "${groups[$idx]}" == *"-version" ]] && has_group_in_cart "${groups[$idx]}"; then
-                    printf "\033[0;31m○\033[0m "
+                    printf "\033[0;90m○\033[0m "
                     available=false
-                    local existing=$(get_group_cart_item "${groups[$idx]}")
-                    status="($existing selected)"
-                    status_color="\033[0;31m"
                 elif [[ -n "${requires[$idx]}" ]] && [[ "${requires[$idx]}" != "[]" ]] && ! requirements_met "${requires[$idx]}"; then
                     printf "\033[1;33m○\033[0m "
                     status="(needs ${requires[$idx]})"
@@ -467,7 +464,7 @@ select_components() {
                 if [[ $available == true || "${in_cart[$idx]}" == true ]]; then
                     printf "%s" "${names[$idx]}"
                 else
-                    printf "\033[0;31m%s\033[0m" "${names[$idx]}"
+                    printf "\033[0;90m%s\033[0m" "${names[$idx]}"
                 fi
                 
                 # Status
@@ -551,7 +548,7 @@ select_components() {
         for base_comp in "${base_components[@]}"; do
             if [[ $display_row -lt $((content_height + 5)) ]]; then
                 tput cup $display_row $((catalog_width + 4))
-                printf "  %b%s%b %b(included)%b" "${GRAY}" "$base_comp" "${NC}" "${GRAY}" "${NC}"
+                printf "  %s" "$base_comp"
                 ((display_row++))
             fi
         done
@@ -887,6 +884,16 @@ select_components() {
     echo ""
     echo ""
     
+    # Always show base components first
+    echo -e "${GREEN}Base Development Tools (included in all builds):${NC}"
+    echo ""
+    echo -e "  ${BLUE}━ Base Development Tools ━${NC}"
+    echo -e "    ${GREEN}✓${NC} Node.js 20.18.0"
+    echo -e "    ${GREEN}✓${NC} npm (latest)"
+    echo -e "    ${GREEN}✓${NC} Git"
+    echo -e "    ${GREEN}✓${NC} GitHub CLI (gh)"
+    echo -e "    ${GREEN}✓${NC} Claude Code (@anthropic-ai/claude-code)"
+    
     # Count selections
     local selection_count=0
     for i in "${!in_cart[@]}"; do
@@ -894,10 +901,11 @@ select_components() {
     done
     
     if [[ $selection_count -eq 0 ]]; then
-        echo -e "${YELLOW}No additional components selected (base image only)${NC}"
-    else
-        echo -e "${GREEN}Selected $selection_count components:${NC}"
         echo ""
+        echo -e "${YELLOW}No additional components selected${NC}"
+    else
+        echo ""
+        echo -e "${GREEN}Additional components selected: $selection_count${NC}"
         
         # Store selections
         SELECTED_YAML_FILES=()
