@@ -31,6 +31,9 @@ mkdir -p /home/claude/.m2
 
 # Create .sbt directory for SBT if it doesn't exist
 mkdir -p /home/claude/.sbt
+mkdir -p /home/claude/.sbt/0.13
+mkdir -p /home/claude/.sbt/1.0
+mkdir -p /home/claude/.sbt/boot
 
 # Create .gradle directory for Gradle if it doesn't exist
 mkdir -p /home/claude/.gradle
@@ -40,6 +43,38 @@ mkdir -p /home/claude/.claude
 
 # Create .claude directory in workspace for project-specific settings
 mkdir -p /home/claude/workspace/.claude
+
+# Handle git configuration from mounted secrets
+echo "Checking for pre-configured git settings..."
+GIT_CONFIGURED=false
+
+# Check if .gitconfig was mounted from secret
+if [ -f /tmp/git-mounted/.gitconfig ]; then
+    echo "Found mounted git configuration"
+    GIT_CONFIGURED=true
+    
+    # Copy to home directory with proper ownership
+    cp /tmp/git-mounted/.gitconfig /home/claude/.gitconfig
+    chown claude:claude /home/claude/.gitconfig
+    chmod 600 /home/claude/.gitconfig
+fi
+
+# Handle git credentials
+if [ -f /tmp/git-mounted/.git-credentials ]; then
+    echo "Found mounted git credentials"
+    cp /tmp/git-mounted/.git-credentials /home/claude/.git-credentials
+    chown claude:claude /home/claude/.git-credentials
+    chmod 600 /home/claude/.git-credentials
+fi
+
+# Handle GitHub CLI configuration
+if [ -f /tmp/git-mounted/gh-hosts.yml ]; then
+    echo "Found mounted GitHub CLI configuration"
+    mkdir -p /home/claude/.config/gh
+    cp /tmp/git-mounted/gh-hosts.yml /home/claude/.config/gh/hosts.yml
+    chown -R claude:claude /home/claude/.config/gh
+    chmod 600 /home/claude/.config/gh/hosts.yml
+fi
 
 # Copy settings.local.json from template if it doesn't exist
 echo "Checking for settings.local.json..."
@@ -71,6 +106,18 @@ else
     echo "No /tmp/CLAUDE.md found in image"
 fi
 
+# Handle SBT repositories file from ConfigMap mount
+if [ -f /home/claude/.sbt/repositories ]; then
+    # Check if it's a mount point (ConfigMap)
+    if mountpoint -q /home/claude/.sbt/repositories 2>/dev/null || [ ! -w /home/claude/.sbt/repositories ]; then
+        echo "Found mounted .sbt/repositories file, creating writable copy..."
+        # Copy to a different location
+        cp /home/claude/.sbt/repositories /home/claude/.sbt/repositories.writable
+        # Update the SBT_OPTS to use the writable copy
+        export SBT_OPTS="-Dsbt.override.build.repos=true -Dsbt.repository.config=/home/claude/.sbt/repositories.writable"
+    fi
+fi
+
 # Ensure the claude user owns their directories
 # Use || true to prevent script from exiting on chown errors for read-only mounts
 chown -R claude:claude /home/claude/.claude 2>/dev/null || true
@@ -85,9 +132,8 @@ fi
 if [ ! -f /home/claude/.m2/settings.xml ]; then
     chown -R claude:claude /home/claude/.m2 2>/dev/null || true
 fi
-if [ ! -f /home/claude/.sbt/repositories ]; then
-    chown -R claude:claude /home/claude/.sbt 2>/dev/null || true
-fi
+# Always ensure SBT directories are owned by claude user
+chown -R claude:claude /home/claude/.sbt 2>/dev/null || true
 if [ ! -f /home/claude/.gradle/gradle.properties ]; then
     chown -R claude:claude /home/claude/.gradle 2>/dev/null || true
 fi
@@ -204,6 +250,9 @@ if [ -n "$PS1" ] && [ -z "$CLAUDE_WELCOME_SHOWN" ]; then
     if [ -z "$GIT_NAME" ]; then
         echo "  ⚠️  Git not configured - run 'setup-git.sh' to configure"
         echo ""
+    else
+        echo "  ✓ Git configured as: $GIT_NAME"
+        echo ""
     fi
     if [ -f ~/.claude/CLAUDE.md ]; then
         # Count installed tools only in the "Installed Development Environment" section
@@ -248,7 +297,7 @@ if [ "$(id -u)" = "0" ]; then
                              export CARGO_NET_GIT_FETCH_WITH_CLI='$CARGO_NET_GIT_FETCH_WITH_CLI' && \
                              export NO_PROXY='$NO_PROXY' && \
                              export no_proxy='$no_proxy' && \
-                             export SBT_OPTS='-Dsbt.override.build.repos=true -Dsbt.repository.config=/home/claude/.sbt/repositories' && \
+                             export SBT_OPTS='${SBT_OPTS:-"-Dsbt.override.build.repos=true -Dsbt.repository.config=/home/claude/.sbt/repositories"}' && \
                              $*"
     fi
 else

@@ -1,0 +1,29 @@
+id: GO_1_21
+name: Go 1.21
+group: go-version
+requires: []
+description: Go programming language version 1.21
+version: "1.21.6"
+installation:
+  dockerfile: |
+    RUN ARCH=$(dpkg --print-architecture) && \
+        GO_ARCH=${ARCH} && \
+        if [ "${ARCH}" = "arm64" ]; then \
+            GO_ARCH="arm64"; \
+        elif [ "${ARCH}" = "amd64" ]; then \
+            GO_ARCH="amd64"; \
+        fi && \
+        wget -q https://go.dev/dl/go1.21.6.linux-${GO_ARCH}.tar.gz && \
+        tar -C /usr/local -xzf go1.21.6.linux-${GO_ARCH}.tar.gz && \
+        rm go1.21.6.linux-${GO_ARCH}.tar.gz && \
+        echo 'export PATH=/usr/local/go/bin:$PATH' >> /etc/profile.d/go.sh
+  env:
+    - GOPATH=/home/claude/go
+    - PATH=/usr/local/go/bin:$PATH
+  nexus_config: |
+    if [ -n "$GOPROXY" ]; then \
+        echo "export GOPROXY=$GOPROXY" >> /etc/profile.d/go.sh && \
+        echo "export GOPRIVATE=" >> /etc/profile.d/go.sh && \
+        echo "export GONOSUMDB=" >> /etc/profile.d/go.sh; \
+    fi
+  test_command: go version

@@ -1,0 +1,27 @@
+id: RUBY_SYSTEM
+name: Ruby (Ubuntu Package)
+group: ruby-version
+requires: []
+description: Ruby installed from Ubuntu package repositories
+installation:
+  dockerfile: |
+    RUN export DEBIAN_FRONTEND=noninteractive && \
+        apt-get update && \
+        apt-get install -y ruby-full ruby-dev build-essential && \
+        rm -rf /var/lib/apt/lists/* && \
+        gem install bundler && \
+        mkdir -p /etc/skel/.bundle && \
+        echo '---' > /etc/skel/.bundle/config && \
+        echo 'BUNDLE_PATH: "~/.bundle"' >> /etc/skel/.bundle/config && \
+        echo 'BUNDLE_BIN: "~/.local/bin"' >> /etc/skel/.bundle/config && \
+        echo '' >> /etc/skel/.bashrc && \
+        echo '# Ruby gem paths' >> /etc/skel/.bashrc && \
+        echo 'export GEM_HOME="$HOME/.bundle"' >> /etc/skel/.bashrc && \
+        echo 'export PATH="$HOME/.local/bin:$HOME/.bundle/bin:$PATH"' >> /etc/skel/.bashrc
+  nexus_config: |
+    if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
+        gem sources --remove https://rubygems.org/ && \
+        gem sources --add ${NEXUS_APT_URL}/repository/rubygems-proxy/ && \
+        echo "gem: --source ${NEXUS_APT_URL}/repository/rubygems-proxy/" > /etc/skel/.gemrc; \
+    fi
+  test_command: ruby --version

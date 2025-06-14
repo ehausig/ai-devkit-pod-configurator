@@ -1,0 +1,10 @@
+id: TYPESCRIPT
+name: TypeScript (Latest)
+group: typescript-version
+requires: []
+description: TypeScript - JavaScript with syntax for types
+installation:
+  dockerfile: |
+    RUN npm install -g typescript ts-node @types/node && \
+        echo "✓ TypeScript installed globally"
+  test_command: tsc --version

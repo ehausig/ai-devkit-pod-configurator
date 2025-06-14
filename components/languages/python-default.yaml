@@ -1,0 +1,13 @@
+id: PYTHON_DEFAULT
+name: Python 3.10 (Ubuntu Default)
+group: python-version
+requires: ""
+description: Ubuntu's default Python 3 installation
+installation:
+  dockerfile: |
+    RUN export DEBIAN_FRONTEND=noninteractive && \
+        apt-get update && \
+        apt-get install -y python3 python3-venv python3-pip python3-dev && \
+        rm -rf /var/lib/apt/lists/* && \
+        ln -sf /usr/bin/python3 /usr/bin/python
+  test_command: python --version

@@ -29,6 +29,19 @@ spec:
           mountPath: /home/claude/.config/claude-code
         - name: workspace-volume
           mountPath: /home/claude/workspace
+        # Git configuration mounts (optional - from secret)
+        - name: git-config
+          mountPath: /tmp/git-mounted/.gitconfig
+          subPath: gitconfig
+          readOnly: true
+        - name: git-credentials
+          mountPath: /tmp/git-mounted/.git-credentials
+          subPath: git-credentials
+          readOnly: true
+        - name: gh-hosts
+          mountPath: /tmp/git-mounted/gh-hosts.yml
+          subPath: gh-hosts
+          readOnly: true
         # Nexus-specific mounts (will fail gracefully if ConfigMap doesn't exist)
         - name: cargo-dir
           mountPath: /home/claude/.cargo
@@ -182,6 +195,31 @@ spec:
           name: filebrowser-config
       - name: filebrowser-db
         emptyDir: {}
+      # Git configuration volumes (from secret - all optional)
+      - name: git-config
+        secret:
+          secretName: git-config
+          items:
+          - key: gitconfig
+            path: gitconfig
+          defaultMode: 0600
+          optional: true
+      - name: git-credentials
+        secret:
+          secretName: git-config
+          items:
+          - key: git-credentials
+            path: git-credentials
+          defaultMode: 0600
+          optional: true
+      - name: gh-hosts
+        secret:
+          secretName: git-config
+          items:
+          - key: gh-hosts
+            path: gh-hosts
+          defaultMode: 0600
+          optional: true
       # Nexus-specific config volumes (optional: true means they won't fail if ConfigMap doesn't exist)
       - name: pip-config
         configMap:

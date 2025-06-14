@@ -1,33 +1,29 @@
-# Temporary build directory
+# Build artifacts
 .build-temp/
+*.tar
+*.tar.gz
 
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# Editor directories and files
-.idea/
+# IDE
 .vscode/
+.idea/
 *.swp
 *.swo
 *~
 
+# OS
+.DS_Store
+Thumbs.db
+
+# Kubernetes
+*.kubeconfig
+
+# Claude Code K8s configuration
+~/.claude-code-k8s/
+.claude-code-k8s/
+
 # Logs
 *.log
 
-# Kubernetes generated files
-*.kubeconfig
-*.yaml.bak
-
-# Docker
-.dockerignore.local
-
-# Local test files
-test/
-tmp/
-
+# Temporary files
+*.tmp
+*.bak
