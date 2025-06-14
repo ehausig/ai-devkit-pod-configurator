@@ -7,12 +7,18 @@ This project provides a containerized version of Claude Code running in Kubernet
 ```
 claude-code-k8s/
 ├── Dockerfile.base         # Base container definition
-├── languages.conf          # Language installation configurations
 ├── entrypoint.sh           # Container startup script
 ├── build-and-deploy.sh     # Helper script for building and deploying
+├── configure-git-host.sh   # Configure git credentials on host for injection
+├── setup-git.sh            # Configure git within containers
 ├── cleanup-colima.sh       # Disk cleanup utility for Colima
 ├── access-filebrowser.sh   # Convenience script for accessing the file manager
+├── settings.local.json.template  # Claude Code permissions template
+├── CLAUDE.md.template      # Development guidelines template
 ├── .gitignore              # Git ignore file
+├── components/             # Available languages and tools
+│   ├── languages/          # Programming language components
+│   └── build-tools/        # Build tool components
 ├── kubernetes/
 │   ├── namespace.yaml      # Kubernetes namespace definition
 │   ├── pvc.yaml            # Persistent volume claims for configuration and workspace
@@ -27,27 +33,25 @@ If you're using Colima for local Kubernetes development on macOS:
 
 ```bash
 # Clone the repository
-git clone https://github.com/ehausig/claude-code-k8s.git
+git clone https://github.com/yourusername/claude-code-k8s.git
 cd claude-code-k8s
 
 # Make the scripts executable
-chmod +x build-and-deploy.sh cleanup-colima.sh
+chmod +x *.sh
 
-# Build and deploy (with language selection)
+# (Optional) Configure git credentials on host for automatic injection
+./configure-git-host.sh
+
+# Build and deploy with interactive component selection
 ./build-and-deploy.sh
 
-# Or build without language selection (base image only)
-./build-and-deploy.sh --no-select
-
-# Connect to the container as the claude user (recommended)
+# Connect to the container as the claude user
 kubectl exec -it -n claude-code <pod-name> -- su - claude
 
 # Inside the container, run Claude Code
 cd workspace
 claude
 ```
-
-On first run, follow the authentication prompts to connect your Anthropic account.
 
 ## Prerequisites
 
@@ -58,128 +62,125 @@ On first run, follow the authentication prompts to connect your Anthropic accoun
   - Claude.ai account with Max subscription
   - Anthropic Console account with Claude API access
 
-## Detailed Setup Instructions
-
-### 1. Building the Container
-
-The repository includes a build script that automates the process, but you can also build manually:
-
-```bash
-# Using the script (for Colima)
-./build-and-deploy.sh
-
-# Skip language selection (base image only)
-./build-and-deploy.sh --no-select
-
-# Clean rebuild
-./build-and-deploy.sh --clean
-
-# Building manually
-docker build -t claude-code:latest -f .build-temp/Dockerfile .
-```
-
-For other container systems:
-- **Docker Desktop**: No additional steps needed
-- **Minikube**: Use `minikube image load claude-code:latest` after building
-- **k3d**: Use `k3d image import claude-code:latest` after building
-- **Custom registry**: Tag and push to your registry
-
-```bash
-# Example with custom registry
-docker tag claude-code:latest your-registry.com/claude-code:latest
-docker push your-registry.com/claude-code:latest
-```
-
-### 2. Deploying to Kubernetes
-
-The deployment can be done using the script or manually:
-
-```bash
-# Using the script (creates namespace, pvcs, and deployment)
-./build-and-deploy.sh
-
-# Manual deployment
-kubectl apply -f kubernetes/namespace.yaml
-kubectl apply -f kubernetes/pvc.yaml
-kubectl apply -f kubernetes/deployment.yaml
-```
-
-If using a custom registry, update `kubernetes/deployment.yaml` to point to your image location.
-
-### 3. Connecting to the Container
-
-Find your pod and connect:
-
-```bash
-# List pods in the claude-code namespace
-kubectl get pods -n claude-code
-
-# Connect to the pod as the claude user (recommended)
-kubectl exec -it -n claude-code <pod-name> -- su - claude
-
-# Or create an alias for easy access
-alias claude-exec='kubectl exec -it -n claude-code $(kubectl get pods -n claude-code -l app=claude-code -o jsonpath="{.items[0].metadata.name}") -- su - claude'
-```
-
-### 4. Authentication
-
-When you start Claude Code for the first time, you'll be prompted to authenticate:
-
-1. **OAuth Flow** (Recommended):
-   - Claude Code will provide a URL to open in your browser
-   - Sign in with your Anthropic account
-   - The browser will provide an authentication code to enter back in the terminal
-
-2. **API Key**:
-   - Alternatively, you can use an Anthropic API key
-   - This is obtained from your Anthropic Console account
-
 ## Features
 
+### Core Features
 - **Containerized Claude Code**: Run Anthropic's AI coding assistant in an isolated Kubernetes environment
-- **Web-based File Manager**: Built-in Filebrowser for easy file uploads/downloads through a web UI
-- **Language Selection**: Optionally include additional programming languages and tools in your container
+- **Interactive Component Selection**: Choose which programming languages and tools to include
+- **Persistent Git Configuration**: Configure git once, use across all deployments
+- **Web-based File Manager**: Built-in Filebrowser for easy file uploads/downloads
 - **Persistent Storage**: Configuration and workspace data persist across container restarts
 - **Security**: Runs as non-root user with proper isolation
 - **Easy Deployment**: Single script to build and deploy
 
-## Language Support
+### Base Development Tools
+Every deployment includes these essential tools:
+- **Node.js 20.18.0** - JavaScript runtime
+- **npm (latest)** - Package manager
+- **Git** - Version control
+- **GitHub CLI (gh)** - GitHub operations
+- **Claude Code** - Anthropic's AI coding assistant
 
-The build script includes an interactive language selection menu. When you run the build script:
+## Git Configuration Management
 
-1. The screen will clear and show a list of available languages
-2. Use **↑/↓ arrow keys** or **j/k** to move the cursor
-3. Press **SPACE** to select/deselect a language (selected items show ✓)
-4. Press **ENTER** to confirm your selections and continue
-5. Press **q** to quit without building
+Claude Code K8s supports persistent git configuration across container deployments. You have two options for configuring git:
 
-Available languages include:
+### Option 1: Host-Based Configuration (Recommended)
 
-- **Python**: 3.9, 3.11, 3.12
-- **Rust**: Latest stable, Nightly
+Configure git once on your host machine and automatically inject it into all future deployments:
+
+```bash
+# Run the configuration script
+./configure-git-host.sh
+
+# Follow the prompts to:
+# - Set your git name and email
+# - Configure GitHub authentication with Personal Access Token (PAT)
+```
+
+The configuration is stored securely in `~/.claude-code-k8s/` on your host machine. When you run `build-and-deploy.sh`, it will detect this configuration and ask if you want to include it in the deployment.
+
+Benefits:
+- Configure once, use many times
+- No need to reconfigure after each deployment
+- Credentials stored securely as Kubernetes secrets
+- Uses HTTPS authentication (no SSH keys needed)
+
+To clear the stored configuration:
+```bash
+./configure-git-host.sh --clear
+```
+
+### Option 2: Container-Based Configuration
+
+If you prefer to configure git separately for each container or don't want to store credentials on the host:
+
+```bash
+# Connect to the container
+kubectl exec -it -n claude-code <pod-name> -- su - claude
+
+# Run the setup script
+setup-git.sh
+
+# Choose authentication method:
+# 1) Personal Access Token (PAT)
+# 2) OAuth via web browser
+```
+
+This approach keeps git configuration isolated to the specific container instance.
+
+### Security Notes
+
+- Host configuration is stored with restrictive permissions (700/600)
+- Credentials are injected as Kubernetes secrets, not built into the image
+- PATs are never logged or displayed after initial setup
+- All git operations use HTTPS (SSH is not supported)
+
+## Component Selection
+
+The build script includes an interactive component selection menu that allows you to customize your development environment.
+
+### Using the Component Selector
+
+When you run `./build-and-deploy.sh`:
+
+1. An interactive menu appears showing available components
+2. Navigate using:
+   - **↑/↓ arrow keys** or **j/k** - Move cursor up/down
+   - **←/→ arrow keys** or **h/l** - Navigate pages
+   - **SPACE** - Select/deselect a component
+   - **TAB** - Switch between catalog and build stack
+   - **ENTER** - Build with selected components
+   - **q** - Quit without building
+
+3. Selected components show:
+   - **Green ✓** - Component is selected
+   - **Grey text** - Component unavailable due to mutual exclusion
+   - **Yellow ○** - Component needs dependencies
+
+### Available Components
+
+#### Programming Languages
+- **Python**: 3.10 (Ubuntu Default), 3.11 (Official), Miniconda
+- **Java**: OpenJDK 11/17/21, Eclipse Adoptium 11/17/21
 - **Go**: 1.21, 1.22
-- **Ruby**: 3.2, 3.3 (via rbenv)
-- **Java**: Eclipse Adoptium (Temurin) 11, 17, 21
-- **Scala**: 2.13, 3.x, with SBT build tool
-- **.NET**: 6.0, 8.0
-- **PHP**: 8.2, 8.3
-- **And more**: Elixir, Kotlin, Swift
+- **Ruby**: System package, 3.3 via rbenv
+- **Rust**: Stable channel, Nightly channel
+- **JavaScript/TypeScript**: TypeScript support
+- **Scala**: 2.13, 3.x (requires Java)
+- **Kotlin**: Latest version (requires Java)
 
-To add more languages, edit the `languages.conf` file.
+#### Build Tools
+- **Maven**: Java build automation
+- **Gradle**: Build tool for Java/Kotlin/Groovy
+- **SBT**: Scala build tool
 
-### Customizing Language Options
+### Skip Component Selection
 
-To add or modify available languages, edit the `languages.conf` file. The format is:
+To build with base tools only:
+```bash
+./build-and-deploy.sh --no-select
 ```
-LANGUAGE_ID|Display Name|Installation Commands
-```
-
-For example:
-```
-PYTHON_3_13|Python 3.13|RUN apt-get update && apt-get install -y python3.13
-```
-
-The installation commands should be valid Dockerfile RUN instructions.
 
 ## Working with Files
 
@@ -189,7 +190,11 @@ Every Claude Code deployment includes Filebrowser, a web-based file manager for 
 
 #### Accessing Filebrowser
 
-1. Start port forwarding:
+1. Use the convenience script:
+   ```bash
+   ./access-filebrowser.sh
+   ```
+   Or manually start port forwarding:
    ```bash
    kubectl port-forward -n claude-code service/claude-code 8090:8090
    ```
@@ -208,11 +213,10 @@ Every Claude Code deployment includes Filebrowser, a web-based file manager for 
 - **Edit**: Built-in text editor with syntax highlighting
 - **Search**: Find files quickly across your workspace
 - **Preview**: View images, PDFs, and other file types
-- **Terminal**: Execute commands directly (if enabled)
 
 ### Command Line File Transfer
 
-You can still use `kubectl cp` for command-line file transfers:
+You can also use `kubectl cp` for command-line file transfers:
 
 ```bash
 # Copy from local to container
@@ -220,24 +224,36 @@ kubectl cp /local/path/to/file claude-code/<pod-name>:/home/claude/workspace/fil
 
 # Copy from container to local
 kubectl cp claude-code/<pod-name>:/home/claude/workspace/file /local/destination/path -n claude-code
-
-# Copy entire directories
-kubectl cp /local/directory claude-code/<pod-name>:/home/claude/workspace/directory -n claude-code
 ```
 
-### Alternative File Access Methods
+## Claude Code Usage
 
-1. **Git**: Clone repositories directly in the container
-   ```bash
-   cd /home/claude/workspace
-   git clone https://github.com/username/repo.git
-   ```
+Once connected to the container, you can use Claude Code for various tasks:
 
-2. **Volume mounts**: If you need more direct access, modify the deployment to mount additional host paths (for supported Kubernetes setups)
+```bash
+# Start Claude Code in the current directory
+claude
+
+# Get help
+claude --help
+
+# Work with specific files
+claude myfile.py
+
+# Use with a specific instruction
+claude "add error handling to this function" myfile.js
+```
+
+### Authentication
+
+On first run, Claude Code will prompt for authentication:
+1. Choose OAuth (recommended) or API key
+2. Follow the authentication flow
+3. Your credentials are stored in the persistent volume
 
 ## Customization Options
 
-### Modifying Resource Limits
+### Resource Limits
 
 Edit `kubernetes/deployment.yaml` to adjust CPU and memory limits:
 
@@ -251,59 +267,62 @@ resources:
     cpu: "500m"
 ```
 
-### Persistence and Data Storage
+### Persistence
 
 The deployment uses persistent volume claims for:
-- Config storage: `/home/claude/.config/claude-code`
-- Workspace: `/home/claude/workspace`
+- **Config storage**: `/home/claude/.config/claude-code` - Claude Code settings
+- **Workspace**: `/home/claude/workspace` - Your code and projects
 
-If your cluster doesn't support dynamic provisioning, you may need to create persistent volumes manually.
+### Adding Custom Components
+
+To add new languages or tools:
+
+1. Create a YAML file in `components/languages/` or `components/build-tools/`
+2. Follow the existing format:
+   ```yaml
+   id: UNIQUE_ID
+   name: Display Name
+   group: version-group  # For mutually exclusive options
+   requires: []          # Dependencies
+   description: Brief description
+   installation:
+     dockerfile: |
+       RUN installation commands
+   ```
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Claude command not found**:
-   - Check if Node.js and npm were installed correctly
-   - Verify PATH includes npm global bin directory
-
-2. **Authentication failures**:
-   - Ensure you have an active Anthropic account
-   - Check network connectivity from the container
-
-3. **Permission errors**:
-   - The container runs as a non-root user for security
-   - Check if volume mounts have correct permissions
-
-4. **Pod stuck in Pending state - Disk Pressure**:
-   If your pod won't start and shows this error:
-   ```
-   Warning  FailedScheduling  default-scheduler  0/1 nodes are available: 1 node(s) had untolerated taint {node.kubernetes.io/disk-pressure: }
-   ```
-   
-   This means Colima is running low on disk space. To fix:
-   
+1. **Pod stuck in Pending state**:
    ```bash
-   # Option 1: Use the cleanup script
+   # Check for disk pressure (common with Colima)
    ./cleanup-colima.sh
    
-   # Option 2: Manual cleanup
-   colima ssh -- docker system prune -a --volumes
-   
-   # Check disk usage after cleanup
-   colima ssh -- df -h /
-   
-   # Option 3: If cleanup isn't enough, recreate Colima with more disk
+   # Or increase Colima disk size
    colima stop
    colima delete
    colima start --kubernetes --disk 100
    ```
 
+2. **Authentication failures**:
+   - Ensure you have an active Anthropic account
+   - Check network connectivity from the container
+   - Try re-running `setup-git.sh` if git operations fail
+
+3. **Component selection issues**:
+   - Yellow items need dependencies (e.g., Scala needs Java)
+   - Grey items are mutually exclusive with your selection
+   - Use TAB to switch between catalog and cart views
+
 ### Viewing Logs
 
 ```bash
 # Container logs
-kubectl logs -n claude-code <pod-name>
+kubectl logs -n claude-code <pod-name> -c claude-code
+
+# Filebrowser logs
+kubectl logs -n claude-code <pod-name> -c filebrowser
 
 # Claude Code logs (from inside the container)
 cat /home/claude/.config/claude-code/logs/*
@@ -311,10 +330,37 @@ cat /home/claude/.config/claude-code/logs/*
 
 ## Security Considerations
 
-This containerized approach provides several security advantages:
-- Isolates Claude Code from your host system
-- Runs as a non-root user inside the container
-- Uses Kubernetes abstractions for security boundaries
+- Container runs as non-root user (`claude`)
+- Git credentials are injected as Kubernetes secrets
+- File operations are restricted to the workspace
+- Pre-configured permissions in `settings.local.json`
+- No SSH support - all git operations use HTTPS
+
+## Development Workflow
+
+1. **Initial Setup**:
+   ```bash
+   ./configure-git-host.sh  # One-time git configuration
+   ./build-and-deploy.sh    # Build and deploy with components
+   ```
+
+2. **Connect and Work**:
+   ```bash
+   kubectl exec -it -n claude-code <pod-name> -- su - claude
+   cd workspace
+   git clone https://github.com/yourusername/project.git
+   cd project
+   claude
+   ```
+
+3. **File Management**:
+   - Use Filebrowser for uploading/downloading files
+   - Or use `kubectl cp` for command-line transfers
+
+4. **Iterate**:
+   - Make changes with Claude Code
+   - Commit and push using pre-configured git
+   - Redeploy as needed (git config persists)
 
 ## License
 
