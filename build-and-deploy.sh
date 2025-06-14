@@ -13,6 +13,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 BLUE='\033[0;34m'
+GRAY='\033[0;90m'
 NC='\033[0m' # No Color
 
 # Utility functions
@@ -526,15 +527,36 @@ select_components() {
         
         tput cup $display_row $((catalog_width + 4))
         
-        if [[ $cart_count -eq 0 ]]; then
-            printf "%b%s%b" "${YELLOW}" "Build stack is empty" "${NC}"
-            ((display_row++))
+        # Always show base components
+        printf "%b%d selected + base components:%b" "${GREEN}" "$cart_count" "${NC}"
+        ((display_row++))
+        
+        # Show base components first
+        ((display_row++))
+        if [[ $display_row -lt $((content_height + 5)) ]]; then
             tput cup $display_row $((catalog_width + 4))
-            printf "Add items with SPACE"
-        else
-            printf "%b%d items selected:%b" "${GREEN}" "$cart_count" "${NC}"
+            printf "%b━ Base Development Tools ━%b" "${BLUE}" "${NC}"
             ((display_row++))
-            
+        fi
+        
+        # Base components list
+        local base_components=(
+            "• Node.js 20.18.0"
+            "• npm (latest)"
+            "• Git"
+            "• GitHub CLI (gh)"
+            "• Claude Code (@anthropic-ai/claude-code)"
+        )
+        
+        for base_comp in "${base_components[@]}"; do
+            if [[ $display_row -lt $((content_height + 5)) ]]; then
+                tput cup $display_row $((catalog_width + 4))
+                printf "  %b%s%b %b(included)%b" "${GRAY}" "$base_comp" "${NC}" "${GRAY}" "${NC}"
+                ((display_row++))
+            fi
+        done
+        
+        if [[ $cart_count -gt 0 ]]; then
             # Group items by category
             local cart_display_count=0
             local last_category=""
@@ -573,6 +595,13 @@ select_components() {
                     fi
                 done
             done
+        else
+            # Show message when no additional components selected
+            ((display_row++))
+            if [[ $display_row -lt $((content_height + 5)) ]]; then
+                tput cup $display_row $((catalog_width + 4))
+                printf "%b(No additional components selected)%b" "${YELLOW}" "${NC}"
+            fi
         fi
     }
     
