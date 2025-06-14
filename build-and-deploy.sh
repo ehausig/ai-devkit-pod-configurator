@@ -385,7 +385,7 @@ select_components() {
         echo "$cat"
     }
     
-    # Function to render catalog items for current page
+# Function to render catalog items for current page
     render_catalog() {
         local start_idx=${page_boundaries[$catalog_page]}
         local end_idx=$total_items
@@ -503,14 +503,9 @@ select_components() {
             for ((i=0; i<remaining; i++)); do printf "─"; done
             
             printf "┘"
-        else
-            tput cup $((content_height + 3)) 0
-            printf "└"
-            for ((i=0; i<catalog_width-2; i++)); do printf "─"; done
-            printf "┘"
         fi
     }
-    
+
     # Function to render cart items
     render_cart() {
         local display_row=5
