@@ -44,6 +44,38 @@ mkdir -p /home/claude/.claude
 # Create .claude directory in workspace for project-specific settings
 mkdir -p /home/claude/workspace/.claude
 
+# Handle git configuration from mounted secrets
+echo "Checking for pre-configured git settings..."
+GIT_CONFIGURED=false
+
+# Check if .gitconfig was mounted from secret
+if [ -f /tmp/git-mounted/.gitconfig ]; then
+    echo "Found mounted git configuration"
+    GIT_CONFIGURED=true
+    
+    # Copy to home directory with proper ownership
+    cp /tmp/git-mounted/.gitconfig /home/claude/.gitconfig
+    chown claude:claude /home/claude/.gitconfig
+    chmod 600 /home/claude/.gitconfig
+fi
+
+# Handle git credentials
+if [ -f /tmp/git-mounted/.git-credentials ]; then
+    echo "Found mounted git credentials"
+    cp /tmp/git-mounted/.git-credentials /home/claude/.git-credentials
+    chown claude:claude /home/claude/.git-credentials
+    chmod 600 /home/claude/.git-credentials
+fi
+
+# Handle GitHub CLI configuration
+if [ -f /tmp/git-mounted/gh-hosts.yml ]; then
+    echo "Found mounted GitHub CLI configuration"
+    mkdir -p /home/claude/.config/gh
+    cp /tmp/git-mounted/gh-hosts.yml /home/claude/.config/gh/hosts.yml
+    chown -R claude:claude /home/claude/.config/gh
+    chmod 600 /home/claude/.config/gh/hosts.yml
+fi
+
 # Copy settings.local.json from template if it doesn't exist
 echo "Checking for settings.local.json..."
 if [ -f /tmp/settings.local.json.template ]; then
@@ -217,6 +249,9 @@ if [ -n "$PS1" ] && [ -z "$CLAUDE_WELCOME_SHOWN" ]; then
     GIT_NAME=$(git config --global user.name 2>/dev/null || echo "")
     if [ -z "$GIT_NAME" ]; then
         echo "  ⚠️  Git not configured - run 'setup-git.sh' to configure"
+        echo ""
+    else
+        echo "  ✓ Git configured as: $GIT_NAME"
         echo ""
     fi
     if [ -f ~/.claude/CLAUDE.md ]; then

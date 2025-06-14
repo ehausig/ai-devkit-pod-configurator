@@ -1124,6 +1124,41 @@ RUN chmod 644 /tmp/settings.local.json.template\
     rm -f "$TEMP_DIR/Dockerfile.bak"
 }
 
+# Check for host git configuration
+check_host_git_config() {
+    local config_dir="$HOME/.claude-code-k8s"
+    
+    if [[ -d "$config_dir" ]] && [[ -f "$config_dir/git-config/.gitconfig" ]]; then
+        return 0
+    fi
+    return 1
+}
+
+# Create git configuration secret
+create_git_config_secret() {
+    local config_dir="$HOME/.claude-code-k8s"
+    
+    log "Creating Kubernetes secret for git configuration..."
+    
+    # Delete existing secret if it exists
+    kubectl delete secret git-config -n ${NAMESPACE} --ignore-not-found=true
+    
+    # Create secret from files
+    local secret_args="--from-file=gitconfig=$config_dir/git-config/.gitconfig"
+    
+    # Add optional files if they exist
+    [[ -f "$config_dir/git-config/.git-credentials" ]] && \
+        secret_args="$secret_args --from-file=git-credentials=$config_dir/git-config/.git-credentials"
+    
+    [[ -f "$config_dir/github/hosts.yml" ]] && \
+        secret_args="$secret_args --from-file=gh-hosts=$config_dir/github/hosts.yml"
+    
+    # Create the secret
+    kubectl create secret generic git-config -n ${NAMESPACE} $secret_args
+    
+    success "Git configuration secret created"
+}
+
 # Main execution
 main() {
     log "=== Starting Container Component Configurator ==="
@@ -1137,6 +1172,23 @@ main() {
     kubectl get nodes &> /dev/null || error "Kubernetes is not accessible\nPlease make sure Colima started with --kubernetes flag"
     
     success "Colima with Kubernetes is running and accessible"
+    
+    # Check for host git configuration
+    USE_HOST_GIT_CONFIG=false
+    if check_host_git_config; then
+        info "Git configuration found in ~/.claude-code-k8s/"
+        echo ""
+        read -p "Use host git configuration in this deployment? [Y/n]: " -n 1 -r
+        echo ""
+        if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+            USE_HOST_GIT_CONFIG=true
+            success "Host git configuration will be included"
+        else
+            info "Host git configuration will not be used"
+            echo "You can configure git later using setup-git.sh inside the container"
+        fi
+        echo ""
+    fi
     
     # Check Nexus
     NEXUS_AVAILABLE=false
@@ -1194,6 +1246,11 @@ main() {
     log "Applying Kubernetes resources..."
     kubectl apply -f kubernetes/namespace.yaml
     kubectl apply -f kubernetes/pvc.yaml
+    
+    # Create git config secret if using host configuration
+    if [[ "$USE_HOST_GIT_CONFIG" = true ]]; then
+        create_git_config_secret
+    fi
     
     # Apply Nexus configuration if available
     if [[ "$NEXUS_AVAILABLE" = true ]]; then
