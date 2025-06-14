@@ -13,3 +13,21 @@ installation:
         update-alternatives --set python3 /usr/bin/python3.11 && \
         ln -sf /usr/bin/python3.11 /usr/bin/python
   test_command: python --version
+memory_content: |
+  #### Python 3.11
+  
+  **What's New**:
+  - Faster: 10-60% speedup vs 3.10
+  - Better error messages with exact error locations
+  - Exception groups: `except* ExceptionGroup`
+  - Type hint improvements: `Self` type, `TypedDict` enhancements
+  
+  **Environment Setup**:
+  - Create venv: `python -m venv .venv`
+  - Activate: `source .venv/bin/activate`
+  - Upgrade pip: `python -m pip install --upgrade pip`
+  
+  **Development Tools**:
+  - Type checking: `pip install mypy && mypy script.py`
+  - Formatting: `pip install black && black .`
+  - Linting: `pip install ruff && ruff check .`

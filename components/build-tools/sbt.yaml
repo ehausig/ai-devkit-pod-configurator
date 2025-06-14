@@ -35,3 +35,42 @@ installation:
         echo "export SBT_OPTS=\"-Dsbt.override.build.repos=true\"" >> /etc/skel/.bashrc; \
     fi
   test_command: sbt --version
+memory_content: |
+  #### SBT (Simple Build Tool)
+  
+  **Project Creation**:
+  - New project: `sbt new scala/scala3.g8` (Scala 3)
+  - Or: `sbt new scala/hello-world.g8` (simple)
+  - List templates: `sbt new`
+  
+  **Interactive Mode**:
+  - Start: `sbt` (opens shell)
+  - Compile: `compile`
+  - Run: `run` or `runMain com.example.Main`
+  - Test: `test`
+  - Console: `console` (Scala REPL with project classpath)
+  
+  **Common Commands**:
+  - Clean: `sbt clean`
+  - Package: `sbt package` (JAR without deps)
+  - Assembly: `sbt assembly` (fat JAR - needs plugin)
+  - Publish local: `sbt publishLocal`
+  
+  **Continuous Mode**:
+  - Watch & compile: `~compile`
+  - Watch & test: `~test`
+  - Watch & run: `~run`
+  
+  **build.sbt Example**:
+  ```scala
+  lazy val root = project
+    .in(file("."))
+    .settings(
+      name := "myapp",
+      version := "0.1.0",
+      scalaVersion := "3.3.1",
+      libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.17" % Test
+    )
+  ```
+  
+  **Note**: SBT uses Coursier for dependency resolution

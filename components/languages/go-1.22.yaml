@@ -27,3 +27,27 @@ installation:
         echo "export GONOSUMDB=" >> /etc/profile.d/go.sh; \
     fi
   test_command: go version
+memory_content: |
+  #### Go 1.22
+  
+  **What's New**:
+  - Range over integers: `for i := range 10 { }`
+  - Enhanced routing patterns in `net/http`
+  - Improved performance (2-4% faster)
+  
+  **Project Management**:
+  - Create module: `go mod init example.com/myapp`
+  - Work with local module: `go mod edit -replace example.com/lib=../lib`
+  - Vendor deps: `go mod vendor`
+  - Build with vendor: `go build -mod=vendor`
+  
+  **Testing & Benchmarks**:
+  - Run tests: `go test ./...`
+  - Coverage: `go test -cover ./...`
+  - Benchmarks: `go test -bench=.`
+  - Race detector: `go test -race ./...`
+  
+  **Build Options**:
+  - Static binary: `CGO_ENABLED=0 go build`
+  - Cross-compile: `GOOS=windows GOARCH=amd64 go build`
+  - Optimize size: `go build -ldflags="-s -w"`

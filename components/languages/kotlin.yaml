@@ -17,3 +17,31 @@ installation:
         rm kotlin-compiler-1.9.22.zip && \
         echo 'export PATH=/opt/kotlin/bin:$PATH' >> /etc/profile.d/kotlin.sh
   test_command: kotlinc -version
+memory_content: |
+  #### Kotlin
+  
+  **REPL & Scripts**:
+  - Start REPL: `kotlinc`
+  - Run script: `kotlin script.kts`
+  - Compile & run: `kotlinc Hello.kt -include-runtime -d hello.jar && java -jar hello.jar`
+  
+  **Compilation**:
+  - Compile to JAR: `kotlinc MyApp.kt -include-runtime -d myapp.jar`
+  - Compile to class: `kotlinc MyApp.kt -d classes/`
+  - With Java: `kotlinc MyApp.kt Java.java -d output/`
+  
+  **Kotlin Features**:
+  - Null safety: `var name: String? = null`
+  - Data classes: `data class Person(val name: String, val age: Int)`
+  - Extension functions: `fun String.lastChar() = this[length - 1]`
+  - Coroutines: Add kotlinx-coroutines for async
+  
+  **Quick Start**:
+  ```kotlin
+  // Hello.kt
+  fun main() {
+      println("Hello, Kotlin!")
+  }
+  ```
+  
+  **Note**: For Android or complex projects, use Gradle (see Gradle section)

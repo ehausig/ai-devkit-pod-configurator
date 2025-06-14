@@ -40,3 +40,38 @@ installation:
         echo '}' >> /etc/skel/.gradle/init.gradle; \
     fi
   test_command: gradle --version
+memory_content: |
+  #### Gradle 8.5
+  
+  **Project Init**:
+  - Interactive: `gradle init`
+  - Java app: `gradle init --type java-application`
+  - Kotlin app: `gradle init --type kotlin-application`
+  - Library: `gradle init --type java-library`
+  
+  **Common Tasks**:
+  - Build: `gradle build` or `./gradlew build`
+  - Run: `gradle run` or `./gradlew run`
+  - Test: `gradle test`
+  - Clean: `gradle clean`
+  - Tasks list: `gradle tasks`
+  
+  **Useful Options**:
+  - Daemon: `gradle --daemon` (speeds up builds)
+  - Parallel: `gradle build --parallel`
+  - Continue: `gradle build --continue` (don't stop on failure)
+  - Refresh deps: `gradle build --refresh-dependencies`
+  
+  **Kotlin DSL** (build.gradle.kts):
+  ```kotlin
+  plugins {
+      kotlin("jvm") version "1.9.22"
+      application
+  }
+  
+  dependencies {
+      implementation("org.jetbrains.kotlin:kotlin-stdlib")
+  }
+  ```
+  
+  **Wrapper**: Always use `./gradlew` in projects for version consistency

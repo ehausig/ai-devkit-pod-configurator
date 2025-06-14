@@ -24,3 +24,20 @@ installation:
   env:
     - JAVA_HOME=/usr/lib/jvm/temurin-21-jdk-${TARGETARCH}
   test_command: java -version
+memory_content: |
+  #### Java 21 (Eclipse Adoptium Temurin) - Latest LTS
+  
+  **Environment**:
+  - Java version: `java -version`
+  - JAVA_HOME: Pre-configured at `/usr/lib/jvm/temurin-21-jdk-${TARGETARCH}`
+  
+  **Java 21 Highlights**:
+  - Virtual threads: `Thread.ofVirtual().start(() -> {})` for massive concurrency
+  - Pattern matching: Complete with record patterns in switch
+  - Sequenced collections: `List.reversed()`, `Map.firstEntry()`
+  - String templates (preview): Better string interpolation
+  
+  **Performance Tips**:
+  - Use G1GC (default): Balanced for most workloads
+  - For low latency: `java -XX:+UseZGC MyApp`
+  - For throughput: `java -XX:+UseParallelGC MyApp`

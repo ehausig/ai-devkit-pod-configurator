@@ -8,3 +8,29 @@ installation:
     RUN npm install -g typescript ts-node @types/node && \
         echo "✓ TypeScript installed globally"
   test_command: tsc --version
+memory_content: |
+  #### TypeScript
+  
+  **Quick Start**:
+  - Initialize: `tsc --init` (creates tsconfig.json)
+  - Compile: `tsc` or `tsc file.ts`
+  - Watch mode: `tsc --watch`
+  - Run directly: `ts-node script.ts`
+  
+  **Project Setup**:
+  - Strict mode: Enable in tsconfig.json for better type safety
+  - Source maps: `"sourceMap": true` for debugging
+  - Output dir: `"outDir": "./dist"`
+  - Root dir: `"rootDir": "./src"`
+  
+  **Common Commands**:
+  - Check types only: `tsc --noEmit`
+  - Build project: `tsc --build`
+  - Clean: `tsc --build --clean`
+  
+  **With Node.js**:
+  - Run TS directly: `ts-node src/app.ts`
+  - REPL: `ts-node` (interactive TypeScript)
+  - Scripts in package.json: `"start": "ts-node src/index.ts"`
+  
+  **Type packages**: Install @types/* for libraries, e.g., `npm i -D @types/express`

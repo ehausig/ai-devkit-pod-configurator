@@ -27,3 +27,27 @@ installation:
         echo "export GONOSUMDB=" >> /etc/profile.d/go.sh; \
     fi
   test_command: go version
+memory_content: |
+  #### Go 1.21
+  
+  **Project Setup**:
+  - Initialize module: `go mod init github.com/user/project`
+  - Get dependencies: `go get ./...`
+  - Tidy modules: `go mod tidy`
+  - Download deps: `go mod download`
+  
+  **Development**:
+  - Run: `go run .` or `go run main.go`
+  - Build: `go build -o myapp`
+  - Test: `go test ./...` or `go test -v ./...`
+  - Format: `go fmt ./...`
+  - Lint: `go vet ./...`
+  
+  **Go 1.21 Features**:
+  - Built-in functions: `min()`, `max()`, `clear()`
+  - Improved type inference
+  - Profile-guided optimization: `go build -pgo=profile.pprof`
+  
+  **Tools**:
+  - Install tools: `go install github.com/user/tool@latest`
+  - Tools are installed to `~/go/bin` (in PATH)

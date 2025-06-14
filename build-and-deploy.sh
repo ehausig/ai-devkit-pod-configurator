@@ -1,4 +1,5 @@
 #!/bin/bash
+# This script requires bash 3.2 or higher
 set -e
 
 # Configuration
@@ -21,6 +22,27 @@ log() { echo -e "${2:-$YELLOW}$1${NC}"; }
 error() { log "Error: $1" "$RED"; exit 1; }
 success() { log "$1" "$GREEN"; }
 info() { log "$1" "$BLUE"; }
+
+# Global arrays for memory content (using parallel arrays for compatibility)
+declare -a MEMORY_CONTENT_IDS
+declare -a MEMORY_CONTENT_VALUES
+
+# Clear memory arrays at start
+MEMORY_CONTENT_IDS=()
+MEMORY_CONTENT_VALUES=()
+
+# Helper function to get memory content by ID
+get_memory_content() {
+    local search_id="$1"
+    local i
+    for i in "${!MEMORY_CONTENT_IDS[@]}"; do
+        if [[ "${MEMORY_CONTENT_IDS[$i]}" == "$search_id" ]]; then
+            echo "${MEMORY_CONTENT_VALUES[$i]}"
+            return 0
+        fi
+    done
+    return 1
+}
 
 # Check prerequisites
 check_deps() {
@@ -386,7 +408,7 @@ select_components() {
         echo "$cat"
     }
     
-# Function to render catalog items for current page
+    # Function to render catalog items for current page
     render_catalog() {
         local start_idx=${page_boundaries[$catalog_page]}
         local end_idx=$total_items
@@ -964,19 +986,26 @@ declare -a SELECTED_NAMES
 declare -a SELECTED_GROUPS
 declare -a SELECTED_CATEGORIES
 
+# Global arrays for categories (needed by generate_claude_md)
+declare -a categories
+declare -a category_names
+
 # Function to extract installation commands from YAML files
 extract_installation_from_yaml() {
     local yaml_file=$1
     local in_dockerfile=false
     local in_nexus=false
+    local in_memory=false
     local dockerfile_content=""
     local nexus_content=""
+    local memory_content=""
     
     while IFS= read -r line; do
         # Check for dockerfile section
         if [[ "$line" =~ ^[[:space:]]*dockerfile:[[:space:]]*\|[[:space:]]*$ ]]; then
             in_dockerfile=true
             in_nexus=false
+            in_memory=false
             continue
         fi
         
@@ -984,6 +1013,15 @@ extract_installation_from_yaml() {
         if [[ "$line" =~ ^[[:space:]]*nexus_config:[[:space:]]*\|[[:space:]]*$ ]]; then
             in_nexus=true
             in_dockerfile=false
+            in_memory=false
+            continue
+        fi
+        
+        # Check for memory_content section
+        if [[ "$line" =~ ^[[:space:]]*memory_content:[[:space:]]*\|[[:space:]]*$ ]]; then
+            in_memory=true
+            in_dockerfile=false
+            in_nexus=false
             continue
         fi
         
@@ -991,6 +1029,7 @@ extract_installation_from_yaml() {
         if [[ "$line" =~ ^[[:space:]]*[a-zA-Z_]+: ]] && [[ ! "$line" =~ ^[[:space:]]{4,} ]]; then
             in_dockerfile=false
             in_nexus=false
+            in_memory=false
         fi
         
         # Collect content
@@ -1008,8 +1047,20 @@ extract_installation_from_yaml() {
             if [[ "$line" =~ ^"    " ]]; then
                 nexus_content+="${line:4}"$'\n'
             fi
+        elif [[ $in_memory == true ]]; then
+            # For memory content, preserve it after removing YAML indent
+            if [[ "$line" =~ ^"  " ]]; then
+                memory_content+="${line:2}"$'\n'
+            fi
         fi
     done < "$yaml_file"
+    
+    # Store memory content in parallel arrays (for compatibility with older bash)
+    if [[ -n "$memory_content" ]]; then
+        local comp_id=$(grep "^id:" "$yaml_file" | sed 's/^id: *//')
+        MEMORY_CONTENT_IDS+=("$comp_id")
+        MEMORY_CONTENT_VALUES+=("$memory_content")
+    fi
     
     # Combine dockerfile and nexus content if applicable
     local full_content="$dockerfile_content"
@@ -1052,14 +1103,30 @@ generate_claude_md() {
     echo "- GitHub CLI (gh)" >> "$claude_output"
     echo "- Claude Code (@anthropic-ai/claude-code)" >> "$claude_output"
     
-    # Process selected items by category
+    # Add memory content for base tools
+    echo "" >> "$claude_output"
+    echo "#### Base Development Tools" >> "$claude_output"
+    echo "" >> "$claude_output"
+    echo "**Node.js & npm**:" >> "$claude_output"
+    echo "- Run JavaScript: \`node script.js\`" >> "$claude_output"
+    echo "- Install packages: \`npm install package-name\`" >> "$claude_output"
+    echo "- Initialize project: \`npm init -y\`" >> "$claude_output"
+    echo "- Run scripts: \`npm run script-name\`" >> "$claude_output"
+    echo "" >> "$claude_output"
+    echo "**Git & GitHub**:" >> "$claude_output"
+    echo "- Clone repo: \`git clone https://github.com/user/repo.git\`" >> "$claude_output"
+    echo "- GitHub CLI: \`gh repo create\`, \`gh pr create\`" >> "$claude_output"
+    echo "- Git is pre-configured if you used host configuration" >> "$claude_output"
+    
+    # Process selected items by category with memory content
     local last_category=""
     for i in "${!SELECTED_IDS[@]}"; do
         local category="${SELECTED_CATEGORIES[$i]}"
         local name="${SELECTED_NAMES[$i]}"
+        local id="${SELECTED_IDS[$i]}"
         
-        # Get display name for category
-        local category_display=""
+        # Get display name for category - search through global categories array
+        local category_display="$category"
         for j in "${!categories[@]}"; do
             if [[ "${categories[$j]}" == "$category" ]]; then
                 category_display="${category_names[$j]}"
@@ -1076,13 +1143,60 @@ generate_claude_md() {
         echo "- $name" >> "$claude_output"
     done
     
-    success "Generated CLAUDE.md with environment information"
+    # Add detailed memory content for each selected component
+    echo "" >> "$claude_output"
+    echo "## Tool-Specific Guidelines" >> "$claude_output"
+    
+    # Group components by category for memory content
+    local printed_categories=""
+    for cat_idx in "${!categories[@]}"; do
+        local category="${categories[$cat_idx]}"
+        local category_display="${category_names[$cat_idx]}"
+        local category_has_content=false
+        
+        # Check if any selected component in this category has memory content
+        for i in "${!SELECTED_IDS[@]}"; do
+            if [[ "${SELECTED_CATEGORIES[$i]}" == "$category" ]]; then
+                local id="${SELECTED_IDS[$i]}"
+                local memory_content=$(get_memory_content "$id" 2>/dev/null)
+                if [[ -n "$memory_content" ]]; then
+                    category_has_content=true
+                    break
+                fi
+            fi
+        done
+        
+        if [[ $category_has_content == true ]]; then
+            echo "" >> "$claude_output"
+            echo "### $category_display Development" >> "$claude_output"
+            
+            # Add memory content for each component in this category
+            for i in "${!SELECTED_IDS[@]}"; do
+                if [[ "${SELECTED_CATEGORIES[$i]}" == "$category" ]]; then
+                    local id="${SELECTED_IDS[$i]}"
+                    local memory_content=$(get_memory_content "$id" 2>/dev/null)
+                    if [[ -n "$memory_content" ]]; then
+                        echo "" >> "$claude_output"
+                        # Remove trailing newline from memory content if present
+                        echo -n "$memory_content" | sed 's/[[:space:]]*$//' >> "$claude_output"
+                        echo "" >> "$claude_output"
+                    fi
+                fi
+            done
+        fi
+    done
+    
+    success "Generated CLAUDE.md with environment information and usage guidelines"
 }
 
 # Function to create custom Dockerfile
 create_custom_dockerfile() {
     mkdir -p "$TEMP_DIR"
     cp Dockerfile.base "$TEMP_DIR/Dockerfile"
+    
+    # Clear memory arrays before processing
+    MEMORY_CONTENT_IDS=()
+    MEMORY_CONTENT_VALUES=()
     
     # Process selected components
     local installation_content=""
@@ -1180,6 +1294,16 @@ main() {
     kubectl get nodes &> /dev/null || error "Kubernetes is not accessible\nPlease make sure Colima started with --kubernetes flag"
     
     success "Colima with Kubernetes is running and accessible"
+    
+    # Load categories for use in generate_claude_md
+    # This is a bit hacky but necessary since we need the category display names
+    local component_data=$(load_components)
+    local categories_line=$(echo "$component_data" | sed -n '1p')
+    local category_names_line=$(echo "$component_data" | sed -n '3p')
+    
+    # Convert to global arrays
+    IFS=' ' read -ra categories <<< "$categories_line"
+    IFS=' ' read -ra category_names <<< "$category_names_line"
     
     # Check for host git configuration
     USE_HOST_GIT_CONFIG=false

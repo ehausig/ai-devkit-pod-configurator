@@ -23,3 +23,27 @@ installation:
         echo "registry = \"sparse+${NEXUS_APT_URL}/repository/cargo-proxy/\"" >> /etc/skel/.cargo/config.toml; \
     fi
   test_command: rustc --version
+memory_content: |
+  #### Rust (Nightly)
+  
+  **Nightly Features**:
+  - Unstable features: Add `#![feature(name)]` to use
+  - Check available: `rustc +nightly --print target-features`
+  - Async traits, const generics experiments, and more
+  
+  **Development**:
+  - Build: `cargo +nightly build`
+  - Run: `cargo +nightly run`
+  - Test unstable: `cargo +nightly test`
+  
+  **Advanced Tools**:
+  - Miri (interpreter): `rustup +nightly component add miri`
+  - Expand macros: `cargo +nightly expand`
+  - Build std: `cargo +nightly build -Z build-std`
+  
+  **Switching Toolchains**:
+  - Use stable: `cargo +stable build`
+  - Update nightly: `rustup update nightly`
+  - Override for project: `rustup override set nightly`
+  
+  **Warning**: Nightly may have breaking changes. Pin versions in CI.
