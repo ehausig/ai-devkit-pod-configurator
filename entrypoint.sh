@@ -31,6 +31,9 @@ mkdir -p /home/claude/.m2
 
 # Create .sbt directory for SBT if it doesn't exist
 mkdir -p /home/claude/.sbt
+mkdir -p /home/claude/.sbt/0.13
+mkdir -p /home/claude/.sbt/1.0
+mkdir -p /home/claude/.sbt/boot
 
 # Create .gradle directory for Gradle if it doesn't exist
 mkdir -p /home/claude/.gradle
@@ -71,6 +74,18 @@ else
     echo "No /tmp/CLAUDE.md found in image"
 fi
 
+# Handle SBT repositories file from ConfigMap mount
+if [ -f /home/claude/.sbt/repositories ]; then
+    # Check if it's a mount point (ConfigMap)
+    if mountpoint -q /home/claude/.sbt/repositories 2>/dev/null || [ ! -w /home/claude/.sbt/repositories ]; then
+        echo "Found mounted .sbt/repositories file, creating writable copy..."
+        # Copy to a different location
+        cp /home/claude/.sbt/repositories /home/claude/.sbt/repositories.writable
+        # Update the SBT_OPTS to use the writable copy
+        export SBT_OPTS="-Dsbt.override.build.repos=true -Dsbt.repository.config=/home/claude/.sbt/repositories.writable"
+    fi
+fi
+
 # Ensure the claude user owns their directories
 # Use || true to prevent script from exiting on chown errors for read-only mounts
 chown -R claude:claude /home/claude/.claude 2>/dev/null || true
@@ -85,9 +100,8 @@ fi
 if [ ! -f /home/claude/.m2/settings.xml ]; then
     chown -R claude:claude /home/claude/.m2 2>/dev/null || true
 fi
-if [ ! -f /home/claude/.sbt/repositories ]; then
-    chown -R claude:claude /home/claude/.sbt 2>/dev/null || true
-fi
+# Always ensure SBT directories are owned by claude user
+chown -R claude:claude /home/claude/.sbt 2>/dev/null || true
 if [ ! -f /home/claude/.gradle/gradle.properties ]; then
     chown -R claude:claude /home/claude/.gradle 2>/dev/null || true
 fi
@@ -248,7 +262,7 @@ if [ "$(id -u)" = "0" ]; then
                              export CARGO_NET_GIT_FETCH_WITH_CLI='$CARGO_NET_GIT_FETCH_WITH_CLI' && \
                              export NO_PROXY='$NO_PROXY' && \
                              export no_proxy='$no_proxy' && \
-                             export SBT_OPTS='-Dsbt.override.build.repos=true -Dsbt.repository.config=/home/claude/.sbt/repositories' && \
+                             export SBT_OPTS='${SBT_OPTS:-"-Dsbt.override.build.repos=true -Dsbt.repository.config=/home/claude/.sbt/repositories"}' && \
                              $*"
     fi
 else
