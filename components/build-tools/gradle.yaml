@@ -20,25 +20,23 @@ installation:
   nexus_config: |
     if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
         mkdir -p /etc/skel/.gradle && \
-        cat > /etc/skel/.gradle/init.gradle << 'EOF'
-    allprojects {
-        repositories {
-            maven {
-                url "${NEXUS_APT_URL}/repository/maven-public/"
-                allowInsecureProtocol = true
-            }
-        }
-    }
-    settingsEvaluated { settings ->
-        settings.pluginManagement {
-            repositories {
-                maven {
-                    url "${NEXUS_APT_URL}/repository/maven-public/"
-                    allowInsecureProtocol = true
-                }
-            }
-        }
-    }
-    EOF
+        echo 'allprojects {' > /etc/skel/.gradle/init.gradle && \
+        echo '    repositories {' >> /etc/skel/.gradle/init.gradle && \
+        echo '        maven {' >> /etc/skel/.gradle/init.gradle && \
+        echo "            url \"${NEXUS_APT_URL}/repository/maven-public/\"" >> /etc/skel/.gradle/init.gradle && \
+        echo '            allowInsecureProtocol = true' >> /etc/skel/.gradle/init.gradle && \
+        echo '        }' >> /etc/skel/.gradle/init.gradle && \
+        echo '    }' >> /etc/skel/.gradle/init.gradle && \
+        echo '}' >> /etc/skel/.gradle/init.gradle && \
+        echo 'settingsEvaluated { settings ->' >> /etc/skel/.gradle/init.gradle && \
+        echo '    settings.pluginManagement {' >> /etc/skel/.gradle/init.gradle && \
+        echo '        repositories {' >> /etc/skel/.gradle/init.gradle && \
+        echo '            maven {' >> /etc/skel/.gradle/init.gradle && \
+        echo "                url \"${NEXUS_APT_URL}/repository/maven-public/\"" >> /etc/skel/.gradle/init.gradle && \
+        echo '                allowInsecureProtocol = true' >> /etc/skel/.gradle/init.gradle && \
+        echo '            }' >> /etc/skel/.gradle/init.gradle && \
+        echo '        }' >> /etc/skel/.gradle/init.gradle && \
+        echo '    }' >> /etc/skel/.gradle/init.gradle && \
+        echo '}' >> /etc/skel/.gradle/init.gradle; \
     fi
   test_command: gradle --version
