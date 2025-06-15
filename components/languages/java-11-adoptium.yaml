@@ -24,3 +24,20 @@ installation:
   env:
     - JAVA_HOME=/usr/lib/jvm/temurin-11-jdk-${TARGETARCH}
   test_command: java -version
+memory_content: |
+  #### Java 11 (Eclipse Adoptium Temurin)
+  
+  **Environment**:
+  - Java version: `java -version`
+  - JAVA_HOME: Pre-configured at `/usr/lib/jvm/temurin-11-jdk-${TARGETARCH}`
+  - Vendor: Eclipse Adoptium (high-quality, TCK-tested OpenJDK build)
+  
+  **Why Adoptium?**:
+  - Long-term support with regular security updates
+  - Drop-in replacement for Oracle JDK
+  - Optimized for production use
+  
+  **Compilation & Execution**:
+  - Compile: `javac -d out src/**/*.java`
+  - Run: `java -cp out com.example.Main`
+  - JAR creation: `jar cf myapp.jar -C out .`

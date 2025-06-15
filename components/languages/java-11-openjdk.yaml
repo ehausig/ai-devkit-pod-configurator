@@ -12,3 +12,18 @@ installation:
   env:
     - JAVA_HOME=/usr/lib/jvm/java-11-openjdk-${TARGETARCH}
   test_command: java -version
+memory_content: |
+  #### Java 11 (OpenJDK)
+  
+  **Environment**:
+  - Java version: `java -version`
+  - Compiler version: `javac -version`
+  - JAVA_HOME: Pre-configured at `/usr/lib/jvm/java-11-openjdk-${TARGETARCH}`
+  
+  **Compilation & Execution**:
+  - Compile: `javac MyClass.java`
+  - Run: `java MyClass`
+  - Compile with classpath: `javac -cp lib/*:. MyClass.java`
+  - Run with classpath: `java -cp lib/*:. MyClass`
+  
+  **Note**: Java 11 is LTS but older. Consider Java 17 or 21 for new projects.

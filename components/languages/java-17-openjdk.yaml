@@ -12,3 +12,19 @@ installation:
   env:
     - JAVA_HOME=/usr/lib/jvm/java-17-openjdk-${TARGETARCH}
   test_command: java -version
+memory_content: |
+  #### Java 17 (OpenJDK)
+  
+  **Environment**:
+  - Java version: `java -version`
+  - JAVA_HOME: Pre-configured at `/usr/lib/jvm/java-17-openjdk-${TARGETARCH}`
+  
+  **Modern Java Features**:
+  - Text blocks: Use `"""` for multi-line strings
+  - Records: `record Point(int x, int y) {}`
+  - Pattern matching: Available for `instanceof`
+  - Sealed classes: Control inheritance with `sealed` keyword
+  
+  **Running Java**:
+  - Single-file programs: `java MyProgram.java` (no explicit compile needed)
+  - With preview features: `java --enable-preview --source 17 MyProgram.java`

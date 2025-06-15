@@ -23,3 +23,29 @@ installation:
         echo "registry = \"sparse+${NEXUS_APT_URL}/repository/cargo-proxy/\"" >> /etc/skel/.cargo/config.toml; \
     fi
   test_command: rustc --version
+memory_content: |
+  #### Rust (Stable)
+  
+  **Project Management**:
+  - New project: `cargo new myproject`
+  - New library: `cargo new --lib mylib`
+  - Build: `cargo build --release`
+  - Run: `cargo run`
+  - Test: `cargo test`
+  
+  **Development Tools**:
+  - Format: `cargo fmt`
+  - Lint: `cargo clippy`
+  - Docs: `cargo doc --open`
+  - Watch: `cargo install cargo-watch && cargo watch -x run`
+  
+  **Cargo Features**:
+  - Add dependency: `cargo add serde` (or edit Cargo.toml)
+  - Update deps: `cargo update`
+  - Check: `cargo check` (faster than build)
+  - Benchmarks: `cargo bench`
+  
+  **Environment**:
+  - CARGO_HOME: `~/.cargo` (user-specific)
+  - Binaries install to: `~/.cargo/bin` (in PATH)
+  - Rustup: `rustup update` to update Rust

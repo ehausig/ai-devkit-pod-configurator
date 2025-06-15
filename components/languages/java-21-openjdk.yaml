@@ -12,3 +12,20 @@ installation:
   env:
     - JAVA_HOME=/usr/lib/jvm/java-21-openjdk-${TARGETARCH}
   test_command: java -version
+memory_content: |
+  #### Java 21 (OpenJDK) - Latest LTS
+  
+  **Environment**:
+  - Java version: `java -version`
+  - JAVA_HOME: Pre-configured at `/usr/lib/jvm/java-21-openjdk-${TARGETARCH}`
+  
+  **Java 21 Features**:
+  - Virtual threads: `Thread.ofVirtual().start(() -> {...})`
+  - Pattern matching for switch: Enhanced with record patterns
+  - Sequenced collections: New interfaces like `SequencedSet`
+  - String templates (preview): `STR."Hello \{name}"`
+  
+  **Quick Start**:
+  - Run single file: `java MyProgram.java`
+  - With preview features: `java --enable-preview --source 21 MyProgram.java`
+  - REPL: `jshell` for interactive Java

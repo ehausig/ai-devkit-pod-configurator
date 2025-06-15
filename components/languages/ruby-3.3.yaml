@@ -28,3 +28,27 @@ installation:
         echo "gem: --source ${NEXUS_APT_URL}/repository/rubygems-proxy/" > /etc/skel/.gemrc; \
     fi
   test_command: ruby --version
+memory_content: |
+  #### Ruby 3.3 (via rbenv)
+  
+  **Ruby 3.3 Features**:
+  - Prism parser (faster parsing)
+  - YJIT improvements (better performance)
+  - Range#overlap? method
+  - Enhanced pattern matching
+  
+  **Rails Development**:
+  - New app: `rails new myapp`
+  - Server: `bin/rails server`
+  - Console: `bin/rails console`
+  - Generate: `bin/rails generate model User`
+  - Migrate: `bin/rails db:migrate`
+  
+  **Testing**:
+  - RSpec: `bundle add rspec-rails && bundle exec rspec`
+  - Minitest: `bundle exec rake test`
+  
+  **Ruby Tools**:
+  - IRB console: `irb`
+  - Check syntax: `ruby -c file.rb`
+  - Rubocop: `bundle add rubocop && bundle exec rubocop`

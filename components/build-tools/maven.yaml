@@ -11,3 +11,31 @@ installation:
         rm -rf /var/lib/apt/lists/* && \
         mkdir -p /home/claude/.m2
   test_command: mvn --version
+memory_content: |
+  #### Maven
+  
+  **Project Creation**:
+  - Quick start: `mvn archetype:generate -DgroupId=com.example -DartifactId=myapp -DarchetypeArtifactId=maven-archetype-quickstart -DinteractiveMode=false`
+  - Web app: Use `-DarchetypeArtifactId=maven-archetype-webapp`
+  
+  **Common Commands**:
+  - Compile: `mvn compile`
+  - Test: `mvn test`
+  - Package: `mvn package`
+  - Install: `mvn install` (to local repo)
+  - Clean: `mvn clean`
+  - Full build: `mvn clean package`
+  
+  **Useful Options**:
+  - Skip tests: `mvn package -DskipTests`
+  - Offline mode: `mvn -o package`
+  - Debug output: `mvn -X compile`
+  - Specific test: `mvn test -Dtest=MyTest`
+  
+  **Dependency Management**:
+  - Show tree: `mvn dependency:tree`
+  - Check updates: `mvn versions:display-dependency-updates`
+  - Download sources: `mvn dependency:sources`
+  
+  **Local repo**: `~/.m2/repository`
+  **Settings**: `~/.m2/settings.xml` (create if needed)

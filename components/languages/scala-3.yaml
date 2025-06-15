@@ -17,3 +17,34 @@ installation:
         rm scala3-3.3.1.zip && \
         echo 'export PATH=/opt/scala3/bin:$PATH' >> /etc/profile.d/scala3.sh
   test_command: scala -version
+memory_content: |
+  #### Scala 3 (Dotty)
+  
+  **What's New**:
+  - Cleaner syntax: Optional braces, `then` keyword
+  - Union types: `String | Int`
+  - Intersection types: `A & B`
+  - Extension methods: `extension (x: Int) def twice = x * 2`
+  - Enums: `enum Color { case Red, Green, Blue }`
+  
+  **REPL & Running**:
+  - Start REPL: `scala` or `scala3`
+  - Run file: `scala MyApp.scala`
+  - Compile: `scalac MyApp.scala`
+  
+  **Migration from Scala 2**:
+  - Use `-source:3.0-migration` flag
+  - Mix Scala 2/3 code with cross-compilation
+  - Most Scala 2 libraries work with Scala 3
+  
+  **Quick Examples**:
+  ```scala
+  // Top-level definitions
+  def hello() = println("Hello Scala 3!")
+  
+  // Given instances (replacing implicits)
+  given Int = 42
+  
+  // Export clauses
+  export math.*
+  ```

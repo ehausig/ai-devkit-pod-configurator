@@ -11,3 +11,22 @@ installation:
         rm -rf /var/lib/apt/lists/* && \
         ln -sf /usr/bin/python3 /usr/bin/python
   test_command: python --version
+memory_content: |
+  #### Python 3.10 (System)
+  
+  **Quick Start**:
+  - Run Python: `python` or `python3`
+  - Install packages: `pip install package` (installs to ~/.local)
+  - Create virtual env: `python -m venv .venv`
+  - Activate venv: `source .venv/bin/activate`
+  
+  **Best Practices**:
+  - Always use virtual environments for projects
+  - System pip installs to `~/.local/bin` (already in PATH)
+  - Freeze dependencies: `pip freeze > requirements.txt`
+  - Install from file: `pip install -r requirements.txt`
+  
+  **Common Tasks**:
+  - Run script: `python script.py`
+  - Interactive mode: `python -i script.py`
+  - Module mode: `python -m http.server 8000`

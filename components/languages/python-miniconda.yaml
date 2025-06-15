@@ -31,3 +31,27 @@ installation:
         cp /root/.condarc /opt/conda/.condarc; \
     fi
   test_command: conda --version
+memory_content: |
+  #### Python (Miniconda)
+  
+  **Environment Management**:
+  - Create env: `conda create -n myenv python=3.11`
+  - Activate: `conda activate myenv`
+  - Deactivate: `conda deactivate`
+  - List envs: `conda env list`
+  - Remove env: `conda env remove -n myenv`
+  
+  **Package Management**:
+  - Install: `conda install numpy pandas matplotlib`
+  - From conda-forge: `conda install -c conda-forge package`
+  - Search: `conda search package`
+  - Update all: `conda update --all`
+  
+  **Best Practices**:
+  - Export env: `conda env export > environment.yml`
+  - Create from file: `conda env create -f environment.yml`
+  - Mix pip carefully: Use `pip` only after `conda` installs
+  - Clean cache: `conda clean -a` to free space
+  
+  **Data Science Stack**:
+  - Quick setup: `conda install numpy pandas matplotlib jupyter scikit-learn`

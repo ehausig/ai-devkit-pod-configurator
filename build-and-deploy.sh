@@ -1,4 +1,5 @@
 #!/bin/bash
+# This script requires bash 3.2 or higher
 set -e
 
 # Configuration
@@ -386,7 +387,7 @@ select_components() {
         echo "$cat"
     }
     
-# Function to render catalog items for current page
+    # Function to render catalog items for current page
     render_catalog() {
         local start_idx=${page_boundaries[$catalog_page]}
         local end_idx=$total_items
@@ -450,11 +451,8 @@ select_components() {
                     status="(in stack)"
                     status_color="\033[0;32m"
                 elif [[ "${groups[$idx]}" == *"-version" ]] && has_group_in_cart "${groups[$idx]}"; then
-                    printf "\033[0;31m○\033[0m "
+                    printf "\033[0;90m○\033[0m "
                     available=false
-                    local existing=$(get_group_cart_item "${groups[$idx]}")
-                    status="($existing selected)"
-                    status_color="\033[0;31m"
                 elif [[ -n "${requires[$idx]}" ]] && [[ "${requires[$idx]}" != "[]" ]] && ! requirements_met "${requires[$idx]}"; then
                     printf "\033[1;33m○\033[0m "
                     status="(needs ${requires[$idx]})"
@@ -467,7 +465,7 @@ select_components() {
                 if [[ $available == true || "${in_cart[$idx]}" == true ]]; then
                     printf "%s" "${names[$idx]}"
                 else
-                    printf "\033[0;31m%s\033[0m" "${names[$idx]}"
+                    printf "\033[0;90m%s\033[0m" "${names[$idx]}"
                 fi
                 
                 # Status
@@ -551,7 +549,7 @@ select_components() {
         for base_comp in "${base_components[@]}"; do
             if [[ $display_row -lt $((content_height + 5)) ]]; then
                 tput cup $display_row $((catalog_width + 4))
-                printf "  %b%s%b %b(included)%b" "${GRAY}" "$base_comp" "${NC}" "${GRAY}" "${NC}"
+                printf "  %s" "$base_comp"
                 ((display_row++))
             fi
         done
@@ -887,6 +885,16 @@ select_components() {
     echo ""
     echo ""
     
+    # Always show base components first
+    echo -e "${GREEN}Base Development Tools (included in all builds):${NC}"
+    echo ""
+    echo -e "  ${BLUE}━ Base Development Tools ━${NC}"
+    echo -e "    ${GREEN}✓${NC} Node.js 20.18.0"
+    echo -e "    ${GREEN}✓${NC} npm (latest)"
+    echo -e "    ${GREEN}✓${NC} Git"
+    echo -e "    ${GREEN}✓${NC} GitHub CLI (gh)"
+    echo -e "    ${GREEN}✓${NC} Claude Code (@anthropic-ai/claude-code)"
+    
     # Count selections
     local selection_count=0
     for i in "${!in_cart[@]}"; do
@@ -894,10 +902,11 @@ select_components() {
     done
     
     if [[ $selection_count -eq 0 ]]; then
-        echo -e "${YELLOW}No additional components selected (base image only)${NC}"
-    else
-        echo -e "${GREEN}Selected $selection_count components:${NC}"
         echo ""
+        echo -e "${YELLOW}No additional components selected${NC}"
+    else
+        echo ""
+        echo -e "${GREEN}Additional components selected: $selection_count${NC}"
         
         # Store selections
         SELECTED_YAML_FILES=()
@@ -955,6 +964,50 @@ declare -a SELECTED_IDS
 declare -a SELECTED_NAMES
 declare -a SELECTED_GROUPS
 declare -a SELECTED_CATEGORIES
+
+# Global arrays for categories (needed by generate_claude_md)
+declare -a categories
+declare -a category_names
+
+# Function to extract memory_content from YAML file
+extract_memory_content() {
+    local yaml_file=$1
+    local in_memory_content=false
+    local memory_content=""
+    local line_count=0
+    
+    while IFS= read -r line; do
+        ((line_count++))
+        
+        # Check if we're entering memory_content section
+        if [[ "$line" =~ ^memory_content:[[:space:]]*\|[[:space:]]*$ ]]; then
+            in_memory_content=true
+            continue
+        fi
+        
+        # Check if we're exiting memory_content section (new top-level key)
+        if [[ $in_memory_content == true ]] && [[ "$line" =~ ^[a-zA-Z_]+: ]] && [[ ! "$line" =~ ^[[:space:]] ]]; then
+            in_memory_content=false
+            break
+        fi
+        
+        # Collect memory_content lines
+        if [[ $in_memory_content == true ]]; then
+            # Remove the first 2 spaces of YAML indentation
+            if [[ "$line" =~ ^"  " ]]; then
+                memory_content+="${line:2}"$'\n'
+            elif [[ -z "$line" ]]; then
+                # Preserve empty lines
+                memory_content+=$'\n'
+            fi
+        fi
+    done < "$yaml_file"
+    
+    # Trim trailing newlines
+    memory_content=$(echo -n "$memory_content" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}')
+    
+    echo "$memory_content"
+}
 
 # Function to extract installation commands from YAML files
 extract_installation_from_yaml() {
@@ -1044,14 +1097,30 @@ generate_claude_md() {
     echo "- GitHub CLI (gh)" >> "$claude_output"
     echo "- Claude Code (@anthropic-ai/claude-code)" >> "$claude_output"
     
+    # Add memory content for base tools
+    echo "" >> "$claude_output"
+    echo "#### Base Development Tools" >> "$claude_output"
+    echo "" >> "$claude_output"
+    echo "**Node.js & npm**:" >> "$claude_output"
+    echo "- Run JavaScript: \`node script.js\`" >> "$claude_output"
+    echo "- Install packages: \`npm install package-name\`" >> "$claude_output"
+    echo "- Initialize project: \`npm init -y\`" >> "$claude_output"
+    echo "- Run scripts: \`npm run script-name\`" >> "$claude_output"
+    echo "" >> "$claude_output"
+    echo "**Git & GitHub**:" >> "$claude_output"
+    echo "- Clone repo: \`git clone https://github.com/user/repo.git\`" >> "$claude_output"
+    echo "- GitHub CLI: \`gh repo create\`, \`gh pr create\`" >> "$claude_output"
+    echo "- Git is pre-configured if you used host configuration" >> "$claude_output"
+    
     # Process selected items by category
     local last_category=""
     for i in "${!SELECTED_IDS[@]}"; do
         local category="${SELECTED_CATEGORIES[$i]}"
         local name="${SELECTED_NAMES[$i]}"
+        local id="${SELECTED_IDS[$i]}"
         
-        # Get display name for category
-        local category_display=""
+        # Get display name for category - search through global categories array
+        local category_display="$category"
         for j in "${!categories[@]}"; do
             if [[ "${categories[$j]}" == "$category" ]]; then
                 category_display="${category_names[$j]}"
@@ -1068,7 +1137,33 @@ generate_claude_md() {
         echo "- $name" >> "$claude_output"
     done
     
-    success "Generated CLAUDE.md with environment information"
+    # Add Tool-Specific Guidelines section with memory content
+    echo "" >> "$claude_output"
+    echo "## Tool-Specific Guidelines" >> "$claude_output"
+    
+    # Extract and append memory content for each selected component
+    local memory_content_added=false
+    
+    for i in "${!SELECTED_YAML_FILES[@]}"; do
+        local yaml_file="${SELECTED_YAML_FILES[$i]}"
+        local component_name="${SELECTED_NAMES[$i]}"
+        
+        log "Extracting memory content from $component_name..."
+        
+        local memory_content=$(extract_memory_content "$yaml_file")
+        if [[ -n "$memory_content" ]]; then
+            if [[ $memory_content_added == true ]]; then
+                echo "" >> "$claude_output"
+            fi
+            echo "$memory_content" >> "$claude_output"
+            memory_content_added=true
+            success "Added memory content for $component_name"
+        else
+            info "No memory content found for $component_name"
+        fi
+    done
+    
+    success "Generated CLAUDE.md with environment information and usage guidelines"
 }
 
 # Function to create custom Dockerfile
@@ -1172,6 +1267,16 @@ main() {
     kubectl get nodes &> /dev/null || error "Kubernetes is not accessible\nPlease make sure Colima started with --kubernetes flag"
     
     success "Colima with Kubernetes is running and accessible"
+    
+    # Load categories for use in generate_claude_md
+    # This is a bit hacky but necessary since we need the category display names
+    local component_data=$(load_components)
+    local categories_line=$(echo "$component_data" | sed -n '1p')
+    local category_names_line=$(echo "$component_data" | sed -n '3p')
+    
+    # Convert to global arrays
+    IFS=' ' read -ra categories <<< "$categories_line"
+    IFS=' ' read -ra category_names <<< "$category_names_line"
     
     # Check for host git configuration
     USE_HOST_GIT_CONFIG=false

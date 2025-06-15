@@ -24,3 +24,20 @@ installation:
   env:
     - JAVA_HOME=/usr/lib/jvm/temurin-17-jdk-${TARGETARCH}
   test_command: java -version
+memory_content: |
+  #### Java 17 (Eclipse Adoptium Temurin) - LTS
+  
+  **Environment**:
+  - Java version: `java -version`
+  - JAVA_HOME: Pre-configured at `/usr/lib/jvm/temurin-17-jdk-${TARGETARCH}`
+  
+  **Key Java 17 Features**:
+  - Records: `record Person(String name, int age) {}`
+  - Sealed classes: `sealed class Shape permits Circle, Rectangle {}`
+  - Pattern matching: `if (obj instanceof String s) { use s directly }`
+  - Text blocks: Multi-line strings with `"""`
+  
+  **Quick Commands**:
+  - Run single file: `java MyProgram.java`
+  - Memory settings: `java -Xmx2g -Xms512m MyApp`
+  - Enable GC logging: `java -Xlog:gc* MyApp`
