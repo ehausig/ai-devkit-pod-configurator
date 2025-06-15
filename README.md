@@ -70,7 +70,7 @@ claude
 ### Core Features
 - **Containerized Claude Code**: Run Anthropic's AI coding assistant in an isolated Kubernetes environment
 - **Interactive Component Selection**: Choose which programming languages and tools to include
-- **Dynamic Documentation**: CLAUDE.md generated with tool-specific guidelines for selected components
+- **Dynamic Memory System**: Generates customized CLAUDE.md with tool-specific guidelines for selected components
 - **Persistent Git Configuration**: Configure git once, use across all deployments
 - **Web-based File Manager**: Built-in Filebrowser for easy file uploads/downloads
 - **Persistent Storage**: Configuration and workspace data persist across container restarts
@@ -86,11 +86,11 @@ Every deployment includes these essential tools:
 - **GitHub CLI (gh)** - GitHub operations
 - **Claude Code** - Anthropic's AI coding assistant
 
-## Enhanced Documentation System
+## Claude Code Memory System
 
-### Dynamic CLAUDE.md Generation
+### Dynamic Memory Generation
 
-The project now features an enhanced documentation system that generates a customized `CLAUDE.md` file for each deployment. This file includes:
+The project features an intelligent memory system that generates a customized `CLAUDE.md` file for each deployment. This memory file helps Claude Code understand your development environment and preferences:
 
 1. **Universal Development Guidelines**:
    - Communication style preferences
@@ -114,7 +114,7 @@ Each component can include a `memory_content` section in its YAML definition tha
 - Version-specific features
 - Common workflows and examples
 
-This content is automatically appended to the generated CLAUDE.md file that Claude Code can reference while assisting you.
+This content is automatically appended to the generated CLAUDE.md memory file, giving Claude Code context about your selected tools and preferred workflows.
 
 ## Git Configuration Management
 
@@ -225,7 +225,7 @@ installation:
     RUN installation commands
   nexus_config: |     # Optional Nexus proxy configuration
     RUN nexus-specific setup
-memory_content: |     # Tool-specific guidelines for CLAUDE.md
+   memory_content: |     # Tool-specific memory for CLAUDE.md
   #### Tool Name
   
   **Quick Reference**:
@@ -310,13 +310,13 @@ On first run, Claude Code will prompt for authentication:
 2. Follow the authentication flow
 3. Your credentials are stored in the persistent volume
 
-### Accessing Documentation
+### Accessing Claude's Memory
 
-The generated CLAUDE.md file is available in the container at:
-- `/home/claude/.claude/CLAUDE.md` - Global reference
-- `/home/claude/workspace/.claude/CLAUDE.md` - Project-specific copy
+The generated CLAUDE.md memory file is available in the container at:
+- `/home/claude/.claude/CLAUDE.md` - User memory for personal preferences across all projects
+- `/home/claude/workspace/.claude/settings.local.json` - Claude Code permissions
 
-Claude Code automatically references this documentation to provide context-aware assistance based on your selected tools and the project's development guidelines.
+Claude Code automatically loads these memory files when launched, providing context-aware assistance based on your selected tools and development preferences.
 
 ## Nexus Repository Manager Support (Optional)
 
@@ -377,10 +377,10 @@ To add new languages, tools, or custom configurations:
      - Common commands and examples
      
      **Best Practices**:
-     - Tool-specific tips and guidelines
+     - Tool-specific tips and workflows
    ```
 
-3. The `memory_content` section will be automatically included in the generated CLAUDE.md
+3. The `memory_content` section will be automatically included in Claude's memory (CLAUDE.md)
 4. Components are automatically discovered from any subfolder in `components/`
 
 Example custom component ideas:
@@ -415,9 +415,10 @@ Example custom component ideas:
    - Grey items are mutually exclusive with your selection
    - Use TAB to switch between catalog and cart views
 
-4. **Missing tool documentation**:
+4. **Missing Claude memory**:
    - Check if the component YAML includes a `memory_content` section
    - Verify CLAUDE.md was generated: `cat /home/claude/.claude/CLAUDE.md`
+   - Use `/memory` command in Claude Code to see loaded memories
 
 ### Viewing Logs
 
@@ -461,9 +462,10 @@ cat /home/claude/.config/claude-code/logs/*
    - Use Filebrowser for uploading/downloading files
    - Or use `kubectl cp` for command-line transfers
 
-4. **Reference Documentation**:
-   - Check `~/.claude/CLAUDE.md` for development guidelines
-   - Tool-specific commands and tips are included based on your selection
+4. **Check Claude's memory**:
+   - View loaded memories: `/memory` command in Claude Code
+   - User memory at `~/.claude/CLAUDE.md` contains your preferences
+   - Add quick memories with `# your memory here` during sessions
 
 5. **Iterate**:
    - Make changes with Claude Code
