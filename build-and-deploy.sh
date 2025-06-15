@@ -1153,15 +1153,15 @@ extract_installation_from_yaml() {
             # For dockerfile content, we need to preserve the exact formatting
             # Only remove the first 4 spaces that are YAML indentation
             if [[ "$line" =~ ^"    " ]]; then
-                dockerfile_content+="${line:4}\n"
+                dockerfile_content+="${line:4}"$'\n'
             else
                 # Handle empty lines or lines with different indentation
-                dockerfile_content+="$line\n"
+                dockerfile_content+="$line"$'\n'
             fi
         elif [[ $in_nexus == true ]]; then
             # For nexus content, preserve it as-is after removing YAML indent
             if [[ "$line" =~ ^"    " ]]; then
-                nexus_content+="${line:4}\n"
+                nexus_content+="${line:4}"$'\n'
             fi
         fi
     done < "$yaml_file"
@@ -1171,10 +1171,10 @@ extract_installation_from_yaml() {
     if [[ -n "$nexus_content" ]]; then
         # The nexus_config should already be properly formatted in the YAML
         # Just wrap it in RUN
-        full_content+="\n# Nexus configuration\nRUN ${nexus_content}"
+        full_content+=$'\n'"# Nexus configuration"$'\n'"RUN ${nexus_content}"
     fi
     
-    echo -n "$full_content"
+    printf "%s" "$full_content"
 }
 
 # Function to create custom Dockerfile
