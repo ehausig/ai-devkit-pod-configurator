@@ -1260,6 +1260,43 @@ extract_memory_content() {
     echo "$memory_content"
 }
 
+# Function to extract entrypoint_setup from YAML file
+extract_entrypoint_setup() {
+    local yaml_file=$1
+    local in_entrypoint_setup=false
+    local entrypoint_content=""
+    
+    while IFS= read -r line; do
+        # Check if we're entering entrypoint_setup section
+        if [[ "$line" =~ ^entrypoint_setup:[[:space:]]*\|[[:space:]]*$ ]]; then
+            in_entrypoint_setup=true
+            continue
+        fi
+        
+        # Check if we're exiting entrypoint_setup section (new top-level key)
+        if [[ $in_entrypoint_setup == true ]] && [[ "$line" =~ ^[a-zA-Z_]+: ]] && [[ ! "$line" =~ ^[[:space:]] ]]; then
+            in_entrypoint_setup=false
+            break
+        fi
+        
+        # Collect entrypoint_setup lines
+        if [[ $in_entrypoint_setup == true ]]; then
+            # Remove the first 2 spaces of YAML indentation
+            if [[ "$line" =~ ^"  " ]]; then
+                entrypoint_content+="${line:2}"$'\n'
+            elif [[ -z "$line" ]]; then
+                # Preserve empty lines
+                entrypoint_content+=$'\n'
+            fi
+        fi
+    done < "$yaml_file"
+    
+    # Trim trailing newlines
+    entrypoint_content=$(echo -n "$entrypoint_content" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}')
+    
+    echo "$entrypoint_content"
+}
+
 # Function to extract installation commands from YAML files
 extract_installation_from_yaml() {
     local yaml_file=$1
@@ -1321,14 +1358,36 @@ extract_installation_from_yaml() {
 # Function to create custom Dockerfile
 create_custom_dockerfile() {
     mkdir -p "$TEMP_DIR"
+    
+    # First, generate the base entrypoint.sh in TEMP_DIR
+    log "Generating custom entrypoint.sh..."
+    
+    # Check if entrypoint.base.sh exists
+    if [[ ! -f "entrypoint.base.sh" ]]; then
+        error "entrypoint.base.sh not found in current directory: $(pwd)"
+    fi
+    
+    log "Copying entrypoint.base.sh to $TEMP_DIR/entrypoint.sh"
+    cp -v entrypoint.base.sh "$TEMP_DIR/entrypoint.sh"
+    
+    if [[ ! -f "$TEMP_DIR/entrypoint.sh" ]]; then
+        error "Failed to create entrypoint.sh in $TEMP_DIR"
+    fi
+    
+    chmod +x "$TEMP_DIR/entrypoint.sh"
+    log "Successfully created entrypoint.sh in $TEMP_DIR"
+    
+    # Copy Dockerfile.base
+    log "Copying Dockerfile.base to $TEMP_DIR/Dockerfile"
     cp Dockerfile.base "$TEMP_DIR/Dockerfile"
     
-    # Execute pre-build scripts FIRST
+    # Execute pre-build scripts
     execute_pre_build_scripts
     
     # Process selected components
     local installation_content=""
     local inject_files_content=""
+    local entrypoint_setup_content=""
     
     for i in "${!SELECTED_YAML_FILES[@]}"; do
         local yaml_file="${SELECTED_YAML_FILES[$i]}"
@@ -1348,6 +1407,13 @@ create_custom_dockerfile() {
         if [[ -n "$inject_cmds" ]]; then
             inject_files_content+="\n# Files injected by $component_name\n"
             inject_files_content+="$inject_cmds"
+        fi
+        
+        # Extract entrypoint setup
+        local entrypoint_cmds=$(extract_entrypoint_setup "$yaml_file")
+        if [[ -n "$entrypoint_cmds" ]]; then
+            entrypoint_setup_content+="\n# Setup for $component_name\n"
+            entrypoint_setup_content+="$entrypoint_cmds\n"
         fi
     done
     
@@ -1371,6 +1437,24 @@ create_custom_dockerfile() {
         sed -i.bak "/^# Set up volume mount points/r $TEMP_DIR/inject_files.txt" "$TEMP_DIR/Dockerfile"
         rm -f "$TEMP_DIR/Dockerfile.bak" "$TEMP_DIR/inject_files.txt"
     fi
+    
+    # Now modify the generated entrypoint.sh with component setup
+    if [[ -n "$entrypoint_setup_content" ]]; then
+        # Create temporary file with the setup content
+        echo -e "$entrypoint_setup_content" > "$TEMP_DIR/entrypoint_setup.txt"
+        
+        # Insert the setup content at the placeholder
+        sed -i.bak "/# COMPONENT_SETUP_PLACEHOLDER/r $TEMP_DIR/entrypoint_setup.txt" "$TEMP_DIR/entrypoint.sh"
+        sed -i.bak "/# COMPONENT_SETUP_PLACEHOLDER/d" "$TEMP_DIR/entrypoint.sh"
+        
+        rm -f "$TEMP_DIR/entrypoint.sh.bak" "$TEMP_DIR/entrypoint_setup.txt"
+    else
+        # Remove the placeholder if no setup content
+        sed -i.bak "/# COMPONENT_SETUP_PLACEHOLDER/d" "$TEMP_DIR/entrypoint.sh"
+        rm -f "$TEMP_DIR/entrypoint.sh.bak"
+    fi
+    
+    success "Generated custom entrypoint.sh with component setup"
     
     # Copy settings.local.json.template only if it exists (from pre-build)
     if [[ -f "$TEMP_DIR/settings.local.json.template" ]]; then
@@ -1481,27 +1565,22 @@ main() {
     create_custom_dockerfile
     
     log "Building Docker image..."
-    # Determine build context based on generated files
-    if [[ -f "$TEMP_DIR/CLAUDE.md" ]] || [[ -f "$TEMP_DIR/settings.local.json.template" ]]; then
-        cp entrypoint.sh "$TEMP_DIR/"
-        cp setup-git.sh "$TEMP_DIR/"
-        cd "$TEMP_DIR"
-        log "Building from $TEMP_DIR with generated files"
-        if [[ -n "$NEXUS_BUILD_ARGS" ]]; then
-            success "Using Nexus proxy for package downloads"
-            docker build $NEXUS_BUILD_ARGS -t ${IMAGE_NAME}:${IMAGE_TAG} .
-        else
-            docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
-        fi
-        cd ..
+    # Always build from TEMP_DIR since we now generate entrypoint.sh
+    cp setup-git.sh "$TEMP_DIR/"
+    
+    # List files in TEMP_DIR for debugging
+    log "Files in $TEMP_DIR:"
+    ls -la "$TEMP_DIR/"
+    
+    cd "$TEMP_DIR"
+    log "Building from $TEMP_DIR with generated files"
+    if [[ -n "$NEXUS_BUILD_ARGS" ]]; then
+        success "Using Nexus proxy for package downloads"
+        docker build $NEXUS_BUILD_ARGS -t ${IMAGE_NAME}:${IMAGE_TAG} .
     else
-        if [[ -n "$NEXUS_BUILD_ARGS" ]]; then
-            success "Using Nexus proxy for package downloads"
-            docker build $NEXUS_BUILD_ARGS -t ${IMAGE_NAME}:${IMAGE_TAG} -f "$TEMP_DIR/Dockerfile" .
-        else
-            docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f "$TEMP_DIR/Dockerfile" .
-        fi
+        docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
     fi
+    cd ..
     
     # Deploy
     log "Loading image into Colima..."

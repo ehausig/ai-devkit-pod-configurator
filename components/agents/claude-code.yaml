@@ -27,7 +27,58 @@ installation:
     - source: settings.local.json.template
       destination: /tmp/settings.local.json.template
       permissions: 644
-# test_command: su - devuser -c "which claude"
+entrypoint_setup: |
+  # Claude Code specific setup
+  echo "Setting up Claude Code environment..."
+  
+  # Create .claude directory for global Claude configuration
+  if command -v claude &> /dev/null 2>&1 || [ -f /tmp/CLAUDE.md ]; then
+      mkdir -p /home/devuser/.claude
+  fi
+  
+  # Create .claude directory in workspace for project-specific settings
+  if command -v claude &> /dev/null 2>&1 || [ -f /tmp/settings.local.json.template ]; then
+      mkdir -p /home/devuser/workspace/.claude
+  fi
+  
+  # Copy settings.local.json from template if it exists
+  echo "Checking for settings.local.json..."
+  if [ -f /tmp/settings.local.json.template ]; then
+      echo "Found /tmp/settings.local.json.template"
+      if [ ! -f /home/devuser/workspace/.claude/settings.local.json ]; then
+          echo "Copying settings.local.json to workspace/.claude folder..."
+          cp /tmp/settings.local.json.template /home/devuser/workspace/.claude/settings.local.json
+          echo "settings.local.json copied successfully to /home/devuser/workspace/.claude/"
+      else
+          echo "settings.local.json already exists in workspace/.claude folder"
+      fi
+  else
+      echo "No /tmp/settings.local.json.template found in image"
+  fi
+  
+  # Copy CLAUDE.md to .claude folder if it exists
+  echo "Checking for CLAUDE.md..."
+  if [ -f /tmp/CLAUDE.md ]; then
+      echo "Found /tmp/CLAUDE.md"
+      if [ ! -f /home/devuser/.claude/CLAUDE.md ]; then
+          echo "Copying CLAUDE.md to .claude folder..."
+          cp /tmp/CLAUDE.md /home/devuser/.claude/CLAUDE.md
+          echo "CLAUDE.md copied successfully to /home/devuser/.claude/"
+      else
+          echo "CLAUDE.md already exists in .claude folder"
+      fi
+  else
+      echo "No /tmp/CLAUDE.md found in image"
+  fi
+  
+  # Ensure proper ownership
+  chown -R devuser:devuser /home/devuser/.claude 2>/dev/null || true
+  chown -R devuser:devuser /home/devuser/workspace/.claude 2>/dev/null || true
+  
+  # Verify installed components (only if expected)
+  if command -v claude &> /dev/null 2>&1; then
+      echo "Claude Code is available at: $(which claude)"
+  fi
 memory_content: |
   #### Claude Code (AI Assistant)
   

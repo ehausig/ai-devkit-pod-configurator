@@ -27,15 +27,6 @@ RUN if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
         echo "✓ Configured APT to use Nexus proxy" ; \
     fi
 
-# Configure package managers if proxy URLs are provided
-RUN if [ -n "$PIP_INDEX_URL" ]; then \
-        mkdir -p /etc/pip && \
-        echo "[global]" > /etc/pip/pip.conf && \
-        echo "index-url = ${PIP_INDEX_URL}" >> /etc/pip/pip.conf && \
-        echo "trusted-host = ${PIP_TRUSTED_HOST}" >> /etc/pip/pip.conf && \
-        echo "✓ Configured pip to use proxy" ; \
-    fi
-
 # Install base dependencies (minimal set)
 RUN apt-get update && apt-get install -y \
     curl \
@@ -43,8 +34,6 @@ RUN apt-get update && apt-get install -y \
     gnupg \
     lsb-release \
     git \
-    python3 \
-    python3-pip \
     vim \
     jq \
     wget \
@@ -85,21 +74,10 @@ RUN if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
 RUN useradd -ms /bin/bash devuser
 RUN mkdir -p /home/devuser/.config/claude-code
 RUN mkdir -p /home/devuser/workspace
-RUN mkdir -p /home/devuser/.claude
 RUN chown -R devuser:devuser /home/devuser/
 
 # Set up user's PATH to include .local/bin
 RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> /home/devuser/.bashrc
-
-# Configure pip for the devuser if proxy URL is provided
-RUN if [ -n "$PIP_INDEX_URL" ]; then \
-        mkdir -p /home/devuser/.config/pip && \
-        echo "[global]" > /home/devuser/.config/pip/pip.conf && \
-        echo "index-url = ${PIP_INDEX_URL}" >> /home/devuser/.config/pip/pip.conf && \
-        echo "trusted-host = ${PIP_TRUSTED_HOST}" >> /home/devuser/.config/pip/pip.conf && \
-        chown -R devuser:devuser /home/devuser/.config/pip && \
-        echo "✓ Configured pip for devuser" ; \
-    fi
 
 # LANGUAGE_INSTALLATIONS_PLACEHOLDER
 
@@ -107,7 +85,7 @@ RUN if [ -n "$PIP_INDEX_URL" ]; then \
 ARG USE_NEXUS_APT
 ARG NEXUS_APT_URL
 
-# Copy entrypoint script
+# Copy entrypoint script (will be generated in build directory)
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 

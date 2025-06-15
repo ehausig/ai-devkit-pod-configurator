@@ -1,0 +1,194 @@
+#!/bin/bash
+set -e
+
+# Core PATH setup - only essential paths
+export PATH="$PATH:/usr/local/bin"
+
+# Source all profile scripts to load language paths
+if [ -d /etc/profile.d ]; then
+    for i in /etc/profile.d/*.sh; do
+        if [ -r $i ]; then
+            . $i
+        fi
+    done
+fi
+
+# Create essential directories that are always needed
+CONFIG_DIR="/home/devuser/.config/claude-code"
+mkdir -p "$CONFIG_DIR"
+mkdir -p /home/devuser/workspace
+mkdir -p /home/devuser/.local/bin
+
+# Handle git configuration from mounted secrets
+echo "Checking for pre-configured git settings..."
+GIT_CONFIGURED=false
+
+# Check if .gitconfig was mounted from secret
+if [ -f /tmp/git-mounted/.gitconfig ]; then
+    echo "Found mounted git configuration"
+    GIT_CONFIGURED=true
+    
+    # Copy to home directory with proper ownership
+    cp /tmp/git-mounted/.gitconfig /home/devuser/.gitconfig
+    chown devuser:devuser /home/devuser/.gitconfig
+    chmod 600 /home/devuser/.gitconfig
+fi
+
+# Handle git credentials
+if [ -f /tmp/git-mounted/.git-credentials ]; then
+    echo "Found mounted git credentials"
+    cp /tmp/git-mounted/.git-credentials /home/devuser/.git-credentials
+    chown devuser:devuser /home/devuser/.git-credentials
+    chmod 600 /home/devuser/.git-credentials
+fi
+
+# Handle GitHub CLI configuration
+if [ -f /tmp/git-mounted/gh-hosts.yml ]; then
+    echo "Found mounted GitHub CLI configuration"
+    mkdir -p /home/devuser/.config/gh
+    cp /tmp/git-mounted/gh-hosts.yml /home/devuser/.config/gh/hosts.yml
+    chown -R devuser:devuser /home/devuser/.config/gh
+    chmod 600 /home/devuser/.config/gh/hosts.yml
+fi
+
+# Function to add line to file if not already present
+add_if_not_exists() {
+    local line="$1"
+    local file="$2"
+    grep -qxF "$line" "$file" 2>/dev/null || echo "$line" >> "$file"
+}
+
+# Configure .bashrc for devuser - only essential setup
+BASHRC="/home/devuser/.bashrc"
+touch "$BASHRC"
+
+# COMPONENT_SETUP_PLACEHOLDER
+
+# Ensure proper ownership of essential directories
+chown -R devuser:devuser /home/devuser/workspace 2>/dev/null || true
+chown -R devuser:devuser /home/devuser/.config/claude-code 2>/dev/null || true
+chown -R devuser:devuser /home/devuser/.local 2>/dev/null || true
+
+# Add user's local bin to PATH
+add_if_not_exists 'export PATH="$HOME/.local/bin:$PATH"' "$BASHRC"
+
+# Add terminal configuration for better CLI support
+add_if_not_exists 'export TERM=xterm-256color' "$BASHRC"
+add_if_not_exists 'export FORCE_COLOR=1' "$BASHRC"
+add_if_not_exists 'export CI=false' "$BASHRC"
+
+# Automatically cd to workspace on login
+add_if_not_exists 'cd ~/workspace 2>/dev/null || true' "$BASHRC"
+
+# Set a custom prompt
+add_if_not_exists 'export PS1="\[\033[01;32m\]devuser@ai-devkit\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]$ "' "$BASHRC"
+
+# Source system-wide profile scripts
+if ! grep -q "Source system-wide profile scripts" "$BASHRC" 2>/dev/null; then
+    cat >> "$BASHRC" << 'EOF'
+
+# Source system-wide profile scripts
+if [ -d /etc/profile.d ]; then
+    for i in /etc/profile.d/*.sh; do
+        if [ -r $i ]; then
+            . $i
+        fi
+    done
+fi
+EOF
+fi
+
+# Ensure proper ownership of .bashrc
+chown devuser:devuser "$BASHRC"
+
+# Add welcome message to .bashrc
+if ! grep -q "AI Development Kit Welcome" "$BASHRC" 2>/dev/null; then
+    cat >> "$BASHRC" << 'EOF'
+
+# AI Development Kit Welcome Message
+if [ -n "$PS1" ] && [ -z "$DEVKIT_WELCOME_SHOWN" ]; then
+    export DEVKIT_WELCOME_SHOWN=1
+    echo ""
+    echo "Welcome to AI Development Kit! 🚀"
+    echo ""
+    echo "Quick Start:"
+    # Check if Claude Code is installed
+    if command -v claude &> /dev/null 2>&1; then
+        echo "  • claude           - Start Claude Code"
+        echo "  • claude --help    - Show available commands"
+    fi
+    echo "  • tree             - View directory structure"
+    echo ""
+    # Check if git is configured
+    GIT_NAME=$(git config --global user.name 2>/dev/null || echo "")
+    if [ -z "$GIT_NAME" ]; then
+        echo "  ⚠️  Git not configured - run 'setup-git.sh' to configure"
+        echo ""
+    else
+        echo "  ✓ Git configured as: $GIT_NAME"
+        echo ""
+    fi
+    if [ -f ~/.claude/CLAUDE.md ]; then
+        # Count installed tools only in the "Installed Development Environment" section
+        TOOL_COUNT=$(sed -n '/## Installed Development Environment/,/^##[^#]/p' ~/.claude/CLAUDE.md 2>/dev/null | grep -E "^- " | wc -l)
+        if [ $TOOL_COUNT -gt 0 ]; then
+            echo "Environment: $TOOL_COUNT development tools installed"
+            echo "  • cat ~/.claude/CLAUDE.md - View full configuration & guidelines"
+            echo ""
+        fi
+    else
+        # Count installed tools by checking common commands
+        TOOL_COUNT=0
+        for cmd in node python3 java rustc go ruby php; do
+            command -v $cmd &> /dev/null && ((TOOL_COUNT++))
+        done
+        if [ $TOOL_COUNT -gt 0 ]; then
+            echo "Environment: $TOOL_COUNT+ development tools installed"
+            echo ""
+        fi
+    fi
+fi
+
+# Clear any input buffer to prevent command execution
+if [ -n "$PS1" ]; then
+    # Clear the input buffer
+    read -t 0.1 -n 10000 discard 2>/dev/null || true
+fi
+EOF
+fi
+
+# Switch to devuser and execute the command
+if [ "$(id -u)" = "0" ]; then
+    echo "Running as root, preparing to switch to devuser..."
+    # If no command specified, sleep indefinitely
+    if [ $# -eq 0 ]; then
+        echo "No command specified, running sleep infinity to keep container alive..."
+        exec sleep infinity
+    else
+        echo "Switching to devuser to run: $*"
+        # Build environment preservation string dynamically
+        ENV_PRESERVE="export TERM='$TERM' && export FORCE_COLOR='$FORCE_COLOR' && export CI='$CI'"
+        
+        # Add component-specific environment variables if they exist
+        [ -n "$PIP_INDEX_URL" ] && ENV_PRESERVE="$ENV_PRESERVE && export PIP_INDEX_URL='$PIP_INDEX_URL'"
+        [ -n "$PIP_TRUSTED_HOST" ] && ENV_PRESERVE="$ENV_PRESERVE && export PIP_TRUSTED_HOST='$PIP_TRUSTED_HOST'"
+        [ -n "$NPM_CONFIG_REGISTRY" ] && ENV_PRESERVE="$ENV_PRESERVE && export NPM_CONFIG_REGISTRY='$NPM_CONFIG_REGISTRY'"
+        [ -n "$GOPROXY" ] && ENV_PRESERVE="$ENV_PRESERVE && export GOPROXY='$GOPROXY'"
+        [ -n "$CARGO_REGISTRIES_CRATES_IO_PROTOCOL" ] && ENV_PRESERVE="$ENV_PRESERVE && export CARGO_REGISTRIES_CRATES_IO_PROTOCOL='$CARGO_REGISTRIES_CRATES_IO_PROTOCOL'"
+        [ -n "$CARGO_HTTP_CHECK_REVOKE" ] && ENV_PRESERVE="$ENV_PRESERVE && export CARGO_HTTP_CHECK_REVOKE='$CARGO_HTTP_CHECK_REVOKE'"
+        [ -n "$CARGO_NET_GIT_FETCH_WITH_CLI" ] && ENV_PRESERVE="$ENV_PRESERVE && export CARGO_NET_GIT_FETCH_WITH_CLI='$CARGO_NET_GIT_FETCH_WITH_CLI'"
+        [ -n "$NO_PROXY" ] && ENV_PRESERVE="$ENV_PRESERVE && export NO_PROXY='$NO_PROXY'"
+        [ -n "$no_proxy" ] && ENV_PRESERVE="$ENV_PRESERVE && export no_proxy='$no_proxy'"
+        [ -n "$SBT_OPTS" ] && ENV_PRESERVE="$ENV_PRESERVE && export SBT_OPTS='$SBT_OPTS'"
+        
+        exec su - devuser -c "$ENV_PRESERVE && $*"
+    fi
+else
+    echo "Running as non-root user..."
+    if [ $# -eq 0 ]; then
+        echo "No command specified, running sleep infinity..."
+        exec sleep infinity
+    else
+        exec "$@"
+    fi
+fi

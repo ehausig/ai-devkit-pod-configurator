@@ -40,6 +40,17 @@ installation:
         echo '}' >> /etc/skel/.gradle/init.gradle; \
     fi
   test_command: gradle --version
+entrypoint_setup: |
+  # Gradle specific setup
+  echo "Setting up Gradle environment..."
+  
+  # Create .gradle directory
+  mkdir -p /home/devuser/.gradle
+  
+  # Ensure proper ownership (skip if gradle.properties is mounted from ConfigMap)
+  if [ ! -f /home/devuser/.gradle/gradle.properties ]; then
+      chown -R devuser:devuser /home/devuser/.gradle 2>/dev/null || true
+  fi
 memory_content: |
   #### Gradle 8.5
   
