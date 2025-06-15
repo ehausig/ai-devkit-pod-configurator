@@ -2,13 +2,16 @@
 
 This project provides a containerized version of Claude Code running in Kubernetes, allowing you to use Anthropic's AI coding assistant in an isolated environment rather than directly on your host OS.
 
+> **Note**: This project is a work in progress and has been tested on macOS with Colima and a local Nexus server for proxy repositories. Nexus integration is optional - the system works perfectly without it.
+
 ## Project Structure
 
 ```
 claude-code-k8s/
 ├── Dockerfile.base         # Base container definition
 ├── entrypoint.sh           # Container startup script
-├── build-and-deploy.sh     # Helper script for building and deploying
+├── build-and-deploy.sh     # Main build and deployment script
+├── build-and-deploy-v2.sh  # Updated build script with memory_content support
 ├── configure-git-host.sh   # Configure git credentials on host for injection
 ├── setup-git.sh            # Configure git within containers
 ├── cleanup-colima.sh       # Disk cleanup utility for Colima
@@ -67,9 +70,11 @@ claude
 ### Core Features
 - **Containerized Claude Code**: Run Anthropic's AI coding assistant in an isolated Kubernetes environment
 - **Interactive Component Selection**: Choose which programming languages and tools to include
+- **Dynamic Documentation**: CLAUDE.md generated with tool-specific guidelines for selected components
 - **Persistent Git Configuration**: Configure git once, use across all deployments
 - **Web-based File Manager**: Built-in Filebrowser for easy file uploads/downloads
 - **Persistent Storage**: Configuration and workspace data persist across container restarts
+- **Nexus Proxy Support**: Optional integration with Nexus Repository Manager for offline builds
 - **Security**: Runs as non-root user with proper isolation
 - **Easy Deployment**: Single script to build and deploy
 
@@ -80,6 +85,36 @@ Every deployment includes these essential tools:
 - **Git** - Version control
 - **GitHub CLI (gh)** - GitHub operations
 - **Claude Code** - Anthropic's AI coding assistant
+
+## Enhanced Documentation System
+
+### Dynamic CLAUDE.md Generation
+
+The project now features an enhanced documentation system that generates a customized `CLAUDE.md` file for each deployment. This file includes:
+
+1. **Universal Development Guidelines**:
+   - Communication style preferences
+   - Git commit conventions (Conventional Commits)
+   - Code philosophy and best practices
+   - Project structure recommendations
+   - Security considerations
+   - Dependency management guidelines
+   - Git workflow automation tips
+
+2. **Tool-Specific Guidelines**:
+   - Automatically extracted from component YAML files
+   - Includes usage examples, common commands, and tips for each selected tool
+   - Preserves rich markdown formatting with code blocks and examples
+
+### Component Memory Content
+
+Each component can include a `memory_content` section in its YAML definition that provides:
+- Quick reference commands
+- Tool-specific best practices
+- Version-specific features
+- Common workflows and examples
+
+This content is automatically appended to the generated CLAUDE.md file that Claude Code can reference while assisting you.
 
 ## Git Configuration Management
 
@@ -175,6 +210,30 @@ When you run `./build-and-deploy.sh`:
 - **Gradle**: Build tool for Java/Kotlin/Groovy
 - **SBT**: Scala build tool
 
+### Component Structure
+
+Components are defined in YAML files with the following structure:
+
+```yaml
+id: UNIQUE_ID
+name: Display Name
+group: version-group  # For mutually exclusive options
+requires: []          # Dependencies (e.g., ["java-version"])
+description: Brief description
+installation:
+  dockerfile: |
+    RUN installation commands
+  nexus_config: |     # Optional Nexus proxy configuration
+    RUN nexus-specific setup
+memory_content: |     # Tool-specific guidelines for CLAUDE.md
+  #### Tool Name
+  
+  **Quick Reference**:
+  - Common commands
+  - Usage examples
+  - Best practices
+```
+
 ### Skip Component Selection
 
 To build with base tools only:
@@ -186,7 +245,7 @@ To build with base tools only:
 
 ### Web-based File Manager (Filebrowser)
 
-Every Claude Code deployment includes Filebrowser, a web-based file manager for easy file operations.
+Every pod deployment includes a sidecar Filebrowser container, a web-based file manager for easy file operations.
 
 #### Accessing Filebrowser
 
@@ -251,6 +310,23 @@ On first run, Claude Code will prompt for authentication:
 2. Follow the authentication flow
 3. Your credentials are stored in the persistent volume
 
+### Accessing Documentation
+
+The generated CLAUDE.md file is available in the container at:
+- `/home/claude/.claude/CLAUDE.md` - Global reference
+- `/home/claude/workspace/.claude/CLAUDE.md` - Project-specific copy
+
+Claude Code automatically references this documentation to provide context-aware assistance based on your selected tools and the project's development guidelines.
+
+## Nexus Repository Manager Support (Optional)
+
+If you have a local Nexus Repository Manager instance, the build system can automatically use it as a proxy for package downloads, enabling:
+- Offline builds with cached dependencies
+- Faster builds by using local mirrors
+- Reduced external network traffic
+
+The system automatically detects Nexus at `http://localhost:8081` and configures proxies for various package managers. If Nexus is not detected, the system uses default package repositories.
+
 ## Customization Options
 
 ### Resource Limits
@@ -275,10 +351,13 @@ The deployment uses persistent volume claims for:
 
 ### Adding Custom Components
 
-To add new languages or tools:
+The component system is designed to be highly customizable and extensible. The included language and build configurations are examples of what can be done - you're encouraged to add your own components based on your needs.
 
-1. Create a YAML file in `components/languages/` or `components/build-tools/`
-2. Follow the existing format:
+To add new languages, tools, or custom configurations:
+
+1. Create a new subfolder in the `components/` directory (e.g., `components/databases/`, `components/utilities/`)
+2. Add a YAML file with your component definition
+3. Follow the existing format:
    ```yaml
    id: UNIQUE_ID
    name: Display Name
@@ -288,7 +367,28 @@ To add new languages or tools:
    installation:
      dockerfile: |
        RUN installation commands
+     nexus_config: |     # Optional
+       RUN nexus-specific configuration
+   memory_content: |     # Optional but recommended
+     #### Tool Name
+     
+     **Quick Start**:
+     - Installation verification: `tool --version`
+     - Common commands and examples
+     
+     **Best Practices**:
+     - Tool-specific tips and guidelines
    ```
+
+3. The `memory_content` section will be automatically included in the generated CLAUDE.md
+4. Components are automatically discovered from any subfolder in `components/`
+
+Example custom component ideas:
+- Database clients (PostgreSQL, MySQL, MongoDB tools)
+- Cloud CLIs (AWS, GCP, Azure)
+- DevOps tools (Terraform, Ansible, Helm)
+- Testing frameworks
+- Custom development environments
 
 ## Troubleshooting
 
@@ -314,6 +414,10 @@ To add new languages or tools:
    - Yellow items need dependencies (e.g., Scala needs Java)
    - Grey items are mutually exclusive with your selection
    - Use TAB to switch between catalog and cart views
+
+4. **Missing tool documentation**:
+   - Check if the component YAML includes a `memory_content` section
+   - Verify CLAUDE.md was generated: `cat /home/claude/.claude/CLAUDE.md`
 
 ### Viewing Logs
 
@@ -357,10 +461,22 @@ cat /home/claude/.config/claude-code/logs/*
    - Use Filebrowser for uploading/downloading files
    - Or use `kubectl cp` for command-line transfers
 
-4. **Iterate**:
+4. **Reference Documentation**:
+   - Check `~/.claude/CLAUDE.md` for development guidelines
+   - Tool-specific commands and tips are included based on your selection
+
+5. **Iterate**:
    - Make changes with Claude Code
    - Commit and push using pre-configured git
    - Redeploy as needed (git config persists)
+
+## Support This Project
+
+If you find this project useful, please consider supporting its development:
+
+☕ [Buy me a coffee](https://coff.ee/ehausig)
+
+Your support helps maintain and improve this project. Thank you!
 
 ## License
 
