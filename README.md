@@ -1,8 +1,28 @@
 # Claude Code in Kubernetes
 
-This project provides a containerized version of Claude Code running in Kubernetes, allowing you to use Anthropic's AI coding assistant in an isolated environment rather than directly on your host OS.
+This project provides a modular, plugin-based system for creating containerized development environments in Kubernetes, with optional support for Anthropic's Claude Code AI assistant.
 
 > **Note**: This project is a work in progress and has been tested on macOS with Colima and a local Nexus server for proxy repositories. Nexus integration is optional - the system works perfectly without it.
+
+## Architecture
+
+The project uses a modular, plugin-style architecture:
+
+- **Base Container**: Minimal Ubuntu 22.04 with only Git and GitHub CLI
+- **Component System**: Add languages, tools, and AI agents as needed
+- **Pre-build Scripts**: Components can execute setup scripts during build
+- **File Injection**: Components can inject configuration files into the container
+
+### Component Categories:
+- `languages/` - Programming languages (Node.js, Python, Java, etc.)
+- `build-tools/` - Build and dependency management tools
+- `agents/` - AI assistants like Claude Code
+
+### Key Features:
+- Claude Code is optional, not required
+- Fully modular - build containers with only what you need
+- Pre-build script system for dynamic configuration
+- Memory content system for AI agent awareness
 
 ## Project Structure
 
@@ -11,15 +31,17 @@ claude-code-k8s/
 ├── Dockerfile.base         # Base container definition
 ├── entrypoint.sh           # Container startup script
 ├── build-and-deploy.sh     # Main build and deployment script
-├── build-and-deploy-v2.sh  # Updated build script with memory_content support
 ├── configure-git-host.sh   # Configure git credentials on host for injection
 ├── setup-git.sh            # Configure git within containers
 ├── cleanup-colima.sh       # Disk cleanup utility for Colima
 ├── access-filebrowser.sh   # Convenience script for accessing the file manager
-├── settings.local.json.template  # Claude Code permissions template
-├── CLAUDE.md.template      # Development guidelines template
 ├── .gitignore              # Git ignore file
 ├── components/             # Available languages and tools
+│   ├── agents/             # AI assistants
+│   │   ├── claude-code.yaml
+│   │   ├── claude-code-setup.sh
+│   │   ├── CLAUDE.md.template
+│   │   └── settings.local.json.template
 │   ├── languages/          # Programming language components
 │   └── build-tools/        # Build tool components
 ├── kubernetes/
@@ -48,10 +70,10 @@ chmod +x *.sh
 # Build and deploy with interactive component selection
 ./build-and-deploy.sh
 
-# Connect to the container as the claude user
-kubectl exec -it -n claude-code <pod-name> -- su - claude
+# Connect to the container as the devuser
+kubectl exec -it -n claude-code <pod-name> -- su - devuser
 
-# Inside the container, run Claude Code
+# Inside the container, if Claude Code was selected:
 cd workspace
 claude
 ```
@@ -61,115 +83,31 @@ claude
 - Kubernetes cluster (k3s, minikube, colima, or any other Kubernetes distribution)
 - kubectl configured to access your cluster
 - Docker or other container build tool
-- An Anthropic account with one of the following:
-  - Claude.ai account with Max subscription
-  - Anthropic Console account with Claude API access
+- If using Claude Code:
+  - An Anthropic account with one of the following:
+    - Claude.ai account with Max subscription
+    - Anthropic Console account with Claude API access
 
 ## Features
 
 ### Core Features
-- **Containerized Claude Code**: Run Anthropic's AI coding assistant in an isolated Kubernetes environment
-- **Interactive Component Selection**: Choose which programming languages and tools to include
-- **Dynamic Memory System**: Generates customized CLAUDE.md with tool-specific guidelines for selected components
+- **Modular Component System**: Choose exactly what tools and languages you need
+- **Optional Claude Code**: AI coding assistant available as an optional component
+- **Interactive Component Selection**: Visual menu for choosing components
+- **Dynamic Memory System**: Generates customized CLAUDE.md when Claude Code is selected
+- **Pre-build Script System**: Components can run setup scripts during build
 - **Persistent Git Configuration**: Configure git once, use across all deployments
 - **Web-based File Manager**: Built-in Filebrowser for easy file uploads/downloads
 - **Persistent Storage**: Configuration and workspace data persist across container restarts
 - **Nexus Proxy Support**: Optional integration with Nexus Repository Manager for offline builds
-- **Security**: Runs as non-root user with proper isolation
-- **Easy Deployment**: Single script to build and deploy
+- **Security**: Runs as non-root user (devuser) with proper isolation
 
 ### Base Development Tools
-Every deployment includes these essential tools:
-- **Node.js 20.18.0** - JavaScript runtime
-- **npm (latest)** - Package manager
+Every deployment includes these minimal essential tools:
 - **Git** - Version control
 - **GitHub CLI (gh)** - GitHub operations
-- **Claude Code** - Anthropic's AI coding assistant
 
-## Claude Code Memory System
-
-### Dynamic Memory Generation
-
-The project features an intelligent memory system that generates a customized `CLAUDE.md` file for each deployment. This memory file helps Claude Code understand your development environment and preferences:
-
-1. **Universal Development Guidelines**:
-   - Communication style preferences
-   - Git commit conventions (Conventional Commits)
-   - Code philosophy and best practices
-   - Project structure recommendations
-   - Security considerations
-   - Dependency management guidelines
-   - Git workflow automation tips
-
-2. **Tool-Specific Guidelines**:
-   - Automatically extracted from component YAML files
-   - Includes usage examples, common commands, and tips for each selected tool
-   - Preserves rich markdown formatting with code blocks and examples
-
-### Component Memory Content
-
-Each component can include a `memory_content` section in its YAML definition that provides:
-- Quick reference commands
-- Tool-specific best practices
-- Version-specific features
-- Common workflows and examples
-
-This content is automatically appended to the generated CLAUDE.md memory file, giving Claude Code context about your selected tools and preferred workflows.
-
-## Git Configuration Management
-
-Claude Code K8s supports persistent git configuration across container deployments. You have two options for configuring git:
-
-### Option 1: Host-Based Configuration (Recommended)
-
-Configure git once on your host machine and automatically inject it into all future deployments:
-
-```bash
-# Run the configuration script
-./configure-git-host.sh
-
-# Follow the prompts to:
-# - Set your git name and email
-# - Configure GitHub authentication with Personal Access Token (PAT)
-```
-
-The configuration is stored securely in `~/.claude-code-k8s/` on your host machine. When you run `build-and-deploy.sh`, it will detect this configuration and ask if you want to include it in the deployment.
-
-Benefits:
-- Configure once, use many times
-- No need to reconfigure after each deployment
-- Credentials stored securely as Kubernetes secrets
-- Uses HTTPS authentication (no SSH keys needed)
-
-To clear the stored configuration:
-```bash
-./configure-git-host.sh --clear
-```
-
-### Option 2: Container-Based Configuration
-
-If you prefer to configure git separately for each container or don't want to store credentials on the host:
-
-```bash
-# Connect to the container
-kubectl exec -it -n claude-code <pod-name> -- su - claude
-
-# Run the setup script
-setup-git.sh
-
-# Choose authentication method:
-# 1) Personal Access Token (PAT)
-# 2) OAuth via web browser
-```
-
-This approach keeps git configuration isolated to the specific container instance.
-
-### Security Notes
-
-- Host configuration is stored with restrictive permissions (700/600)
-- Credentials are injected as Kubernetes secrets, not built into the image
-- PATs are never logged or displayed after initial setup
-- All git operations use HTTPS (SSH is not supported)
+All other tools, including Node.js and Claude Code, are optional components you can select.
 
 ## Component Selection
 
@@ -179,7 +117,7 @@ The build script includes an interactive component selection menu that allows yo
 
 When you run `./build-and-deploy.sh`:
 
-1. An interactive menu appears showing available components
+1. An interactive menu appears showing available components organized by category
 2. Navigate using:
    - **↑/↓ arrow keys** or **j/k** - Move cursor up/down
    - **←/→ arrow keys** or **h/l** - Navigate pages
@@ -188,14 +126,18 @@ When you run `./build-and-deploy.sh`:
    - **ENTER** - Build with selected components
    - **q** - Quit without building
 
-3. Selected components show:
+3. Component states:
    - **Green ✓** - Component is selected
    - **Grey text** - Component unavailable due to mutual exclusion
-   - **Yellow ○** - Component needs dependencies
+   - **Yellow (needs X)** - Component requires dependencies
 
 ### Available Components
 
+#### AI Agents
+- **Claude Code**: Anthropic's AI coding assistant (requires Node.js - automatically added)
+
 #### Programming Languages
+- **Node.js**: 20.18.0 with npm
 - **Python**: 3.10 (Ubuntu Default), 3.11 (Official), Miniconda
 - **Java**: OpenJDK 11/17/21, Eclipse Adoptium 11/17/21
 - **Go**: 1.21, 1.22
@@ -210,267 +152,193 @@ When you run `./build-and-deploy.sh`:
 - **Gradle**: Build tool for Java/Kotlin/Groovy
 - **SBT**: Scala build tool
 
-### Component Structure
-
-Components are defined in YAML files with the following structure:
-
-```yaml
-id: UNIQUE_ID
-name: Display Name
-group: version-group  # For mutually exclusive options
-requires: []          # Dependencies (e.g., ["java-version"])
-description: Brief description
-installation:
-  dockerfile: |
-    RUN installation commands
-  nexus_config: |     # Optional Nexus proxy configuration
-    RUN nexus-specific setup
-   memory_content: |     # Tool-specific memory for CLAUDE.md
-  #### Tool Name
-  
-  **Quick Reference**:
-  - Common commands
-  - Usage examples
-  - Best practices
-```
-
 ### Skip Component Selection
 
-To build with base tools only:
+To build with base tools only (minimal container with just Git and GitHub CLI):
 ```bash
 ./build-and-deploy.sh --no-select
+```
+
+## Claude Code Memory System (When Claude Code is Selected)
+
+When you select Claude Code, the project features an intelligent memory system that generates a customized `CLAUDE.md` file for each deployment:
+
+1. **Universal Development Guidelines**:
+   - Communication style preferences
+   - Git commit conventions (Conventional Commits)
+   - Code philosophy and best practices
+   - Git workflow automation tips
+
+2. **Tool-Specific Guidelines**:
+   - Automatically extracted from selected components
+   - Includes usage examples, common commands, and tips
+   - Preserves rich markdown formatting
+
+### Component Memory Content
+
+Each component can include a `memory_content` section that provides:
+- Quick reference commands
+- Tool-specific best practices
+- Version-specific features
+- Common workflows and examples
+
+This content is automatically included in Claude's memory when Claude Code is selected.
+
+## Git Configuration Management
+
+The project supports persistent git configuration across container deployments:
+
+### Option 1: Host-Based Configuration (Recommended)
+
+Configure git once on your host machine:
+
+```bash
+# Run the configuration script
+./configure-git-host.sh
+
+# Follow the prompts to:
+# - Set your git name and email
+# - Configure GitHub authentication with Personal Access Token (PAT)
+```
+
+Configuration is stored in `~/.claude-code-k8s/` and automatically injected into deployments.
+
+### Option 2: Container-Based Configuration
+
+Configure git within each container:
+
+```bash
+# Connect to the container
+kubectl exec -it -n claude-code <pod-name> -- su - devuser
+
+# Run the setup script
+setup-git.sh
 ```
 
 ## Working with Files
 
 ### Web-based File Manager (Filebrowser)
 
-Every pod deployment includes a sidecar Filebrowser container, a web-based file manager for easy file operations.
-
-#### Accessing Filebrowser
-
-1. Use the convenience script:
-   ```bash
-   ./access-filebrowser.sh
-   ```
-   Or manually start port forwarding:
-   ```bash
-   kubectl port-forward -n claude-code service/claude-code 8090:8090
-   ```
-
-2. Open in your browser: [http://localhost:8090](http://localhost:8090)
-
-3. Login with default credentials:
-   - Username: `admin`
-   - Password: `admin`
-   - **⚠️ Important**: Change the password after first login!
-
-#### Filebrowser Features
-
-- **Upload**: Drag & drop multiple files or entire folders
-- **Download**: Select files/folders and download as ZIP
-- **Edit**: Built-in text editor with syntax highlighting
-- **Search**: Find files quickly across your workspace
-- **Preview**: View images, PDFs, and other file types
-
-### Command Line File Transfer
-
-You can also use `kubectl cp` for command-line file transfers:
+Every deployment includes Filebrowser for easy file management:
 
 ```bash
-# Copy from local to container
-kubectl cp /local/path/to/file claude-code/<pod-name>:/home/claude/workspace/file -n claude-code
+# Use the convenience script:
+./access-filebrowser.sh
 
-# Copy from container to local
-kubectl cp claude-code/<pod-name>:/home/claude/workspace/file /local/destination/path -n claude-code
+# Or manually:
+kubectl port-forward -n claude-code service/claude-code 8090:8090
 ```
 
-## Claude Code Usage
+Access at [http://localhost:8090](http://localhost:8090)
+- Default credentials: admin/admin (change after first login!)
 
-Once connected to the container, you can use Claude Code for various tasks:
+## Creating Custom Components
 
-```bash
-# Start Claude Code in the current directory
-claude
-
-# Get help
-claude --help
-
-# Work with specific files
-claude myfile.py
-
-# Use with a specific instruction
-claude "add error handling to this function" myfile.js
-```
-
-### Authentication
-
-On first run, Claude Code will prompt for authentication:
-1. Choose OAuth (recommended) or API key
-2. Follow the authentication flow
-3. Your credentials are stored in the persistent volume
-
-### Accessing Claude's Memory
-
-The generated CLAUDE.md memory file is available in the container at:
-- `/home/claude/.claude/CLAUDE.md` - User memory for personal preferences across all projects
-- `/home/claude/workspace/.claude/settings.local.json` - Claude Code permissions
-
-Claude Code automatically loads these memory files when launched, providing context-aware assistance based on your selected tools and development preferences.
-
-## Nexus Repository Manager Support (Optional)
-
-If you have a local Nexus Repository Manager instance, the build system can automatically use it as a proxy for package downloads, enabling:
-- Offline builds with cached dependencies
-- Faster builds by using local mirrors
-- Reduced external network traffic
-
-The system automatically detects Nexus at `http://localhost:8081` and configures proxies for various package managers. If Nexus is not detected, the system uses default package repositories.
-
-## Customization Options
-
-### Resource Limits
-
-Edit `kubernetes/deployment.yaml` to adjust CPU and memory limits:
+Components are defined in YAML files with the following structure:
 
 ```yaml
-resources:
-  requests:
-    memory: "256Mi"
-    cpu: "100m"
-  limits:
-    memory: "1Gi"
-    cpu: "500m"
+id: COMPONENT_ID
+name: Display Name
+group: component-group
+requires: dependency-groups  # e.g., nodejs-version
+description: Component description
+pre_build_script: setup-script.sh  # Optional
+installation:
+  dockerfile: |
+    # Installation commands
+  inject_files:
+    - source: config-file
+      destination: /path/in/container
+      permissions: 644
+memory_content: |
+  # Documentation for AI agents
 ```
 
-### Persistence
+### Pre-build Scripts
 
-The deployment uses persistent volume claims for:
-- **Config storage**: `/home/claude/.config/claude-code` - Claude Code settings
-- **Workspace**: `/home/claude/workspace` - Your code and projects
+Pre-build scripts receive these arguments:
+1. `$1` - TEMP_DIR (where to place generated files)
+2. `$2` - SELECTED_IDS (space-separated list)
+3. `$3` - SELECTED_NAMES (space-separated list)
+4. `$4` - SELECTED_YAML_FILES (space-separated list)
+5. `$5` - SCRIPT_DIR (directory containing the script)
 
-### Adding Custom Components
+Example component categories you could add:
+- `components/databases/` - Database clients
+- `components/cloud/` - Cloud provider CLIs
+- `components/devops/` - Infrastructure tools
+- `components/testing/` - Testing frameworks
 
-The component system is designed to be highly customizable and extensible. The included language and build configurations are examples of what can be done - you're encouraged to add your own components based on your needs.
+## Container Access
 
-To add new languages, tools, or custom configurations:
+```bash
+# Get pod name
+POD_NAME=$(kubectl get pods -n claude-code -l app=claude-code -o jsonpath="{.items[0].metadata.name}")
 
-1. Create a new subfolder in the `components/` directory (e.g., `components/databases/`, `components/utilities/`)
-2. Add a YAML file with your component definition
-3. Follow the existing format:
-   ```yaml
-   id: UNIQUE_ID
-   name: Display Name
-   group: version-group  # For mutually exclusive options
-   requires: []          # Dependencies
-   description: Brief description
-   installation:
-     dockerfile: |
-       RUN installation commands
-     nexus_config: |     # Optional
-       RUN nexus-specific configuration
-   memory_content: |     # Optional but recommended
-     #### Tool Name
-     
-     **Quick Start**:
-     - Installation verification: `tool --version`
-     - Common commands and examples
-     
-     **Best Practices**:
-     - Tool-specific tips and workflows
-   ```
+# Connect to container
+kubectl exec -it -n claude-code $POD_NAME -c claude-code -- su - devuser
 
-3. The `memory_content` section will be automatically included in Claude's memory (CLAUDE.md)
-4. Components are automatically discovered from any subfolder in `components/`
-
-Example custom component ideas:
-- Database clients (PostgreSQL, MySQL, MongoDB tools)
-- Cloud CLIs (AWS, GCP, Azure)
-- DevOps tools (Terraform, Ansible, Helm)
-- Testing frameworks
-- Custom development environments
+# If Claude Code was selected:
+claude --help
+```
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Pod stuck in Pending state**:
+1. **Claude Code not found**:
+   - Ensure you selected Claude Code during the build process
+   - Claude Code is now optional and must be explicitly selected
+
+2. **No Node.js available**:
+   - Node.js is no longer included by default
+   - Select it from the Languages category if needed
+
+3. **Pod stuck in Pending state**:
    ```bash
    # Check for disk pressure (common with Colima)
    ./cleanup-colima.sh
-   
-   # Or increase Colima disk size
-   colima stop
-   colima delete
-   colima start --kubernetes --disk 100
    ```
 
-2. **Authentication failures**:
-   - Ensure you have an active Anthropic account
-   - Check network connectivity from the container
-   - Try re-running `setup-git.sh` if git operations fail
-
-3. **Component selection issues**:
-   - Yellow items need dependencies (e.g., Scala needs Java)
-   - Grey items are mutually exclusive with your selection
-   - Use TAB to switch between catalog and cart views
-
-4. **Missing Claude memory**:
-   - Check if the component YAML includes a `memory_content` section
-   - Verify CLAUDE.md was generated: `cat /home/claude/.claude/CLAUDE.md`
-   - Use `/memory` command in Claude Code to see loaded memories
+4. **Component not appearing**:
+   - Check YAML syntax, especially the `requires` field (should not use brackets)
+   - Verify category `.category.yaml` file exists
+   - Check component group doesn't conflict with others
 
 ### Viewing Logs
 
 ```bash
 # Container logs
-kubectl logs -n claude-code <pod-name> -c claude-code
+kubectl logs -n claude-code $POD_NAME -c claude-code
 
-# Filebrowser logs
-kubectl logs -n claude-code <pod-name> -c filebrowser
-
-# Claude Code logs (from inside the container)
-cat /home/claude/.config/claude-code/logs/*
+# Build issues - check the temp directory
+ls -la .build-temp/
 ```
 
 ## Security Considerations
 
-- Container runs as non-root user (`claude`)
+- Container runs as non-root user (`devuser`)
 - Git credentials are injected as Kubernetes secrets
-- File operations are restricted to the workspace
-- Pre-configured permissions in `settings.local.json`
 - No SSH support - all git operations use HTTPS
+- Minimal base image with only essential tools
 
 ## Development Workflow
 
 1. **Initial Setup**:
    ```bash
    ./configure-git-host.sh  # One-time git configuration
-   ./build-and-deploy.sh    # Build and deploy with components
+   ./build-and-deploy.sh    # Select components and deploy
    ```
 
-2. **Connect and Work**:
+2. **Minimal Container** (just Git and GitHub CLI):
    ```bash
-   kubectl exec -it -n claude-code <pod-name> -- su - claude
-   cd workspace
-   git clone https://github.com/yourusername/project.git
-   cd project
-   claude
+   ./build-and-deploy.sh --no-select
    ```
 
-3. **File Management**:
-   - Use Filebrowser for uploading/downloading files
-   - Or use `kubectl cp` for command-line transfers
-
-4. **Check Claude's memory**:
-   - View loaded memories: `/memory` command in Claude Code
-   - User memory at `~/.claude/CLAUDE.md` contains your preferences
-   - Add quick memories with `# your memory here` during sessions
-
-5. **Iterate**:
-   - Make changes with Claude Code
-   - Commit and push using pre-configured git
-   - Redeploy as needed (git config persists)
+3. **With Claude Code**:
+   - Select Claude Code from AI Agents category
+   - Node.js will be automatically included
+   - CLAUDE.md will be generated with your tool selections
 
 ## Support This Project
 

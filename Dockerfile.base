@@ -36,7 +36,7 @@ RUN if [ -n "$PIP_INDEX_URL" ]; then \
         echo "✓ Configured pip to use proxy" ; \
     fi
 
-# Install dependencies (excluding Node.js)
+# Install base dependencies (minimal set)
 RUN apt-get update && apt-get install -y \
     curl \
     ca-certificates \
@@ -81,77 +81,24 @@ RUN if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Remove any existing Node.js installation
-RUN apt-get update && \
-    apt-get remove -y nodejs npm libnode-dev && \
-    apt-get autoremove -y && \
-    rm -rf /usr/local/lib/node_modules && \
-    rm -rf /usr/local/bin/node* && \
-    rm -rf /usr/local/bin/npm*
+# Create a non-root user to run development tools
+RUN useradd -ms /bin/bash devuser
+RUN mkdir -p /home/devuser/.config/claude-code
+RUN mkdir -p /home/devuser/workspace
+RUN mkdir -p /home/devuser/.claude
+RUN chown -R devuser:devuser /home/devuser/
 
-# Install Node.js 20.x (Claude Code requires Node.js 18+)
-# Direct binary installation to avoid repository issues with proxy
-RUN export DEBIAN_FRONTEND=noninteractive && \
-    ARCH=$(dpkg --print-architecture) && \
-    NODE_ARCH=${ARCH} && \
-    if [ "${ARCH}" = "arm64" ]; then NODE_ARCH="arm64"; elif [ "${ARCH}" = "amd64" ]; then NODE_ARCH="x64"; fi && \
-    NODE_VERSION="v20.18.0" && \
-    wget -q https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz && \
-    tar -xJf node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz -C /usr/local --strip-components=1 && \
-    rm node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz && \
-    npm install -g npm@latest
+# Set up user's PATH to include .local/bin
+RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> /home/devuser/.bashrc
 
-# Configure npm if proxy URL is provided
-RUN if [ -n "$NPM_REGISTRY" ]; then \
-        npm config set registry ${NPM_REGISTRY} && \
-        echo "✓ Configured npm to use proxy" ; \
-    fi
-
-# Create a non-root user to run Claude Code
-RUN useradd -ms /bin/bash claude
-RUN mkdir -p /home/claude/.config/claude-code
-RUN mkdir -p /home/claude/workspace
-RUN mkdir -p /home/claude/.claude
-RUN mkdir -p /home/claude/.npm-global
-RUN chown -R claude:claude /home/claude/
-
-# Set up user's PATH to include .local/bin and npm global
-RUN echo 'export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"' >> /home/claude/.bashrc
-RUN echo 'export NPM_CONFIG_PREFIX="$HOME/.npm-global"' >> /home/claude/.bashrc
-
-# Configure npm for the claude user if proxy URL is provided
-RUN if [ -n "$NPM_REGISTRY" ]; then \
-        echo "registry=${NPM_REGISTRY}" > /home/claude/.npmrc && \
-        echo "prefix=/home/claude/.npm-global" >> /home/claude/.npmrc && \
-        chown claude:claude /home/claude/.npmrc && \
-        echo "✓ Configured npm for claude user" ; \
-    else \
-        echo "prefix=/home/claude/.npm-global" > /home/claude/.npmrc && \
-        chown claude:claude /home/claude/.npmrc ; \
-    fi
-
-# Switch to claude user to install Claude Code in user directory
-USER claude
-ENV NPM_CONFIG_PREFIX=/home/claude/.npm-global
-ENV PATH="/home/claude/.npm-global/bin:${PATH}"
-
-# Install Claude Code as claude user
-RUN npm install -g @anthropic-ai/claude-code
-
-# Verify Claude Code installation
-RUN which claude || (echo "Claude Code installation failed" && exit 1)
-
-# Switch back to root for remaining setup
-USER root
-
-# Configure pip for the claude user if proxy URL is provided
+# Configure pip for the devuser if proxy URL is provided
 RUN if [ -n "$PIP_INDEX_URL" ]; then \
-        mkdir -p /home/claude/.config/pip && \
-        echo "[global]" > /home/claude/.config/pip/pip.conf && \
-        echo "index-url = ${PIP_INDEX_URL}" >> /home/claude/.config/pip/pip.conf && \
-        echo "trusted-host = ${PIP_TRUSTED_HOST}" >> /home/claude/.config/pip/pip.conf && \
-        chown -R claude:claude /home/claude/.config/pip && \
-        echo "✓ Configured pip for claude user" ; \
+        mkdir -p /home/devuser/.config/pip && \
+        echo "[global]" > /home/devuser/.config/pip/pip.conf && \
+        echo "index-url = ${PIP_INDEX_URL}" >> /home/devuser/.config/pip/pip.conf && \
+        echo "trusted-host = ${PIP_TRUSTED_HOST}" >> /home/devuser/.config/pip/pip.conf && \
+        chown -R devuser:devuser /home/devuser/.config/pip && \
+        echo "✓ Configured pip for devuser" ; \
     fi
 
 # LANGUAGE_INSTALLATIONS_PLACEHOLDER
@@ -168,43 +115,19 @@ RUN chmod +x /entrypoint.sh
 COPY setup-git.sh /usr/local/bin/setup-git.sh
 RUN chmod +x /usr/local/bin/setup-git.sh
 
-# Set up user's PATH to include .local/bin
-RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> /home/claude/.bashrc
-
-# Configure pip for the claude user if proxy URL is provided
-RUN if [ -n "$PIP_INDEX_URL" ]; then \
-        mkdir -p /home/claude/.config/pip && \
-        echo "[global]" > /home/claude/.config/pip/pip.conf && \
-        echo "index-url = ${PIP_INDEX_URL}" >> /home/claude/.config/pip/pip.conf && \
-        echo "trusted-host = ${PIP_TRUSTED_HOST}" >> /home/claude/.config/pip/pip.conf && \
-        chown -R claude:claude /home/claude/.config/pip && \
-        echo "✓ Configured pip for claude user" ; \
-    fi
-
-# Configure npm for the claude user if proxy URL is provided
-RUN if [ -n "$NPM_REGISTRY" ]; then \
-        echo "registry=${NPM_REGISTRY}" > /home/claude/.npmrc && \
-        chown claude:claude /home/claude/.npmrc && \
-        echo "✓ Configured npm for claude user" ; \
-    fi
-
 # Set environment variables for runtime if proxies are configured
 ENV PIP_INDEX_URL=${PIP_INDEX_URL}
 ENV PIP_TRUSTED_HOST=${PIP_TRUSTED_HOST}
 ENV NPM_CONFIG_REGISTRY=${NPM_REGISTRY}
 ENV GOPROXY=${GOPROXY}
 
-# Ensure npm paths are available for all users
-ENV NPM_CONFIG_PREFIX=/home/claude/.npm-global
-ENV PATH="/home/claude/.npm-global/bin:${PATH}"
-
-# Switch to the claude user for runtime (but not for entrypoint)
-USER claude
-WORKDIR /home/claude
+# Switch to the devuser for runtime (but not for entrypoint)
+USER devuser
+WORKDIR /home/devuser
 
 # Switch back to root for the entrypoint
 USER root
 ENTRYPOINT ["/entrypoint.sh"]
 
 # Set up volume mount points for persistence - MUST be last!
-VOLUME ["/home/claude/.config/claude-code", "/home/claude/workspace"]
+VOLUME ["/home/devuser/.config/claude-code", "/home/devuser/workspace"]

@@ -1,8 +1,11 @@
 #!/bin/bash
 set -e
 
-# Ensure PATH includes npm global binaries
-export PATH="$PATH:/usr/local/bin:/usr/lib/node_modules/.bin"
+# Ensure PATH includes npm global binaries (if npm is installed)
+export PATH="$PATH:/usr/local/bin"
+if [ -d "/usr/lib/node_modules/.bin" ]; then
+    export PATH="$PATH:/usr/lib/node_modules/.bin"
+fi
 
 # Source all profile scripts to load language paths
 if [ -d /etc/profile.d ]; then
@@ -14,35 +17,41 @@ if [ -d /etc/profile.d ]; then
 fi
 
 # Create config directory if it doesn't exist
-CONFIG_DIR="/home/claude/.config/claude-code"
+CONFIG_DIR="/home/devuser/.config/claude-code"
 mkdir -p "$CONFIG_DIR"
 
 # Create .local/bin directory for user pip installs
-mkdir -p /home/claude/.local/bin
+mkdir -p /home/devuser/.local/bin
 
-# Create .npm-global directory for user npm installs
-mkdir -p /home/claude/.npm-global
+# Create .npm-global directory for user npm installs (if npm is available)
+if command -v npm &> /dev/null; then
+    mkdir -p /home/devuser/.npm-global
+fi
 
 # Create .cargo directory for Rust/Cargo if it doesn't exist
-mkdir -p /home/claude/.cargo
+mkdir -p /home/devuser/.cargo
 
 # Create .m2 directory for Maven if it doesn't exist
-mkdir -p /home/claude/.m2
+mkdir -p /home/devuser/.m2
 
 # Create .sbt directory for SBT if it doesn't exist
-mkdir -p /home/claude/.sbt
-mkdir -p /home/claude/.sbt/0.13
-mkdir -p /home/claude/.sbt/1.0
-mkdir -p /home/claude/.sbt/boot
+mkdir -p /home/devuser/.sbt
+mkdir -p /home/devuser/.sbt/0.13
+mkdir -p /home/devuser/.sbt/1.0
+mkdir -p /home/devuser/.sbt/boot
 
 # Create .gradle directory for Gradle if it doesn't exist
-mkdir -p /home/claude/.gradle
+mkdir -p /home/devuser/.gradle
 
-# Create .claude directory for global Claude configuration
-mkdir -p /home/claude/.claude
+# Create .claude directory for global Claude configuration (if Claude Code is installed)
+if command -v claude &> /dev/null 2>&1 || [ -f /tmp/CLAUDE.md ]; then
+    mkdir -p /home/devuser/.claude
+fi
 
-# Create .claude directory in workspace for project-specific settings
-mkdir -p /home/claude/workspace/.claude
+# Create .claude directory in workspace for project-specific settings (if Claude Code is installed)
+if command -v claude &> /dev/null 2>&1 || [ -f /tmp/settings.local.json.template ]; then
+    mkdir -p /home/devuser/workspace/.claude
+fi
 
 # Handle git configuration from mounted secrets
 echo "Checking for pre-configured git settings..."
@@ -54,36 +63,36 @@ if [ -f /tmp/git-mounted/.gitconfig ]; then
     GIT_CONFIGURED=true
     
     # Copy to home directory with proper ownership
-    cp /tmp/git-mounted/.gitconfig /home/claude/.gitconfig
-    chown claude:claude /home/claude/.gitconfig
-    chmod 600 /home/claude/.gitconfig
+    cp /tmp/git-mounted/.gitconfig /home/devuser/.gitconfig
+    chown devuser:devuser /home/devuser/.gitconfig
+    chmod 600 /home/devuser/.gitconfig
 fi
 
 # Handle git credentials
 if [ -f /tmp/git-mounted/.git-credentials ]; then
     echo "Found mounted git credentials"
-    cp /tmp/git-mounted/.git-credentials /home/claude/.git-credentials
-    chown claude:claude /home/claude/.git-credentials
-    chmod 600 /home/claude/.git-credentials
+    cp /tmp/git-mounted/.git-credentials /home/devuser/.git-credentials
+    chown devuser:devuser /home/devuser/.git-credentials
+    chmod 600 /home/devuser/.git-credentials
 fi
 
 # Handle GitHub CLI configuration
 if [ -f /tmp/git-mounted/gh-hosts.yml ]; then
     echo "Found mounted GitHub CLI configuration"
-    mkdir -p /home/claude/.config/gh
-    cp /tmp/git-mounted/gh-hosts.yml /home/claude/.config/gh/hosts.yml
-    chown -R claude:claude /home/claude/.config/gh
-    chmod 600 /home/claude/.config/gh/hosts.yml
+    mkdir -p /home/devuser/.config/gh
+    cp /tmp/git-mounted/gh-hosts.yml /home/devuser/.config/gh/hosts.yml
+    chown -R devuser:devuser /home/devuser/.config/gh
+    chmod 600 /home/devuser/.config/gh/hosts.yml
 fi
 
-# Copy settings.local.json from template if it doesn't exist
+# Copy settings.local.json from template if it exists (Claude Code component)
 echo "Checking for settings.local.json..."
 if [ -f /tmp/settings.local.json.template ]; then
     echo "Found /tmp/settings.local.json.template"
-    if [ ! -f /home/claude/workspace/.claude/settings.local.json ]; then
+    if [ ! -f /home/devuser/workspace/.claude/settings.local.json ]; then
         echo "Copying settings.local.json to workspace/.claude folder..."
-        cp /tmp/settings.local.json.template /home/claude/workspace/.claude/settings.local.json
-        echo "settings.local.json copied successfully to /home/claude/workspace/.claude/"
+        cp /tmp/settings.local.json.template /home/devuser/workspace/.claude/settings.local.json
+        echo "settings.local.json copied successfully to /home/devuser/workspace/.claude/"
     else
         echo "settings.local.json already exists in workspace/.claude folder"
     fi
@@ -95,10 +104,10 @@ fi
 echo "Checking for CLAUDE.md..."
 if [ -f /tmp/CLAUDE.md ]; then
     echo "Found /tmp/CLAUDE.md"
-    if [ ! -f /home/claude/.claude/CLAUDE.md ]; then
+    if [ ! -f /home/devuser/.claude/CLAUDE.md ]; then
         echo "Copying CLAUDE.md to .claude folder..."
-        cp /tmp/CLAUDE.md /home/claude/.claude/CLAUDE.md
-        echo "CLAUDE.md copied successfully to /home/claude/.claude/"
+        cp /tmp/CLAUDE.md /home/devuser/.claude/CLAUDE.md
+        echo "CLAUDE.md copied successfully to /home/devuser/.claude/"
     else
         echo "CLAUDE.md already exists in .claude folder"
     fi
@@ -107,40 +116,40 @@ else
 fi
 
 # Handle SBT repositories file from ConfigMap mount
-if [ -f /home/claude/.sbt/repositories ]; then
+if [ -f /home/devuser/.sbt/repositories ]; then
     # Check if it's a mount point (ConfigMap)
-    if mountpoint -q /home/claude/.sbt/repositories 2>/dev/null || [ ! -w /home/claude/.sbt/repositories ]; then
+    if mountpoint -q /home/devuser/.sbt/repositories 2>/dev/null || [ ! -w /home/devuser/.sbt/repositories ]; then
         echo "Found mounted .sbt/repositories file, creating writable copy..."
         # Copy to a different location
-        cp /home/claude/.sbt/repositories /home/claude/.sbt/repositories.writable
+        cp /home/devuser/.sbt/repositories /home/devuser/.sbt/repositories.writable
         # Update the SBT_OPTS to use the writable copy
-        export SBT_OPTS="-Dsbt.override.build.repos=true -Dsbt.repository.config=/home/claude/.sbt/repositories.writable"
+        export SBT_OPTS="-Dsbt.override.build.repos=true -Dsbt.repository.config=/home/devuser/.sbt/repositories.writable"
     fi
 fi
 
-# Ensure the claude user owns their directories
+# Ensure the devuser owns their directories
 # Use || true to prevent script from exiting on chown errors for read-only mounts
-chown -R claude:claude /home/claude/.claude 2>/dev/null || true
-chown -R claude:claude /home/claude/workspace 2>/dev/null || true
-chown -R claude:claude /home/claude/.config/claude-code 2>/dev/null || true
-chown -R claude:claude /home/claude/.local 2>/dev/null || true
+chown -R devuser:devuser /home/devuser/.claude 2>/dev/null || true
+chown -R devuser:devuser /home/devuser/workspace 2>/dev/null || true
+chown -R devuser:devuser /home/devuser/.config/claude-code 2>/dev/null || true
+chown -R devuser:devuser /home/devuser/.local 2>/dev/null || true
 # Skip chown for directories that might be mounted from ConfigMaps
 # These are typically mounted as read-only
-if [ ! -f /home/claude/.cargo/config.toml ]; then
-    chown -R claude:claude /home/claude/.cargo 2>/dev/null || true
+if [ ! -f /home/devuser/.cargo/config.toml ]; then
+    chown -R devuser:devuser /home/devuser/.cargo 2>/dev/null || true
 fi
-if [ ! -f /home/claude/.m2/settings.xml ]; then
-    chown -R claude:claude /home/claude/.m2 2>/dev/null || true
+if [ ! -f /home/devuser/.m2/settings.xml ]; then
+    chown -R devuser:devuser /home/devuser/.m2 2>/dev/null || true
 fi
-# Always ensure SBT directories are owned by claude user
-chown -R claude:claude /home/claude/.sbt 2>/dev/null || true
-if [ ! -f /home/claude/.gradle/gradle.properties ]; then
-    chown -R claude:claude /home/claude/.gradle 2>/dev/null || true
+# Always ensure SBT directories are owned by devuser
+chown -R devuser:devuser /home/devuser/.sbt 2>/dev/null || true
+if [ ! -f /home/devuser/.gradle/gradle.properties ]; then
+    chown -R devuser:devuser /home/devuser/.gradle 2>/dev/null || true
 fi
 
 # Check if cargo config is properly mounted
-if [ -f /home/claude/.cargo/config.toml ]; then
-    echo "Cargo config detected at /home/claude/.cargo/config.toml"
+if [ -f /home/devuser/.cargo/config.toml ]; then
+    echo "Cargo config detected at /home/devuser/.cargo/config.toml"
 fi
 
 # Function to add line to file if not already present
@@ -150,13 +159,18 @@ add_if_not_exists() {
     grep -qxF "$line" "$file" 2>/dev/null || echo "$line" >> "$file"
 }
 
-# Configure .bashrc for claude user (avoiding duplicates)
-BASHRC="/home/claude/.bashrc"
+# Configure .bashrc for devuser (avoiding duplicates)
+BASHRC="/home/devuser/.bashrc"
 touch "$BASHRC"
 
 # Add user's local bin to PATH
-add_if_not_exists 'export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"' "$BASHRC"
-add_if_not_exists 'export NPM_CONFIG_PREFIX="$HOME/.npm-global"' "$BASHRC"
+add_if_not_exists 'export PATH="$HOME/.local/bin:$PATH"' "$BASHRC"
+
+# Add npm paths if npm is available
+if command -v npm &> /dev/null; then
+    add_if_not_exists 'export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"' "$BASHRC"
+    add_if_not_exists 'export NPM_CONFIG_PREFIX="$HOME/.npm-global"' "$BASHRC"
+fi
 
 # Add terminal configuration for better CLI support
 add_if_not_exists 'export TERM=xterm-256color' "$BASHRC"
@@ -167,7 +181,7 @@ add_if_not_exists 'export CI=false' "$BASHRC"
 add_if_not_exists 'cd ~/workspace 2>/dev/null || true' "$BASHRC"
 
 # Set a custom prompt
-add_if_not_exists 'export PS1="\[\033[01;32m\]claude@ai-devkit\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]$ "' "$BASHRC"
+add_if_not_exists 'export PS1="\[\033[01;32m\]devuser@ai-devkit\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]$ "' "$BASHRC"
 
 # Source system-wide profile scripts
 if ! grep -q "Source system-wide profile scripts" "$BASHRC" 2>/dev/null; then
@@ -195,26 +209,26 @@ export CARGO_HOME="$HOME/.cargo"
 EOF
 fi
 
-# Copy .condarc to claude's home if conda is installed and .condarc exists
-if [ -f /opt/conda/bin/conda ] && [ -f /root/.condarc ] && [ ! -f /home/claude/.condarc ]; then
-    cp /root/.condarc /home/claude/.condarc
-    chown claude:claude /home/claude/.condarc
+# Copy .condarc to devuser's home if conda is installed and .condarc exists
+if [ -f /opt/conda/bin/conda ] && [ -f /root/.condarc ] && [ ! -f /home/devuser/.condarc ]; then
+    cp /root/.condarc /home/devuser/.condarc
+    chown devuser:devuser /home/devuser/.condarc
 fi
 
-# Configure bundler for claude user if Ruby is installed
+# Configure bundler for devuser if Ruby is installed
 if command -v ruby &> /dev/null && command -v bundle &> /dev/null; then
     # Create .bundle directory for bundler config
-    mkdir -p /home/claude/.bundle
+    mkdir -p /home/devuser/.bundle
     
     # Configure bundler to install gems to user's home directory
-    cat > /home/claude/.bundle/config << 'EOF'
+    cat > /home/devuser/.bundle/config << 'EOF'
 ---
-BUNDLE_PATH: "/home/claude/.bundle"
-BUNDLE_BIN: "/home/claude/.local/bin"
+BUNDLE_PATH: "/home/devuser/.bundle"
+BUNDLE_BIN: "/home/devuser/.local/bin"
 EOF
     
     # Ensure proper ownership
-    chown -R claude:claude /home/claude/.bundle
+    chown -R devuser:devuser /home/devuser/.bundle
     
     # Add gem bin paths to .bashrc if not already present
     if ! grep -q "Ruby gem paths" "$BASHRC" 2>/dev/null; then
@@ -228,21 +242,24 @@ EOF
 fi
 
 # Ensure proper ownership of .bashrc
-chown claude:claude "$BASHRC"
+chown devuser:devuser "$BASHRC"
 
 # Add welcome message to .bashrc
-if ! grep -q "Claude Code Welcome" "$BASHRC" 2>/dev/null; then
+if ! grep -q "AI Development Kit Welcome" "$BASHRC" 2>/dev/null; then
     cat >> "$BASHRC" << 'EOF'
 
-# Claude Code Welcome Message
-if [ -n "$PS1" ] && [ -z "$CLAUDE_WELCOME_SHOWN" ]; then
-    export CLAUDE_WELCOME_SHOWN=1
+# AI Development Kit Welcome Message
+if [ -n "$PS1" ] && [ -z "$DEVKIT_WELCOME_SHOWN" ]; then
+    export DEVKIT_WELCOME_SHOWN=1
     echo ""
-    echo "Welcome to Claude Code Development Kit! 🚀"
+    echo "Welcome to AI Development Kit! 🚀"
     echo ""
     echo "Quick Start:"
-    echo "  • claude           - Start Claude Code"
-    echo "  • claude --help    - Show available commands"
+    # Check if Claude Code is installed
+    if command -v claude &> /dev/null 2>&1; then
+        echo "  • claude           - Start Claude Code"
+        echo "  • claude --help    - Show available commands"
+    fi
     echo "  • tree             - View directory structure"
     echo ""
     # Check if git is configured
@@ -262,33 +279,41 @@ if [ -n "$PS1" ] && [ -z "$CLAUDE_WELCOME_SHOWN" ]; then
             echo "  • cat ~/.claude/CLAUDE.md - View full configuration & guidelines"
             echo ""
         fi
+    else
+        # Count installed tools by checking common commands
+        TOOL_COUNT=0
+        for cmd in node python3 java rustc go ruby php; do
+            command -v $cmd &> /dev/null && ((TOOL_COUNT++))
+        done
+        if [ $TOOL_COUNT -gt 0 ]; then
+            echo "Environment: $TOOL_COUNT+ development tools installed"
+            echo ""
+        fi
     fi
 fi
 EOF
 fi
 
-# Verify Claude Code is available
-if ! command -v claude &> /dev/null; then
-    echo "ERROR: Claude Code command not found in PATH"
-    echo "PATH: $PATH"
-    echo "Installed npm packages:"
-    npm list -g --depth=0
-    exit 1
+# Verify installed components (only if expected)
+if command -v claude &> /dev/null 2>&1; then
+    echo "Claude Code is available at: $(which claude)"
 fi
 
-echo "Claude Code is available at: $(which claude)"
+if command -v node &> /dev/null 2>&1; then
+    echo "Node.js is available at: $(which node)"
+fi
 
-# Switch to claude user and execute the command
+# Switch to devuser and execute the command
 if [ "$(id -u)" = "0" ]; then
-    echo "Running as root, preparing to switch to claude user..."
+    echo "Running as root, preparing to switch to devuser..."
     # If no command specified, sleep indefinitely
     if [ $# -eq 0 ]; then
         echo "No command specified, running sleep infinity to keep container alive..."
         exec sleep infinity
     else
-        echo "Switching to claude user to run: $*"
+        echo "Switching to devuser to run: $*"
         # Preserve environment variables that are important for proxies
-        exec su - claude -c "export PIP_INDEX_URL='$PIP_INDEX_URL' && \
+        exec su - devuser -c "export PIP_INDEX_URL='$PIP_INDEX_URL' && \
                              export PIP_TRUSTED_HOST='$PIP_TRUSTED_HOST' && \
                              export NPM_CONFIG_REGISTRY='$NPM_CONFIG_REGISTRY' && \
                              export GOPROXY='$GOPROXY' && \
@@ -297,7 +322,7 @@ if [ "$(id -u)" = "0" ]; then
                              export CARGO_NET_GIT_FETCH_WITH_CLI='$CARGO_NET_GIT_FETCH_WITH_CLI' && \
                              export NO_PROXY='$NO_PROXY' && \
                              export no_proxy='$no_proxy' && \
-                             export SBT_OPTS='${SBT_OPTS:-"-Dsbt.override.build.repos=true -Dsbt.repository.config=/home/claude/.sbt/repositories"}' && \
+                             export SBT_OPTS='${SBT_OPTS:-"-Dsbt.override.build.repos=true -Dsbt.repository.config=/home/devuser/.sbt/repositories"}' && \
                              $*"
     fi
 else

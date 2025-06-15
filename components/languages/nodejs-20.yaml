@@ -1,0 +1,85 @@
+# components/languages/nodejs-20.yaml
+id: NODEJS_20
+name: Node.js 20.18.0
+group: nodejs-version
+requires: []
+description: Node.js JavaScript runtime with npm package manager
+installation:
+  dockerfile: |
+    # Remove any existing Node.js installation
+    RUN apt-get update && \
+        apt-get remove -y nodejs npm libnode-dev && \
+        apt-get autoremove -y && \
+        rm -rf /usr/local/lib/node_modules && \
+        rm -rf /usr/local/bin/node* && \
+        rm -rf /usr/local/bin/npm*
+    
+    # Install Node.js 20.x (Claude Code requires Node.js 18+)
+    # Direct binary installation to avoid repository issues with proxy
+    RUN export DEBIAN_FRONTEND=noninteractive && \
+        ARCH=$(dpkg --print-architecture) && \
+        NODE_ARCH=${ARCH} && \
+        if [ "${ARCH}" = "arm64" ]; then NODE_ARCH="arm64"; elif [ "${ARCH}" = "amd64" ]; then NODE_ARCH="x64"; fi && \
+        NODE_VERSION="v20.18.0" && \
+        wget -q https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz && \
+        tar -xJf node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz -C /usr/local --strip-components=1 && \
+        rm node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz && \
+        npm install -g npm@latest
+    
+    # Configure npm if proxy URL is provided
+    RUN if [ -n "$NPM_REGISTRY" ]; then \
+            npm config set registry ${NPM_REGISTRY} && \
+            echo "✓ Configured npm to use proxy" ; \
+        fi
+    
+    # Set up user's npm configuration
+    RUN mkdir -p /home/devuser/.npm-global && \
+        chown -R devuser:devuser /home/devuser/.npm-global && \
+        echo 'export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"' >> /home/devuser/.bashrc && \
+        echo 'export NPM_CONFIG_PREFIX="$HOME/.npm-global"' >> /home/devuser/.bashrc
+    
+    # Configure npm for the devuser if proxy URL is provided
+    RUN if [ -n "$NPM_REGISTRY" ]; then \
+            echo "registry=${NPM_REGISTRY}" > /home/devuser/.npmrc && \
+            echo "prefix=/home/devuser/.npm-global" >> /home/devuser/.npmrc && \
+            chown devuser:devuser /home/devuser/.npmrc && \
+            echo "✓ Configured npm for devuser" ; \
+        else \
+            echo "prefix=/home/devuser/.npm-global" > /home/devuser/.npmrc && \
+            chown devuser:devuser /home/devuser/.npmrc ; \
+        fi
+    
+    # Ensure npm paths are available for all users
+    ENV NPM_CONFIG_PREFIX=/home/devuser/.npm-global
+    ENV PATH="/home/devuser/.npm-global/bin:${PATH}"
+  test_command: node --version && npm --version
+memory_content: |
+  #### Node.js 20.18.0 & npm
+  
+  **Node.js Usage**:
+  - Run JavaScript: `node script.js`
+  - Interactive REPL: `node`
+  - Check version: `node --version`
+  
+  **npm (Node Package Manager)**:
+  - Install package: `npm install package-name`
+  - Install globally: `npm install -g package-name`
+  - Install dev dependency: `npm install --save-dev package-name`
+  - Initialize project: `npm init -y`
+  - Run scripts: `npm run script-name`
+  - Update packages: `npm update`
+  - List installed: `npm list`
+  
+  **Package.json Scripts**:
+  - Define in `"scripts"` section
+  - Common scripts: `start`, `test`, `build`, `dev`
+  - Run with: `npm run <script-name>`
+  
+  **npx (Package Runner)**:
+  - Run packages without installing: `npx package-name`
+  - Create projects: `npx create-react-app myapp`
+  
+  **Best Practices**:
+  - Use `package-lock.json` for reproducible installs
+  - Packages install to `~/.npm-global` (global) or `node_modules` (local)
+  - Check for vulnerabilities: `npm audit`
