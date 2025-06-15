@@ -23,27 +23,6 @@ error() { log "Error: $1" "$RED"; exit 1; }
 success() { log "$1" "$GREEN"; }
 info() { log "$1" "$BLUE"; }
 
-# Global arrays for memory content (using parallel arrays for compatibility)
-declare -a MEMORY_CONTENT_IDS
-declare -a MEMORY_CONTENT_VALUES
-
-# Clear memory arrays at start
-MEMORY_CONTENT_IDS=()
-MEMORY_CONTENT_VALUES=()
-
-# Helper function to get memory content by ID
-get_memory_content() {
-    local search_id="$1"
-    local i
-    for i in "${!MEMORY_CONTENT_IDS[@]}"; do
-        if [[ "${MEMORY_CONTENT_IDS[$i]}" == "$search_id" ]]; then
-            echo "${MEMORY_CONTENT_VALUES[$i]}"
-            return 0
-        fi
-    done
-    return 1
-}
-
 # Check prerequisites
 check_deps() {
     local deps=("docker" "kubectl" "colima")
@@ -990,22 +969,59 @@ declare -a SELECTED_CATEGORIES
 declare -a categories
 declare -a category_names
 
+# Function to extract memory_content from YAML file
+extract_memory_content() {
+    local yaml_file=$1
+    local in_memory_content=false
+    local memory_content=""
+    local line_count=0
+    
+    while IFS= read -r line; do
+        ((line_count++))
+        
+        # Check if we're entering memory_content section
+        if [[ "$line" =~ ^memory_content:[[:space:]]*\|[[:space:]]*$ ]]; then
+            in_memory_content=true
+            continue
+        fi
+        
+        # Check if we're exiting memory_content section (new top-level key)
+        if [[ $in_memory_content == true ]] && [[ "$line" =~ ^[a-zA-Z_]+: ]] && [[ ! "$line" =~ ^[[:space:]] ]]; then
+            in_memory_content=false
+            break
+        fi
+        
+        # Collect memory_content lines
+        if [[ $in_memory_content == true ]]; then
+            # Remove the first 2 spaces of YAML indentation
+            if [[ "$line" =~ ^"  " ]]; then
+                memory_content+="${line:2}"$'\n'
+            elif [[ -z "$line" ]]; then
+                # Preserve empty lines
+                memory_content+=$'\n'
+            fi
+        fi
+    done < "$yaml_file"
+    
+    # Trim trailing newlines
+    memory_content=$(echo -n "$memory_content" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}')
+    
+    echo "$memory_content"
+}
+
 # Function to extract installation commands from YAML files
 extract_installation_from_yaml() {
     local yaml_file=$1
     local in_dockerfile=false
     local in_nexus=false
-    local in_memory=false
     local dockerfile_content=""
     local nexus_content=""
-    local memory_content=""
     
     while IFS= read -r line; do
         # Check for dockerfile section
         if [[ "$line" =~ ^[[:space:]]*dockerfile:[[:space:]]*\|[[:space:]]*$ ]]; then
             in_dockerfile=true
             in_nexus=false
-            in_memory=false
             continue
         fi
         
@@ -1013,15 +1029,6 @@ extract_installation_from_yaml() {
         if [[ "$line" =~ ^[[:space:]]*nexus_config:[[:space:]]*\|[[:space:]]*$ ]]; then
             in_nexus=true
             in_dockerfile=false
-            in_memory=false
-            continue
-        fi
-        
-        # Check for memory_content section
-        if [[ "$line" =~ ^[[:space:]]*memory_content:[[:space:]]*\|[[:space:]]*$ ]]; then
-            in_memory=true
-            in_dockerfile=false
-            in_nexus=false
             continue
         fi
         
@@ -1029,7 +1036,6 @@ extract_installation_from_yaml() {
         if [[ "$line" =~ ^[[:space:]]*[a-zA-Z_]+: ]] && [[ ! "$line" =~ ^[[:space:]]{4,} ]]; then
             in_dockerfile=false
             in_nexus=false
-            in_memory=false
         fi
         
         # Collect content
@@ -1047,20 +1053,8 @@ extract_installation_from_yaml() {
             if [[ "$line" =~ ^"    " ]]; then
                 nexus_content+="${line:4}"$'\n'
             fi
-        elif [[ $in_memory == true ]]; then
-            # For memory content, preserve it after removing YAML indent
-            if [[ "$line" =~ ^"  " ]]; then
-                memory_content+="${line:2}"$'\n'
-            fi
         fi
     done < "$yaml_file"
-    
-    # Store memory content in parallel arrays (for compatibility with older bash)
-    if [[ -n "$memory_content" ]]; then
-        local comp_id=$(grep "^id:" "$yaml_file" | sed 's/^id: *//')
-        MEMORY_CONTENT_IDS+=("$comp_id")
-        MEMORY_CONTENT_VALUES+=("$memory_content")
-    fi
     
     # Combine dockerfile and nexus content if applicable
     local full_content="$dockerfile_content"
@@ -1118,7 +1112,7 @@ generate_claude_md() {
     echo "- GitHub CLI: \`gh repo create\`, \`gh pr create\`" >> "$claude_output"
     echo "- Git is pre-configured if you used host configuration" >> "$claude_output"
     
-    # Process selected items by category with memory content
+    # Process selected items by category
     local last_category=""
     for i in "${!SELECTED_IDS[@]}"; do
         local category="${SELECTED_CATEGORIES[$i]}"
@@ -1143,46 +1137,29 @@ generate_claude_md() {
         echo "- $name" >> "$claude_output"
     done
     
-    # Add detailed memory content for each selected component
+    # Add Tool-Specific Guidelines section with memory content
     echo "" >> "$claude_output"
     echo "## Tool-Specific Guidelines" >> "$claude_output"
     
-    # Group components by category for memory content
-    local printed_categories=""
-    for cat_idx in "${!categories[@]}"; do
-        local category="${categories[$cat_idx]}"
-        local category_display="${category_names[$cat_idx]}"
-        local category_has_content=false
+    # Extract and append memory content for each selected component
+    local memory_content_added=false
+    
+    for i in "${!SELECTED_YAML_FILES[@]}"; do
+        local yaml_file="${SELECTED_YAML_FILES[$i]}"
+        local component_name="${SELECTED_NAMES[$i]}"
         
-        # Check if any selected component in this category has memory content
-        for i in "${!SELECTED_IDS[@]}"; do
-            if [[ "${SELECTED_CATEGORIES[$i]}" == "$category" ]]; then
-                local id="${SELECTED_IDS[$i]}"
-                local memory_content=$(get_memory_content "$id" 2>/dev/null)
-                if [[ -n "$memory_content" ]]; then
-                    category_has_content=true
-                    break
-                fi
+        log "Extracting memory content from $component_name..."
+        
+        local memory_content=$(extract_memory_content "$yaml_file")
+        if [[ -n "$memory_content" ]]; then
+            if [[ $memory_content_added == true ]]; then
+                echo "" >> "$claude_output"
             fi
-        done
-        
-        if [[ $category_has_content == true ]]; then
-            echo "" >> "$claude_output"
-            echo "### $category_display Development" >> "$claude_output"
-            
-            # Add memory content for each component in this category
-            for i in "${!SELECTED_IDS[@]}"; do
-                if [[ "${SELECTED_CATEGORIES[$i]}" == "$category" ]]; then
-                    local id="${SELECTED_IDS[$i]}"
-                    local memory_content=$(get_memory_content "$id" 2>/dev/null)
-                    if [[ -n "$memory_content" ]]; then
-                        echo "" >> "$claude_output"
-                        # Remove trailing newline from memory content if present
-                        echo -n "$memory_content" | sed 's/[[:space:]]*$//' >> "$claude_output"
-                        echo "" >> "$claude_output"
-                    fi
-                fi
-            done
+            echo "$memory_content" >> "$claude_output"
+            memory_content_added=true
+            success "Added memory content for $component_name"
+        else
+            info "No memory content found for $component_name"
         fi
     done
     
@@ -1193,10 +1170,6 @@ generate_claude_md() {
 create_custom_dockerfile() {
     mkdir -p "$TEMP_DIR"
     cp Dockerfile.base "$TEMP_DIR/Dockerfile"
-    
-    # Clear memory arrays before processing
-    MEMORY_CONTENT_IDS=()
-    MEMORY_CONTENT_VALUES=()
     
     # Process selected components
     local installation_content=""
