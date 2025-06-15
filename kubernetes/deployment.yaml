@@ -26,9 +26,9 @@ spec:
         # The entrypoint will handle setup and then run sleep infinity
         volumeMounts:
         - name: config-volume
-          mountPath: /home/claude/.config/claude-code
+          mountPath: /home/devuser/.config/claude-code
         - name: workspace-volume
-          mountPath: /home/claude/workspace
+          mountPath: /home/devuser/workspace
         # Git configuration mounts (optional - from secret)
         - name: git-config
           mountPath: /tmp/git-mounted/.gitconfig
@@ -44,30 +44,30 @@ spec:
           readOnly: true
         # Nexus-specific mounts (will fail gracefully if ConfigMap doesn't exist)
         - name: cargo-dir
-          mountPath: /home/claude/.cargo
+          mountPath: /home/devuser/.cargo
         - name: cargo-config
-          mountPath: /home/claude/.cargo/config.toml
+          mountPath: /home/devuser/.cargo/config.toml
           subPath: cargo-config.toml
         - name: pip-config
-          mountPath: /home/claude/.config/pip/pip.conf
+          mountPath: /home/devuser/.config/pip/pip.conf
           subPath: pip.conf
         - name: npm-config
-          mountPath: /home/claude/.npmrc
+          mountPath: /home/devuser/.npmrc
           subPath: npmrc
         - name: maven-settings
-          mountPath: /home/claude/.m2/settings.xml
+          mountPath: /home/devuser/.m2/settings.xml
           subPath: settings.xml
         - name: sbt-repositories
-          mountPath: /home/claude/.sbt/repositories
+          mountPath: /home/devuser/.sbt/repositories
           subPath: repositories
         - name: conda-config
-          mountPath: /home/claude/.condarc
+          mountPath: /home/devuser/.condarc
           subPath: condarc
         - name: gradle-config
-          mountPath: /home/claude/.gradle/gradle.properties
+          mountPath: /home/devuser/.gradle/gradle.properties
           subPath: gradle.properties
         - name: gem-config
-          mountPath: /home/claude/.gemrc
+          mountPath: /home/devuser/.gemrc
           subPath: gemrc
         env:
         # These environment variables will be populated from ConfigMap if it exists
@@ -96,7 +96,7 @@ spec:
               key: GOPROXY
               optional: true
         - name: CARGO_HOME
-          value: "/home/claude/.cargo"
+          value: "/home/devuser/.cargo"
         - name: CARGO_NET_GIT_FETCH_WITH_CLI
           valueFrom:
             configMapKeyRef:
@@ -140,7 +140,7 @@ spec:
               key: no_proxy
               optional: true
         - name: SBT_OPTS
-          value: "-Dsbt.override.build.repos=true -Dsbt.repository.config=/home/claude/.sbt/repositories -Dsbt.coursier=true"
+          value: "-Dsbt.override.build.repos=true -Dsbt.repository.config=/home/devuser/.sbt/repositories -Dsbt.coursier=true"
         resources:
           requests:
             memory: "256Mi"
@@ -319,7 +319,7 @@ data:
       "username": "admin",
       "password": "admin",
       "branding": {
-        "name": "Claude Code Workspace",
+        "name": "AI DevKit Workspace",
         "disableExternal": false,
         "color": "#2979ff"
       },

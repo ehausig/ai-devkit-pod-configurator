@@ -537,13 +537,10 @@ select_components() {
             ((display_row++))
         fi
         
-        # Base components list
+        # Base components list (updated - no Node.js or npm)
         local base_components=(
-            "• Node.js 20.18.0"
-            "• npm (latest)"
             "• Git"
             "• GitHub CLI (gh)"
-            "• Claude Code (@anthropic-ai/claude-code)"
         )
         
         for base_comp in "${base_components[@]}"; do
@@ -889,11 +886,8 @@ select_components() {
     echo -e "${GREEN}Base Development Tools (included in all builds):${NC}"
     echo ""
     echo -e "  ${BLUE}━ Base Development Tools ━${NC}"
-    echo -e "    ${GREEN}✓${NC} Node.js 20.18.0"
-    echo -e "    ${GREEN}✓${NC} npm (latest)"
     echo -e "    ${GREEN}✓${NC} Git"
     echo -e "    ${GREEN}✓${NC} GitHub CLI (gh)"
-    echo -e "    ${GREEN}✓${NC} Claude Code (@anthropic-ai/claude-code)"
     
     # Count selections
     local selection_count=0
@@ -965,9 +959,125 @@ declare -a SELECTED_NAMES
 declare -a SELECTED_GROUPS
 declare -a SELECTED_CATEGORIES
 
-# Global arrays for categories (needed by generate_claude_md)
+# Global arrays for categories
 declare -a categories
 declare -a category_names
+
+# Function to extract pre_build_script from YAML file
+extract_pre_build_script() {
+    local yaml_file=$1
+    local script_name=""
+    
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^pre_build_script:[[:space:]]*(.+)$ ]]; then
+            script_name="${BASH_REMATCH[1]}"
+            # Remove quotes if present
+            script_name="${script_name#\"}"
+            script_name="${script_name%\"}"
+            script_name="${script_name#\'}"
+            script_name="${script_name%\'}"
+            break
+        fi
+    done < "$yaml_file"
+    
+    echo "$script_name"
+}
+
+# Function to execute pre-build scripts
+execute_pre_build_scripts() {
+    log "Executing pre-build scripts..."
+    
+    local selected_ids="${SELECTED_IDS[*]}"
+    local selected_names="${SELECTED_NAMES[*]}"
+    local selected_yaml_files="${SELECTED_YAML_FILES[*]}"
+    
+    for i in "${!SELECTED_YAML_FILES[@]}"; do
+        local yaml_file="${SELECTED_YAML_FILES[$i]}"
+        local component_name="${SELECTED_NAMES[$i]}"
+        
+        # Extract pre_build_script
+        local script_name=$(extract_pre_build_script "$yaml_file")
+        
+        if [[ -n "$script_name" ]]; then
+            local script_dir=$(dirname "$yaml_file")
+            local script_path="$script_dir/$script_name"
+            
+            if [[ -f "$script_path" ]]; then
+                log "Running pre-build script for $component_name..."
+                
+                # Make script executable
+                chmod +x "$script_path"
+                
+                # Execute with standard arguments
+                if "$script_path" "$TEMP_DIR" "$selected_ids" "$selected_names" "$selected_yaml_files" "$script_dir"; then
+                    success "Pre-build script completed for $component_name"
+                else
+                    error "Pre-build script failed for $component_name"
+                fi
+            else
+                log "Warning: Pre-build script $script_name not found for $component_name"
+            fi
+        fi
+    done
+}
+
+# Function to extract inject_files from YAML
+extract_inject_files_from_yaml() {
+    local yaml_file=$1
+    local in_inject_files=false
+    local current_item=false
+    local source="" destination="" permissions=""
+    local inject_commands=""
+    
+    while IFS= read -r line; do
+        # Check if entering inject_files section
+        if [[ "$line" =~ ^[[:space:]]*inject_files:[[:space:]]*$ ]]; then
+            in_inject_files=true
+            continue
+        fi
+        
+        # Check if exiting inject_files section
+        if [[ $in_inject_files == true ]] && [[ "$line" =~ ^[a-zA-Z_]+: ]] && [[ ! "$line" =~ ^[[:space:]] ]]; then
+            in_inject_files=false
+            break
+        fi
+        
+        if [[ $in_inject_files == true ]]; then
+            # New item starts with - source:
+            if [[ "$line" =~ ^[[:space:]]*-[[:space:]]+source:[[:space:]]*(.+)$ ]]; then
+                # Process previous item if exists
+                if [[ -n "$source" && -n "$destination" ]]; then
+                    inject_commands+="COPY $source $destination\n"
+                    if [[ -n "$permissions" ]]; then
+                        inject_commands+="RUN chmod $permissions $destination\n"
+                    fi
+                fi
+                
+                # Start new item
+                source="${BASH_REMATCH[1]}"
+                destination=""
+                permissions=""
+                current_item=true
+            elif [[ $current_item == true ]]; then
+                if [[ "$line" =~ ^[[:space:]]+destination:[[:space:]]*(.+)$ ]]; then
+                    destination="${BASH_REMATCH[1]}"
+                elif [[ "$line" =~ ^[[:space:]]+permissions:[[:space:]]*(.+)$ ]]; then
+                    permissions="${BASH_REMATCH[1]}"
+                fi
+            fi
+        fi
+    done < "$yaml_file"
+    
+    # Process last item
+    if [[ -n "$source" && -n "$destination" ]]; then
+        inject_commands+="COPY $source $destination\n"
+        if [[ -n "$permissions" ]]; then
+            inject_commands+="RUN chmod $permissions $destination\n"
+        fi
+    fi
+    
+    echo -n "$inject_commands"
+}
 
 # Function to extract memory_content from YAML file
 extract_memory_content() {
@@ -995,10 +1105,10 @@ extract_memory_content() {
         if [[ $in_memory_content == true ]]; then
             # Remove the first 2 spaces of YAML indentation
             if [[ "$line" =~ ^"  " ]]; then
-                memory_content+="${line:2}"$'\n'
+                memory_content+="${line:2}\n"
             elif [[ -z "$line" ]]; then
                 # Preserve empty lines
-                memory_content+=$'\n'
+                memory_content+="\n"
             fi
         fi
     done < "$yaml_file"
@@ -1043,15 +1153,15 @@ extract_installation_from_yaml() {
             # For dockerfile content, we need to preserve the exact formatting
             # Only remove the first 4 spaces that are YAML indentation
             if [[ "$line" =~ ^"    " ]]; then
-                dockerfile_content+="${line:4}"$'\n'
+                dockerfile_content+="${line:4}\n"
             else
                 # Handle empty lines or lines with different indentation
-                dockerfile_content+="$line"$'\n'
+                dockerfile_content+="$line\n"
             fi
         elif [[ $in_nexus == true ]]; then
             # For nexus content, preserve it as-is after removing YAML indent
             if [[ "$line" =~ ^"    " ]]; then
-                nexus_content+="${line:4}"$'\n'
+                nexus_content+="${line:4}\n"
             fi
         fi
     done < "$yaml_file"
@@ -1061,109 +1171,10 @@ extract_installation_from_yaml() {
     if [[ -n "$nexus_content" ]]; then
         # The nexus_config should already be properly formatted in the YAML
         # Just wrap it in RUN
-        full_content+=$'\n'"# Nexus configuration"$'\n'"RUN ${nexus_content}"
+        full_content+="\n# Nexus configuration\nRUN ${nexus_content}"
     fi
     
     echo -n "$full_content"
-}
-
-# Function to generate CLAUDE.md
-generate_claude_md() {
-    local claude_template="CLAUDE.md.template"
-    local claude_output="$TEMP_DIR/CLAUDE.md"
-    
-    if [[ ! -f "$claude_template" ]]; then
-        log "Warning: $claude_template not found, skipping CLAUDE.md generation"
-        return
-    fi
-    
-    log "Generating CLAUDE.md from template..."
-    
-    # Copy template up to marker
-    sed '/<!-- ENVIRONMENT_TOOLS_MARKER -->/q' "$claude_template" > "$claude_output"
-    
-    # Generate tool list
-    echo "" >> "$claude_output"
-    echo "## Installed Development Environment" >> "$claude_output"
-    echo "" >> "$claude_output"
-    echo "This container includes the following tools and languages:" >> "$claude_output"
-    echo "" >> "$claude_output"
-    
-    # Base tools
-    echo "### Base Tools" >> "$claude_output"
-    echo "- Node.js 20.18.0" >> "$claude_output"
-    echo "- npm (latest)" >> "$claude_output"
-    echo "- Git" >> "$claude_output"
-    echo "- GitHub CLI (gh)" >> "$claude_output"
-    echo "- Claude Code (@anthropic-ai/claude-code)" >> "$claude_output"
-    
-    # Add memory content for base tools
-    echo "" >> "$claude_output"
-    echo "#### Base Development Tools" >> "$claude_output"
-    echo "" >> "$claude_output"
-    echo "**Node.js & npm**:" >> "$claude_output"
-    echo "- Run JavaScript: \`node script.js\`" >> "$claude_output"
-    echo "- Install packages: \`npm install package-name\`" >> "$claude_output"
-    echo "- Initialize project: \`npm init -y\`" >> "$claude_output"
-    echo "- Run scripts: \`npm run script-name\`" >> "$claude_output"
-    echo "" >> "$claude_output"
-    echo "**Git & GitHub**:" >> "$claude_output"
-    echo "- Clone repo: \`git clone https://github.com/user/repo.git\`" >> "$claude_output"
-    echo "- GitHub CLI: \`gh repo create\`, \`gh pr create\`" >> "$claude_output"
-    echo "- Git is pre-configured if you used host configuration" >> "$claude_output"
-    
-    # Process selected items by category
-    local last_category=""
-    for i in "${!SELECTED_IDS[@]}"; do
-        local category="${SELECTED_CATEGORIES[$i]}"
-        local name="${SELECTED_NAMES[$i]}"
-        local id="${SELECTED_IDS[$i]}"
-        
-        # Get display name for category - search through global categories array
-        local category_display="$category"
-        for j in "${!categories[@]}"; do
-            if [[ "${categories[$j]}" == "$category" ]]; then
-                category_display="${category_names[$j]}"
-                break
-            fi
-        done
-        
-        if [[ "$category" != "$last_category" ]]; then
-            echo "" >> "$claude_output"
-            echo "### $category_display" >> "$claude_output"
-            last_category="$category"
-        fi
-        
-        echo "- $name" >> "$claude_output"
-    done
-    
-    # Add Tool-Specific Guidelines section with memory content
-    echo "" >> "$claude_output"
-    echo "## Tool-Specific Guidelines" >> "$claude_output"
-    
-    # Extract and append memory content for each selected component
-    local memory_content_added=false
-    
-    for i in "${!SELECTED_YAML_FILES[@]}"; do
-        local yaml_file="${SELECTED_YAML_FILES[$i]}"
-        local component_name="${SELECTED_NAMES[$i]}"
-        
-        log "Extracting memory content from $component_name..."
-        
-        local memory_content=$(extract_memory_content "$yaml_file")
-        if [[ -n "$memory_content" ]]; then
-            if [[ $memory_content_added == true ]]; then
-                echo "" >> "$claude_output"
-            fi
-            echo "$memory_content" >> "$claude_output"
-            memory_content_added=true
-            success "Added memory content for $component_name"
-        else
-            info "No memory content found for $component_name"
-        fi
-    done
-    
-    success "Generated CLAUDE.md with environment information and usage guidelines"
 }
 
 # Function to create custom Dockerfile
@@ -1171,15 +1182,31 @@ create_custom_dockerfile() {
     mkdir -p "$TEMP_DIR"
     cp Dockerfile.base "$TEMP_DIR/Dockerfile"
     
+    # Execute pre-build scripts FIRST
+    execute_pre_build_scripts
+    
     # Process selected components
     local installation_content=""
+    local inject_files_content=""
     
-    for yaml_file in "${SELECTED_YAML_FILES[@]}"; do
-        log "Processing: $yaml_file"
+    for i in "${!SELECTED_YAML_FILES[@]}"; do
+        local yaml_file="${SELECTED_YAML_FILES[$i]}"
+        local component_name="${SELECTED_NAMES[$i]}"
+        
+        log "Processing: $component_name"
+        
+        # Extract installation commands
         local install_cmds=$(extract_installation_from_yaml "$yaml_file")
         if [[ -n "$install_cmds" ]]; then
             installation_content+="\n# From $yaml_file\n"
             installation_content+="$install_cmds\n"
+        fi
+        
+        # Extract inject_files directives
+        local inject_cmds=$(extract_inject_files_from_yaml "$yaml_file")
+        if [[ -n "$inject_cmds" ]]; then
+            inject_files_content+="\n# Files injected by $component_name\n"
+            inject_files_content+="$inject_cmds"
         fi
     done
     
@@ -1194,29 +1221,20 @@ create_custom_dockerfile() {
         rm -f "$TEMP_DIR/Dockerfile.bak"
     fi
     
-    # Generate CLAUDE.md
-    generate_claude_md
-    
-    # Insert CLAUDE.md copy instruction
-    if [[ -f "$TEMP_DIR/CLAUDE.md" ]]; then
-        log "CLAUDE.md generated successfully, adding to Dockerfile"
+    # Insert file injections before volume declarations
+    if [[ -n "$inject_files_content" ]]; then
+        echo -e "$inject_files_content" > "$TEMP_DIR/inject_files.txt"
+        # Insert before the VOLUME declaration
         sed -i.bak '/^# Set up volume mount points/i\
-\
-# Copy CLAUDE.md configuration to temp location (will be copied to workspace at runtime)\
-COPY CLAUDE.md /tmp/CLAUDE.md\
-RUN chmod 644 /tmp/CLAUDE.md\
 ' "$TEMP_DIR/Dockerfile"
-        rm -f "$TEMP_DIR/Dockerfile.bak"
+        sed -i.bak "/^# Set up volume mount points/r $TEMP_DIR/inject_files.txt" "$TEMP_DIR/Dockerfile"
+        rm -f "$TEMP_DIR/Dockerfile.bak" "$TEMP_DIR/inject_files.txt"
     fi
     
-    # Copy settings.local.json.template
-    sed -i.bak '/^# Set up volume mount points/i\
-\
-# Copy settings.local.json template to temp location (will be copied to .claude at runtime)\
-COPY settings.local.json.template /tmp/settings.local.json.template\
-RUN chmod 644 /tmp/settings.local.json.template\
-' "$TEMP_DIR/Dockerfile"
-    rm -f "$TEMP_DIR/Dockerfile.bak"
+    # Copy settings.local.json.template only if it exists (from pre-build)
+    if [[ -f "$TEMP_DIR/settings.local.json.template" ]]; then
+        log "settings.local.json.template found from pre-build, will be included"
+    fi
 }
 
 # Check for host git configuration
@@ -1322,12 +1340,12 @@ main() {
     create_custom_dockerfile
     
     log "Building Docker image..."
-    if [[ -f "$TEMP_DIR/CLAUDE.md" ]]; then
+    # Determine build context based on generated files
+    if [[ -f "$TEMP_DIR/CLAUDE.md" ]] || [[ -f "$TEMP_DIR/settings.local.json.template" ]]; then
         cp entrypoint.sh "$TEMP_DIR/"
         cp setup-git.sh "$TEMP_DIR/"
-        cp settings.local.json.template "$TEMP_DIR/"
         cd "$TEMP_DIR"
-        log "Building from $TEMP_DIR with CLAUDE.md"
+        log "Building from $TEMP_DIR with generated files"
         if [[ -n "$NEXUS_BUILD_ARGS" ]]; then
             success "Using Nexus proxy for package downloads"
             docker build $NEXUS_BUILD_ARGS -t ${IMAGE_NAME}:${IMAGE_TAG} .
@@ -1385,9 +1403,23 @@ main() {
     
     info "\nContainer Access:"
     echo -e "To connect to the container, run:"
-    echo -e "${YELLOW}kubectl exec -it -n ${NAMESPACE} ${POD_NAME} -c claude-code -- su - claude${NC}"
-    echo -e "\nOnce connected, you can start Claude Code with:"
-    echo -e "${YELLOW}claude${NC}"
+    echo -e "${YELLOW}kubectl exec -it -n ${NAMESPACE} ${POD_NAME} -c claude-code -- su - devuser${NC}"
+    echo -e "\nOnce connected:"
+    
+    # Check if Claude Code was selected
+    local claude_selected=false
+    for id in "${SELECTED_IDS[@]}"; do
+        if [[ "$id" == "CLAUDE_CODE" ]]; then
+            claude_selected=true
+            break
+        fi
+    done
+    
+    if [[ $claude_selected == true ]]; then
+        echo -e "You can start Claude Code with: ${YELLOW}claude${NC}"
+    else
+        echo -e "Start developing with your selected tools!"
+    fi
 }
 
 # Run main

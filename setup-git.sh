@@ -19,172 +19,131 @@ info() { echo -e "${BLUE}ℹ $1${NC}"; }
 
 echo -e "${BLUE}=== Git & GitHub Configuration Setup ===${NC}\n"
 
-# Check if git config already exists
-CURRENT_NAME=$(git config --global user.name 2>/dev/null || echo "")
-CURRENT_EMAIL=$(git config --global user.email 2>/dev/null || echo "")
-
-if [[ -n "$CURRENT_NAME" && -n "$CURRENT_EMAIL" ]]; then
-    info "Current git configuration:"
-    echo "  Name:  $CURRENT_NAME"
-    echo "  Email: $CURRENT_EMAIL"
+# Check if already configured
+if git config --global user.name &> /dev/null && git config --global user.email &> /dev/null; then
+    success "Git is already configured!"
+    echo -e "  ${GREEN}✓${NC} User: $(git config --global user.name)"
+    echo -e "  ${GREEN}✓${NC} Email: $(git config --global user.email)"
     echo ""
-    read -p "Do you want to update these settings? (y/N): " -n 1 -r
+    read -p "Do you want to reconfigure? (y/N): " -n 1 -r
     echo ""
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        info "Keeping existing git configuration"
-    else
-        CURRENT_NAME=""
-        CURRENT_EMAIL=""
+        exit 0
     fi
 fi
 
-# Configure git user
-if [[ -z "$CURRENT_NAME" || -z "$CURRENT_EMAIL" ]]; then
-    log "Configuring Git User Information"
-    echo ""
-    
-    if [[ -z "$CURRENT_NAME" ]]; then
-        read -p "Enter your name for git commits: " GIT_NAME
-        [[ -z "$GIT_NAME" ]] && error "Git user name is required"
-        git config --global user.name "$GIT_NAME"
-        success "Git user name configured"
-    fi
-    
-    if [[ -z "$CURRENT_EMAIL" ]]; then
-        read -p "Enter your email for git commits: " GIT_EMAIL
-        [[ -z "$GIT_EMAIL" ]] && error "Git email is required"
-        git config --global user.email "$GIT_EMAIL"
-        success "Git email configured"
-    fi
-fi
+# Step 1: Configure git user
+log "Step 1: Git User Configuration"
+echo ""
+read -p "Your name (for git commits): " git_name
+read -p "Your email (for git commits): " git_email
 
-# Configure additional git settings
+git config --global user.name "$git_name"
+git config --global user.email "$git_email"
 git config --global init.defaultBranch main
 git config --global pull.rebase false
-git config --global core.editor vim
-git config --global credential.helper store
 
-# Force HTTPS for GitHub
-git config --global url."https://github.com/".insteadOf git@github.com:
-git config --global url."https://".insteadOf git://
-
-success "Git configuration complete"
-
-# GitHub CLI authentication
-echo ""
-log "GitHub Authentication Setup"
+success "Git user configured!"
 echo ""
 
-# Check if already authenticated
-if gh auth status &>/dev/null; then
-    success "Already authenticated with GitHub"
-    gh auth status
-    echo ""
-    read -p "Do you want to reconfigure GitHub authentication? (y/N): " -n 1 -r
-    echo ""
-    [[ ! $REPLY =~ ^[Yy]$ ]] && exit 0
-fi
+# Step 2: GitHub authentication
+log "Step 2: GitHub Authentication Setup"
+echo ""
+echo "Claude Code requires GitHub authentication to:"
+echo "  • Clone private repositories"
+echo "  • Push changes to your repositories"
+echo "  • Use GitHub CLI (gh) commands"
+echo ""
+echo "Choose authentication method:"
+echo "  1. Personal Access Token (PAT) - Recommended"
+echo "  2. Skip GitHub setup"
+echo ""
+read -p "Your choice (1-2): " auth_choice
 
-info "Choose your authentication method:"
-echo ""
-echo "GitHub authentication options:"
-echo "1) Personal Access Token (PAT) - Recommended for automation"
-echo "2) OAuth via web browser - Interactive login"
-echo "3) Skip GitHub authentication"
-echo ""
-read -p "Choose an option (1-3): " -n 1 -r
-echo ""
-
-case $REPLY in
+case $auth_choice in
     1)
-        log "Setting up GitHub Personal Access Token..."
         echo ""
-        info "You'll need a GitHub Personal Access Token with:"
-        echo -e "  ${GREEN}✓${NC} repo (Full control of private repositories)"
-        echo -e "  ${GREEN}✓${NC} workflow (Update GitHub Action workflows)"
-        echo -e "  ${GREEN}✓${NC} read:org (Read org and team membership)"
+        info "Creating a Personal Access Token (PAT):"
+        echo "1. Open: ${BLUE}https://github.com/settings/tokens/new${NC}"
+        echo "2. Give it a descriptive name (e.g., 'AI DevKit Container')"
+        echo "3. Select scopes:"
+        echo "   ${GREEN}✓${NC} repo (Full control of private repositories)"
+        echo "   ${GREEN}✓${NC} workflow (Update GitHub Action workflows)"
+        echo "   ${GREEN}✓${NC} read:org (Read org and team membership)"
+        echo "4. Set expiration (recommend 90 days for security)"
+        echo "5. Click 'Generate token' and copy it"
         echo ""
-        echo -e "Create a token at: ${BLUE}https://github.com/settings/tokens/new${NC}"
-        echo ""
-        
-        # Use gh auth login with token
-        gh auth login --with-token
-        
-        if gh auth status &>/dev/null; then
-            success "GitHub CLI authenticated with PAT"
-            echo ""
-            log "Configuring git to use GitHub CLI for authentication..."
-            gh auth setup-git
-            success "Git configured to use GitHub CLI credentials"
-        else
-            error "GitHub authentication failed"
-        fi
-        ;;
-        
-    2)
-        log "Starting GitHub authentication via web browser..."
-        echo ""
-        info "You'll be prompted to:"
-        echo "  1. Press Enter to open github.com in your browser"
-        echo "  2. Enter the one-time code shown here"
-        echo "  3. Login and authorize GitHub CLI"
+        echo "Paste your token below (it will be hidden):"
+        read -s github_pat
         echo ""
         
-        # Use web authentication
-        gh auth login --web
-        
-        if gh auth status &>/dev/null; then
-            success "GitHub CLI authenticated via OAuth"
-            echo ""
-            log "Configuring git to use GitHub CLI for authentication..."
-            gh auth setup-git
-            success "Git configured to use GitHub CLI credentials"
+        if [[ -n "$github_pat" ]]; then
+            # Configure git credentials
+            git config --global credential.helper store
             
-            # Ensure HTTPS is used for git operations
-            gh config set git_protocol https
-            success "GitHub CLI configured to use HTTPS"
+            # Test the token by getting user info
+            github_user=$(curl -s -H "Authorization: token $github_pat" https://api.github.com/user | jq -r .login)
+            
+            if [[ "$github_user" != "null" ]] && [[ -n "$github_user" ]]; then
+                # Store credentials
+                echo "https://${github_user}:${github_pat}@github.com" > ~/.git-credentials
+                chmod 600 ~/.git-credentials
+                
+                # Configure gh CLI
+                mkdir -p ~/.config/gh
+                cat > ~/.config/gh/hosts.yml << EOF
+github.com:
+    user: $github_user
+    oauth_token: $github_pat
+    git_protocol: https
+EOF
+                chmod 600 ~/.config/gh/hosts.yml
+                
+                success "GitHub authentication configured!"
+                echo -e "  ${GREEN}✓${NC} Username: $github_user"
+                echo -e "  ${GREEN}✓${NC} Git HTTPS authentication enabled"
+                echo -e "  ${GREEN}✓${NC} GitHub CLI (gh) configured"
+            else
+                error "Invalid token or GitHub API error"
+                rm -f ~/.git-credentials
+            fi
         else
-            error "GitHub authentication failed"
+            info "Skipping GitHub authentication"
         fi
         ;;
-        
-    3)
-        info "Skipping GitHub authentication"
-        echo "You can run this script again later to authenticate"
+    2)
+        info "Skipping GitHub setup"
         ;;
-        
     *)
-        error "Invalid option"
+        error "Invalid choice"
+        exit 1
         ;;
 esac
 
-# Final summary
 echo ""
-echo -e "${GREEN}=== Setup Complete ===${NC}"
+success "Configuration complete!"
 echo ""
-info "Git configuration:"
-git config --global --list | grep -E "user\.|url\.|credential\." | sed 's/^/  /'
+echo "Your git configuration:"
+git config --global --list | grep -E "user\.|credential\." | sed 's/^/  /'
 echo ""
 
-if gh auth status &>/dev/null; then
-    info "GitHub CLI status:"
-    gh auth status 2>&1 | sed 's/^/  /'
-else
-    info "GitHub CLI: Not authenticated"
+# Update prompt to show git branch
+if ! grep -q "__git_ps1" ~/.bashrc; then
+    log "Adding git branch to prompt..."
+    cat >> ~/.bashrc << 'EOF'
+
+# Git branch in prompt
+parse_git_branch() {
+    git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/ (\1)/'
+}
+export PS1="\[\033[01;32m\]devuser@ai-devkit\[\033[00m\]:\[\033[01;34m\]\w\[\033[33m\]\$(parse_git_branch)\[\033[00m\]$ "
+EOF
+    success "Git branch will now show in your prompt!"
+    echo "Run 'source ~/.bashrc' to apply changes"
 fi
 
 echo ""
 info "Next steps:"
-echo "  • cd ~/workspace"
-echo "  • gh repo clone <owner>/<repo> (if authenticated)"
-echo "  • git clone https://github.com/<owner>/<repo>.git"
-echo "  • claude"
-echo ""
-
-# Add troubleshooting section
-info "Troubleshooting:"
-echo "  • If 'git push' fails, run: gh auth setup-git"
-echo "  • Check auth status: gh auth status"
-echo "  • View git config: git config --global --list"
-echo "  • Your git credentials are stored in ~/.git-credentials"
-echo ""
+echo "  • Clone a repo: git clone https://github.com/username/repo.git"
+echo "  • Create a repo: gh repo create"
+echo "  • Check auth: gh auth status"

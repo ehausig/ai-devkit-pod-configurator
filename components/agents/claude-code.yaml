@@ -1,0 +1,61 @@
+# components/agents/claude-code.yaml
+id: CLAUDE_CODE
+name: Claude Code (AI Assistant)
+group: ai-agents
+requires: [nodejs-version]
+description: Anthropic's AI coding assistant for development
+pre_build_script: claude-code-setup.sh
+installation:
+  dockerfile: |
+    # Install Claude Code as devuser
+    USER devuser
+    ENV NPM_CONFIG_PREFIX=/home/devuser/.npm-global
+    ENV PATH="/home/devuser/.npm-global/bin:${PATH}"
+    
+    # Install Claude Code
+    RUN npm install -g @anthropic-ai/claude-code
+    
+    # Verify Claude Code installation
+    RUN which claude || (echo "Claude Code installation failed" && exit 1)
+    
+    # Switch back to root for remaining setup
+    USER root
+  inject_files:
+    - source: CLAUDE.md
+      destination: /tmp/CLAUDE.md
+      permissions: 644
+    - source: settings.local.json.template
+      destination: /tmp/settings.local.json.template
+      permissions: 644
+  test_command: su - devuser -c "which claude"
+memory_content: |
+  #### Claude Code (AI Assistant)
+  
+  **Getting Started**:
+  - Start Claude Code: `claude`
+  - Open with file: `claude myfile.py`
+  - Show help: `claude --help`
+  
+  **Features**:
+  - AI-powered code completion and generation
+  - Multi-file context awareness
+  - Natural language to code translation
+  - Code explanation and debugging help
+  - Refactoring suggestions
+  
+  **Configuration**:
+  - Settings stored in `~/.claude/`
+  - Project settings in `workspace/.claude/settings.local.json`
+  - See `~/.claude/CLAUDE.md` for environment-specific guidelines
+  
+  **Best Practices**:
+  - Provide clear context in your requests
+  - Use descriptive file names
+  - Keep related files in the same directory
+  - Review generated code before executing
+  
+  **Tips**:
+  - Claude Code understands your installed tools
+  - Ask for help with any language/framework in your environment
+  - Use for learning new technologies
+  - Great for writing tests and documentation
