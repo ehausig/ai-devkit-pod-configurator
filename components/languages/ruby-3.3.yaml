@@ -8,19 +8,46 @@ installation:
   dockerfile: |
     RUN export DEBIAN_FRONTEND=noninteractive && \
         apt-get update && \
-        apt-get install -y rbenv ruby-build && \
+        apt-get install -y \
+            rbenv \
+            ruby-build \
+            git \
+            autoconf \
+            bison \
+            build-essential \
+            libssl-dev \
+            libyaml-dev \
+            libreadline6-dev \
+            zlib1g-dev \
+            libncurses5-dev \
+            libffi-dev \
+            libgdbm6 \
+            libgdbm-dev \
+            libdb-dev \
+            libsqlite3-dev && \
         rm -rf /var/lib/apt/lists/* && \
+        # Update ruby-build to get latest Ruby versions
+        git clone https://github.com/rbenv/ruby-build.git /tmp/ruby-build && \
+        PREFIX=/usr/local /tmp/ruby-build/install.sh && \
+        rm -rf /tmp/ruby-build && \
+        # Now install Ruby 3.3.0
         rbenv install 3.3.0 && \
         rbenv global 3.3.0 && \
+        eval "$(rbenv init -)" && \
         gem install bundler && \
+        # Configure bundler for user installations
         mkdir -p /etc/skel/.bundle && \
         echo '---' > /etc/skel/.bundle/config && \
         echo 'BUNDLE_PATH: "~/.bundle"' >> /etc/skel/.bundle/config && \
         echo 'BUNDLE_BIN: "~/.local/bin"' >> /etc/skel/.bundle/config && \
+        # Add Ruby paths to skeleton bashrc
         echo '' >> /etc/skel/.bashrc && \
         echo '# Ruby gem paths' >> /etc/skel/.bashrc && \
         echo 'export GEM_HOME="$HOME/.bundle"' >> /etc/skel/.bashrc && \
-        echo 'export PATH="$HOME/.local/bin:$HOME/.bundle/bin:$PATH"' >> /etc/skel/.bashrc
+        echo 'export PATH="$HOME/.local/bin:$HOME/.bundle/bin:$PATH"' >> /etc/skel/.bashrc && \
+        echo '' >> /etc/skel/.bashrc && \
+        echo '# Initialize rbenv' >> /etc/skel/.bashrc && \
+        echo 'eval "$(rbenv init -)"' >> /etc/skel/.bashrc
   nexus_config: |
     if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
         gem sources --remove https://rubygems.org/ && \
@@ -28,6 +55,40 @@ installation:
         echo "gem: --source ${NEXUS_APT_URL}/repository/rubygems-proxy/" > /etc/skel/.gemrc; \
     fi
   test_command: ruby --version
+entrypoint_setup: |
+  # Ruby 3.3 specific setup via rbenv
+  echo "Setting up Ruby 3.3 environment..."
+  
+  # Configure bundler for devuser if Ruby is installed
+  if command -v ruby &> /dev/null && command -v bundle &> /dev/null; then
+      # Create .bundle directory for bundler config
+      mkdir -p /home/devuser/.bundle
+      
+      # Configure bundler to install gems to user's home directory
+      if [ ! -f /home/devuser/.bundle/config ]; then
+          cat > /home/devuser/.bundle/config << 'EOF'
+  ---
+  BUNDLE_PATH: "/home/devuser/.bundle"
+  BUNDLE_BIN: "/home/devuser/.local/bin"
+  EOF
+      fi
+      
+      # Ensure proper ownership
+      chown -R devuser:devuser /home/devuser/.bundle
+  fi
+  
+  # Add rbenv initialization and gem paths to .bashrc if not already present
+  if ! grep -q "rbenv init" "$BASHRC" 2>/dev/null; then
+      cat >> "$BASHRC" << 'EOF'
+  
+  # Initialize rbenv
+  eval "$(rbenv init -)"
+  
+  # Ruby gem paths
+  export GEM_HOME="$HOME/.bundle"
+  export PATH="$HOME/.local/bin:$HOME/.bundle/bin:$PATH"
+  EOF
+  fi
 memory_content: |
   #### Ruby 3.3 (via rbenv)
   

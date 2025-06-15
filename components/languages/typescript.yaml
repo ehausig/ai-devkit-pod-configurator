@@ -8,6 +8,18 @@ installation:
     RUN npm install -g typescript ts-node @types/node && \
         echo "✓ TypeScript installed globally"
   test_command: tsc --version
+entrypoint_setup: |
+  # TypeScript specific setup
+  echo "Setting up TypeScript environment..."
+  
+  # TypeScript is installed globally via npm, so just verify it's available
+  if command -v tsc &> /dev/null; then
+      echo "TypeScript compiler available at: $(which tsc)"
+  fi
+  
+  if command -v ts-node &> /dev/null; then
+      echo "ts-node available at: $(which ts-node)"
+  fi
 memory_content: |
   #### TypeScript
   

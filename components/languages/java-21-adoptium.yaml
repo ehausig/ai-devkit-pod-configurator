@@ -24,6 +24,17 @@ installation:
   env:
     - JAVA_HOME=/usr/lib/jvm/temurin-21-jdk-${TARGETARCH}
   test_command: java -version
+entrypoint_setup: |
+  # Java 21 Adoptium specific setup
+  echo "Setting up Java 21 Adoptium environment..."
+  
+  # Set JAVA_HOME for the user
+  if ! grep -q "JAVA_HOME" "$BASHRC" 2>/dev/null; then
+      echo '' >> "$BASHRC"
+      echo '# Java environment' >> "$BASHRC"
+      echo 'export JAVA_HOME=/usr/lib/jvm/temurin-21-jdk-'$(dpkg --print-architecture) >> "$BASHRC"
+      echo 'export PATH="$JAVA_HOME/bin:$PATH"' >> "$BASHRC"
+  fi
 memory_content: |
   #### Java 21 (Eclipse Adoptium Temurin) - Latest LTS
   
