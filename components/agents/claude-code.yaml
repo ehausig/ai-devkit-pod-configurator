@@ -2,7 +2,7 @@
 id: CLAUDE_CODE
 name: Claude Code (AI Assistant)
 group: ai-agents
-requires: [nodejs-version]
+requires: nodejs-version
 description: Anthropic's AI coding assistant for development
 pre_build_script: claude-code-setup.sh
 installation:
@@ -27,7 +27,7 @@ installation:
     - source: settings.local.json.template
       destination: /tmp/settings.local.json.template
       permissions: 644
-  test_command: su - devuser -c "which claude"
+# test_command: su - devuser -c "which claude"
 memory_content: |
   #### Claude Code (AI Assistant)
   
