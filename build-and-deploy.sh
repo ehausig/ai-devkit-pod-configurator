@@ -729,65 +729,167 @@ select_components() {
         # Read key
         IFS= read -rsn1 key
         
+        # Debug: Uncomment to see raw key codes
+        # if [[ -n "$key" ]]; then
+        #     hint_message="DEBUG: Key pressed: $(printf %q "$key") ($(printf '%02x' "'$key"))"
+        #     hint_timer=30
+        # fi
+        
         # Handle input
         if [[ $key == $'\e' ]]; then
-            read -rsn2 key
-            case "$key" in
-                "[A"|"OA") # Up arrow
-                    if [[ $view == "catalog" ]]; then
-                        if [[ $current -eq $catalog_first_visible ]] && [[ $catalog_page -gt 0 ]]; then
-                            ((catalog_page--))
-                            position_cursor_after_render="last"
-                        elif ((current > 0)); then
-                            ((current--))
+            # Read more characters for escape sequences
+            read -rsn1 bracket
+            if [[ $bracket == '[' ]]; then
+                # CSI sequence - read the rest
+                read -rsn1 char1
+                
+                # Check if we need to read more characters
+                case "$char1" in
+                    '3') # Possible DELETE key sequence
+                        read -rsn1 char2
+                        if [[ $char2 == '~' ]]; then
+                            # DELETE key confirmed
+                            if [[ $view == "cart" ]]; then
+                                local cart_items_array=()
+                                for idx in "${!in_cart[@]}"; do
+                                    [[ "${in_cart[$idx]}" == true ]] && cart_items_array+=($idx)
+                                done
+                                
+                                if [[ ${#cart_items_array[@]} -eq 0 ]]; then
+                                    hint_message="No items in cart to remove"
+                                    hint_timer=30
+                                elif [[ $cart_cursor -lt ${#cart_items_array[@]} ]]; then
+                                    local item_idx=${cart_items_array[$cart_cursor]}
+                                    
+                                    toggle_cart_item $item_idx "remove"
+                                    
+                                    # Rebuild cart items array after removal
+                                    cart_items_array=()
+                                    for idx in "${!in_cart[@]}"; do
+                                        [[ "${in_cart[$idx]}" == true ]] && cart_items_array+=($idx)
+                                    done
+                                    
+                                    local new_count=${#cart_items_array[@]}
+                                    [[ $cart_cursor -ge $new_count && $cart_cursor -gt 0 ]] && ((cart_cursor--))
+                                    
+                                    force_catalog_update=true
+                                    force_cart_update=true
+                                fi
+                            fi
                         fi
-                    else
-                        ((cart_cursor > 0)) && ((cart_cursor--))
-                    fi
-                    ;;
-                "[B"|"OB") # Down arrow
-                    if [[ $view == "catalog" ]]; then
-                        if [[ $current -eq $catalog_last_visible ]] && [[ $catalog_page -lt $((total_pages - 1)) ]]; then
+                        ;;
+                    'A') # Up arrow
+                        if [[ $view == "catalog" ]]; then
+                            if [[ $current -eq $catalog_first_visible ]] && [[ $catalog_page -gt 0 ]]; then
+                                ((catalog_page--))
+                                position_cursor_after_render="last"
+                            elif ((current > 0)); then
+                                ((current--))
+                            fi
+                        else
+                            ((cart_cursor > 0)) && ((cart_cursor--))
+                        fi
+                        ;;
+                    'B') # Down arrow
+                        if [[ $view == "catalog" ]]; then
+                            if [[ $current -eq $catalog_last_visible ]] && [[ $catalog_page -lt $((total_pages - 1)) ]]; then
+                                ((catalog_page++))
+                                position_cursor_after_render="first"
+                            elif ((current < total_items - 1)); then
+                                ((current++))
+                            fi
+                        else
+                            local cart_items_count=0
+                            for ic in "${in_cart[@]}"; do [[ $ic == true ]] && ((cart_items_count++)); done
+                            ((cart_cursor < cart_items_count - 1)) && ((cart_cursor++))
+                        fi
+                        ;;
+                    'C') # Right arrow
+                        if [[ $view == "catalog" && $catalog_page -lt $((total_pages - 1)) ]]; then
                             ((catalog_page++))
                             position_cursor_after_render="first"
-                        elif ((current < total_items - 1)); then
-                            ((current++))
                         fi
-                    else
-                        local cart_items_count=0
-                        for ic in "${in_cart[@]}"; do [[ $ic == true ]] && ((cart_items_count++)); done
-                        ((cart_cursor < cart_items_count - 1)) && ((cart_cursor++))
-                    fi
-                    ;;
-                "[D"|"OD") # Left arrow
-                    if [[ $view == "catalog" && $catalog_page -gt 0 ]]; then
-                        ((catalog_page--))
-                        position_cursor_after_render="first"
-                    fi
-                    ;;
-                "[C"|"OC") # Right arrow
-                    if [[ $view == "catalog" && $catalog_page -lt $((total_pages - 1)) ]]; then
-                        ((catalog_page++))
-                        position_cursor_after_render="first"
-                    fi
-                    ;;
-                "[3~") # Delete key
-                    if [[ $view == "cart" ]]; then
-                        local cart_items_array=()
-                        for idx in "${!in_cart[@]}"; do
-                            [[ "${in_cart[$idx]}" == true ]] && cart_items_array+=($idx)
-                        done
-                        if [[ $cart_cursor -lt ${#cart_items_array[@]} ]]; then
-                            toggle_cart_item ${cart_items_array[$cart_cursor]} "remove"
-                            local new_count=${#cart_items_array[@]}
-                            ((new_count--))
-                            [[ $cart_cursor -ge $new_count && $cart_cursor -gt 0 ]] && ((cart_cursor--))
-                            force_catalog_update=true
-                            force_cart_update=true
+                        ;;
+                    'D') # Left arrow
+                        if [[ $view == "catalog" && $catalog_page -gt 0 ]]; then
+                            ((catalog_page--))
+                            position_cursor_after_render="first"
                         fi
-                    fi
-                    ;;
-            esac
+                        ;;
+                    'P') # Alternative DELETE on some terminals
+                        if [[ $view == "cart" ]]; then
+                            local cart_items_array=()
+                            for idx in "${!in_cart[@]}"; do
+                                [[ "${in_cart[$idx]}" == true ]] && cart_items_array+=($idx)
+                            done
+                            
+                            if [[ ${#cart_items_array[@]} -eq 0 ]]; then
+                                hint_message="No items in cart to remove"
+                                hint_timer=30
+                            elif [[ $cart_cursor -lt ${#cart_items_array[@]} ]]; then
+                                local item_idx=${cart_items_array[$cart_cursor]}
+                                
+                                toggle_cart_item $item_idx "remove"
+                                
+                                # Rebuild cart items array after removal
+                                cart_items_array=()
+                                for idx in "${!in_cart[@]}"; do
+                                    [[ "${in_cart[$idx]}" == true ]] && cart_items_array+=($idx)
+                                done
+                                
+                                local new_count=${#cart_items_array[@]}
+                                [[ $cart_cursor -ge $new_count && $cart_cursor -gt 0 ]] && ((cart_cursor--))
+                                
+                                force_catalog_update=true
+                                force_cart_update=true
+                            fi
+                        fi
+                        ;;
+                esac
+            elif [[ $bracket == 'O' ]]; then
+                # SS3 sequence - read one more
+                read -rsn1 char1
+                case "$char1" in
+                    'A') # Up arrow (alternative)
+                        if [[ $view == "catalog" ]]; then
+                            if [[ $current -eq $catalog_first_visible ]] && [[ $catalog_page -gt 0 ]]; then
+                                ((catalog_page--))
+                                position_cursor_after_render="last"
+                            elif ((current > 0)); then
+                                ((current--))
+                            fi
+                        else
+                            ((cart_cursor > 0)) && ((cart_cursor--))
+                        fi
+                        ;;
+                    'B') # Down arrow (alternative)
+                        if [[ $view == "catalog" ]]; then
+                            if [[ $current -eq $catalog_last_visible ]] && [[ $catalog_page -lt $((total_pages - 1)) ]]; then
+                                ((catalog_page++))
+                                position_cursor_after_render="first"
+                            elif ((current < total_items - 1)); then
+                                ((current++))
+                            fi
+                        else
+                            local cart_items_count=0
+                            for ic in "${in_cart[@]}"; do [[ $ic == true ]] && ((cart_items_count++)); done
+                            ((cart_cursor < cart_items_count - 1)) && ((cart_cursor++))
+                        fi
+                        ;;
+                    'C') # Right arrow (alternative)
+                        if [[ $view == "catalog" && $catalog_page -lt $((total_pages - 1)) ]]; then
+                            ((catalog_page++))
+                            position_cursor_after_render="first"
+                        fi
+                        ;;
+                    'D') # Left arrow (alternative)
+                        if [[ $view == "catalog" && $catalog_page -gt 0 ]]; then
+                            ((catalog_page--))
+                            position_cursor_after_render="first"
+                        fi
+                        ;;
+                esac
+            fi
         elif [[ -z "$key" ]]; then
             break  # Enter key
         elif [[ "$key" == $'\t' ]]; then
@@ -837,16 +939,55 @@ select_components() {
                 ((catalog_page++))
                 position_cursor_after_render="first"
             fi
-        elif [[ "$key" =~ ^[dD]$ && $view == "cart" ]]; then
+        elif [[ "$key" =~ ^[dD]$ && $view == "cart" ]]; then  # 'd' key for delete
             local cart_items_array=()
             for idx in "${!in_cart[@]}"; do
                 [[ "${in_cart[$idx]}" == true ]] && cart_items_array+=($idx)
             done
-            if [[ $cart_cursor -lt ${#cart_items_array[@]} ]]; then
-                toggle_cart_item ${cart_items_array[$cart_cursor]} "remove"
+            
+            if [[ ${#cart_items_array[@]} -eq 0 ]]; then
+                hint_message="No items in cart to remove"
+                hint_timer=30
+            elif [[ $cart_cursor -lt ${#cart_items_array[@]} ]]; then
+                local item_idx=${cart_items_array[$cart_cursor]}
+                
+                toggle_cart_item $item_idx "remove"
+                
+                # Rebuild cart items array after removal
+                cart_items_array=()
+                for idx in "${!in_cart[@]}"; do
+                    [[ "${in_cart[$idx]}" == true ]] && cart_items_array+=($idx)
+                done
+                
                 local new_count=${#cart_items_array[@]}
-                ((new_count--))
                 [[ $cart_cursor -ge $new_count && $cart_cursor -gt 0 ]] && ((cart_cursor--))
+                
+                force_catalog_update=true
+                force_cart_update=true
+            fi
+        elif [[ "$key" == $'\x7f' && $view == "cart" ]]; then  # Backspace key (0x7F)
+            local cart_items_array=()
+            for idx in "${!in_cart[@]}"; do
+                [[ "${in_cart[$idx]}" == true ]] && cart_items_array+=($idx)
+            done
+            
+            if [[ ${#cart_items_array[@]} -eq 0 ]]; then
+                hint_message="No items in cart to remove"
+                hint_timer=30
+            elif [[ $cart_cursor -lt ${#cart_items_array[@]} ]]; then
+                local item_idx=${cart_items_array[$cart_cursor]}
+                
+                toggle_cart_item $item_idx "remove"
+                
+                # Rebuild cart items array after removal
+                cart_items_array=()
+                for idx in "${!in_cart[@]}"; do
+                    [[ "${in_cart[$idx]}" == true ]] && cart_items_array+=($idx)
+                done
+                
+                local new_count=${#cart_items_array[@]}
+                [[ $cart_cursor -ge $new_count && $cart_cursor -gt 0 ]] && ((cart_cursor--))
+                
                 force_catalog_update=true
                 force_cart_update=true
             fi
@@ -857,8 +998,8 @@ select_components() {
             log "Installation cancelled."
             exit 0
         fi
-    done
-    
+    done   
+
     tput cnorm
     stty echo
     clear
