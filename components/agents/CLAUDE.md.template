@@ -160,11 +160,20 @@ How to run tests
 ### Claude Code Permissions
 This environment includes pre-configured permissions in `~/.claude/settings.json` that:
 - **Allow** operations within `~/workspace/` (creating, editing, running code)
-- **Allow** git and GitHub CLI operations
+- **Allow** git and GitHub CLI operations  
 - **Allow** package manager operations (npm, pip, cargo, etc.)
-- **Deny** destructive operations outside workspace
-- **Deny** system modifications requiring sudo
-- **Deny** access to sensitive credential files
+- **Allow** common bash utilities and development tools
+- **Allow** reading config files like .bashrc, .gitconfig for context
+- **Deny** destructive operations outside workspace (rm, mv, cp, mkdir, touch)
+- **Deny** system modifications requiring sudo or package managers
+- **Deny** access to sensitive credential files (SSH keys, AWS credentials, etc.)
+- **Deny** system administration commands
+
+The environment also sets these defaults:
+- **Theme**: Dark mode for better visibility
+- **Verbose**: Full command outputs shown
+- **Telemetry/Updates**: Disabled for privacy and stability
+- **Cost warnings**: Enabled to help monitor usage
 
 To view or modify permissions: `cat ~/.claude/settings.json`
 
