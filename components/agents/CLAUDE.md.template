@@ -64,6 +64,7 @@ concurrent writes to the shared data structure.
 - Write tests for critical functionality and edge cases
 - Avoid premature optimization and over-engineering
 - Apply SOLID principles only when they add clear value
+- **Leverage automation**: Use `expect` and `autoexpect` for testing interactive programs
 
 ### Code Quality
 - Use descriptive, meaningful variable and function names
@@ -326,6 +327,113 @@ For personal projects, consider asking Claude to:
 - "Setup branch protection with auto-merge enabled"
 
 ## Language-Specific Configurations
+
+## Interactive Program Automation with Expect
+
+### Using Expect for Testing and Automation
+
+The environment includes `expect` and `autoexpect` tools for automating interactive programs. Use these tools to enhance development autonomy:
+
+#### When to Use Expect
+- **Testing TUI applications**: Automate user input for text-based interfaces
+- **API client testing**: Script interactive authentication or configuration flows  
+- **CLI tool validation**: Test command-line tools that require user input
+- **Setup automation**: Handle installation wizards or configuration prompts
+- **Regression testing**: Ensure interactive flows work consistently
+
+#### Basic Expect Patterns
+
+**Simple interaction script** (`test_interactive.exp`):
+```tcl
+#!/usr/bin/expect -f
+set timeout 10
+
+spawn ./my_tui_app
+expect "Enter username:"
+send "testuser\r"
+expect "Enter password:"  
+send "testpass\r"
+expect "Main menu>"
+send "1\r"
+expect eof
+```
+
+**Using autoexpect to record interactions**:
+```bash
+# Record an interaction session
+autoexpect -f test_session.exp ./my_interactive_app
+# This creates test_session.exp with your recorded actions
+
+# Edit and clean up the generated script
+vim test_session.exp
+
+# Run the recorded script
+expect test_session.exp
+```
+
+**Testing API client with expect**:
+```tcl
+#!/usr/bin/expect -f
+spawn python api_client.py
+
+expect "API endpoint:"
+send "https://api.example.com\r"
+
+expect "Authentication method"
+send "2\r"  ;# Choose OAuth
+
+expect "Client ID:"
+send "$env(CLIENT_ID)\r"
+
+expect "Client Secret:"
+send "$env(CLIENT_SECRET)\r"
+
+expect ">"
+send "GET /users\r"
+
+expect {
+    "200 OK" { puts "API test passed" }
+    timeout { puts "API test failed - timeout" }
+}
+```
+
+#### Best Practices for Expect Scripts
+1. **Set appropriate timeouts**: Use `set timeout` for operations that might take time
+2. **Handle multiple outcomes**: Use `expect { pattern1 {} pattern2 {} }` syntax
+3. **Use environment variables**: For sensitive data like passwords or API keys
+4. **Make scripts idempotent**: Ensure they can run multiple times safely
+5. **Add error handling**: Check for unexpected responses or failures
+6. **Comment thoroughly**: Explain what each interaction is testing
+
+#### Integration with Development Workflow
+- Create `tests/expect/` directory for expect scripts
+- Name scripts descriptively: `test_auth_flow.exp`, `test_menu_navigation.exp`
+- Run expect tests as part of your test suite:
+  ```bash
+  #!/bin/bash
+  # run_tui_tests.sh
+  for test in tests/expect/*.exp; do
+      echo "Running $test..."
+      expect "$test" || exit 1
+  done
+  ```
+
+#### Example: TUI App Development Workflow
+```bash
+# 1. Develop TUI feature
+python tui_app.py
+
+# 2. Record interaction for testing
+autoexpect -f tests/expect/feature_test.exp python tui_app.py
+
+# 3. Clean up and enhance the generated script
+vim tests/expect/feature_test.exp
+
+# 4. Add to automated test suite
+echo "expect tests/expect/feature_test.exp" >> run_tests.sh
+```
+
+By actively using expect for testing interactive programs, you can develop more robust TUI applications and API clients with comprehensive automated testing, reducing manual testing burden and catching regressions early.
 
 <!-- ENVIRONMENT_TOOLS_MARKER -->
 <!-- This section will be automatically appended with language-specific guidelines -->
