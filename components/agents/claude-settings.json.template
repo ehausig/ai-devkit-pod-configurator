@@ -29,6 +29,8 @@
       "Bash(cat:~/workspace/*)",
       "Bash(head:~/workspace/*)",
       "Bash(tail:~/workspace/*)",
+      "Bash(less:~/workspace/*)",
+      "Bash(less:~/.claude/*)",
       "Bash(npm:*)",
       "Bash(yarn:*)",
       "Bash(pip:*)",
