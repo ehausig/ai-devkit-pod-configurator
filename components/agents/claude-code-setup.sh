@@ -120,53 +120,36 @@ echo "- GitHub CLI: \`gh repo create\`, \`gh pr create\`" >> "$CLAUDE_OUTPUT"
 echo "- Git is pre-configured if you used host configuration" >> "$CLAUDE_OUTPUT"
 
 # Process selected components by category
+# Convert space-separated lists to arrays
 IFS=' ' read -ra yaml_files_array <<< "$SELECTED_YAML_FILES"
 IFS=' ' read -ra names_array <<< "$SELECTED_NAMES"
 
-# Build category map
-declare -A component_categories
-declare -A category_display_names
-declare -A components_by_category
+# Simple arrays to track categories and components
+component_count=0
+categories_seen=""
 
+# First pass - collect and display components
 for i in "${!yaml_files_array[@]}"; do
     yaml_file="${yaml_files_array[$i]}"
     name="${names_array[$i]}"
     
     # Extract category from path
     category=$(dirname "$yaml_file" | xargs basename)
-    component_categories["$yaml_file"]="$category"
     
-    # Get category display name if not already cached
-    if [[ -z "${category_display_names[$category]}" ]]; then
-        category_dir=$(dirname "$yaml_file")
-        category_display_names["$category"]=$(get_category_display_name "$category_dir")
-    fi
-    
-    # Group components by category
-    if [[ -n "${components_by_category[$category]}" ]]; then
-        components_by_category["$category"]+="|||$yaml_file"
-    else
-        components_by_category["$category"]="$yaml_file"
-    fi
-done
-
-# Output components grouped by category
-for category in languages build-tools agents; do
-    if [[ -n "${components_by_category[$category]}" ]]; then
-        echo "" >> "$CLAUDE_OUTPUT"
-        echo "### ${category_display_names[$category]:-$category}" >> "$CLAUDE_OUTPUT"
+    # Check if we've seen this category before
+    if [[ ! "$categories_seen" =~ "$category" ]]; then
+        categories_seen="$categories_seen $category"
         
-        IFS='|||' read -ra files <<< "${components_by_category[$category]}"
-        for yaml_file in "${files[@]}"; do
-            # Find the corresponding name
-            for i in "${!yaml_files_array[@]}"; do
-                if [[ "${yaml_files_array[$i]}" == "$yaml_file" ]]; then
-                    echo "- ${names_array[$i]}" >> "$CLAUDE_OUTPUT"
-                    break
-                fi
-            done
-        done
+        # Get display name for category
+        category_dir=$(dirname "$yaml_file")
+        display_name=$(get_category_display_name "$category_dir")
+        
+        echo "" >> "$CLAUDE_OUTPUT"
+        echo "### $display_name" >> "$CLAUDE_OUTPUT"
     fi
+    
+    echo "- $name" >> "$CLAUDE_OUTPUT"
+    ((component_count++))
 done
 
 # Add Tool-Specific Guidelines section with memory content
@@ -176,15 +159,9 @@ echo "## Tool-Specific Guidelines" >> "$CLAUDE_OUTPUT"
 # Extract and append memory content for each selected component
 memory_content_added=false
 
-for yaml_file in "${yaml_files_array[@]}"; do
-    # Find component name
-    component_name=""
-    for i in "${!yaml_files_array[@]}"; do
-        if [[ "${yaml_files_array[$i]}" == "$yaml_file" ]]; then
-            component_name="${names_array[$i]}"
-            break
-        fi
-    done
+for i in "${!yaml_files_array[@]}"; do
+    yaml_file="${yaml_files_array[$i]}"
+    component_name="${names_array[$i]}"
     
     info "Extracting memory content from $component_name..."
     

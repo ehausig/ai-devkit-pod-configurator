@@ -11,6 +11,21 @@ installation:
         rm -rf /var/lib/apt/lists/* && \
         ln -sf /usr/bin/python3 /usr/bin/python
   test_command: python --version
+entrypoint_setup: |
+  # Python specific setup
+  echo "Setting up Python environment..."
+  
+  # Configure pip for the devuser if proxy URL is provided
+  if [ -n "$PIP_INDEX_URL" ]; then
+      mkdir -p /home/devuser/.config/pip
+      if [ ! -f /home/devuser/.config/pip/pip.conf ]; then
+          echo "[global]" > /home/devuser/.config/pip/pip.conf
+          echo "index-url = ${PIP_INDEX_URL}" >> /home/devuser/.config/pip/pip.conf
+          echo "trusted-host = ${PIP_TRUSTED_HOST}" >> /home/devuser/.config/pip/pip.conf
+          chown -R devuser:devuser /home/devuser/.config/pip
+          echo "✓ Configured pip for devuser"
+      fi
+  fi
 memory_content: |
   #### Python 3.10 (System)
   

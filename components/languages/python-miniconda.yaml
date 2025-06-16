@@ -31,6 +31,36 @@ installation:
         cp /root/.condarc /opt/conda/.condarc; \
     fi
   test_command: conda --version
+entrypoint_setup: |
+  # Miniconda specific setup
+  echo "Setting up Miniconda environment..."
+  
+  # Configure pip for the devuser if Python is installed and proxy URL is provided
+  if command -v python3 &> /dev/null && [ -n "$PIP_INDEX_URL" ]; then
+      mkdir -p /home/devuser/.config/pip
+      if [ ! -f /home/devuser/.config/pip/pip.conf ]; then
+          echo "[global]" > /home/devuser/.config/pip/pip.conf
+          echo "index-url = ${PIP_INDEX_URL}" >> /home/devuser/.config/pip/pip.conf
+          echo "trusted-host = ${PIP_TRUSTED_HOST}" >> /home/devuser/.config/pip/pip.conf
+          chown -R devuser:devuser /home/devuser/.config/pip
+          echo "✓ Configured pip for devuser"
+      fi
+  fi
+  
+  # Copy .condarc to devuser's home if conda is installed and .condarc exists
+  if [ -f /opt/conda/bin/conda ] && [ -f /root/.condarc ] && [ ! -f /home/devuser/.condarc ]; then
+      cp /root/.condarc /home/devuser/.condarc
+      chown devuser:devuser /home/devuser/.condarc
+  fi
+  
+  # Add conda initialization to bashrc if not already present
+  if [ -f /opt/conda/bin/conda ] && ! grep -q "conda shell.bash hook" "$BASHRC" 2>/dev/null; then
+      echo '' >> "$BASHRC"
+      echo '# Conda initialization' >> "$BASHRC"
+      echo 'if [ -f /opt/conda/bin/conda ]; then' >> "$BASHRC"
+      echo '    eval "$(/opt/conda/bin/conda shell.bash hook)"' >> "$BASHRC"
+      echo 'fi' >> "$BASHRC"
+  fi
 memory_content: |
   #### Python (Miniconda)
   

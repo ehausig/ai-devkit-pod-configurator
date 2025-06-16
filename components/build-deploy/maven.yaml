@@ -11,6 +11,25 @@ installation:
         rm -rf /var/lib/apt/lists/* && \
         mkdir -p /home/claude/.m2
   test_command: mvn --version
+entrypoint_setup: |
+  # Maven specific setup
+  echo "Setting up Maven environment..."
+  
+  # Create .m2 directory for Maven
+  mkdir -p /home/devuser/.m2
+  
+  # Handle Maven settings file from ConfigMap mount
+  if [ -f /home/devuser/.m2/settings.xml ]; then
+      # Check if it's a mount point (ConfigMap)
+      if mountpoint -q /home/devuser/.m2/settings.xml 2>/dev/null || [ ! -w /home/devuser/.m2/settings.xml ]; then
+          echo "Found mounted Maven settings.xml file"
+      fi
+  fi
+  
+  # Ensure proper ownership (skip if mounted from ConfigMap)
+  if [ ! -f /home/devuser/.m2/settings.xml ]; then
+      chown -R devuser:devuser /home/devuser/.m2 2>/dev/null || true
+  fi
 memory_content: |
   #### Maven
   

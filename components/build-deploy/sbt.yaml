@@ -35,6 +35,30 @@ installation:
         echo "export SBT_OPTS=\"-Dsbt.override.build.repos=true\"" >> /etc/skel/.bashrc; \
     fi
   test_command: sbt --version
+entrypoint_setup: |
+  # SBT specific setup
+  echo "Setting up SBT environment..."
+  
+  # Create .sbt directories
+  mkdir -p /home/devuser/.sbt
+  mkdir -p /home/devuser/.sbt/0.13
+  mkdir -p /home/devuser/.sbt/1.0
+  mkdir -p /home/devuser/.sbt/boot
+  
+  # Handle SBT repositories file from ConfigMap mount
+  if [ -f /home/devuser/.sbt/repositories ]; then
+      # Check if it's a mount point (ConfigMap)
+      if mountpoint -q /home/devuser/.sbt/repositories 2>/dev/null || [ ! -w /home/devuser/.sbt/repositories ]; then
+          echo "Found mounted .sbt/repositories file, creating writable copy..."
+          # Copy to a different location
+          cp /home/devuser/.sbt/repositories /home/devuser/.sbt/repositories.writable
+          # Update the SBT_OPTS to use the writable copy
+          export SBT_OPTS="-Dsbt.override.build.repos=true -Dsbt.repository.config=/home/devuser/.sbt/repositories.writable"
+      fi
+  fi
+  
+  # Always ensure SBT directories are owned by devuser
+  chown -R devuser:devuser /home/devuser/.sbt 2>/dev/null || true
 memory_content: |
   #### SBT (Simple Build Tool)
   

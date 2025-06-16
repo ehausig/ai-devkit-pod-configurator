@@ -17,6 +17,16 @@ installation:
         rm scala3-3.3.1.zip && \
         echo 'export PATH=/opt/scala3/bin:$PATH' >> /etc/profile.d/scala3.sh
   test_command: scala -version
+entrypoint_setup: |
+  # Scala 3 specific setup
+  echo "Setting up Scala 3 environment..."
+  
+  # Add Scala 3 to PATH if not already present
+  if ! grep -q "/opt/scala3/bin" "$BASHRC" 2>/dev/null; then
+      echo '' >> "$BASHRC"
+      echo '# Scala 3 environment' >> "$BASHRC"
+      echo 'export PATH="/opt/scala3/bin:$PATH"' >> "$BASHRC"
+  fi
 memory_content: |
   #### Scala 3 (Dotty)
   

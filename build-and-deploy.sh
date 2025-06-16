@@ -85,9 +85,13 @@ load_components() {
         # Load category metadata if exists
         if [[ -f "$category_dir/.category.yaml" ]]; then
             eval $(parse_yaml "$category_dir/.category.yaml" "cat_")
+            
             [[ -n "$cat_display_name" ]] && display_name="$cat_display_name"
             [[ -n "$cat_description" ]] && description="$cat_description"
             [[ -n "$cat_order" ]] && order="$cat_order"
+            
+            # Clear variables for next iteration
+            unset cat_display_name cat_description cat_order
         fi
         
         categories+=("$category_name")
@@ -122,9 +126,13 @@ load_components() {
         done
     done
     
+    # Output categories and their display names properly
     echo "${categories[@]}"
     echo "---SEPARATOR---"
-    echo "${category_names[@]}"
+    # Output category names one per line to preserve spaces
+    for cat_name in "${category_names[@]}"; do
+        echo "$cat_name"
+    done
     echo "---SEPARATOR---"
     
     # Load components from each category
@@ -138,6 +146,9 @@ load_components() {
             
             # Output component data
             echo "${comp_id}|${comp_name}|${comp_group}|${comp_requires}|${category}|${yaml_file}"
+            
+            # Clear component variables for next iteration
+            unset comp_id comp_name comp_group comp_requires
         done
     done
 }
@@ -151,12 +162,39 @@ select_components() {
     
     # Split the data
     local categories_line=$(echo "$component_data" | sed -n '1p')
-    local category_names_line=$(echo "$component_data" | sed -n '3p')
-    local components_data=$(echo "$component_data" | sed '1,4d')
+    local components_data=""
+    local category_names=()
     
-    # Convert to arrays
+    # Read data line by line
+    local reading_names=false
+    local reading_components=false
+    local line_num=0
+    
+    while IFS= read -r line; do
+        ((line_num++))
+        
+        if [[ $line_num -eq 1 ]]; then
+            # First line is categories
+            continue
+        elif [[ "$line" == "---SEPARATOR---" ]]; then
+            if [[ $reading_names == false ]]; then
+                reading_names=true
+            else
+                reading_names=false
+                reading_components=true
+            fi
+            continue
+        fi
+        
+        if [[ $reading_names == true ]]; then
+            category_names+=("$line")
+        elif [[ $reading_components == true ]]; then
+            components_data+="$line"$'\n'
+        fi
+    done <<< "$component_data"
+    
+    # Convert categories to array
     IFS=' ' read -ra categories <<< "$categories_line"
-    IFS=' ' read -ra category_names <<< "$category_names_line"
     
     # Parse components
     local ids=() names=() groups=() requires=() component_categories=() yaml_files=() in_cart=()
@@ -1049,6 +1087,7 @@ select_components() {
         SELECTED_NAMES=()
         SELECTED_GROUPS=()
         SELECTED_CATEGORIES=()
+        SELECTED_REQUIRES=()
         
         # Display selected items grouped by category
         for cat_idx in "${!categories[@]}"; do
@@ -1072,6 +1111,7 @@ select_components() {
                     SELECTED_NAMES+=("${names[$i]}")
                     SELECTED_GROUPS+=("${groups[$i]}")
                     SELECTED_CATEGORIES+=("${component_categories[$i]}")
+                    SELECTED_REQUIRES+=("${requires[$i]}")
                 fi
             done
         done
@@ -1099,6 +1139,7 @@ declare -a SELECTED_IDS
 declare -a SELECTED_NAMES
 declare -a SELECTED_GROUPS
 declare -a SELECTED_CATEGORIES
+declare -a SELECTED_REQUIRES
 
 # Global arrays for categories
 declare -a categories
@@ -1260,6 +1301,43 @@ extract_memory_content() {
     echo "$memory_content"
 }
 
+# Function to extract entrypoint_setup from YAML file
+extract_entrypoint_setup() {
+    local yaml_file=$1
+    local in_entrypoint_setup=false
+    local entrypoint_content=""
+    
+    while IFS= read -r line; do
+        # Check if we're entering entrypoint_setup section
+        if [[ "$line" =~ ^entrypoint_setup:[[:space:]]*\|[[:space:]]*$ ]]; then
+            in_entrypoint_setup=true
+            continue
+        fi
+        
+        # Check if we're exiting entrypoint_setup section (new top-level key)
+        if [[ $in_entrypoint_setup == true ]] && [[ "$line" =~ ^[a-zA-Z_]+: ]] && [[ ! "$line" =~ ^[[:space:]] ]]; then
+            in_entrypoint_setup=false
+            break
+        fi
+        
+        # Collect entrypoint_setup lines
+        if [[ $in_entrypoint_setup == true ]]; then
+            # Remove the first 2 spaces of YAML indentation
+            if [[ "$line" =~ ^"  " ]]; then
+                entrypoint_content+="${line:2}"$'\n'
+            elif [[ -z "$line" ]]; then
+                # Preserve empty lines
+                entrypoint_content+=$'\n'
+            fi
+        fi
+    done < "$yaml_file"
+    
+    # Trim trailing newlines
+    entrypoint_content=$(echo -n "$entrypoint_content" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}')
+    
+    echo "$entrypoint_content"
+}
+
 # Function to extract installation commands from YAML files
 extract_installation_from_yaml() {
     local yaml_file=$1
@@ -1318,21 +1396,107 @@ extract_installation_from_yaml() {
     printf "%s" "$full_content"
 }
 
+# Function to sort components by dependencies (topological sort)
+sort_components_by_dependencies() {
+    local -a sorted_indices=()
+    local -a visited=()
+    local -a in_progress=()
+    
+    # Initialize arrays
+    for i in "${!SELECTED_IDS[@]}"; do
+        visited[$i]=false
+        in_progress[$i]=false
+    done
+    
+    # Helper function for DFS
+    visit_component() {
+        local idx=$1
+        
+        if [[ "${in_progress[$idx]}" == true ]]; then
+            error "Circular dependency detected involving ${SELECTED_NAMES[$idx]}"
+        fi
+        
+        if [[ "${visited[$idx]}" == true ]]; then
+            return
+        fi
+        
+        in_progress[$idx]=true
+        
+        # Get the requires field for this component
+        local requires="${SELECTED_REQUIRES[$idx]}"
+        
+        # Visit dependencies first
+        if [[ -n "$requires" ]] && [[ "$requires" != "[]" ]] && [[ "$requires" != "" ]]; then
+            # Parse requires field (could be space-separated)
+            for req in $requires; do
+                # Find components that provide this requirement
+                for dep_idx in "${!SELECTED_IDS[@]}"; do
+                    local dep_group="${SELECTED_GROUPS[$dep_idx]}"
+                    
+                    if [[ "$dep_group" == "$req" ]]; then
+                        visit_component $dep_idx
+                    fi
+                done
+            done
+        fi
+        
+        in_progress[$idx]=false
+        visited[$idx]=true
+        sorted_indices+=($idx)
+    }
+    
+    # Visit all components
+    for i in "${!SELECTED_IDS[@]}"; do
+        if [[ "${visited[$i]}" == false ]]; then
+            visit_component $i
+        fi
+    done
+    
+    # Return sorted indices
+    echo "${sorted_indices[@]}"
+}
+
 # Function to create custom Dockerfile
 create_custom_dockerfile() {
     mkdir -p "$TEMP_DIR"
+    
+    # First, generate the base entrypoint.sh in TEMP_DIR
+    log "Generating custom entrypoint.sh..."
+    
+    # Check if entrypoint.base.sh exists
+    if [[ ! -f "entrypoint.base.sh" ]]; then
+        error "entrypoint.base.sh not found in current directory: $(pwd)"
+    fi
+    
+    log "Copying entrypoint.base.sh to $TEMP_DIR/entrypoint.sh"
+    cp -v entrypoint.base.sh "$TEMP_DIR/entrypoint.sh"
+    
+    if [[ ! -f "$TEMP_DIR/entrypoint.sh" ]]; then
+        error "Failed to create entrypoint.sh in $TEMP_DIR"
+    fi
+    
+    chmod +x "$TEMP_DIR/entrypoint.sh"
+    log "Successfully created entrypoint.sh in $TEMP_DIR"
+    
+    # Copy Dockerfile.base
+    log "Copying Dockerfile.base to $TEMP_DIR/Dockerfile"
     cp Dockerfile.base "$TEMP_DIR/Dockerfile"
     
-    # Execute pre-build scripts FIRST
+    # Execute pre-build scripts
     execute_pre_build_scripts
     
-    # Process selected components
+    # Sort components by dependencies
+    log "Sorting components by dependencies..."
+    local sorted_indices=($(sort_components_by_dependencies))
+    
+    # Process selected components in dependency order
     local installation_content=""
     local inject_files_content=""
+    local entrypoint_setup_content=""
     
-    for i in "${!SELECTED_YAML_FILES[@]}"; do
-        local yaml_file="${SELECTED_YAML_FILES[$i]}"
-        local component_name="${SELECTED_NAMES[$i]}"
+    for idx in "${sorted_indices[@]}"; do
+        local yaml_file="${SELECTED_YAML_FILES[$idx]}"
+        local component_name="${SELECTED_NAMES[$idx]}"
         
         log "Processing: $component_name"
         
@@ -1348,6 +1512,13 @@ create_custom_dockerfile() {
         if [[ -n "$inject_cmds" ]]; then
             inject_files_content+="\n# Files injected by $component_name\n"
             inject_files_content+="$inject_cmds"
+        fi
+        
+        # Extract entrypoint setup
+        local entrypoint_cmds=$(extract_entrypoint_setup "$yaml_file")
+        if [[ -n "$entrypoint_cmds" ]]; then
+            entrypoint_setup_content+="\n# Setup for $component_name\n"
+            entrypoint_setup_content+="$entrypoint_cmds\n"
         fi
     done
     
@@ -1371,6 +1542,24 @@ create_custom_dockerfile() {
         sed -i.bak "/^# Set up volume mount points/r $TEMP_DIR/inject_files.txt" "$TEMP_DIR/Dockerfile"
         rm -f "$TEMP_DIR/Dockerfile.bak" "$TEMP_DIR/inject_files.txt"
     fi
+    
+    # Now modify the generated entrypoint.sh with component setup
+    if [[ -n "$entrypoint_setup_content" ]]; then
+        # Create temporary file with the setup content
+        echo -e "$entrypoint_setup_content" > "$TEMP_DIR/entrypoint_setup.txt"
+        
+        # Insert the setup content at the placeholder
+        sed -i.bak "/# COMPONENT_SETUP_PLACEHOLDER/r $TEMP_DIR/entrypoint_setup.txt" "$TEMP_DIR/entrypoint.sh"
+        sed -i.bak "/# COMPONENT_SETUP_PLACEHOLDER/d" "$TEMP_DIR/entrypoint.sh"
+        
+        rm -f "$TEMP_DIR/entrypoint.sh.bak" "$TEMP_DIR/entrypoint_setup.txt"
+    else
+        # Remove the placeholder if no setup content
+        sed -i.bak "/# COMPONENT_SETUP_PLACEHOLDER/d" "$TEMP_DIR/entrypoint.sh"
+        rm -f "$TEMP_DIR/entrypoint.sh.bak"
+    fi
+    
+    success "Generated custom entrypoint.sh with component setup"
     
     # Copy settings.local.json.template only if it exists (from pre-build)
     if [[ -f "$TEMP_DIR/settings.local.json.template" ]]; then
@@ -1431,11 +1620,27 @@ main() {
     # This is a bit hacky but necessary since we need the category display names
     local component_data=$(load_components)
     local categories_line=$(echo "$component_data" | sed -n '1p')
-    local category_names_line=$(echo "$component_data" | sed -n '3p')
     
     # Convert to global arrays
     IFS=' ' read -ra categories <<< "$categories_line"
-    IFS=' ' read -ra category_names <<< "$category_names_line"
+    
+    # Read category names line by line to preserve spaces
+    category_names=()
+    local reading_names=false
+    local line_num=0
+    while IFS= read -r line; do
+        ((line_num++))
+        if [[ $line_num -eq 3 ]]; then
+            reading_names=true
+            continue
+        fi
+        if [[ $reading_names == true && "$line" == "---SEPARATOR---" ]]; then
+            break
+        fi
+        if [[ $reading_names == true ]]; then
+            category_names+=("$line")
+        fi
+    done <<< "$component_data"
     
     # Check for host git configuration
     USE_HOST_GIT_CONFIG=false
@@ -1481,27 +1686,22 @@ main() {
     create_custom_dockerfile
     
     log "Building Docker image..."
-    # Determine build context based on generated files
-    if [[ -f "$TEMP_DIR/CLAUDE.md" ]] || [[ -f "$TEMP_DIR/settings.local.json.template" ]]; then
-        cp entrypoint.sh "$TEMP_DIR/"
-        cp setup-git.sh "$TEMP_DIR/"
-        cd "$TEMP_DIR"
-        log "Building from $TEMP_DIR with generated files"
-        if [[ -n "$NEXUS_BUILD_ARGS" ]]; then
-            success "Using Nexus proxy for package downloads"
-            docker build $NEXUS_BUILD_ARGS -t ${IMAGE_NAME}:${IMAGE_TAG} .
-        else
-            docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
-        fi
-        cd ..
+    # Always build from TEMP_DIR since we now generate entrypoint.sh
+    cp setup-git.sh "$TEMP_DIR/"
+    
+    # List files in TEMP_DIR for debugging
+    log "Files in $TEMP_DIR:"
+    ls -la "$TEMP_DIR/"
+    
+    cd "$TEMP_DIR"
+    log "Building from $TEMP_DIR with generated files"
+    if [[ -n "$NEXUS_BUILD_ARGS" ]]; then
+        success "Using Nexus proxy for package downloads"
+        docker build $NEXUS_BUILD_ARGS -t ${IMAGE_NAME}:${IMAGE_TAG} .
     else
-        if [[ -n "$NEXUS_BUILD_ARGS" ]]; then
-            success "Using Nexus proxy for package downloads"
-            docker build $NEXUS_BUILD_ARGS -t ${IMAGE_NAME}:${IMAGE_TAG} -f "$TEMP_DIR/Dockerfile" .
-        else
-            docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f "$TEMP_DIR/Dockerfile" .
-        fi
+        docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
     fi
+    cd ..
     
     # Deploy
     log "Loading image into Colima..."

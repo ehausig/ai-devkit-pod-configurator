@@ -17,6 +17,16 @@ installation:
         rm kotlin-compiler-1.9.22.zip && \
         echo 'export PATH=/opt/kotlin/bin:$PATH' >> /etc/profile.d/kotlin.sh
   test_command: kotlinc -version
+entrypoint_setup: |
+  # Kotlin specific setup
+  echo "Setting up Kotlin environment..."
+  
+  # Add Kotlin to PATH if not already present
+  if ! grep -q "/opt/kotlin/bin" "$BASHRC" 2>/dev/null; then
+      echo '' >> "$BASHRC"
+      echo '# Kotlin environment' >> "$BASHRC"
+      echo 'export PATH="/opt/kotlin/bin:$PATH"' >> "$BASHRC"
+  fi
 memory_content: |
   #### Kotlin
   

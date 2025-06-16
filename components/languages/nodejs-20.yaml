@@ -53,6 +53,30 @@ installation:
     ENV NPM_CONFIG_PREFIX=/home/devuser/.npm-global
     ENV PATH="/home/devuser/.npm-global/bin:${PATH}"
   test_command: node --version && npm --version
+entrypoint_setup: |
+  # Node.js and npm specific setup
+  echo "Setting up Node.js environment..."
+  
+  # Ensure npm global directory exists
+  mkdir -p /home/devuser/.npm-global
+  
+  # Add npm paths to PATH if npm is available
+  if command -v npm &> /dev/null; then
+      if ! grep -q "npm-global/bin" "$BASHRC" 2>/dev/null; then
+          echo '# Node.js and npm paths' >> "$BASHRC"
+          echo 'export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"' >> "$BASHRC"
+          echo 'export NPM_CONFIG_PREFIX="$HOME/.npm-global"' >> "$BASHRC"
+      fi
+  fi
+  
+  # Ensure proper ownership
+  chown -R devuser:devuser /home/devuser/.npm-global 2>/dev/null || true
+  
+  # Preserve NPM environment variables for su command
+  if [ "$(id -u)" = "0" ] && [ -n "$NPM_CONFIG_REGISTRY" ]; then
+      # This will be included in the su command at the bottom of entrypoint
+      export PRESERVE_NPM_CONFIG_REGISTRY="$NPM_CONFIG_REGISTRY"
+  fi
 memory_content: |
   #### Node.js 20.18.0 & npm
   
