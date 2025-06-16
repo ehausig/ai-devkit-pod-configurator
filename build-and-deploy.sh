@@ -85,9 +85,13 @@ load_components() {
         # Load category metadata if exists
         if [[ -f "$category_dir/.category.yaml" ]]; then
             eval $(parse_yaml "$category_dir/.category.yaml" "cat_")
+            
             [[ -n "$cat_display_name" ]] && display_name="$cat_display_name"
             [[ -n "$cat_description" ]] && description="$cat_description"
             [[ -n "$cat_order" ]] && order="$cat_order"
+            
+            # Clear variables for next iteration
+            unset cat_display_name cat_description cat_order
         fi
         
         categories+=("$category_name")
@@ -122,9 +126,13 @@ load_components() {
         done
     done
     
+    # Output categories and their display names properly
     echo "${categories[@]}"
     echo "---SEPARATOR---"
-    echo "${category_names[@]}"
+    # Output category names one per line to preserve spaces
+    for cat_name in "${category_names[@]}"; do
+        echo "$cat_name"
+    done
     echo "---SEPARATOR---"
     
     # Load components from each category
@@ -138,6 +146,9 @@ load_components() {
             
             # Output component data
             echo "${comp_id}|${comp_name}|${comp_group}|${comp_requires}|${category}|${yaml_file}"
+            
+            # Clear component variables for next iteration
+            unset comp_id comp_name comp_group comp_requires
         done
     done
 }
@@ -151,12 +162,39 @@ select_components() {
     
     # Split the data
     local categories_line=$(echo "$component_data" | sed -n '1p')
-    local category_names_line=$(echo "$component_data" | sed -n '3p')
-    local components_data=$(echo "$component_data" | sed '1,4d')
+    local components_data=""
+    local category_names=()
     
-    # Convert to arrays
+    # Read data line by line
+    local reading_names=false
+    local reading_components=false
+    local line_num=0
+    
+    while IFS= read -r line; do
+        ((line_num++))
+        
+        if [[ $line_num -eq 1 ]]; then
+            # First line is categories
+            continue
+        elif [[ "$line" == "---SEPARATOR---" ]]; then
+            if [[ $reading_names == false ]]; then
+                reading_names=true
+            else
+                reading_names=false
+                reading_components=true
+            fi
+            continue
+        fi
+        
+        if [[ $reading_names == true ]]; then
+            category_names+=("$line")
+        elif [[ $reading_components == true ]]; then
+            components_data+="$line"$'\n'
+        fi
+    done <<< "$component_data"
+    
+    # Convert categories to array
     IFS=' ' read -ra categories <<< "$categories_line"
-    IFS=' ' read -ra category_names <<< "$category_names_line"
     
     # Parse components
     local ids=() names=() groups=() requires=() component_categories=() yaml_files=() in_cart=()
@@ -1515,11 +1553,27 @@ main() {
     # This is a bit hacky but necessary since we need the category display names
     local component_data=$(load_components)
     local categories_line=$(echo "$component_data" | sed -n '1p')
-    local category_names_line=$(echo "$component_data" | sed -n '3p')
     
     # Convert to global arrays
     IFS=' ' read -ra categories <<< "$categories_line"
-    IFS=' ' read -ra category_names <<< "$category_names_line"
+    
+    # Read category names line by line to preserve spaces
+    category_names=()
+    local reading_names=false
+    local line_num=0
+    while IFS= read -r line; do
+        ((line_num++))
+        if [[ $line_num -eq 3 ]]; then
+            reading_names=true
+            continue
+        fi
+        if [[ $reading_names == true && "$line" == "---SEPARATOR---" ]]; then
+            break
+        fi
+        if [[ $reading_names == true ]]; then
+            category_names+=("$line")
+        fi
+    done <<< "$component_data"
     
     # Check for host git configuration
     USE_HOST_GIT_CONFIG=false
