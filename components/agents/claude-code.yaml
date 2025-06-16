@@ -7,19 +7,18 @@ description: Anthropic's AI coding assistant for development
 pre_build_script: claude-code-setup.sh
 installation:
   dockerfile: |
-    # Install Claude Code as devuser
-    USER devuser
-    ENV NPM_CONFIG_PREFIX=/home/devuser/.npm-global
-    ENV PATH="/home/devuser/.npm-global/bin:${PATH}"
+    # Claude Code requires Node.js to be installed first
+    # The build system should ensure nodejs-version components are installed before this
     
-    # Install Claude Code
-    RUN npm install -g @anthropic-ai/claude-code
-    
-    # Verify Claude Code installation
-    RUN which claude || (echo "Claude Code installation failed" && exit 1)
-    
-    # Switch back to root for remaining setup
-    USER root
+    # Install Claude Code globally as root first
+    RUN export NPM_CONFIG_PREFIX=/home/devuser/.npm-global && \
+        export PATH="/home/devuser/.npm-global/bin:/usr/local/bin:${PATH}" && \
+        mkdir -p /home/devuser/.npm-global && \
+        chown -R devuser:devuser /home/devuser/.npm-global && \
+        /usr/local/bin/npm install -g @anthropic-ai/claude-code && \
+        ls -la /home/devuser/.npm-global/bin/ && \
+        /home/devuser/.npm-global/bin/claude --version || (echo "Claude Code installation failed" && exit 1) && \
+        chown -R devuser:devuser /home/devuser/.npm-global
   inject_files:
     - source: CLAUDE.md
       destination: /tmp/CLAUDE.md

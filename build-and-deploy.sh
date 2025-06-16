@@ -1087,6 +1087,7 @@ select_components() {
         SELECTED_NAMES=()
         SELECTED_GROUPS=()
         SELECTED_CATEGORIES=()
+        SELECTED_REQUIRES=()
         
         # Display selected items grouped by category
         for cat_idx in "${!categories[@]}"; do
@@ -1110,6 +1111,7 @@ select_components() {
                     SELECTED_NAMES+=("${names[$i]}")
                     SELECTED_GROUPS+=("${groups[$i]}")
                     SELECTED_CATEGORIES+=("${component_categories[$i]}")
+                    SELECTED_REQUIRES+=("${requires[$i]}")
                 fi
             done
         done
@@ -1137,6 +1139,7 @@ declare -a SELECTED_IDS
 declare -a SELECTED_NAMES
 declare -a SELECTED_GROUPS
 declare -a SELECTED_CATEGORIES
+declare -a SELECTED_REQUIRES
 
 # Global arrays for categories
 declare -a categories
@@ -1393,6 +1396,66 @@ extract_installation_from_yaml() {
     printf "%s" "$full_content"
 }
 
+# Function to sort components by dependencies (topological sort)
+sort_components_by_dependencies() {
+    local -a sorted_indices=()
+    local -a visited=()
+    local -a in_progress=()
+    
+    # Initialize arrays
+    for i in "${!SELECTED_IDS[@]}"; do
+        visited[$i]=false
+        in_progress[$i]=false
+    done
+    
+    # Helper function for DFS
+    visit_component() {
+        local idx=$1
+        
+        if [[ "${in_progress[$idx]}" == true ]]; then
+            error "Circular dependency detected involving ${SELECTED_NAMES[$idx]}"
+        fi
+        
+        if [[ "${visited[$idx]}" == true ]]; then
+            return
+        fi
+        
+        in_progress[$idx]=true
+        
+        # Get the requires field for this component
+        local requires="${SELECTED_REQUIRES[$idx]}"
+        
+        # Visit dependencies first
+        if [[ -n "$requires" ]] && [[ "$requires" != "[]" ]] && [[ "$requires" != "" ]]; then
+            # Parse requires field (could be space-separated)
+            for req in $requires; do
+                # Find components that provide this requirement
+                for dep_idx in "${!SELECTED_IDS[@]}"; do
+                    local dep_group="${SELECTED_GROUPS[$dep_idx]}"
+                    
+                    if [[ "$dep_group" == "$req" ]]; then
+                        visit_component $dep_idx
+                    fi
+                done
+            done
+        fi
+        
+        in_progress[$idx]=false
+        visited[$idx]=true
+        sorted_indices+=($idx)
+    }
+    
+    # Visit all components
+    for i in "${!SELECTED_IDS[@]}"; do
+        if [[ "${visited[$i]}" == false ]]; then
+            visit_component $i
+        fi
+    done
+    
+    # Return sorted indices
+    echo "${sorted_indices[@]}"
+}
+
 # Function to create custom Dockerfile
 create_custom_dockerfile() {
     mkdir -p "$TEMP_DIR"
@@ -1422,14 +1485,18 @@ create_custom_dockerfile() {
     # Execute pre-build scripts
     execute_pre_build_scripts
     
-    # Process selected components
+    # Sort components by dependencies
+    log "Sorting components by dependencies..."
+    local sorted_indices=($(sort_components_by_dependencies))
+    
+    # Process selected components in dependency order
     local installation_content=""
     local inject_files_content=""
     local entrypoint_setup_content=""
     
-    for i in "${!SELECTED_YAML_FILES[@]}"; do
-        local yaml_file="${SELECTED_YAML_FILES[$i]}"
-        local component_name="${SELECTED_NAMES[$i]}"
+    for idx in "${sorted_indices[@]}"; do
+        local yaml_file="${SELECTED_YAML_FILES[$idx]}"
+        local component_name="${SELECTED_NAMES[$idx]}"
         
         log "Processing: $component_name"
         
