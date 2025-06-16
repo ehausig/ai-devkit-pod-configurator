@@ -23,8 +23,8 @@ installation:
     - source: CLAUDE.md
       destination: /tmp/CLAUDE.md
       permissions: 644
-    - source: settings.local.json.template
-      destination: /tmp/settings.local.json.template
+    - source: claude-settings.json.template
+      destination: /tmp/claude-settings.json.template
       permissions: 644
 entrypoint_setup: |
   # Claude Code specific setup
@@ -35,24 +35,19 @@ entrypoint_setup: |
       mkdir -p /home/devuser/.claude
   fi
   
-  # Create .claude directory in workspace for project-specific settings
-  if command -v claude &> /dev/null 2>&1 || [ -f /tmp/settings.local.json.template ]; then
-      mkdir -p /home/devuser/workspace/.claude
-  fi
-  
-  # Copy settings.local.json from template if it exists
-  echo "Checking for settings.local.json..."
-  if [ -f /tmp/settings.local.json.template ]; then
-      echo "Found /tmp/settings.local.json.template"
-      if [ ! -f /home/devuser/workspace/.claude/settings.local.json ]; then
-          echo "Copying settings.local.json to workspace/.claude folder..."
-          cp /tmp/settings.local.json.template /home/devuser/workspace/.claude/settings.local.json
-          echo "settings.local.json copied successfully to /home/devuser/workspace/.claude/"
+  # Copy settings.json from template if it exists
+  echo "Checking for settings.json..."
+  if [ -f /tmp/claude-settings.json.template ]; then
+      echo "Found /tmp/claude-settings.json.template"
+      if [ ! -f /home/devuser/.claude/settings.json ]; then
+          echo "Copying settings.json to .claude folder..."
+          cp /tmp/claude-settings.json.template /home/devuser/.claude/settings.json
+          echo "settings.json copied successfully to /home/devuser/.claude/"
       else
-          echo "settings.local.json already exists in workspace/.claude folder"
+          echo "settings.json already exists in .claude folder"
       fi
   else
-      echo "No /tmp/settings.local.json.template found in image"
+      echo "No /tmp/claude-settings.json.template found in image"
   fi
   
   # Copy CLAUDE.md to .claude folder if it exists
@@ -72,7 +67,6 @@ entrypoint_setup: |
   
   # Ensure proper ownership
   chown -R devuser:devuser /home/devuser/.claude 2>/dev/null || true
-  chown -R devuser:devuser /home/devuser/workspace/.claude 2>/dev/null || true
   
   # Verify installed components (only if expected)
   if command -v claude &> /dev/null 2>&1; then
@@ -95,7 +89,7 @@ memory_content: |
   
   **Configuration**:
   - Settings stored in `~/.claude/`
-  - Project settings in `workspace/.claude/settings.local.json`
+  - Global settings in `~/.claude/settings.json`
   - See `~/.claude/CLAUDE.md` for environment-specific guidelines
   
   **Best Practices**:

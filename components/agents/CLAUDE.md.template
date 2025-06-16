@@ -158,7 +158,7 @@ How to run tests
 - If a task requires access outside ~, explain the limitation and suggest alternatives
 
 ### Claude Code Permissions
-This environment includes pre-configured permissions in `~/workspace/.claude/settings.local.json` that:
+This environment includes pre-configured permissions in `~/.claude/settings.json` that:
 - **Allow** operations within `~/workspace/` (creating, editing, running code)
 - **Allow** git and GitHub CLI operations
 - **Allow** package manager operations (npm, pip, cargo, etc.)
@@ -166,7 +166,7 @@ This environment includes pre-configured permissions in `~/workspace/.claude/set
 - **Deny** system modifications requiring sudo
 - **Deny** access to sensitive credential files
 
-To view or modify permissions: `cat ~/workspace/.claude/settings.local.json`
+To view or modify permissions: `cat ~/.claude/settings.json`
 
 ### General Security Practices
 - Never commit sensitive information (API keys, passwords, tokens)

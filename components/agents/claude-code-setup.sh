@@ -1,6 +1,6 @@
 #!/bin/bash
 # Claude Code pre-build script
-# Generates CLAUDE.md and prepares settings.local.json.template
+# Generates CLAUDE.md and prepares claude-settings.json.template
 
 # Standard arguments
 TEMP_DIR="$1"
@@ -24,10 +24,10 @@ info() { echo -e "${BLUE}ℹ $1${NC}"; }
 
 # Verify template files exist
 CLAUDE_TEMPLATE="$SCRIPT_DIR/CLAUDE.md.template"
-SETTINGS_TEMPLATE="$SCRIPT_DIR/settings.local.json.template"
+SETTINGS_TEMPLATE="$SCRIPT_DIR/claude-settings.json.template"
 
 [[ ! -f "$CLAUDE_TEMPLATE" ]] && error "CLAUDE.md.template not found in $SCRIPT_DIR"
-[[ ! -f "$SETTINGS_TEMPLATE" ]] && error "settings.local.json.template not found in $SCRIPT_DIR"
+[[ ! -f "$SETTINGS_TEMPLATE" ]] && error "claude-settings.json.template not found in $SCRIPT_DIR"
 
 log "Generating CLAUDE.md for selected components..."
 
@@ -181,8 +181,8 @@ done
 success "Generated CLAUDE.md with environment information"
 
 # Copy settings template
-log "Copying settings.local.json.template..."
+log "Copying claude-settings.json.template..."
 cp "$SETTINGS_TEMPLATE" "$TEMP_DIR/"
-success "Copied settings.local.json.template"
+success "Copied claude-settings.json.template"
 
 log "Claude Code pre-build completed successfully"
