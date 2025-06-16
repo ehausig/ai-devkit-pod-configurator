@@ -83,6 +83,8 @@
       "Bash(wc:*)",
       "Bash(diff:*)",
       "Bash(patch:*)",
+      "Bash(expect:*)",
+      "Bash(autoexpect:*)",
       "Bash(tree:~/workspace/*)",
       "Bash(jq:*)",
       "Bash(yq:*)",
