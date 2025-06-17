@@ -12,7 +12,9 @@ installation:
         echo 'export RUSTUP_HOME=/opt/rust' >> /etc/profile.d/rust.sh && \
         echo 'export CARGO_HOME=$HOME/.cargo' >> /etc/profile.d/rust.sh && \
         ln -s /opt/rust/bin/* /usr/local/bin/ && \
-        /opt/rust/bin/rustup default nightly
+        /opt/rust/bin/rustup default nightly && \
+        # Install commonly used cargo tools
+        /opt/rust/bin/cargo install cargo-watch
   nexus_config: |
     if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
         mkdir -p /etc/skel/.cargo && \
@@ -22,7 +24,7 @@ installation:
         echo '[source.nexus]' >> /etc/skel/.cargo/config.toml && \
         echo "registry = \"sparse+${NEXUS_APT_URL}/repository/cargo-proxy/\"" >> /etc/skel/.cargo/config.toml; \
     fi
-  test_command: rustc --version
+  test_command: rustc --version && cargo watch --version
 entrypoint_setup: |
   # Rust specific setup
   echo "Setting up Rust environment..."
@@ -62,6 +64,9 @@ memory_content: |
   - Build: `cargo +nightly build`
   - Run: `cargo +nightly run`
   - Test unstable: `cargo +nightly test`
+  - **Watch mode**: `cargo watch -x "run +nightly"`
+  - Watch tests: `cargo watch -x "test +nightly"`
+  - Watch with features: `cargo watch -x "run +nightly --features unstable"`
   
   **Common Dependency Gotchas** (apply to nightly too):
   - **async-graphql + axum**: Use compatible versions

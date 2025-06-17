@@ -13,11 +13,8 @@ installation:
         echo 'export CARGO_HOME=$HOME/.cargo' >> /etc/profile.d/rust.sh && \
         ln -s /opt/rust/bin/* /usr/local/bin/ && \
         /opt/rust/bin/rustup default stable && \
-        # Install essential cargo tools
-        export CARGO_HOME=/opt/rust && \
-        export PATH="/opt/rust/bin:$PATH" && \
-        cargo install cargo-watch && \
-        chmod -R 755 /opt/rust/bin/
+        # Install commonly used cargo tools
+        /opt/rust/bin/cargo install cargo-watch
   nexus_config: |
     if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
         mkdir -p /etc/skel/.cargo && \
@@ -27,7 +24,7 @@ installation:
         echo '[source.nexus]' >> /etc/skel/.cargo/config.toml && \
         echo "registry = \"sparse+${NEXUS_APT_URL}/repository/cargo-proxy/\"" >> /etc/skel/.cargo/config.toml; \
     fi
-  test_command: rustc --version && cargo-watch --version
+  test_command: rustc --version && cargo watch --version
 entrypoint_setup: |
   # Rust specific setup
   echo "Setting up Rust environment..."
@@ -69,21 +66,16 @@ memory_content: |
   - Format: `cargo fmt`
   - Lint: `cargo clippy`
   - Docs: `cargo doc --open`
-  - Watch: `cargo install cargo-watch && cargo watch -x run`
+  - **Watch mode**: `cargo watch -x run` (auto-recompile on changes)
+  - Watch tests: `cargo watch -x test`
+  - Watch with clear: `cargo watch -c -x run`
+  - Custom command: `cargo watch -x "check --tests"`
   
   **Cargo Features**:
   - Add dependency: `cargo add serde` (or edit Cargo.toml)
   - Update deps: `cargo update`
   - Check: `cargo check` (faster than build)
   - Benchmarks: `cargo bench`
-  - **Watch mode**: `cargo watch -x run` (included by default!)
-  
-  **Cargo Watch** (pre-installed):
-  - Auto-run on changes: `cargo watch -x run`
-  - Auto-test on changes: `cargo watch -x test`
-  - Clear & run: `cargo watch -c -x run`
-  - Multiple commands: `cargo watch -x check -x test -x run`
-  - TDD workflow: `cargo watch -x test`
   
   **Common Dependency Gotchas** (based on real blockers):
   - **async-graphql + axum**: Use compatible versions
