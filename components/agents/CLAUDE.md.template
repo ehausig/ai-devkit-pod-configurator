@@ -61,11 +61,23 @@ concurrent writes to the shared data structure.
 
 ### Development Approach
 - Use Test-Driven Development (TDD) when appropriate
+- For multi-project endeavors, create and test dependent systems first (e.g. APIs before UIs)
 - Write tests for critical functionality and edge cases
 - Avoid premature optimization and over-engineering
 - Apply SOLID principles only when they add clear value
 - **Leverage automation**: Use `expect` and `autoexpect` for testing interactive programs
 - **Test immediately**: Run tests as soon as they're created, not later
+
+### Creating an Editing files
+When creating a new file, avoid permissions errors by:
+1. Create the parent folder first (e.g. `mkdir -p <parent path>`)  
+2. Create a blank file with `touch` command
+3. Read() the empty file and then Edit() it
+
+When editing an existing file:
+1. Read() the file then Edit() it to avoid permissions errors
+
+Never create or edit files above the `~/workspace/` or `/home/devuser/workspace` directory
 
 ### Code Quality
 - Use descriptive, meaningful variable and function names
