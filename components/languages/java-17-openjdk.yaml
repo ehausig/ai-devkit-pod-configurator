@@ -39,3 +39,37 @@ memory_content: |
   **Running Java**:
   - Single-file programs: `java MyProgram.java` (no explicit compile needed)
   - With preview features: `java --enable-preview --source 17 MyProgram.java`
+  
+  **Spring Boot Development**:
+  ```java
+  // Quick REST API with Spring Boot
+  @RestController
+  @RequestMapping("/api")
+  public class ApiController {
+      @GetMapping("/status")
+      public Map<String, String> status() {
+          return Map.of("status", "running", "java", "17");
+      }
+  }
+  ```
+  
+  **Build Tool Notes**:
+  - Maven: Works well with 3.6.3+
+  - Gradle: Use 7.3+ for best Java 17 support
+  - **SBT Note**: May require Java 17 or older for some cached dependencies
+  
+  **Testing Patterns**:
+  - JUnit 5 + AssertJ for readable tests
+  - Mockito for mocking
+  - TestContainers for integration tests
+  - Run tests continuously during development
+  
+  **Common Compatibility Notes**:
+  - Most libraries now support Java 17
+  - Spring Boot 2.5+ has full Java 17 support
+  - Check third-party dependencies for compatibility
+  
+  **Performance Tips**:
+  - Use G1GC (default) for balanced performance
+  - Enable text blocks for cleaner SQL/JSON in code
+  - Records reduce boilerplate significantly

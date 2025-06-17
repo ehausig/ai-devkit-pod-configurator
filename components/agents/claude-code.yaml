@@ -92,14 +92,28 @@ memory_content: |
   - Global settings in `~/.claude/settings.json`
   - See `~/.claude/CLAUDE.md` for environment-specific guidelines
   
-  **Best Practices**:
-  - Provide clear context in your requests
-  - Use descriptive file names
-  - Keep related files in the same directory
-  - Review generated code before executing
+  **Development Workflow Best Practices**:
+  1. **Test as you build**: Run tests immediately after creating them
+  2. **Use relative paths**: Navigate with `cd ../` instead of absolute paths
+  3. **Verify dependencies**: Check compatibility before adding to projects
+  4. **Document blockers**: Keep notes on issues for future reference
+  
+  **Common Workflow Pattern**:
+  ```bash
+  # 1. Create feature branch
+  git checkout -b feat/new-feature
+  
+  # 2. Develop and test iteratively
+  # Write code -> Test immediately -> Fix issues
+  
+  # 3. Create PR with auto-merge
+  gh pr create --title "feat: description" --body "Details"
+  gh pr merge --auto --squash --delete-branch
+  ```
   
   **Tips**:
   - Claude Code understands your installed tools
   - Ask for help with any language/framework in your environment
   - Use for learning new technologies
   - Great for writing tests and documentation
+  - Leverage expect scripts for testing interactive programs

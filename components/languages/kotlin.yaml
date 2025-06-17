@@ -54,4 +54,36 @@ memory_content: |
   }
   ```
   
+  **API Development with Ktor**:
+  ```kotlin
+  // Quick API setup
+  fun main() {
+      embeddedServer(Netty, port = 8080) {
+          routing {
+              get("/") { call.respondText("Hello") }
+          }
+      }.start(wait = true)
+  }
+  ```
+  
+  **Testing Best Practices**:
+  - Use JUnit 5 with Kotlin: Works seamlessly
+  - MockK for mocking: `testImplementation("io.mockk:mockk:1.13.8")`
+  - Run tests immediately: `gradle test` or `mvn test`
+  
+  **Common Gradle Setup**:
+  ```kotlin
+  // build.gradle.kts
+  dependencies {
+      implementation("io.ktor:ktor-server-netty:2.3.7")
+      implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+      testImplementation(kotlin("test"))
+  }
+  ```
+  
+  **Development Tips**:
+  - Use Gradle or Maven for dependency management
+  - Enable null safety checks in IDE
+  - Test coroutines with `runBlocking` in tests
+  
   **Note**: For Android or complex projects, use Gradle (see Gradle section)

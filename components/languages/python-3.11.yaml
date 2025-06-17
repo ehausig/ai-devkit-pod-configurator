@@ -42,6 +42,29 @@ memory_content: |
   - Activate: `source .venv/bin/activate`
   - Upgrade pip: `python -m pip install --upgrade pip`
   
+  **Common TUI Development Stack**:
+  ```bash
+  # For Textual-based TUIs
+  pip install textual textual-dev
+  
+  # For API integration
+  pip install gql[aiohttp] aiohttp pydantic
+  
+  # Development tools
+  pip install black ruff mypy pytest pytest-asyncio
+  ```
+  
+  **Testing TUI Applications**:
+  - Use expect scripts for automated testing
+  - Create test fixtures for consistent state
+  - Mock API calls during development
+  
+  **Virtual Environment Best Practices**:
+  - Always use venv for projects: `python -m venv .venv`
+  - Activate before installing: `source .venv/bin/activate`
+  - Create requirements.txt: `pip freeze > requirements.txt`
+  - Install from requirements: `pip install -r requirements.txt`
+  
   **Development Tools**:
   - Type checking: `pip install mypy && mypy script.py`
   - Formatting: `pip install black && black .`

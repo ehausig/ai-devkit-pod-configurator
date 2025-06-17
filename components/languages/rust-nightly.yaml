@@ -23,6 +23,33 @@ installation:
         echo "registry = \"sparse+${NEXUS_APT_URL}/repository/cargo-proxy/\"" >> /etc/skel/.cargo/config.toml; \
     fi
   test_command: rustc --version
+entrypoint_setup: |
+  # Rust specific setup
+  echo "Setting up Rust environment..."
+  
+  # Create .cargo directory for Rust/Cargo
+  mkdir -p /home/devuser/.cargo
+  
+  # Check if cargo config is properly mounted
+  if [ -f /home/devuser/.cargo/config.toml ]; then
+      echo "Cargo config detected at /home/devuser/.cargo/config.toml"
+  fi
+  
+  # Add Rust/Cargo specific paths if installed
+  if [ -d /opt/rust ] && ! grep -q "Rust/Cargo paths" "$BASHRC" 2>/dev/null; then
+      cat >> "$BASHRC" << 'EOF'
+  
+  # Rust/Cargo paths
+  export PATH="/opt/rust/bin:$PATH"
+  export RUSTUP_HOME="/opt/rust"
+  export CARGO_HOME="$HOME/.cargo"
+  EOF
+  fi
+  
+  # Ensure proper ownership (skip if config is mounted)
+  if [ ! -f /home/devuser/.cargo/config.toml ]; then
+      chown -R devuser:devuser /home/devuser/.cargo 2>/dev/null || true
+  fi
 memory_content: |
   #### Rust (Nightly)
   
@@ -36,6 +63,19 @@ memory_content: |
   - Run: `cargo +nightly run`
   - Test unstable: `cargo +nightly test`
   
+  **Common Dependency Gotchas** (apply to nightly too):
+  - **async-graphql + axum**: Use compatible versions
+    ```toml
+    # These versions work together:
+    async-graphql = { version = "5.0", features = ["chrono"] }
+    async-graphql-axum = "5.0"
+    axum = "0.6"
+    tokio = { version = "1", features = ["full"] }
+    async-trait = "0.1"  # Often needed but forgotten
+    ```
+  - **Always check compatibility**: Run `cargo tree -d` to spot version conflicts
+  - **Feature flags**: Many crates need features enabled (e.g., ["chrono"] for DateTime support)
+  
   **Advanced Tools**:
   - Miri (interpreter): `rustup +nightly component add miri`
   - Expand macros: `cargo +nightly expand`
@@ -45,5 +85,10 @@ memory_content: |
   - Use stable: `cargo +stable build`
   - Update nightly: `rustup update nightly`
   - Override for project: `rustup override set nightly`
+  
+  **Testing Best Practices**:
+  - Run tests immediately: `cargo test` after each feature
+  - Use `cargo test -- --nocapture` to see println! output
+  - Run `cargo check` frequently during development
   
   **Warning**: Nightly may have breaking changes. Pin versions in CI.

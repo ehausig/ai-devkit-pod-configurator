@@ -40,3 +40,35 @@ memory_content: |
   - Run single file: `java MyProgram.java`
   - With preview features: `java --enable-preview --source 21 MyProgram.java`
   - REPL: `jshell` for interactive Java
+  
+  **API Development Pattern**:
+  ```java
+  // Simple HTTP server with Java 21
+  import com.sun.net.httpserver.*;
+  
+  var server = HttpServer.create(new InetSocketAddress(8080), 0);
+  server.createContext("/api", exchange -> {
+      var response = "{\"status\":\"ok\"}";
+      exchange.getResponseHeaders().set("Content-Type", "application/json");
+      exchange.sendResponseHeaders(200, response.length());
+      try (var os = exchange.getResponseBody()) {
+          os.write(response.getBytes());
+      }
+  });
+  server.start();
+  ```
+  
+  **Build Tool Compatibility**:
+  - Maven: Requires 3.8.0+ for Java 21
+  - Gradle: Requires 8.3+ for Java 21
+  - Ensure build tools support your Java version
+  
+  **Testing Best Practices**:
+  - JUnit 5 works great with Java 21
+  - Use virtual threads for concurrent testing
+  - Test immediately: `mvn test` or `gradle test`
+  
+  **Common Issues**:
+  - Module conflicts: Use `--add-opens` if needed
+  - Build tool versions: Update to latest for Java 21 support
+  - Library compatibility: Check if dependencies support Java 21

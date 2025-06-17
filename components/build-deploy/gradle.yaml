@@ -73,6 +73,11 @@ memory_content: |
   - Continue: `gradle build --continue` (don't stop on failure)
   - Refresh deps: `gradle build --refresh-dependencies`
   
+  **Dependency Management**:
+  - Show deps: `gradle dependencies`
+  - Specific config: `gradle dependencies --configuration compileClasspath`
+  - Check for updates: `gradle dependencyUpdates` (needs plugin)
+  
   **Kotlin DSL** (build.gradle.kts):
   ```kotlin
   plugins {
@@ -82,7 +87,18 @@ memory_content: |
   
   dependencies {
       implementation("org.jetbrains.kotlin:kotlin-stdlib")
+      // Add dependencies incrementally and test
   }
   ```
+  
+  **Debugging Tips**:
+  - Verbose output: `gradle build --info` or `--debug`
+  - Stack traces: `gradle build --stacktrace`
+  - Dependency conflicts: Check with `gradle dependencies`
+  
+  **Testing Best Practices**:
+  - Run tests continuously: `gradle test --continuous`
+  - Specific test: `gradle test --tests "com.example.TestClass"`
+  - Test reports: Generated in `build/reports/tests/`
   
   **Wrapper**: Always use `./gradlew` in projects for version consistency
