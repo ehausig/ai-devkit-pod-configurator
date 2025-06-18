@@ -52,3 +52,44 @@ memory_content: |
   - Run single file: `java MyProgram.java`
   - Memory settings: `java -Xmx2g -Xms512m MyApp`
   - Enable GC logging: `java -Xlog:gc* MyApp`
+  
+  **Why Adoptium/Temurin?**:
+  - TCK tested for compatibility
+  - Regular security updates
+  - Production-ready JVM
+  - Drop-in replacement for Oracle JDK
+  
+  **Microservices with Spring Boot**:
+  ```java
+  @SpringBootApplication
+  @RestController
+  public class MicroserviceApp {
+      public static void main(String[] args) {
+          SpringApplication.run(MicroserviceApp.class, args);
+      }
+      
+      @GetMapping("/health")
+      public record Health(String status, long timestamp) {}
+      
+      @GetMapping("/api/health")
+      public Health health() {
+          return new Health("UP", System.currentTimeMillis());
+      }
+  }
+  ```
+  
+  **Build Tool Compatibility**:
+  - Maven 3.6.3+ recommended
+  - Gradle 7.3+ for full Java 17 support
+  - SBT works well with Adoptium builds
+  
+  **Testing Framework Stack**:
+  - JUnit 5.9+ for modern testing
+  - Testcontainers for integration tests
+  - RestAssured for API testing
+  - Run tests continuously: `mvn test` or `gradle test --continuous`
+  
+  **Performance Tuning**:
+  - Use ZGC for low latency: `-XX:+UseZGC`
+  - G1GC is default and balanced
+  - Profile with JFR: `-XX:StartFlightRecording`

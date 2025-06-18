@@ -58,3 +58,18 @@ memory_content: |
   // Export clauses
   export math.*
   ```
+  
+  **API Development with Scala 3**:
+  - Consider using http4s or Akka HTTP
+  - Pattern matching is enhanced for request routing
+  - Union types great for error handling
+  
+  **Testing**:
+  - ScalaTest works with Scala 3
+  - Use expect scripts for CLI/TUI applications
+  - Property-based testing with ScalaCheck
+  
+  **Build Tools**:
+  - SBT is recommended (see SBT section)
+  - Mill also supports Scala 3
+  - Check dependency compatibility before adding

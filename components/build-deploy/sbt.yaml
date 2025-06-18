@@ -85,6 +85,11 @@ memory_content: |
   - Watch & test: `~test`
   - Watch & run: `~run`
   
+  **Dependency Management Tips**:
+  - Check deps: `sbt dependencyTree`
+  - Update: `sbt update`
+  - Clean ivy cache if issues: `rm -rf ~/.ivy2/cache`
+  
   **build.sbt Example**:
   ```scala
   lazy val root = project
@@ -93,8 +98,16 @@ memory_content: |
       name := "myapp",
       version := "0.1.0",
       scalaVersion := "3.3.1",
-      libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.17" % Test
+      libraryDependencies ++= Seq(
+        "org.scalatest" %% "scalatest" % "3.2.17" % Test,
+        // Add dependencies one at a time and test
+      )
     )
   ```
+  
+  **Common Issues**:
+  - Java version conflicts: SBT may need specific Java versions
+  - Use `sbt -java-home /path/to/java` if needed
+  - Clear cache: `sbt clean cleanCache`
   
   **Note**: SBT uses Coursier for dependency resolution

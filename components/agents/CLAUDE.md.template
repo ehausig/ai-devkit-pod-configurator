@@ -61,9 +61,23 @@ concurrent writes to the shared data structure.
 
 ### Development Approach
 - Use Test-Driven Development (TDD) when appropriate
+- For multi-project endeavors, create and test dependent systems first (e.g. APIs before UIs)
 - Write tests for critical functionality and edge cases
 - Avoid premature optimization and over-engineering
 - Apply SOLID principles only when they add clear value
+- **Leverage automation**: Use `expect` and `autoexpect` for testing interactive programs
+- **Test immediately**: Run tests as soon as they're created, not later
+
+### Creating an Editing files
+When creating a new file, avoid permissions errors by:
+1. Create the parent folder first (e.g. `mkdir -p <parent path>`)  
+2. Create a blank file with `touch` command
+3. Read() the empty file and then Edit() it
+
+When editing an existing file:
+1. Read() the file then Edit() it to avoid permissions errors
+
+Never create or edit files above the `~/workspace/` or `/home/devuser/workspace` directory
 
 ### Code Quality
 - Use descriptive, meaningful variable and function names
@@ -94,6 +108,11 @@ concurrent writes to the shared data structure.
 └── experiments/
     └── [unversioned experimental code]
 ```
+
+### Navigation Best Practices
+- **Use relative paths**: Navigate with `cd ../project` instead of `/home/devuser/workspace/project`
+- **Stay within workspace**: All project work should be under `~/workspace/`
+- **Avoid absolute paths**: Security model prevents absolute path navigation
 
 ## Documentation Standards
 
@@ -158,15 +177,24 @@ How to run tests
 - If a task requires access outside ~, explain the limitation and suggest alternatives
 
 ### Claude Code Permissions
-This environment includes pre-configured permissions in `~/workspace/.claude/settings.local.json` that:
+This environment includes pre-configured permissions in `~/.claude/settings.json` that:
 - **Allow** operations within `~/workspace/` (creating, editing, running code)
-- **Allow** git and GitHub CLI operations
+- **Allow** git and GitHub CLI operations  
 - **Allow** package manager operations (npm, pip, cargo, etc.)
-- **Deny** destructive operations outside workspace
-- **Deny** system modifications requiring sudo
-- **Deny** access to sensitive credential files
+- **Allow** common bash utilities and development tools
+- **Allow** reading config files like .bashrc, .gitconfig for context
+- **Deny** destructive operations outside workspace (rm, mv, cp, mkdir, touch)
+- **Deny** system modifications requiring sudo or package managers
+- **Deny** access to sensitive credential files (SSH keys, AWS credentials, etc.)
+- **Deny** system administration commands
 
-To view or modify permissions: `cat ~/workspace/.claude/settings.local.json`
+The environment also sets these defaults:
+- **Theme**: Dark mode for better visibility
+- **Verbose**: Full command outputs shown
+- **Telemetry/Updates**: Disabled for privacy and stability
+- **Cost warnings**: Enabled to help monitor usage
+
+To view or modify permissions: `cat ~/.claude/settings.json`
 
 ### General Security Practices
 - Never commit sensitive information (API keys, passwords, tokens)
@@ -190,6 +218,40 @@ To view or modify permissions: `cat ~/workspace/.claude/settings.local.json`
 - Evaluate the maintenance status of dependencies
 - Consider the size and complexity added by each dependency
 - Group dependency updates into logical commits
+- **Check compatibility first**: Verify version compatibility before adding dependencies
+- **Test after adding**: Always run tests after adding new dependencies
+
+### Common Dependency Issues and Solutions
+
+#### Rust Async Crate Compatibility
+When using multiple async crates together, version conflicts are common:
+```toml
+# Known working combinations:
+[dependencies]
+async-graphql = { version = "5.0", features = ["chrono"] }
+async-graphql-axum = "5.0"
+axum = "0.6"
+tokio = { version = "1", features = ["full"] }
+async-trait = "0.1"
+
+# Use cargo tree to check for conflicts:
+# cargo tree -d  # Shows duplicate dependencies
+```
+
+#### Python Virtual Environments
+Always use virtual environments to avoid conflicts:
+```bash
+# Create and activate before installing
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+#### Node.js Lock Files
+Always commit package-lock.json for reproducible builds:
+```bash
+npm ci  # Use instead of npm install in CI/production
+```
 
 ## Code Review Preferences
 
@@ -317,6 +379,158 @@ For personal projects, consider asking Claude to:
 - "Setup branch protection with auto-merge enabled"
 
 ## Language-Specific Configurations
+
+## Interactive Program Automation with Expect
+
+### Using Expect for Testing and Automation
+
+The environment includes `expect` and `autoexpect` tools for automating interactive programs. Use these tools to enhance development autonomy:
+
+#### When to Use Expect
+- **Testing TUI applications**: Automate user input for text-based interfaces
+- **API client testing**: Script interactive authentication or configuration flows  
+- **CLI tool validation**: Test command-line tools that require user input
+- **Setup automation**: Handle installation wizards or configuration prompts
+- **Regression testing**: Ensure interactive flows work consistently
+
+#### Basic Expect Patterns
+
+**Simple interaction script** (`test_interactive.exp`):
+```tcl
+#!/usr/bin/expect -f
+set timeout 10
+
+spawn ./my_tui_app
+expect "Enter username:"
+send "testuser\r"
+expect "Enter password:"  
+send "testpass\r"
+expect "Main menu>"
+send "1\r"
+expect eof
+```
+
+**Using autoexpect to record interactions**:
+```bash
+# Record an interaction session
+autoexpect -f test_session.exp ./my_interactive_app
+# This creates test_session.exp with your recorded actions
+
+# Edit and clean up the generated script
+vim test_session.exp
+
+# Run the recorded script
+expect test_session.exp
+```
+
+**Testing API client with expect**:
+```tcl
+#!/usr/bin/expect -f
+spawn python api_client.py
+
+expect "API endpoint:"
+send "https://api.example.com\r"
+
+expect "Authentication method"
+send "2\r"  ;# Choose OAuth
+
+expect "Client ID:"
+send "$env(CLIENT_ID)\r"
+
+expect "Client Secret:"
+send "$env(CLIENT_SECRET)\r"
+
+expect ">"
+send "GET /users\r"
+
+expect {
+    "200 OK" { puts "API test passed" }
+    timeout { puts "API test failed - timeout" }
+}
+```
+
+#### Best Practices for Expect Scripts
+1. **Set appropriate timeouts**: Use `set timeout` for operations that might take time
+2. **Handle multiple outcomes**: Use `expect { pattern1 {} pattern2 {} }` syntax
+3. **Use environment variables**: For sensitive data like passwords or API keys
+4. **Make scripts idempotent**: Ensure they can run multiple times safely
+5. **Add error handling**: Check for unexpected responses or failures
+6. **Comment thoroughly**: Explain what each interaction is testing
+
+#### Integration with Development Workflow
+- Create `tests/expect/` directory for expect scripts
+- Name scripts descriptively: `test_auth_flow.exp`, `test_menu_navigation.exp`
+- Run expect tests as part of your test suite:
+  ```bash
+  #!/bin/bash
+  # run_tui_tests.sh
+  for test in tests/expect/*.exp; do
+      echo "Running $test..."
+      expect "$test" || exit 1
+  done
+  ```
+
+#### Example: TUI App Development Workflow
+```bash
+# 1. Develop TUI feature
+python tui_app.py
+
+# 2. Record interaction for testing
+autoexpect -f tests/expect/feature_test.exp python tui_app.py
+
+# 3. Clean up and enhance the generated script
+vim tests/expect/feature_test.exp
+
+# 4. Add to automated test suite
+echo "expect tests/expect/feature_test.exp" >> run_tests.sh
+```
+
+#### Testing Best Practices
+- **Run tests immediately**: Execute tests as soon as they're created
+- **Test integration early**: Don't wait until the end to test component interaction
+- **Use expect for validation**: Automate checking of interactive flows
+- **Document test failures**: Keep notes on what went wrong for future reference
+
+By actively using expect for testing interactive programs, you can develop more robust TUI applications and API clients with comprehensive automated testing, reducing manual testing burden and catching regressions early.
+
+## Common Development Blockers and Solutions
+
+Based on real-world experience, here are common issues and their solutions:
+
+### 1. Dependency Version Conflicts
+**Problem**: Incompatible versions between related packages
+**Solution**: 
+- Check compatibility before adding dependencies
+- Use `cargo tree -d` (Rust) or `npm ls` (Node.js) to identify conflicts
+- Pin specific versions when mixing async crates or complex dependencies
+
+### 2. Environment Activation Issues
+**Problem**: Standard activation commands fail (e.g., conda activate)
+**Solution**:
+- For conda: Use `eval "$(conda shell.bash hook)"` before activate
+- For Python venv: Always use `source .venv/bin/activate`
+- Test environment commands before building workflows around them
+
+### 3. Path Navigation Restrictions
+**Problem**: Security model blocks absolute paths
+**Solution**:
+- Use relative paths: `cd ../other-project` instead of `/home/devuser/workspace/other-project`
+- Stay within ~/workspace/ for all project work
+- Use `pwd` to verify current location
+
+### 4. Missing Dependencies
+**Problem**: Forgetting commonly needed but not obvious dependencies
+**Common misses**:
+- Rust: `async-trait` when using async traits
+- Python: Development tools (black, ruff, mypy)
+- Node.js: Testing frameworks (jest, supertest)
+
+### 5. Testing Delays
+**Problem**: Creating tests but not running them immediately
+**Solution**:
+- Run tests as part of the development flow
+- Use watch modes: `cargo watch -x test`, `npm run test:watch`
+- Create simple "hello world" tests first to verify setup
 
 <!-- ENVIRONMENT_TOOLS_MARKER -->
 <!-- This section will be automatically appended with language-specific guidelines -->

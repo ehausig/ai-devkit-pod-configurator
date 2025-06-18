@@ -12,7 +12,9 @@ installation:
         echo 'export RUSTUP_HOME=/opt/rust' >> /etc/profile.d/rust.sh && \
         echo 'export CARGO_HOME=$HOME/.cargo' >> /etc/profile.d/rust.sh && \
         ln -s /opt/rust/bin/* /usr/local/bin/ && \
-        /opt/rust/bin/rustup default stable
+        /opt/rust/bin/rustup default stable && \
+        # Install commonly used cargo tools
+        /opt/rust/bin/cargo install cargo-watch
   nexus_config: |
     if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
         mkdir -p /etc/skel/.cargo && \
@@ -22,7 +24,7 @@ installation:
         echo '[source.nexus]' >> /etc/skel/.cargo/config.toml && \
         echo "registry = \"sparse+${NEXUS_APT_URL}/repository/cargo-proxy/\"" >> /etc/skel/.cargo/config.toml; \
     fi
-  test_command: rustc --version
+  test_command: rustc --version && cargo watch --version
 entrypoint_setup: |
   # Rust specific setup
   echo "Setting up Rust environment..."
@@ -64,13 +66,46 @@ memory_content: |
   - Format: `cargo fmt`
   - Lint: `cargo clippy`
   - Docs: `cargo doc --open`
-  - Watch: `cargo install cargo-watch && cargo watch -x run`
+  - **Watch mode**: `cargo watch -x run` (auto-recompile on changes)
+  - Watch tests: `cargo watch -x test`
+  - Watch with clear: `cargo watch -c -x run`
+  - Custom command: `cargo watch -x "check --tests"`
   
   **Cargo Features**:
   - Add dependency: `cargo add serde` (or edit Cargo.toml)
   - Update deps: `cargo update`
   - Check: `cargo check` (faster than build)
   - Benchmarks: `cargo bench`
+  
+  **Common Dependency Gotchas** (based on real blockers):
+  - **async-graphql + axum**: Use compatible versions
+    ```toml
+    # These versions work together:
+    async-graphql = { version = "5.0", features = ["chrono"] }
+    async-graphql-axum = "5.0"
+    axum = "0.6"
+    tokio = { version = "1", features = ["full"] }
+    async-trait = "0.1"  # Often needed but forgotten
+    ```
+  - **Always check compatibility**: Run `cargo tree` to spot version conflicts
+  - **Pin versions**: Use exact versions (e.g., "=5.0.0") when mixing async crates
+  - **Feature flags**: Many crates need features enabled (e.g., ["chrono"] for DateTime support)
+  
+  **GraphQL Development Pattern**:
+  ```rust
+  // When implementing GraphQL errors, remember async_graphql::Error 
+  // doesn't implement Display. Convert using:
+  impl From<async_graphql::Error> for YourError {
+      fn from(err: async_graphql::Error) -> Self {
+          YourError::GraphQL(err.message)
+      }
+  }
+  ```
+  
+  **Testing Best Practices**:
+  - Test immediately: `cargo test` after each feature
+  - Integration tests: Place in `tests/` directory
+  - Use `cargo test -- --nocapture` to see println! output
   
   **Environment**:
   - CARGO_HOME: `~/.cargo` (user-specific)

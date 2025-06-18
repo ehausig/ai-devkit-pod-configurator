@@ -1,7 +1,7 @@
 id: TYPESCRIPT
 name: TypeScript (Latest)
 group: typescript-version
-requires: []
+requires: nodejs-version
 description: TypeScript - JavaScript with syntax for types
 installation:
   dockerfile: |
@@ -44,5 +44,26 @@ memory_content: |
   - Run TS directly: `ts-node src/app.ts`
   - REPL: `ts-node` (interactive TypeScript)
   - Scripts in package.json: `"start": "ts-node src/index.ts"`
+  
+  **Testing TypeScript**:
+  - With Jest: `npm install -D jest @types/jest ts-jest`
+  - Configure: `npx ts-jest config:init`
+  - Run tests: `npm test`
+  
+  **Common Type Issues**:
+  - Module resolution: Set `"moduleResolution": "node"` in tsconfig
+  - Type conflicts: Check with `npm ls @types/*`
+  - Missing types: Install `@types/package-name`
+  
+  **API Development**:
+  ```json
+  {
+    "scripts": {
+      "dev": "ts-node-dev --respawn src/server.ts",
+      "build": "tsc",
+      "start": "node dist/server.js"
+    }
+  }
+  ```
   
   **Type packages**: Install @types/* for libraries, e.g., `npm i -D @types/express`

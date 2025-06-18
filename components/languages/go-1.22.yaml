@@ -69,8 +69,32 @@ memory_content: |
   - Coverage: `go test -cover ./...`
   - Benchmarks: `go test -bench=.`
   - Race detector: `go test -race ./...`
+  - Verbose output: `go test -v ./...`
   
   **Build Options**:
   - Static binary: `CGO_ENABLED=0 go build`
   - Cross-compile: `GOOS=windows GOARCH=amd64 go build`
   - Optimize size: `go build -ldflags="-s -w"`
+  
+  **API Development Pattern**:
+  ```go
+  // Quick HTTP server with Go 1.22 enhanced routing
+  http.HandleFunc("GET /api/users/{id}", getUserHandler)
+  http.HandleFunc("POST /api/users", createUserHandler)
+  http.ListenAndServe(":8080", nil)
+  ```
+  
+  **Development Workflow**:
+  - Hot reload: `go install github.com/cosmtrek/air@latest && air`
+  - Format code: `go fmt ./...` or `gofmt -w .`
+  - Lint: `golangci-lint run` (install separately)
+  
+  **Common Issues**:
+  - Module not found: Run `go mod tidy` to sync dependencies
+  - Version conflicts: Check with `go mod graph`
+  - Clear cache: `go clean -modcache`
+  
+  **Testing TUI Apps**:
+  - Use expect scripts to automate testing
+  - Mock interfaces for better testability
+  - Use `testing.T.TempDir()` for file operations
