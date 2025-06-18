@@ -61,12 +61,13 @@ concurrent writes to the shared data structure.
 
 ### Development Approach
 - Use Test-Driven Development (TDD) when appropriate
-- For multi-project endeavors, create and test dependent systems first (e.g. APIs before UIs)
-- Write tests for critical functionality and edge cases
+- Test and commit frequently
+- Do not push commits to GitHub until unit and integration tests succeed
+- For multi-project endeavors, focus on dependent systems first (e.g. APIs before UIs)
+- Write unit tests with language-appropriate framework
+- Write integration tests with `expect` scripts
 - Avoid premature optimization and over-engineering
 - Apply SOLID principles only when they add clear value
-- **Leverage automation**: Use `expect` and `autoexpect` for testing interactive programs
-- **Test immediately**: Run tests as soon as they're created, not later
 
 ### Creating an Editing files
 When creating a new file, avoid permissions errors by:
@@ -81,7 +82,7 @@ Never create or edit files above the `~/workspace/` or `/home/devuser/workspace`
 
 ### Code Quality
 - Use descriptive, meaningful variable and function names
-- Follow language-specific naming conventions
+- Follow language-specific naming conventions and be idiomatic
 - Add comments for complex algorithms or business logic
 - Keep functions focused and reasonably sized
 - Handle errors appropriately for the language and context
@@ -166,7 +167,8 @@ How to run tests
 - Document complex algorithms inline with clear comments
 - Use language-specific documentation formats (JSDoc, docstrings, etc.)
 - Rely on git commit messages as the changelog during development
-- Consider adding a formal CHANGELOG.md when approaching release
+- Maintain a JOURNAL.md file in the ~/workspace/ folder and append to it
+important decisions, milestones, and blockers as you perform your work.
 
 ## Security Considerations
 
@@ -175,26 +177,6 @@ How to run tests
 - All file operations should be contained within ~/workspace or other subdirectories of ~
 - Do not attempt to access the host file system outside the container
 - If a task requires access outside ~, explain the limitation and suggest alternatives
-
-### Claude Code Permissions
-This environment includes pre-configured permissions in `~/.claude/settings.json` that:
-- **Allow** operations within `~/workspace/` (creating, editing, running code)
-- **Allow** git and GitHub CLI operations  
-- **Allow** package manager operations (npm, pip, cargo, etc.)
-- **Allow** common bash utilities and development tools
-- **Allow** reading config files like .bashrc, .gitconfig for context
-- **Deny** destructive operations outside workspace (rm, mv, cp, mkdir, touch)
-- **Deny** system modifications requiring sudo or package managers
-- **Deny** access to sensitive credential files (SSH keys, AWS credentials, etc.)
-- **Deny** system administration commands
-
-The environment also sets these defaults:
-- **Theme**: Dark mode for better visibility
-- **Verbose**: Full command outputs shown
-- **Telemetry/Updates**: Disabled for privacy and stability
-- **Cost warnings**: Enabled to help monitor usage
-
-To view or modify permissions: `cat ~/.claude/settings.json`
 
 ### General Security Practices
 - Never commit sensitive information (API keys, passwords, tokens)
@@ -259,7 +241,7 @@ When reviewing code changes:
 - **Correctness**: Ensure the code does what it's supposed to do
 - **Readability**: Code should be clear and self-documenting
 - **Maintainability**: Consider future developers (including yourself)
-- **Testing**: Verify adequate test coverage for new functionality
+- **Testing**: Verify adequate test coverage for new functionality and that all the tests have succeeded
 - **Security**: Look for potential vulnerabilities or unsafe practices
 - **Performance**: Flag obvious performance issues, but avoid premature optimization
 - **Conventions**: Ensure consistency with project standards
@@ -291,22 +273,11 @@ When creating repositories with Claude Code, configure them for efficient autono
    # Uncheck "Require pull request reviews before merging"
    # Or set "Required approving reviews" to 0
    ```
+3. Always prompt the user for which license (MIT, Apache, etc.) they would like 
+to use and ensure that the corresponding LICENSE file exists in the root of the 
+repo in GitHub upon initialization
 
-3. **Alternative: Use direct commits** for trusted automation:
-   ```bash
-   # For solo projects, consider working directly on main
-   git checkout main
-   git add .
-   git commit -m "feat: add new feature"
-   git push
-   ```
-
-4. **For team projects**, consider:
-   - **Separate bot account**: Create a GitHub App or bot user for Claude's operations
-   - **CODEOWNERS file**: Assign automatic reviewers for different paths
-   - **Branch protection exceptions**: Allow certain users/apps to bypass rules
-
-### Recommended Solo Developer Workflow
+## Recommended Solo Developer Workflow
 For maximum efficiency when working alone with Claude Code:
 ```bash
 # 1. Create feature branch and make changes
@@ -354,37 +325,10 @@ Brief description of changes
 Closes #(issue number)
 ```
 
-### Automation Opportunities
-Claude Code can help automate:
-1. **Branch Creation**: `feat: add user authentication` → creates `feat/add-user-authentication`
-2. **Commit Messages**: Analyze changes and suggest conventional commit messages
-3. **PR Descriptions**: Generate PR description from commits and changes
-4. **Issue Linking**: Automatically reference issues based on branch names
-5. **Changelog Updates**: Generate entries from conventional commits
-6. **Auto-merge Setup**: Configure repos for efficient autonomous workflow
-
-Example automation workflow:
-```bash
-# Claude could help with commands like:
-# "create a new feature branch for adding user authentication"
-# "prepare a commit message for these changes"
-# "draft a PR description for this branch"
-# "setup this repo for auto-merge"
-# "merge this PR when checks pass"
-```
-
-For personal projects, consider asking Claude to:
-- "Enable auto-merge on this repository"
-- "Create and merge a PR for these changes"
-- "Setup branch protection with auto-merge enabled"
-
-## Language-Specific Configurations
-
-## Interactive Program Automation with Expect
-
 ### Using Expect for Testing and Automation
 
-The environment includes `expect` and `autoexpect` tools for automating interactive programs. Use these tools to enhance development autonomy:
+The environment includes `expect` and `autoexpect` tools for automating interactive 
+programs, such as TUIs and CLIs, as well as integration tests. Use these tools to enhance development autonomy:
 
 #### When to Use Expect
 - **Testing TUI applications**: Automate user input for text-based interfaces
