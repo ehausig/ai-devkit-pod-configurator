@@ -1,4 +1,27 @@
 #!/bin/bash
+# AI DevKit Connection Helper Script
+# This script helps you connect to your AI development environment
+
+# Configuration
+NAMESPACE="claude-code"
+SSH_PORT=2222
+FILEBROWSER_PORT=8090
+
+# Colors
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+# Functions
+log() { echo -e "${YELLOW}$1${NC}"; }
+success() { echo -e "${GREEN}✓ $1${NC}"; }
+error() { echo -e "${RED}✗ $1${NC}"; }
+info() { echo -e "${BLUE}ℹ $1${NC}"; }
+
+# Check if kubectl is available
+if ! command -#!/bin/bash
 # This script requires bash 3.2 or higher
 set -e
 
@@ -9,7 +32,6 @@ NAMESPACE="claude-code"
 TEMP_DIR=".build-temp"
 COMPONENTS_DIR="components"
 SSH_KEYS_DIR="$HOME/.claude-code-k8s/ssh-keys"
-LOG_FILE="build-and-deploy.log"
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -44,24 +66,34 @@ check_nexus() {
 
 # Generate SSH host keys if they don't exist
 generate_ssh_host_keys() {
+    log "Checking SSH host keys..."
+    
     mkdir -p "$SSH_KEYS_DIR"
     
     # Generate keys if they don't exist
     if [ ! -f "$SSH_KEYS_DIR/ssh_host_rsa_key" ]; then
-        log "Generating SSH host keys..."
-        ssh-keygen -q -t rsa -b 4096 -f "$SSH_KEYS_DIR/ssh_host_rsa_key" -N "" -C "ai-devkit-rsa" >/dev/null 2>&1
-        ssh-keygen -q -t ecdsa -b 521 -f "$SSH_KEYS_DIR/ssh_host_ecdsa_key" -N "" -C "ai-devkit-ecdsa" >/dev/null 2>&1
-        ssh-keygen -q -t ed25519 -f "$SSH_KEYS_DIR/ssh_host_ed25519_key" -N "" -C "ai-devkit-ed25519" >/dev/null 2>&1
-        success "SSH host keys generated"
+        info "Generating SSH host keys for consistent fingerprints..."
+        ssh-keygen -t rsa -b 4096 -f "$SSH_KEYS_DIR/ssh_host_rsa_key" -N "" -C "ai-devkit-rsa"
+        ssh-keygen -t ecdsa -b 521 -f "$SSH_KEYS_DIR/ssh_host_ecdsa_key" -N "" -C "ai-devkit-ecdsa"
+        ssh-keygen -t ed25519 -f "$SSH_KEYS_DIR/ssh_host_ed25519_key" -N "" -C "ai-devkit-ed25519"
+        success "SSH host keys generated in $SSH_KEYS_DIR"
     else
-        success "Using existing SSH host keys"
+        success "Using existing SSH host keys from $SSH_KEYS_DIR"
     fi
+    
+    # Display the fingerprints
+    info "SSH host key fingerprints (these will remain constant across deployments):"
+    ssh-keygen -lf "$SSH_KEYS_DIR/ssh_host_ed25519_key.pub" | sed 's/^/  /'
+    ssh-keygen -lf "$SSH_KEYS_DIR/ssh_host_ecdsa_key.pub" | sed 's/^/  /'
+    echo ""
 }
 
 # Create SSH host keys secret
 create_ssh_host_keys_secret() {
+    log "Creating Kubernetes secret for SSH host keys..."
+    
     # Delete existing secret if it exists
-    kubectl delete secret ssh-host-keys -n ${NAMESPACE} --ignore-not-found=true >/dev/null 2>&1
+    kubectl delete secret ssh-host-keys -n ${NAMESPACE} --ignore-not-found=true
     
     # Create secret from files
     kubectl create secret generic ssh-host-keys -n ${NAMESPACE} \
@@ -70,7 +102,9 @@ create_ssh_host_keys_secret() {
         --from-file=ssh_host_ecdsa_key="$SSH_KEYS_DIR/ssh_host_ecdsa_key" \
         --from-file=ssh_host_ecdsa_key.pub="$SSH_KEYS_DIR/ssh_host_ecdsa_key.pub" \
         --from-file=ssh_host_ed25519_key="$SSH_KEYS_DIR/ssh_host_ed25519_key" \
-        --from-file=ssh_host_ed25519_key.pub="$SSH_KEYS_DIR/ssh_host_ed25519_key.pub" >/dev/null 2>&1
+        --from-file=ssh_host_ed25519_key.pub="$SSH_KEYS_DIR/ssh_host_ed25519_key.pub"
+    
+    success "SSH host keys secret created"
 }
 
 # Parse YAML file (simple parser using sed/awk)
@@ -1037,7 +1071,7 @@ select_components() {
                 force_catalog_update=true
                 force_cart_update=true
             fi
-        elif [[ "$key" == $'\x7f' && $view == "cart" ]]; then  # Backspace key (0x7F)
+        elif [[ "$key" == \x7f' && $view == "cart" ]]; then  # Backspace key (0x7F)
             local cart_items_array=()
             for idx in "${!in_cart[@]}"; do
                 [[ "${in_cart[$idx]}" == true ]] && cart_items_array+=($idx)
@@ -1167,648 +1201,3 @@ select_components() {
     
     set -e
 }
-
-# Global variables for selected items
-declare -a SELECTED_YAML_FILES
-declare -a SELECTED_IDS
-declare -a SELECTED_NAMES
-declare -a SELECTED_GROUPS
-declare -a SELECTED_CATEGORIES
-declare -a SELECTED_REQUIRES
-
-# Global arrays for categories
-declare -a categories
-declare -a category_names
-
-# Function to extract pre_build_script from YAML file
-extract_pre_build_script() {
-    local yaml_file=$1
-    local script_name=""
-    
-    while IFS= read -r line; do
-        if [[ "$line" =~ ^pre_build_script:[[:space:]]*(.+)$ ]]; then
-            script_name="${BASH_REMATCH[1]}"
-            # Remove quotes if present
-            script_name="${script_name#\"}"
-            script_name="${script_name%\"}"
-            script_name="${script_name#\'}"
-            script_name="${script_name%\'}"
-            break
-        fi
-    done < "$yaml_file"
-    
-    echo "$script_name"
-}
-
-# Function to execute pre-build scripts
-execute_pre_build_scripts() {
-    log "Executing pre-build scripts..."
-    
-    local selected_ids="${SELECTED_IDS[*]}"
-    local selected_names="${SELECTED_NAMES[*]}"
-    local selected_yaml_files="${SELECTED_YAML_FILES[*]}"
-    
-    for i in "${!SELECTED_YAML_FILES[@]}"; do
-        local yaml_file="${SELECTED_YAML_FILES[$i]}"
-        local component_name="${SELECTED_NAMES[$i]}"
-        
-        # Extract pre_build_script
-        local script_name=$(extract_pre_build_script "$yaml_file")
-        
-        if [[ -n "$script_name" ]]; then
-            local script_dir=$(dirname "$yaml_file")
-            local script_path="$script_dir/$script_name"
-            
-            if [[ -f "$script_path" ]]; then
-                log "Running pre-build script for $component_name..."
-                
-                # Make script executable
-                chmod +x "$script_path"
-                
-                # Execute with standard arguments
-                if "$script_path" "$TEMP_DIR" "$selected_ids" "$selected_names" "$selected_yaml_files" "$script_dir"; then
-                    success "Pre-build script completed for $component_name"
-                else
-                    error "Pre-build script failed for $component_name"
-                fi
-            else
-                log "Warning: Pre-build script $script_name not found for $component_name"
-            fi
-        fi
-    done
-}
-
-# Function to extract inject_files from YAML
-extract_inject_files_from_yaml() {
-    local yaml_file=$1
-    local in_inject_files=false
-    local current_item=false
-    local source="" destination="" permissions=""
-    local inject_commands=""
-    
-    while IFS= read -r line; do
-        # Check if entering inject_files section
-        if [[ "$line" =~ ^[[:space:]]*inject_files:[[:space:]]*$ ]]; then
-            in_inject_files=true
-            continue
-        fi
-        
-        # Check if exiting inject_files section
-        if [[ $in_inject_files == true ]] && [[ "$line" =~ ^[a-zA-Z_]+: ]] && [[ ! "$line" =~ ^[[:space:]] ]]; then
-            in_inject_files=false
-            break
-        fi
-        
-        if [[ $in_inject_files == true ]]; then
-            # New item starts with - source:
-            if [[ "$line" =~ ^[[:space:]]*-[[:space:]]+source:[[:space:]]*(.+)$ ]]; then
-                # Process previous item if exists
-                if [[ -n "$source" && -n "$destination" ]]; then
-                    inject_commands+="COPY $source $destination\n"
-                    if [[ -n "$permissions" ]]; then
-                        inject_commands+="RUN chmod $permissions $destination\n"
-                    fi
-                fi
-                
-                # Start new item
-                source="${BASH_REMATCH[1]}"
-                destination=""
-                permissions=""
-                current_item=true
-            elif [[ $current_item == true ]]; then
-                if [[ "$line" =~ ^[[:space:]]+destination:[[:space:]]*(.+)$ ]]; then
-                    destination="${BASH_REMATCH[1]}"
-                elif [[ "$line" =~ ^[[:space:]]+permissions:[[:space:]]*(.+)$ ]]; then
-                    permissions="${BASH_REMATCH[1]}"
-                fi
-            fi
-        fi
-    done < "$yaml_file"
-    
-    # Process last item
-    if [[ -n "$source" && -n "$destination" ]]; then
-        inject_commands+="COPY $source $destination\n"
-        if [[ -n "$permissions" ]]; then
-            inject_commands+="RUN chmod $permissions $destination\n"
-        fi
-    fi
-    
-    echo -n "$inject_commands"
-}
-
-# Function to extract memory_content from YAML file
-extract_memory_content() {
-    local yaml_file=$1
-    local in_memory_content=false
-    local memory_content=""
-    local line_count=0
-    
-    while IFS= read -r line; do
-        ((line_count++))
-        
-        # Check if we're entering memory_content section
-        if [[ "$line" =~ ^memory_content:[[:space:]]*\|[[:space:]]*$ ]]; then
-            in_memory_content=true
-            continue
-        fi
-        
-        # Check if we're exiting memory_content section (new top-level key)
-        if [[ $in_memory_content == true ]] && [[ "$line" =~ ^[a-zA-Z_]+: ]] && [[ ! "$line" =~ ^[[:space:]] ]]; then
-            in_memory_content=false
-            break
-        fi
-        
-        # Collect memory_content lines
-        if [[ $in_memory_content == true ]]; then
-            # Remove the first 2 spaces of YAML indentation
-            if [[ "$line" =~ ^"  " ]]; then
-                memory_content+="${line:2}\n"
-            elif [[ -z "$line" ]]; then
-                # Preserve empty lines
-                memory_content+="\n"
-            fi
-        fi
-    done < "$yaml_file"
-    
-    # Trim trailing newlines
-    memory_content=$(echo -n "$memory_content" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}')
-    
-    echo "$memory_content"
-}
-
-# Function to extract entrypoint_setup from YAML file
-extract_entrypoint_setup() {
-    local yaml_file=$1
-    local in_entrypoint_setup=false
-    local entrypoint_content=""
-    
-    while IFS= read -r line; do
-        # Check if we're entering entrypoint_setup section
-        if [[ "$line" =~ ^entrypoint_setup:[[:space:]]*\|[[:space:]]*$ ]]; then
-            in_entrypoint_setup=true
-            continue
-        fi
-        
-        # Check if we're exiting entrypoint_setup section (new top-level key)
-        if [[ $in_entrypoint_setup == true ]] && [[ "$line" =~ ^[a-zA-Z_]+: ]] && [[ ! "$line" =~ ^[[:space:]] ]]; then
-            in_entrypoint_setup=false
-            break
-        fi
-        
-        # Collect entrypoint_setup lines
-        if [[ $in_entrypoint_setup == true ]]; then
-            # Remove the first 2 spaces of YAML indentation
-            if [[ "$line" =~ ^"  " ]]; then
-                entrypoint_content+="${line:2}"$'\n'
-            elif [[ -z "$line" ]]; then
-                # Preserve empty lines
-                entrypoint_content+=$'\n'
-            fi
-        fi
-    done < "$yaml_file"
-    
-    # Trim trailing newlines
-    entrypoint_content=$(echo -n "$entrypoint_content" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}')
-    
-    echo "$entrypoint_content"
-}
-
-# Function to extract installation commands from YAML files
-extract_installation_from_yaml() {
-    local yaml_file=$1
-    local in_dockerfile=false
-    local in_nexus=false
-    local dockerfile_content=""
-    local nexus_content=""
-    
-    while IFS= read -r line; do
-        # Check for dockerfile section
-        if [[ "$line" =~ ^[[:space:]]*dockerfile:[[:space:]]*\|[[:space:]]*$ ]]; then
-            in_dockerfile=true
-            in_nexus=false
-            continue
-        fi
-        
-        # Check for nexus_config section
-        if [[ "$line" =~ ^[[:space:]]*nexus_config:[[:space:]]*\|[[:space:]]*$ ]]; then
-            in_nexus=true
-            in_dockerfile=false
-            continue
-        fi
-        
-        # Check if we're exiting a section
-        if [[ "$line" =~ ^[[:space:]]*[a-zA-Z_]+: ]] && [[ ! "$line" =~ ^[[:space:]]{4,} ]]; then
-            in_dockerfile=false
-            in_nexus=false
-        fi
-        
-        # Collect content
-        if [[ $in_dockerfile == true ]]; then
-            # For dockerfile content, we need to preserve the exact formatting
-            # Only remove the first 4 spaces that are YAML indentation
-            if [[ "$line" =~ ^"    " ]]; then
-                dockerfile_content+="${line:4}"$'\n'
-            else
-                # Handle empty lines or lines with different indentation
-                dockerfile_content+="$line"$'\n'
-            fi
-        elif [[ $in_nexus == true ]]; then
-            # For nexus content, preserve it as-is after removing YAML indent
-            if [[ "$line" =~ ^"    " ]]; then
-                nexus_content+="${line:4}"$'\n'
-            fi
-        fi
-    done < "$yaml_file"
-    
-    # Combine dockerfile and nexus content if applicable
-    local full_content="$dockerfile_content"
-    if [[ -n "$nexus_content" ]]; then
-        # The nexus_config should already be properly formatted in the YAML
-        # Just wrap it in RUN
-        full_content+=$'\n'"# Nexus configuration"$'\n'"RUN ${nexus_content}"
-    fi
-    
-    printf "%s" "$full_content"
-}
-
-# Function to sort components by dependencies (topological sort)
-sort_components_by_dependencies() {
-    local -a sorted_indices=()
-    local -a visited=()
-    local -a in_progress=()
-    
-    # Initialize arrays
-    for i in "${!SELECTED_IDS[@]}"; do
-        visited[$i]=false
-        in_progress[$i]=false
-    done
-    
-    # Helper function for DFS
-    visit_component() {
-        local idx=$1
-        
-        if [[ "${in_progress[$idx]}" == true ]]; then
-            error "Circular dependency detected involving ${SELECTED_NAMES[$idx]}"
-        fi
-        
-        if [[ "${visited[$idx]}" == true ]]; then
-            return
-        fi
-        
-        in_progress[$idx]=true
-        
-        # Get the requires field for this component
-        local requires="${SELECTED_REQUIRES[$idx]}"
-        
-        # Visit dependencies first
-        if [[ -n "$requires" ]] && [[ "$requires" != "[]" ]] && [[ "$requires" != "" ]]; then
-            # Parse requires field (could be space-separated)
-            for req in $requires; do
-                # Find components that provide this requirement
-                for dep_idx in "${!SELECTED_IDS[@]}"; do
-                    local dep_group="${SELECTED_GROUPS[$dep_idx]}"
-                    
-                    if [[ "$dep_group" == "$req" ]]; then
-                        visit_component $dep_idx
-                    fi
-                done
-            done
-        fi
-        
-        in_progress[$idx]=false
-        visited[$idx]=true
-        sorted_indices+=($idx)
-    }
-    
-    # Visit all components
-    for i in "${!SELECTED_IDS[@]}"; do
-        if [[ "${visited[$i]}" == false ]]; then
-            visit_component $i
-        fi
-    done
-    
-    # Return sorted indices
-    echo "${sorted_indices[@]}"
-}
-
-# Function to create custom Dockerfile
-create_custom_dockerfile() {
-    mkdir -p "$TEMP_DIR"
-    
-    # First, generate the base entrypoint.sh in TEMP_DIR
-    log "Generating custom entrypoint.sh..."
-    
-    # Check if entrypoint.base.sh exists
-    if [[ ! -f "entrypoint.base.sh" ]]; then
-        error "entrypoint.base.sh not found in current directory: $(pwd)"
-    fi
-    
-    log "Copying entrypoint.base.sh to $TEMP_DIR/entrypoint.sh"
-    cp -v entrypoint.base.sh "$TEMP_DIR/entrypoint.sh"
-    
-    if [[ ! -f "$TEMP_DIR/entrypoint.sh" ]]; then
-        error "Failed to create entrypoint.sh in $TEMP_DIR"
-    fi
-    
-    chmod +x "$TEMP_DIR/entrypoint.sh"
-    log "Successfully created entrypoint.sh in $TEMP_DIR"
-    
-    # Copy Dockerfile.base
-    log "Copying Dockerfile.base to $TEMP_DIR/Dockerfile"
-    cp Dockerfile.base "$TEMP_DIR/Dockerfile"
-    
-    # Execute pre-build scripts
-    execute_pre_build_scripts
-    
-    # Sort components by dependencies
-    log "Sorting components by dependencies..."
-    local sorted_indices=($(sort_components_by_dependencies))
-    
-    # Process selected components in dependency order
-    local installation_content=""
-    local inject_files_content=""
-    local entrypoint_setup_content=""
-    
-    for idx in "${sorted_indices[@]}"; do
-        local yaml_file="${SELECTED_YAML_FILES[$idx]}"
-        local component_name="${SELECTED_NAMES[$idx]}"
-        
-        log "Processing: $component_name"
-        
-        # Extract installation commands
-        local install_cmds=$(extract_installation_from_yaml "$yaml_file")
-        if [[ -n "$install_cmds" ]]; then
-            installation_content+="\n# From $yaml_file\n"
-            installation_content+="$install_cmds\n"
-        fi
-        
-        # Extract inject_files directives
-        local inject_cmds=$(extract_inject_files_from_yaml "$yaml_file")
-        if [[ -n "$inject_cmds" ]]; then
-            inject_files_content+="\n# Files injected by $component_name\n"
-            inject_files_content+="$inject_cmds"
-        fi
-        
-        # Extract entrypoint setup
-        local entrypoint_cmds=$(extract_entrypoint_setup "$yaml_file")
-        if [[ -n "$entrypoint_cmds" ]]; then
-            entrypoint_setup_content+="\n# Setup for $component_name\n"
-            entrypoint_setup_content+="$entrypoint_cmds\n"
-        fi
-    done
-    
-    # Insert installations
-    if [[ -n "$installation_content" ]]; then
-        echo -e "$installation_content" > "$TEMP_DIR/installations.txt"
-        sed -i.bak "/# LANGUAGE_INSTALLATIONS_PLACEHOLDER/r $TEMP_DIR/installations.txt" "$TEMP_DIR/Dockerfile"
-        sed -i.bak "/# LANGUAGE_INSTALLATIONS_PLACEHOLDER/d" "$TEMP_DIR/Dockerfile"
-        rm -f "$TEMP_DIR/Dockerfile.bak" "$TEMP_DIR/installations.txt"
-    else
-        sed -i.bak "/# LANGUAGE_INSTALLATIONS_PLACEHOLDER/d" "$TEMP_DIR/Dockerfile"
-        rm -f "$TEMP_DIR/Dockerfile.bak"
-    fi
-    
-    # Insert file injections before volume declarations
-    if [[ -n "$inject_files_content" ]]; then
-        echo -e "$inject_files_content" > "$TEMP_DIR/inject_files.txt"
-        # Insert before the VOLUME declaration
-        sed -i.bak '/^# Set up volume mount points/i\
-' "$TEMP_DIR/Dockerfile"
-        sed -i.bak "/^# Set up volume mount points/r $TEMP_DIR/inject_files.txt" "$TEMP_DIR/Dockerfile"
-        rm -f "$TEMP_DIR/Dockerfile.bak" "$TEMP_DIR/inject_files.txt"
-    fi
-    
-    # Now modify the generated entrypoint.sh with component setup
-    if [[ -n "$entrypoint_setup_content" ]]; then
-        # Create temporary file with the setup content
-        echo -e "$entrypoint_setup_content" > "$TEMP_DIR/entrypoint_setup.txt"
-        
-        # Insert the setup content at the placeholder
-        sed -i.bak "/# COMPONENT_SETUP_PLACEHOLDER/r $TEMP_DIR/entrypoint_setup.txt" "$TEMP_DIR/entrypoint.sh"
-        sed -i.bak "/# COMPONENT_SETUP_PLACEHOLDER/d" "$TEMP_DIR/entrypoint.sh"
-        
-        rm -f "$TEMP_DIR/entrypoint.sh.bak" "$TEMP_DIR/entrypoint_setup.txt"
-    else
-        # Remove the placeholder if no setup content
-        sed -i.bak "/# COMPONENT_SETUP_PLACEHOLDER/d" "$TEMP_DIR/entrypoint.sh"
-        rm -f "$TEMP_DIR/entrypoint.sh.bak"
-    fi
-    
-    success "Generated custom entrypoint.sh with component setup"
-    
-    # Copy settings.local.json.template only if it exists (from pre-build)
-    if [[ -f "$TEMP_DIR/settings.local.json.template" ]]; then
-        log "settings.local.json.template found from pre-build, will be included"
-    fi
-}
-
-# Check for host git configuration
-check_host_git_config() {
-    local config_dir="$HOME/.claude-code-k8s"
-    
-    if [[ -d "$config_dir" ]] && [[ -f "$config_dir/git-config/.gitconfig" ]]; then
-        return 0
-    fi
-    return 1
-}
-
-# Create git configuration secret
-create_git_config_secret() {
-    local config_dir="$HOME/.claude-code-k8s"
-    
-    # Delete existing secret if it exists
-    kubectl delete secret git-config -n ${NAMESPACE} --ignore-not-found=true >/dev/null 2>&1
-    
-    # Create secret from files
-    local secret_args="--from-file=gitconfig=$config_dir/git-config/.gitconfig"
-    
-    # Add optional files if they exist
-    [[ -f "$config_dir/git-config/.git-credentials" ]] && \
-        secret_args="$secret_args --from-file=git-credentials=$config_dir/git-config/.git-credentials"
-    
-    [[ -f "$config_dir/github/hosts.yml" ]] && \
-        secret_args="$secret_args --from-file=gh-hosts=$config_dir/github/hosts.yml"
-    
-    # Create the secret
-    kubectl create secret generic git-config -n ${NAMESPACE} $secret_args >/dev/null 2>&1
-}
-
-# Main execution
-main() {
-    # Initialize log file
-    echo "Build started at $(date)" > "$LOG_FILE"
-    echo "=================================================================================" >> "$LOG_FILE"
-    
-    log "=== Starting Container Component Configurator ==="
-    
-    check_deps
-    
-    [[ ! -d "$COMPONENTS_DIR" ]] && error "Components directory '$COMPONENTS_DIR' not found"
-    
-    # Check Colima status
-    colima status &> /dev/null || error "Colima is not running\nPlease start Colima with: colima start --kubernetes"
-    kubectl get nodes &> /dev/null || error "Kubernetes is not accessible\nPlease make sure Colima started with --kubernetes flag"
-    
-    success "Colima with Kubernetes is running and accessible"
-    
-    # Generate SSH host keys
-    generate_ssh_host_keys
-    
-    # Load categories for use in generate_claude_md
-    # This is a bit hacky but necessary since we need the category display names
-    local component_data=$(load_components)
-    local categories_line=$(echo "$component_data" | sed -n '1p')
-    
-    # Convert to global arrays
-    IFS=' ' read -ra categories <<< "$categories_line"
-    
-    # Read category names line by line to preserve spaces
-    category_names=()
-    local reading_names=false
-    local line_num=0
-    while IFS= read -r line; do
-        ((line_num++))
-        if [[ $line_num -eq 3 ]]; then
-            reading_names=true
-            continue
-        fi
-        if [[ $reading_names == true && "$line" == "---SEPARATOR---" ]]; then
-            break
-        fi
-        if [[ $reading_names == true ]]; then
-            category_names+=("$line")
-        fi
-    done <<< "$component_data"
-    
-    # Check for host git configuration
-    USE_HOST_GIT_CONFIG=false
-    if check_host_git_config; then
-        read -p "Use host git configuration? [Y/n]: " -n 1 -r
-        echo ""
-        if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-            USE_HOST_GIT_CONFIG=true
-        fi
-    fi
-    
-    # Check Nexus
-    NEXUS_AVAILABLE=false
-    if check_nexus; then
-        NEXUS_AVAILABLE=true
-        export DOCKER_BUILDKIT=0
-        export NEXUS_BUILD_ARGS="--build-arg PIP_INDEX_URL=http://host.lima.internal:8081/repository/pypi-proxy/simple --build-arg PIP_TRUSTED_HOST=host.lima.internal --build-arg NPM_REGISTRY=http://host.lima.internal:8081/repository/npm-proxy/ --build-arg GOPROXY=http://host.lima.internal:8081/repository/go-proxy/ --build-arg USE_NEXUS_APT=true --build-arg NEXUS_APT_URL=http://host.lima.internal:8081"
-    fi
-    
-    # Handle flags
-    if [[ "$1" =~ ^(--clean|-c)$ ]]; then
-        log "Cleaning up previous deployment..."
-        kubectl delete deployment claude-code -n ${NAMESPACE} --ignore-not-found=true
-        docker rmi ${IMAGE_NAME}:${IMAGE_TAG} 2>/dev/null || true
-        rm -rf "$TEMP_DIR"
-    fi
-    
-    # Component selection
-    [[ ! "$1" =~ --no-select && ! "$2" =~ --no-select ]] && select_components
-    
-    # Create base components
-    log "Creating custom Dockerfile..."
-    echo -e "\nDockerfile generation output:" >> "$LOG_FILE"
-    echo "=================================================================================" >> "$LOG_FILE"
-    create_custom_dockerfile >> "$LOG_FILE" 2>&1
-    
-    log "Building Docker image..."
-    # Always build from TEMP_DIR since we now generate entrypoint.sh
-    cp setup-git.sh "$TEMP_DIR/"
-    
-    cd "$TEMP_DIR"
-    echo "Docker build output:" >> "../$LOG_FILE"
-    echo "=================================================================================" >> "../$LOG_FILE"
-    if [[ -n "$NEXUS_BUILD_ARGS" ]]; then
-        docker build $NEXUS_BUILD_ARGS -t ${IMAGE_NAME}:${IMAGE_TAG} . >> "../$LOG_FILE" 2>&1 || \
-            (error "Docker build failed - check $LOG_FILE for details" && exit 1)
-    else
-        docker build -t ${IMAGE_NAME}:${IMAGE_TAG} . >> "../$LOG_FILE" 2>&1 || \
-            (error "Docker build failed - check $LOG_FILE for details" && exit 1)
-    fi
-    cd ..
-    success "Docker image built (detailed log in $LOG_FILE)"
-    
-    # Deploy
-    log "Deploying to Kubernetes..."
-    echo -e "\nKubernetes deployment output:" >> "$LOG_FILE"
-    echo "=================================================================================" >> "$LOG_FILE"
-    docker save ${IMAGE_NAME}:${IMAGE_TAG} | colima ssh -- sudo ctr -n k8s.io images import - >> "$LOG_FILE" 2>&1
-    
-    kubectl apply -f kubernetes/namespace.yaml >> "$LOG_FILE" 2>&1
-    kubectl apply -f kubernetes/pvc.yaml >> "$LOG_FILE" 2>&1
-    
-    # Create git config secret if using host configuration
-    if [[ "$USE_HOST_GIT_CONFIG" = true ]]; then
-        create_git_config_secret
-    fi
-    
-    # Create SSH host keys secret
-    create_ssh_host_keys_secret
-    
-    # Apply Nexus configuration if available
-    if [[ "$NEXUS_AVAILABLE" = true ]]; then
-        kubectl apply -f kubernetes/nexus-config.yaml >> "$LOG_FILE" 2>&1
-    fi
-    
-    # Apply deployment
-    kubectl apply -f kubernetes/deployment.yaml >> "$LOG_FILE" 2>&1
-    
-    log "Waiting for deployment..."
-    kubectl wait --for=condition=available --timeout=120s deployment/claude-code -n ${NAMESPACE} >> "$LOG_FILE" 2>&1
-    
-    POD_NAME=$(kubectl get pods -n ${NAMESPACE} -l app=claude-code -o jsonpath="{.items[0].metadata.name}")
-    
-    # Start port forwarding automatically
-    log "Setting up port forwarding..."
-    pkill -f 'kubectl.*port-forward.*claude-code' 2>/dev/null || true
-    sleep 1
-    kubectl port-forward -n ${NAMESPACE} service/claude-code 2222:22 8090:8090 >> "$LOG_FILE" 2>&1 &
-    PORT_FORWARD_PID=$!
-    sleep 2
-    
-    # Check if port forwarding is running
-    if ! ps -p $PORT_FORWARD_PID > /dev/null 2>&1; then
-        error "Port forwarding failed to start - check $LOG_FILE for details"
-    fi
-    
-    success "=== Deployment Complete ==="
-    echo ""
-    
-    [[ "$NEXUS_AVAILABLE" = true ]] && success "Using Nexus proxy for package downloads"
-    
-    # Simple connection instructions
-    echo -e "${GREEN}Ready to connect!${NC} Port forwarding is active (PID: $PORT_FORWARD_PID)"
-    echo ""
-    echo -e "${YELLOW}1. SSH to your environment:${NC}"
-    echo -e "   ${BLUE}ssh devuser@localhost -p 2222${NC}"
-    echo -e "   Password: ${YELLOW}devuser${NC} (change with 'passwd')"
-    echo ""
-    echo -e "${YELLOW}2. Access file manager:${NC} ${BLUE}http://localhost:8090${NC} (admin/admin)"
-    echo ""
-    
-    # Check if Claude Code was selected
-    local claude_selected=false
-    for id in "${SELECTED_IDS[@]}"; do
-        if [[ "$id" == "CLAUDE_CODE" ]]; then
-            claude_selected=true
-            break
-        fi
-    done
-    
-    if [[ $claude_selected == true ]]; then
-        echo -e "${GREEN}Start Claude Code:${NC} ${YELLOW}claude${NC}"
-    fi
-    
-    echo ""
-    echo -e "${GRAY}Alternative: kubectl exec -it -n ${NAMESPACE} ${POD_NAME} -c claude-code -- su - devuser${NC}"
-    echo -e "${GRAY}Stop port forwarding: kill $PORT_FORWARD_PID${NC}"
-    echo ""
-    echo -e "${GRAY}Build log saved to: $LOG_FILE${NC}"
-}
-
-# Run main
-main "$@"

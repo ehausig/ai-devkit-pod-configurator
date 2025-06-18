@@ -22,6 +22,9 @@ spec:
       - name: claude-code
         image: claude-code:latest
         imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 22
+          name: ssh
         # Remove the command override so entrypoint.sh runs
         # The entrypoint will handle setup and then run sleep infinity
         volumeMounts:
@@ -29,6 +32,10 @@ spec:
           mountPath: /home/devuser/.config/claude-code
         - name: workspace-volume
           mountPath: /home/devuser/workspace
+        # SSH host keys mount
+        - name: ssh-host-keys
+          mountPath: /etc/ssh/mounted_keys
+          readOnly: true
         # Git configuration mounts (optional - from secret)
         - name: git-config
           mountPath: /tmp/git-mounted/.gitconfig
@@ -197,6 +204,12 @@ spec:
           name: filebrowser-config
       - name: filebrowser-db
         emptyDir: {}
+      # SSH host keys volume
+      - name: ssh-host-keys
+        secret:
+          secretName: ssh-host-keys
+          defaultMode: 0600
+          optional: false
       # Git configuration volumes (from secret - all optional)
       - name: git-config
         secret:
@@ -288,7 +301,7 @@ spec:
           defaultMode: 0644
           optional: true
 ---
-# Service to expose Filebrowser
+# Service to expose Filebrowser and SSH
 apiVersion: v1
 kind: Service
 metadata:
@@ -298,6 +311,9 @@ spec:
   selector:
     app: claude-code
   ports:
+  - name: ssh
+    port: 22
+    targetPort: 22
   - name: filebrowser
     port: 8090
     targetPort: 8090

@@ -19,6 +19,22 @@ mkdir -p "$CONFIG_DIR"
 mkdir -p /home/devuser/workspace
 mkdir -p /home/devuser/.local/bin
 
+# Start SSH daemon if host keys are mounted
+echo "Checking for SSH host keys..."
+if [ -d /etc/ssh/mounted_keys ] && [ -f /etc/ssh/mounted_keys/ssh_host_rsa_key ]; then
+    echo "Found mounted SSH host keys, starting SSH daemon..."
+    # Ensure proper permissions on mounted keys
+    chmod 600 /etc/ssh/mounted_keys/ssh_host_*_key 2>/dev/null || true
+    chmod 644 /etc/ssh/mounted_keys/ssh_host_*_key.pub 2>/dev/null || true
+    
+    # Start SSH daemon
+    /usr/sbin/sshd -D &
+    echo "SSH daemon started on port 22"
+else
+    echo "No mounted SSH host keys found, SSH daemon not started"
+    echo "To enable SSH access, mount host keys to /etc/ssh/mounted_keys/"
+fi
+
 # Handle git configuration from mounted secrets
 echo "Checking for pre-configured git settings..."
 GIT_CONFIGURED=false
@@ -111,6 +127,14 @@ if [ -n "$PS1" ] && [ -z "$DEVKIT_WELCOME_SHOWN" ]; then
     echo ""
     echo "Welcome to AI Development Kit! 🚀"
     echo ""
+    
+    # Check if SSH is available
+    if pgrep -x sshd > /dev/null 2>&1; then
+        echo "  📡 SSH is running - connect via port 2222"
+        echo "     Initial password: devuser (please change with 'passwd')"
+    fi
+    
+    echo ""
     echo "Quick Start:"
     # Check if Claude Code is installed
     if command -v claude &> /dev/null 2>&1; then
@@ -155,6 +179,26 @@ if [ -n "$PS1" ]; then
     read -t 0.1 -n 10000 discard 2>/dev/null || true
 fi
 EOF
+fi
+
+# Add password change reminder for SSH users
+if ! grep -q "SSH_PASSWORD_REMINDER" "$BASHRC" 2>/dev/null; then
+    cat >> "$BASHRC" << 'EOF'
+
+# SSH Password Change Reminder
+if [ -n "$SSH_CONNECTION" ] && [ -z "$SSH_PASSWORD_CHANGED" ]; then
+    if [ "$(sudo grep devuser /etc/shadow | cut -d: -f2)" = "$(sudo grep devuser /etc/shadow.backup 2>/dev/null | cut -d: -f2)" ]; then
+        echo ""
+        echo "⚠️  SECURITY REMINDER: Please change your password with 'passwd'"
+        echo ""
+    fi
+fi
+EOF
+fi
+
+# Create shadow backup for password change detection
+if [ ! -f /etc/shadow.backup ]; then
+    cp /etc/shadow /etc/shadow.backup
 fi
 
 # Switch to devuser and execute the command

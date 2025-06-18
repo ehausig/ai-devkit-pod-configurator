@@ -27,7 +27,7 @@ RUN if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
         echo "✓ Configured APT to use Nexus proxy" ; \
     fi
 
-# Install base dependencies (minimal set)
+# Install base dependencies (minimal set) including OpenSSH server
 RUN apt-get update && apt-get install -y \
     curl \
     ca-certificates \
@@ -46,6 +46,8 @@ RUN apt-get update && apt-get install -y \
     tree \
     less \
     expect \
+    openssh-server \
+    sudo \
     --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
@@ -73,7 +75,23 @@ RUN if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
     rm -rf /var/lib/apt/lists/*
 
 # Create a non-root user to run development tools
-RUN useradd -ms /bin/bash devuser
+RUN useradd -ms /bin/bash devuser && \
+    echo 'devuser:devuser' | chpasswd && \
+    usermod -aG sudo devuser && \
+    echo 'devuser ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+
+# Configure SSH
+RUN mkdir /var/run/sshd && \
+    # Allow password authentication for initial login \
+    sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config && \
+    sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config && \
+    # Allow devuser to login via SSH \
+    echo "AllowUsers devuser" >> /etc/ssh/sshd_config && \
+    # Configure SSH to look for host keys in mounted location \
+    echo "HostKey /etc/ssh/mounted_keys/ssh_host_rsa_key" >> /etc/ssh/sshd_config && \
+    echo "HostKey /etc/ssh/mounted_keys/ssh_host_ecdsa_key" >> /etc/ssh/sshd_config && \
+    echo "HostKey /etc/ssh/mounted_keys/ssh_host_ed25519_key" >> /etc/ssh/sshd_config
+
 RUN mkdir -p /home/devuser/.config/claude-code
 RUN mkdir -p /home/devuser/workspace
 RUN chown -R devuser:devuser /home/devuser/
