@@ -40,9 +40,28 @@ memory_content: |
   - Single-file programs: `java MyProgram.java` (no explicit compile needed)
   - With preview features: `java --enable-preview --source 17 MyProgram.java`
   
+  **Unit Testing**:
+  ```java
+  // JUnit 5 example
+  @Test
+  void testMethod() {
+      assertEquals(expected, actual);
+  }
+  
+  // With AssertJ for fluent assertions
+  assertThat(result)
+      .isNotNull()
+      .hasSize(3)
+      .contains("expected");
+  ```
+  
+  **Integration Testing**:
+  - TestContainers for database/service testing
+  - MockWebServer for API mocking
+  - Spring Boot Test for full application testing
+  
   **Spring Boot Development**:
   ```java
-  // Quick REST API with Spring Boot
   @RestController
   @RequestMapping("/api")
   public class ApiController {
@@ -53,19 +72,8 @@ memory_content: |
   }
   ```
   
-  **Build Tool Notes**:
-  - Maven: Works well with 3.6.3+
-  - Gradle: Use 7.3+ for best Java 17 support
-  - **SBT Note**: May require Java 17 or older for some cached dependencies
-  
-  **Testing Patterns**:
-  - JUnit 5 + AssertJ for readable tests
-  - Mockito for mocking
-  - TestContainers for integration tests
-  - Run tests continuously during development
-  
   **Common Compatibility Notes**:
-  - Most libraries now support Java 17
+  - Most libraries support Java 17
   - Spring Boot 2.5+ has full Java 17 support
   - Check third-party dependencies for compatibility
   

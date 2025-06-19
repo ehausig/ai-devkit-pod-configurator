@@ -70,9 +70,44 @@ memory_content: |
   - Install deps: `bundle install`
   - Execute: `bundle exec rake` (or any command)
   
+  **Unit Testing**:
+  ```ruby
+  # Minitest (Ruby standard)
+  # test/test_example.rb
+  require 'minitest/autorun'
+  
+  class TestExample < Minitest::Test
+    def test_truth
+      assert_equal 2, 1 + 1
+    end
+  end
+  
+  # Run: ruby test/test_example.rb
+  ```
+  
+  **RSpec (popular alternative)**:
+  ```ruby
+  bundle add rspec --group=test
+  bundle exec rspec --init
+  
+  # spec/example_spec.rb
+  RSpec.describe 'Example' do
+    it 'works' do
+      expect(1 + 1).to eq(2)
+    end
+  end
+  
+  # Run: bundle exec rspec
+  ```
+  
   **Gem Management**:
   - Install gem: `gem install sinatra`
   - List gems: `gem list`
   - Update bundler: `gem update bundler`
+  
+  **Development Tools**:
+  - IRB console: `irb`
+  - Pry (better REPL): `gem install pry && pry`
+  - Rubocop: `bundle add rubocop --group=development`
   
   **Note**: Gems install to `~/.bundle` and executables to `~/.local/bin` (both in PATH)

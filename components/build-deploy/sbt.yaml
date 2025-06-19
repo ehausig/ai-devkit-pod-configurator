@@ -74,21 +74,24 @@ memory_content: |
   - Test: `test`
   - Console: `console` (Scala REPL with project classpath)
   
+  **Testing with SBT**:
+  - Run all tests: `test`
+  - Continuous mode: `~test` (watches for changes)
+  - Specific test: `testOnly com.example.MySpec`
+  - Test quick: `testQuick` (only changed tests)
+  - Test coverage: Add sbt-coverage plugin
+  
   **Common Commands**:
   - Clean: `sbt clean`
   - Package: `sbt package` (JAR without deps)
   - Assembly: `sbt assembly` (fat JAR - needs plugin)
   - Publish local: `sbt publishLocal`
   
-  **Continuous Mode**:
-  - Watch & compile: `~compile`
-  - Watch & test: `~test`
-  - Watch & run: `~run`
-  
-  **Dependency Management Tips**:
+  **Dependency Management**:
   - Check deps: `sbt dependencyTree`
   - Update: `sbt update`
-  - Clean ivy cache if issues: `rm -rf ~/.ivy2/cache`
+  - Evicted: `sbt evicted` (check conflicts)
+  - Clean ivy cache: `rm -rf ~/.ivy2/cache`
   
   **build.sbt Example**:
   ```scala
@@ -99,15 +102,14 @@ memory_content: |
       version := "0.1.0",
       scalaVersion := "3.3.1",
       libraryDependencies ++= Seq(
-        "org.scalatest" %% "scalatest" % "3.2.17" % Test,
-        // Add dependencies one at a time and test
+        "org.scalatest" %% "scalatest" % "3.2.17" % Test
       )
     )
   ```
   
   **Common Issues**:
-  - Java version conflicts: SBT may need specific Java versions
+  - Java version: SBT may need specific Java versions
   - Use `sbt -java-home /path/to/java` if needed
-  - Clear cache: `sbt clean cleanCache`
+  - Binary compatibility: Check Scala version alignment
   
-  **Note**: SBT uses Coursier for dependency resolution
+  **Note**: Uses Coursier for dependency resolution

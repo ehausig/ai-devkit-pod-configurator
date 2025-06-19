@@ -98,6 +98,34 @@ memory_content: |
   - Range#overlap? method
   - Enhanced pattern matching
   
+  **Project Setup**:
+  - Initialize: `bundle init`
+  - Add gem: `bundle add rails` or edit Gemfile
+  - Install deps: `bundle install`
+  - Execute: `bundle exec command`
+  
+  **Unit Testing**:
+  ```ruby
+  # RSpec (most popular)
+  bundle add rspec --group=test
+  bundle exec rspec --init
+  
+  # Run tests
+  bundle exec rspec
+  bundle exec rspec spec/models/user_spec.rb
+  bundle exec rspec --format documentation
+  ```
+  
+  **Minitest (Rails default)**:
+  ```ruby
+  # Run all tests
+  bundle exec rake test
+  bundle exec rails test
+  
+  # Specific test file
+  bundle exec rails test test/models/user_test.rb
+  ```
+  
   **Rails Development**:
   - New app: `rails new myapp`
   - Server: `bin/rails server`
@@ -105,11 +133,14 @@ memory_content: |
   - Generate: `bin/rails generate model User`
   - Migrate: `bin/rails db:migrate`
   
-  **Testing**:
-  - RSpec: `bundle add rspec-rails && bundle exec rspec`
-  - Minitest: `bundle exec rake test`
-  
-  **Ruby Tools**:
+  **Development Tools**:
   - IRB console: `irb`
   - Check syntax: `ruby -c file.rb`
-  - Rubocop: `bundle add rubocop && bundle exec rubocop`
+  - Rubocop: `bundle add rubocop --group=development`
+  - Debug: `bundle add debug --group=development`
+  
+  **Testing Best Practices**:
+  - Use Guard for continuous testing: `bundle add guard-rspec`
+  - Factory Bot for test data: `bundle add factory_bot_rails`
+  - SimpleCov for coverage: `bundle add simplecov`
+  - Run tests immediately after changes

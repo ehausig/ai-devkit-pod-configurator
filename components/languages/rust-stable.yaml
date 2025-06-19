@@ -69,15 +69,32 @@ memory_content: |
   - **Watch mode**: `cargo watch -x run` (auto-recompile on changes)
   - Watch tests: `cargo watch -x test`
   - Watch with clear: `cargo watch -c -x run`
-  - Custom command: `cargo watch -x "check --tests"`
   
-  **Cargo Features**:
-  - Add dependency: `cargo add serde` (or edit Cargo.toml)
-  - Update deps: `cargo update`
-  - Check: `cargo check` (faster than build)
-  - Benchmarks: `cargo bench`
+  **Unit Testing**:
+  ```rust
+  #[cfg(test)]
+  mod tests {
+      use super::*;
+      
+      #[test]
+      fn test_function() {
+          assert_eq!(2 + 2, 4);
+      }
+      
+      #[tokio::test]
+      async fn test_async() {
+          // Async test code
+      }
+  }
+  ```
   
-  **Common Dependency Gotchas** (based on real blockers):
+  **Integration Testing**:
+  - Place tests in `tests/` directory
+  - Run specific test: `cargo test test_name`
+  - Show output: `cargo test -- --nocapture`
+  - Run continuously: `cargo watch -x test`
+  
+  **Common Dependency Gotchas**:
   - **async-graphql + axum**: Use compatible versions
     ```toml
     # These versions work together:
@@ -87,9 +104,8 @@ memory_content: |
     tokio = { version = "1", features = ["full"] }
     async-trait = "0.1"  # Often needed but forgotten
     ```
-  - **Always check compatibility**: Run `cargo tree` to spot version conflicts
+  - **Check compatibility**: Run `cargo tree -d` to spot version conflicts
   - **Pin versions**: Use exact versions (e.g., "=5.0.0") when mixing async crates
-  - **Feature flags**: Many crates need features enabled (e.g., ["chrono"] for DateTime support)
   
   **GraphQL Development Pattern**:
   ```rust
@@ -101,13 +117,3 @@ memory_content: |
       }
   }
   ```
-  
-  **Testing Best Practices**:
-  - Test immediately: `cargo test` after each feature
-  - Integration tests: Place in `tests/` directory
-  - Use `cargo test -- --nocapture` to see println! output
-  
-  **Environment**:
-  - CARGO_HOME: `~/.cargo` (user-specific)
-  - Binaries install to: `~/.cargo/bin` (in PATH)
-  - Rustup: `rustup update` to update Rust

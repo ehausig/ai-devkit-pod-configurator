@@ -258,80 +258,23 @@ Closes #(issue number)
 ## Testing and Automation
 
 ### Testing Philosophy
-**All tests must pass before pushing to GitHub.** Use a polyglot testing approach:
-- **Unit tests**: Language-specific testing frameworks
-- **Integration tests**: `expect`, `tmux`, and `curl` for cross-language compatibility
-- **TUI/CLI tests**: `expect` scripts for interactive program testing
-- **API tests**: `curl` for HTTP endpoints, `expect` for interactive clients
+**All tests must pass before pushing to GitHub.** Use a polyglot testing approach that combines:
+- **Unit tests**: Language-specific testing frameworks for isolated component testing
+- **Integration tests**: Cross-language tools (`expect`, `tmux`, `curl`) for end-to-end testing
+- **Continuous testing**: Run tests frequently during development, not just before commits
 
-### Language-Specific Unit Testing
+### Cross-Language Testing Tools
 
-Use the idiomatic testing framework for each language:
+#### Integration Testing with Expect
 
-**Python**:
-```bash
-# pytest for unit tests
-pytest tests/
-# or unittest
-python -m unittest discover
-```
+For interactive programs (TUIs, CLIs, REPLs), create expect scripts:
 
-**JavaScript/TypeScript**:
-```bash
-# Jest or Vitest
-npm test
-# or
-yarn test
-```
-
-**Rust**:
-```bash
-cargo test
-```
-
-**Go**:
-```bash
-go test ./...
-```
-
-**Java**:
-```bash
-# JUnit with Maven
-mvn test
-# or with Gradle
-gradle test
-```
-
-**Ruby**:
-```bash
-# RSpec
-rspec
-# or Minitest
-ruby -Ilib:test test/test_*.rb
-```
-
-### Integration Testing with Expect
-
-For any interactive programs (TUIs, CLIs, REPLs), create expect scripts:
-
-```bash
-# Directory structure
-tests/
-├── unit/           # Language-specific unit tests
-├── integration/    # Expect scripts for integration tests
-│   ├── test_cli_basic.exp
-│   ├── test_tui_navigation.exp
-│   └── test_api_flow.exp
-└── run_all_tests.sh
-```
-
-**Example integration test** (`tests/integration/test_cli.exp`):
 ```tcl
 #!/usr/bin/expect -f
+# Example: tests/integration/test_cli.exp
 set timeout 10
 log_file tests/integration/test_cli.log
 
-# Test CLI basic functionality
 spawn ./myapp --interactive
 expect {
     "Welcome" { 
@@ -354,16 +297,15 @@ expect eof
 puts "PASS: CLI basic functionality"
 ```
 
-### TUI Testing with tmux
+#### TUI Testing with tmux
 
-For complex TUI applications, combine tmux with expect:
+For complex TUI applications:
 
 ```bash
 #!/bin/bash
 # tests/integration/test_tui_tmux.sh
 
-# Start TUI in tmux
-tmux new-session -d -s test_session 'python tui_app.py'
+tmux new-session -d -s test_session './myapp'
 sleep 1
 
 # Send keystrokes
@@ -383,9 +325,9 @@ fi
 tmux kill-session -t test_session
 ```
 
-### API Testing with curl
+#### API Testing with curl
 
-For HTTP APIs, create curl-based test scripts:
+For HTTP APIs:
 
 ```bash
 #!/bin/bash
@@ -401,23 +343,23 @@ else
     echo "FAIL: Health check (HTTP $response)"
     exit 1
 fi
+```
 
-# Test API endpoint with data
-response=$(curl -s -X POST "$BASE_URL/api/users" \
-    -H "Content-Type: application/json" \
-    -d '{"name":"test","email":"test@example.com"}')
+### Test Organization
 
-if echo "$response" | grep -q '"id"'; then
-    echo "PASS: User creation"
-else
-    echo "FAIL: User creation"
-    exit 1
-fi
+```
+tests/
+├── unit/           # Language-specific unit tests
+├── integration/    # Cross-language integration tests
+│   ├── test_cli_basic.exp
+│   ├── test_tui_navigation.exp
+│   └── test_api_flow.sh
+└── run_all_tests.sh
 ```
 
 ### Pre-Push Testing Workflow
 
-**Always run this before pushing**:
+Create a universal test runner that detects the project type and runs appropriate tests:
 
 ```bash
 #!/bin/bash
@@ -425,36 +367,16 @@ fi
 
 set -e  # Exit on first failure
 
-echo "Running unit tests..."
-case "$(ls -1 | grep -E 'Cargo.toml|package.json|go.mod|pom.xml|Gemfile|setup.py|requirements.txt' | head -1)" in
-    "Cargo.toml")
-        cargo test
-        ;;
-    "package.json")
-        npm test
-        ;;
-    "go.mod")
-        go test ./...
-        ;;
-    "pom.xml")
-        mvn test
-        ;;
-    "Gemfile")
-        bundle exec rspec
-        ;;
-    *".py"|"requirements.txt"|"setup.py")
-        pytest || python -m unittest discover
-        ;;
-esac
+echo "Running tests..."
 
-echo "Running integration tests..."
+# Language-specific unit tests will be detected and run based on project files
+# Integration tests are universal
 for test in tests/integration/*.exp; do
     [ -f "$test" ] || continue
     echo "Running: $test"
     expect "$test" || exit 1
 done
 
-# Run shell-based integration tests
 for test in tests/integration/*.sh; do
     [ -f "$test" ] || continue
     echo "Running: $test"
@@ -464,107 +386,44 @@ done
 echo "All tests passed! Ready to push."
 ```
 
-### Git Hook for Test Enforcement
-
-Install a pre-push hook to ensure tests run:
-
-```bash
-#!/bin/bash
-# .git/hooks/pre-push
-
-echo "Running tests before push..."
-./run_all_tests.sh || {
-    echo "Tests failed! Push aborted."
-    echo "Fix the failing tests before pushing."
-    exit 1
-}
-```
-
 ### Best Practices
 
-1. **Write tests first**: Create expect scripts before implementing features
+1. **Write tests first**: Create integration test scripts before implementing features
 2. **Test immediately**: Run tests after every significant change
-3. **Automate everything**: If you test it manually twice, write an expect script
+3. **Automate everything**: If you test it manually twice, write a test script
 4. **Use tmux for complex TUIs**: Better screen capture and control
 5. **Log test output**: Use `log_file` in expect scripts for debugging
 6. **Version control tests**: Commit test scripts with the code they test
-7. **Document test requirements**: Include test running instructions in README
-
-### Example Development Flow
-
-```bash
-# 1. Create feature branch
-git checkout -b feat/new-tui-menu
-
-# 2. Write integration test first
-cat > tests/integration/test_new_menu.exp << 'EOF'
-#!/usr/bin/expect -f
-spawn python app.py
-expect "Main Menu"
-send "3\r"  # Select new option
-expect "New Feature"
-send "q\r"  # Quit
-expect eof
-EOF
-chmod +x tests/integration/test_new_menu.exp
-
-# 3. Run test (it should fail)
-expect tests/integration/test_new_menu.exp
-
-# 4. Implement feature
-# ... code changes ...
-
-# 5. Run all tests
-./run_all_tests.sh
-
-# 6. Commit with tests
-git add .
-git commit -m "feat: add new menu option with integration tests"
-
-# 7. Push (pre-push hook ensures tests pass)
-git push origin feat/new-tui-menu
-```
-
-This polyglot approach ensures consistent testing across all languages while leveraging the best tools for each testing scenario.
 
 ## Common Development Blockers and Solutions
 
 Based on real-world experience, here are common issues and their solutions:
 
-### 1. Dependency Version Conflicts
-**Problem**: Incompatible versions between related packages
-**Solution**: 
-- Check compatibility before adding dependencies
-- Use `cargo tree -d` (Rust) or `npm ls` (Node.js) to identify conflicts
-- Pin specific versions when mixing async crates or complex dependencies
-
-### 2. Environment Activation Issues
-**Problem**: Standard activation commands fail (e.g., conda activate)
+### 1. Environment Activation Issues
+**Problem**: Standard activation commands fail
 **Solution**:
-- For conda: Use `eval "$(conda shell.bash hook)"` before activate
-- For Python venv: Always use `source .venv/bin/activate`
+- Check language-specific memory_content for environment-specific solutions
 - Test environment commands before building workflows around them
 
-### 3. Path Navigation Restrictions
+### 2. Path Navigation Restrictions
 **Problem**: Security model blocks absolute paths
 **Solution**:
 - Use relative paths: `cd ../other-project` instead of `/home/devuser/workspace/other-project`
 - Stay within ~/workspace/ for all project work
 - Use `pwd` to verify current location
 
-### 4. Missing Dependencies
-**Problem**: Forgetting commonly needed but not obvious dependencies
-**Common misses**:
-- Rust: `async-trait` when using async traits
-- Python: Development tools (black, ruff, mypy)
-- Node.js: Testing frameworks (jest, supertest)
+### 3. Dependency Version Conflicts
+**Problem**: Incompatible versions between related packages
+**Solution**: 
+- Check language-specific memory_content for known compatibility issues
+- Test immediately after adding dependencies
 
-### 5. Testing Delays
+### 4. Testing Delays
 **Problem**: Creating tests but not running them immediately
 **Solution**:
 - Run tests as part of the development flow
-- Use watch modes: `cargo watch -x test`, `npm run test:watch`
-- Create simple "hello world" tests first to verify setup
+- Use language-specific watch modes when available
+- Create simple smoke tests first to verify setup
 
 <!-- ENVIRONMENT_TOOLS_MARKER -->
 <!-- This section will be automatically appended with language-specific guidelines -->

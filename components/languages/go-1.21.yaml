@@ -62,7 +62,6 @@ memory_content: |
   **Development**:
   - Run: `go run .` or `go run main.go`
   - Build: `go build -o myapp`
-  - Test: `go test ./...` or `go test -v ./...`
   - Format: `go fmt ./...`
   - Lint: `go vet ./...`
   
@@ -70,6 +69,45 @@ memory_content: |
   - Built-in functions: `min()`, `max()`, `clear()`
   - Improved type inference
   - Profile-guided optimization: `go build -pgo=profile.pprof`
+  
+  **Unit Testing**:
+  ```go
+  func TestFunction(t *testing.T) {
+      result := Function()
+      if result != expected {
+          t.Errorf("got %v, want %v", result, expected)
+      }
+  }
+  
+  // Table-driven tests
+  func TestWithTable(t *testing.T) {
+      tests := []struct {
+          name string
+          input int
+          want int
+      }{
+          {"positive", 5, 10},
+          {"zero", 0, 0},
+          {"negative", -5, -10},
+      }
+      
+      for _, tt := range tests {
+          t.Run(tt.name, func(t *testing.T) {
+              got := Double(tt.input)
+              if got != tt.want {
+                  t.Errorf("got %v, want %v", got, tt.want)
+              }
+          })
+      }
+  }
+  ```
+  
+  **Testing Commands**:
+  - Run all: `go test ./...`
+  - Verbose: `go test -v ./...`
+  - Coverage: `go test -cover ./...`
+  - Race detector: `go test -race ./...`
+  - Specific test: `go test -run TestName`
   
   **API Development**:
   ```go
@@ -82,22 +120,10 @@ memory_content: |
   http.ListenAndServe(":8080", mux)
   ```
   
-  **Testing Best Practices**:
-  - Table-driven tests for comprehensive coverage
-  - Use `testify` for assertions: `go get github.com/stretchr/testify`
-  - Run with race detector: `go test -race ./...`
-  - Mock interfaces, not implementations
-  - Test immediately after writing code
-  
   **Common Patterns**:
   - Error wrapping: Use `fmt.Errorf("context: %w", err)`
   - Context usage: Pass context.Context as first parameter
   - Graceful shutdown with signal handling
-  
-  **Dependency Tips**:
-  - Use `go mod why` to understand why a dependency exists
-  - Replace directive for local development: `go mod edit -replace`
-  - Vendor for reproducible builds: `go mod vendor`
   
   **Tools**:
   - Install tools: `go install github.com/user/tool@latest`

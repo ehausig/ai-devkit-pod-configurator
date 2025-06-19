@@ -53,23 +53,36 @@ memory_content: |
   - Memory settings: `java -Xmx2g -Xms512m MyApp`
   - Enable GC logging: `java -Xlog:gc* MyApp`
   
-  **Why Adoptium/Temurin?**:
-  - TCK tested for compatibility
-  - Regular security updates
-  - Production-ready JVM
-  - Drop-in replacement for Oracle JDK
+  **Unit Testing**:
+  ```java
+  // JUnit 5
+  @Test
+  void testWithDisplayName() {
+      assertAll("person",
+          () -> assertNotNull(person.getName()),
+          () -> assertTrue(person.getAge() > 0)
+      );
+  }
+  
+  // Parameterized tests
+  @ParameterizedTest
+  @ValueSource(strings = {"hello", "world"})
+  void testWithParams(String value) {
+      assertNotNull(value);
+  }
+  ```
+  
+  **Integration Testing**:
+  - RestAssured for API testing
+  - Testcontainers for database/service containers
+  - WireMock for HTTP mocking
   
   **Microservices with Spring Boot**:
   ```java
   @SpringBootApplication
   @RestController
   public class MicroserviceApp {
-      public static void main(String[] args) {
-          SpringApplication.run(MicroserviceApp.class, args);
-      }
-      
-      @GetMapping("/health")
-      public record Health(String status, long timestamp) {}
+      record Health(String status, long timestamp) {}
       
       @GetMapping("/api/health")
       public Health health() {
@@ -78,16 +91,11 @@ memory_content: |
   }
   ```
   
-  **Build Tool Compatibility**:
-  - Maven 3.6.3+ recommended
-  - Gradle 7.3+ for full Java 17 support
-  - SBT works well with Adoptium builds
-  
-  **Testing Framework Stack**:
-  - JUnit 5.9+ for modern testing
-  - Testcontainers for integration tests
-  - RestAssured for API testing
-  - Run tests continuously: `mvn test` or `gradle test --continuous`
+  **Why Adoptium/Temurin?**:
+  - TCK tested for compatibility
+  - Regular security updates
+  - Production-ready JVM
+  - Drop-in replacement for Oracle JDK
   
   **Performance Tuning**:
   - Use ZGC for low latency: `-XX:+UseZGC`

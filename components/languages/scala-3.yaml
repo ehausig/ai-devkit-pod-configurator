@@ -42,10 +42,22 @@ memory_content: |
   - Run file: `scala MyApp.scala`
   - Compile: `scalac MyApp.scala`
   
-  **Migration from Scala 2**:
-  - Use `-source:3.0-migration` flag
-  - Mix Scala 2/3 code with cross-compilation
-  - Most Scala 2 libraries work with Scala 3
+  **Unit Testing**:
+  ```scala
+  // ScalaTest example
+  class MySpec extends AnyFunSuite {
+    test("addition works") {
+      assert(1 + 1 === 2)
+    }
+  }
+  
+  // MUnit (lightweight alternative)
+  class MySuite extends munit.FunSuite {
+    test("example") {
+      assertEquals(obtained, expected)
+    }
+  }
+  ```
   
   **Quick Examples**:
   ```scala
@@ -59,15 +71,15 @@ memory_content: |
   export math.*
   ```
   
-  **API Development with Scala 3**:
-  - Consider using http4s or Akka HTTP
-  - Pattern matching is enhanced for request routing
+  **API Development**:
+  - Consider http4s or Akka HTTP
+  - Pattern matching enhanced for request routing
   - Union types great for error handling
   
-  **Testing**:
-  - ScalaTest works with Scala 3
-  - Use expect scripts for CLI/TUI applications
-  - Property-based testing with ScalaCheck
+  **Migration from Scala 2**:
+  - Use `-source:3.0-migration` flag
+  - Mix Scala 2/3 code with cross-compilation
+  - Most Scala 2 libraries work with Scala 3
   
   **Build Tools**:
   - SBT is recommended (see SBT section)

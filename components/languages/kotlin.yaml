@@ -46,11 +46,30 @@ memory_content: |
   - Extension functions: `fun String.lastChar() = this[length - 1]`
   - Coroutines: Add kotlinx-coroutines for async
   
-  **Quick Start**:
+  **Unit Testing**:
   ```kotlin
-  // Hello.kt
-  fun main() {
-      println("Hello, Kotlin!")
+  // Using JUnit 5 with Kotlin
+  import org.junit.jupiter.api.Test
+  import org.junit.jupiter.api.Assertions.*
+  
+  class ExampleTest {
+      @Test
+      fun `test something`() {
+          assertEquals(4, 2 + 2)
+      }
+  }
+  
+  // Kotlin test DSL
+  import kotlin.test.*
+  
+  class MyTest {
+      @Test
+      fun testExample() {
+          assertTrue { 1 + 1 == 2 }
+          assertFailsWith<IllegalArgumentException> {
+              throwingFunction()
+          }
+      }
   }
   ```
   
@@ -61,15 +80,24 @@ memory_content: |
       embeddedServer(Netty, port = 8080) {
           routing {
               get("/") { call.respondText("Hello") }
+              get("/api/users/{id}") {
+                  val id = call.parameters["id"]
+                  call.respond(User(id))
+              }
           }
       }.start(wait = true)
   }
   ```
   
-  **Testing Best Practices**:
-  - Use JUnit 5 with Kotlin: Works seamlessly
-  - MockK for mocking: `testImplementation("io.mockk:mockk:1.13.8")`
-  - Run tests immediately: `gradle test` or `mvn test`
+  **Testing with MockK**:
+  ```kotlin
+  // Mocking in Kotlin
+  val mock = mockk<Service>()
+  every { mock.getData() } returns "test data"
+  
+  // Verify calls
+  verify { mock.getData() }
+  ```
   
   **Common Gradle Setup**:
   ```kotlin
@@ -78,12 +106,13 @@ memory_content: |
       implementation("io.ktor:ktor-server-netty:2.3.7")
       implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
       testImplementation(kotlin("test"))
+      testImplementation("io.mockk:mockk:1.13.8")
   }
   ```
   
   **Development Tips**:
   - Use Gradle or Maven for dependency management
-  - Enable null safety checks in IDE
+  - Enable null safety checks
   - Test coroutines with `runBlocking` in tests
   
   **Note**: For Android or complex projects, use Gradle (see Gradle section)

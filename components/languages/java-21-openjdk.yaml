@@ -41,6 +41,21 @@ memory_content: |
   - With preview features: `java --enable-preview --source 21 MyProgram.java`
   - REPL: `jshell` for interactive Java
   
+  **Unit Testing**:
+  ```java
+  // JUnit 5 with virtual threads
+  @Test
+  void testWithVirtualThreads() throws Exception {
+      try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+          var future = executor.submit(() -> {
+              // Test code runs in virtual thread
+              return computeResult();
+          });
+          assertEquals(expected, future.get());
+      }
+  }
+  ```
+  
   **API Development Pattern**:
   ```java
   // Simple HTTP server with Java 21
@@ -58,17 +73,13 @@ memory_content: |
   server.start();
   ```
   
-  **Build Tool Compatibility**:
-  - Maven: Requires 3.8.0+ for Java 21
-  - Gradle: Requires 8.3+ for Java 21
-  - Ensure build tools support your Java version
-  
-  **Testing Best Practices**:
-  - JUnit 5 works great with Java 21
-  - Use virtual threads for concurrent testing
-  - Test immediately: `mvn test` or `gradle test`
+  **Virtual Threads Best Practices**:
+  - Use for I/O-bound operations
+  - No pooling needed - create millions if needed
+  - Avoid synchronized blocks in hot paths
+  - Test with thousands of concurrent operations
   
   **Common Issues**:
   - Module conflicts: Use `--add-opens` if needed
   - Build tool versions: Update to latest for Java 21 support
-  - Library compatibility: Check if dependencies support Java 21
+  - Library compatibility: Most modern libraries support Java 21

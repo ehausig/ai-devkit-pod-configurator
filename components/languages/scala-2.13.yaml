@@ -43,6 +43,25 @@ memory_content: |
   - Improved collections performance
   - Better type inference
   
+  **Unit Testing**:
+  ```scala
+  // ScalaTest
+  class MySpec extends AnyFlatSpec with Matchers {
+    "A Stack" should "pop values in LIFO order" in {
+      val stack = new Stack[Int]
+      stack.push(1).push(2)
+      stack.pop() should be (2)
+    }
+  }
+  
+  // Specs2
+  class MySpec extends Specification {
+    "addition" >> {
+      1 + 1 must_== 2
+    }
+  }
+  ```
+  
   **Common Libraries**:
   - Cats: `"org.typelevel" %% "cats-core" % "2.10.0"`
   - Akka: `"com.typesafe.akka" %% "akka-actor" % "2.8.5"`
@@ -63,20 +82,15 @@ memory_content: |
   Http().bindAndHandle(route, "localhost", 8080)
   ```
   
-  **Dependency Management Tips**:
+  **Dependency Management**:
   - Always use `%%` for Scala libraries (cross-compilation)
   - Use `%` for Java libraries
-  - Check compatibility matrix for Akka/Play versions
+  - Binary compatibility: Scala 2.13 libs won't work with 2.12
   - Run `sbt evicted` to check for conflicts
   
-  **Testing**:
-  - ScalaTest: `"org.scalatest" %% "scalatest" % "3.2.17" % Test`
+  **Testing Best Practices**:
   - Run immediately: `sbt test` or `sbt ~test` for watch mode
   - Property testing: `"org.scalacheck" %% "scalacheck" % "1.17.0"`
-  
-  **Common Issues**:
-  - Binary compatibility: Scala 2.13 libs won't work with 2.12
-  - Use `sbt +compile` for cross-compilation
-  - Clear ivy cache if dependency issues: `rm -rf ~/.ivy2/cache`
+  - Mock with ScalaMock or Mockito-Scala
   
   **Note**: Use SBT for dependency management (see SBT section)

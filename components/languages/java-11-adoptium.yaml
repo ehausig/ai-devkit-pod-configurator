@@ -53,10 +53,25 @@ memory_content: |
   - Run: `java -cp out com.example.Main`
   - JAR creation: `jar cf myapp.jar -C out .`
   
-  **Enterprise Framework Compatibility**:
-  - Spring Boot 2.x works perfectly
-  - Older enterprise apps often require Java 11
-  - Most libraries have excellent Java 11 support
+  **Unit Testing**:
+  ```java
+  // JUnit 5
+  @Test
+  void testMethod() {
+      assertEquals(expected, actual);
+  }
+  
+  // JUnit 4 (still common in Java 11 projects)
+  @Test
+  public void testMethod() {
+      Assert.assertEquals(expected, actual);
+  }
+  ```
+  
+  **Integration Testing**:
+  - Spring Boot Test for web apps
+  - Mockito for mocking dependencies
+  - AssertJ for fluent assertions
   
   **HTTP Client Example (Java 11 feature)**:
   ```java
@@ -76,22 +91,10 @@ memory_content: |
       .join();
   ```
   
-  **Legacy Considerations**:
-  - Many enterprise systems still on Java 11
-  - Stable and mature ecosystem
-  - Consider upgrading path to Java 17/21
-  - Extended support until 2026+
-  
-  **Build Tools**:
-  - Maven 3.5+ compatible
-  - Gradle 5.0+ works well
-  - Ant still supported if needed
-  
-  **Testing Patterns**:
-  - JUnit 4/5 both supported
-  - Mockito 3.x for mocking
-  - AssertJ for fluent assertions
-  - Run tests immediately during development
+  **Enterprise Framework Compatibility**:
+  - Spring Boot 2.x works perfectly
+  - Older enterprise apps often require Java 11
+  - Most libraries have excellent Java 11 support
   
   **Performance Notes**:
   - G1GC is default and works well

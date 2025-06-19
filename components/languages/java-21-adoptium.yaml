@@ -48,11 +48,6 @@ memory_content: |
   - Sequenced collections: `List.reversed()`, `Map.firstEntry()`
   - String templates (preview): Better string interpolation
   
-  **Performance Tips**:
-  - Use G1GC (default): Balanced for most workloads
-  - For low latency: `java -XX:+UseZGC MyApp`
-  - For throughput: `java -XX:+UseParallelGC MyApp`
-  
   **Virtual Threads Example**:
   ```java
   // Handle thousands of concurrent requests efficiently
@@ -63,6 +58,21 @@ memory_content: |
               processRequest(i);
           })
       );
+  }
+  ```
+  
+  **Unit Testing with Virtual Threads**:
+  ```java
+  @Test
+  void testConcurrentRequests() throws Exception {
+      try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+          var futures = IntStream.range(0, 1000)
+              .mapToObj(i -> executor.submit(() -> makeRequest()))
+              .toList();
+          
+          // Wait for all to complete
+          futures.forEach(f -> assertDoesNotThrow(f::get));
+      }
   }
   ```
   
@@ -78,28 +88,18 @@ memory_content: |
   server.start();
   ```
   
-  **Build Tool Requirements**:
-  - Maven 3.8.0+ for Java 21
-  - Gradle 8.3+ for Java 21
-  - Ensure all plugins support Java 21
+  **Performance Tips**:
+  - Use G1GC (default): Balanced for most workloads
+  - For low latency: `java -XX:+UseZGC MyApp`
+  - For throughput: `java -XX:+UseParallelGC MyApp`
   
-  **Testing with Virtual Threads**:
-  ```java
-  @Test
-  void testConcurrentRequests() throws Exception {
-      try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-          var futures = IntStream.range(0, 1000)
-              .mapToObj(i -> executor.submit(() -> makeRequest()))
-              .toList();
-          
-          // Wait for all to complete
-          futures.forEach(f -> assertDoesNotThrow(f::get));
-      }
-  }
-  ```
+  **Testing Best Practices**:
+  - Test with thousands of virtual threads
+  - Use JUnit 5.10+ for better virtual thread support
+  - Profile with JFR to understand thread behavior
   
   **Migration Tips**:
   - Virtual threads are drop-in replacements for platform threads
   - No pooling needed - create as many as you want
   - Ideal for I/O-bound workloads
-  - Test with thousands of concurrent operations
+  - Avoid synchronized blocks in hot paths

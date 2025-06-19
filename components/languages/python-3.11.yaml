@@ -42,7 +42,29 @@ memory_content: |
   - Activate: `source .venv/bin/activate`
   - Upgrade pip: `python -m pip install --upgrade pip`
   
-  **Common TUI Development Stack**:
+  **Unit Testing**:
+  ```python
+  # pytest (recommended)
+  pip install pytest pytest-asyncio pytest-cov
+  
+  # test_example.py
+  import pytest
+  
+  def test_simple():
+      assert 1 + 1 == 2
+  
+  @pytest.mark.asyncio
+  async def test_async():
+      result = await async_function()
+      assert result == expected
+  
+  # Run tests
+  pytest
+  pytest -v --cov=mypackage
+  pytest -k "test_name"  # Run specific test
+  ```
+  
+  **TUI Development Stack**:
   ```bash
   # For Textual-based TUIs
   pip install textual textual-dev
@@ -54,18 +76,19 @@ memory_content: |
   pip install black ruff mypy pytest pytest-asyncio
   ```
   
-  **Testing TUI Applications**:
-  - Use expect scripts for automated testing
-  - Create test fixtures for consistent state
-  - Mock API calls during development
-  
-  **Virtual Environment Best Practices**:
-  - Always use venv for projects: `python -m venv .venv`
-  - Activate before installing: `source .venv/bin/activate`
-  - Create requirements.txt: `pip freeze > requirements.txt`
-  - Install from requirements: `pip install -r requirements.txt`
+  **Integration Testing**:
+  - Use pytest fixtures for setup/teardown
+  - Mock external APIs with `pytest-mock`
+  - Test async code with `pytest-asyncio`
+  - Use expect scripts for TUI testing
   
   **Development Tools**:
-  - Type checking: `pip install mypy && mypy script.py`
-  - Formatting: `pip install black && black .`
-  - Linting: `pip install ruff && ruff check .`
+  - Type checking: `mypy script.py`
+  - Formatting: `black .`
+  - Linting: `ruff check .`
+  - Debug: `python -m pdb script.py`
+  
+  **Performance Features**:
+  - Specialized adaptive interpreter
+  - Zero-cost exception handling (when no exceptions)
+  - Faster startup time

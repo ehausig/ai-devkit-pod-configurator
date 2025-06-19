@@ -45,12 +45,12 @@ memory_content: |
   - Clean: `mvn clean`
   - Full build: `mvn clean package`
   
-  **Useful Options**:
-  - Skip tests: `mvn package -DskipTests`
-  - Offline mode: `mvn -o package`
-  - Debug output: `mvn -X compile`
+  **Testing with Maven**:
+  - Run all tests: `mvn test`
   - Specific test: `mvn test -Dtest=MyTest`
-  - Parallel builds: `mvn -T 4 clean package` (4 threads)
+  - Skip tests: `mvn package -DskipTests`
+  - Test reports: `mvn surefire-report:report`
+  - Integration tests: `mvn verify`
   
   **Dependency Management**:
   - Show tree: `mvn dependency:tree`
@@ -58,20 +58,15 @@ memory_content: |
   - Download sources: `mvn dependency:sources`
   - Analyze deps: `mvn dependency:analyze`
   
-  **Common Dependency Issues**:
-  - Version conflicts: Use `mvn dependency:tree -Dverbose` to see all versions
+  **Common Issues & Solutions**:
+  - Version conflicts: Use `mvn dependency:tree -Dverbose`
   - Force update: `mvn clean install -U`
   - Clear local cache: `rm -rf ~/.m2/repository/com/example/problematic-artifact`
   
-  **Testing Best Practices**:
-  - Run single test: `mvn test -Dtest=TestClass#testMethod`
-  - Test in watch mode: Use `mvn-watch` plugin or IDE
-  - Generate reports: `mvn surefire-report:report`
-  
   **Performance Tips**:
-  - Use daemon: `mvnd` (Maven Daemon) for faster builds
-  - Skip unnecessary plugins: `-Dmaven.javadoc.skip=true`
-  - Incremental compilation with `-Dmaven.compiler.useIncrementalCompilation=true`
+  - Parallel builds: `mvn -T 4 clean package` (4 threads)
+  - Skip unnecessary: `-Dmaven.javadoc.skip=true`
+  - Use daemon: `mvnd` for faster builds
   
   **Local repo**: `~/.m2/repository`
-  **Settings**: `~/.m2/settings.xml` (create if needed)
+  **Settings**: `~/.m2/settings.xml`

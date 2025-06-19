@@ -63,23 +63,43 @@ memory_content: |
   **Development**:
   - Build: `cargo +nightly build`
   - Run: `cargo +nightly run`
-  - Test unstable: `cargo +nightly test`
   - **Watch mode**: `cargo watch -x "run +nightly"`
   - Watch tests: `cargo watch -x "test +nightly"`
-  - Watch with features: `cargo watch -x "run +nightly --features unstable"`
+  
+  **Unit Testing**:
+  ```rust
+  #[cfg(test)]
+  mod tests {
+      use super::*;
+      
+      #[test]
+      fn test_basic() {
+          assert_eq!(2 + 2, 4);
+      }
+      
+      #[tokio::test]
+      async fn test_async() {
+          let result = async_function().await;
+          assert_eq!(result, expected);
+      }
+  }
+  ```
+  
+  **Integration Testing**:
+  - Place in `tests/` directory
+  - Run with: `cargo +nightly test`
+  - Use `--nocapture` to see println! output
   
   **Common Dependency Gotchas** (apply to nightly too):
   - **async-graphql + axum**: Use compatible versions
     ```toml
-    # These versions work together:
     async-graphql = { version = "5.0", features = ["chrono"] }
     async-graphql-axum = "5.0"
     axum = "0.6"
     tokio = { version = "1", features = ["full"] }
-    async-trait = "0.1"  # Often needed but forgotten
+    async-trait = "0.1"
     ```
-  - **Always check compatibility**: Run `cargo tree -d` to spot version conflicts
-  - **Feature flags**: Many crates need features enabled (e.g., ["chrono"] for DateTime support)
+  - **Check compatibility**: Run `cargo tree -d` to spot conflicts
   
   **Advanced Tools**:
   - Miri (interpreter): `rustup +nightly component add miri`
@@ -93,7 +113,7 @@ memory_content: |
   
   **Testing Best Practices**:
   - Run tests immediately: `cargo test` after each feature
-  - Use `cargo test -- --nocapture` to see println! output
-  - Run `cargo check` frequently during development
+  - Test with different feature flags
+  - Use property-based testing with `proptest`
   
   **Warning**: Nightly may have breaking changes. Pin versions in CI.

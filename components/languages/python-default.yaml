@@ -35,13 +35,46 @@ memory_content: |
   - Create virtual env: `python -m venv .venv`
   - Activate venv: `source .venv/bin/activate`
   
-  **Best Practices**:
-  - Always use virtual environments for projects
-  - System pip installs to `~/.local/bin` (already in PATH)
-  - Freeze dependencies: `pip freeze > requirements.txt`
-  - Install from file: `pip install -r requirements.txt`
+  **Virtual Environment Best Practices**:
+  - Always use venv for projects
+  - Create: `python -m venv .venv`
+  - Activate: `source .venv/bin/activate`
+  - Deactivate: `deactivate`
+  - Requirements: `pip freeze > requirements.txt`
+  
+  **Unit Testing**:
+  ```python
+  # Using pytest (recommended)
+  pip install pytest pytest-cov
+  
+  # test_example.py
+  def test_function():
+      assert function_under_test() == expected_value
+  
+  # Run tests
+  pytest
+  pytest -v  # verbose
+  pytest --cov=mypackage  # with coverage
+  ```
+  
+  **Built-in unittest**:
+  ```python
+  import unittest
+  
+  class TestExample(unittest.TestCase):
+      def test_method(self):
+          self.assertEqual(actual, expected)
+  
+  # Run: python -m unittest discover
+  ```
   
   **Common Tasks**:
   - Run script: `python script.py`
   - Interactive mode: `python -i script.py`
   - Module mode: `python -m http.server 8000`
+  - Type checking: `pip install mypy && mypy script.py`
+  
+  **Development Tools**:
+  - Format code: `pip install black && black .`
+  - Lint: `pip install ruff && ruff check .`
+  - Debug: `python -m pdb script.py`

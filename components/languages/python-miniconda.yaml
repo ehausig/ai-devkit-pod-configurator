@@ -84,6 +84,16 @@ memory_content: |
   - Search: `conda search package`
   - Update all: `conda update --all`
   
+  **Unit Testing**:
+  ```bash
+  # Install test frameworks
+  conda install pytest pytest-asyncio pytest-cov
+  
+  # Run tests
+  pytest tests/
+  pytest -v --cov=mypackage tests/
+  ```
+  
   **TUI Development Stack**:
   ```bash
   conda create -n tui-dev python=3.11
@@ -91,6 +101,7 @@ memory_content: |
   conda activate tui-dev
   pip install textual textual-dev
   pip install gql[aiohttp] aiohttp pydantic
+  pip install pytest pytest-asyncio
   ```
   
   **Best Practices**:
@@ -99,6 +110,3 @@ memory_content: |
   - Mix pip carefully: Use `pip` only after `conda` installs
   - Clean cache: `conda clean -a` to free space
   - **Test immediately**: Run your app after installing dependencies
-  
-  **Data Science Stack**:
-  - Quick setup: `conda install numpy pandas matplotlib jupyter scikit-learn`

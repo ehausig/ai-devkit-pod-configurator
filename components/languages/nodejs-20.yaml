@@ -91,17 +91,21 @@ memory_content: |
   - Install dev dependency: `npm install --save-dev package-name`
   - Initialize project: `npm init -y`
   - Run scripts: `npm run script-name`
-  - Update packages: `npm update`
-  - List installed: `npm list`
   
-  **Package.json Scripts**:
-  - Define in `"scripts"` section
-  - Common scripts: `start`, `test`, `build`, `dev`
-  - Run with: `npm run <script-name>`
+  **Unit Testing**:
+  ```javascript
+  // Install testing tools
+  npm install --save-dev jest supertest
   
-  **npx (Package Runner)**:
-  - Run packages without installing: `npx package-name`
-  - Create projects: `npx create-react-app myapp`
+  // package.json scripts
+  {
+    "scripts": {
+      "test": "jest",
+      "test:watch": "jest --watch",
+      "test:coverage": "jest --coverage"
+    }
+  }
+  ```
   
   **Common Development Patterns**:
   ```json
@@ -116,13 +120,13 @@ memory_content: |
   }
   ```
   
-  **Testing Best Practices**:
-  - Install testing tools: `npm install --save-dev jest supertest`
-  - Run tests immediately: `npm test` after each feature
-  - Use watch mode during development: `npm run test:watch`
+  **Integration Testing**:
+  - API testing with supertest
+  - E2E testing with Playwright or Cypress
+  - Use expect scripts for CLI tools
   
   **Best Practices**:
   - Use `package-lock.json` for reproducible installs
-  - Packages install to `~/.npm-global` (global) or `node_modules` (local)
   - Check for vulnerabilities: `npm audit`
-  - Always test after installing dependencies
+  - Run tests immediately: `npm test` after each feature
+  - Use watch mode during development: `npm run test:watch`
