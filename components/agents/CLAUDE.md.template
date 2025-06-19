@@ -4,53 +4,6 @@
 
 Please communicate in a conversational, helpful manner similar to Claude chat. Be clear and informative while maintaining a friendly tone. Provide context for decisions and explain complex concepts when needed.
 
-## Git Commit Conventions
-
-Follow the Conventional Commits specification (https://www.conventionalcommits.org/):
-
-```
-<type>(<scope>): <subject>
-
-<body>
-
-<footer>
-```
-
-### Allowed Types:
-- `feat`: New feature
-- `fix`: Bug fix
-- `docs`: Documentation only changes
-- `style`: Changes that don't affect code meaning (formatting, missing semicolons, etc.)
-- `refactor`: Code change that neither fixes a bug nor adds a feature
-- `perf`: Performance improvements
-- `test`: Adding or updating tests
-- `chore`: Changes to build process, auxiliary tools, or maintenance tasks
-- `ci`: Changes to CI configuration files and scripts
-- `build`: Changes affecting build system or external dependencies
-
-### Guidelines:
-- Subject line: max 50 characters, imperative mood ("add" not "added")
-- Body: wrap at 72 characters, explain what and why (not how)
-- Footer: reference issues, breaking changes with `BREAKING CHANGE:`
-- Scope is optional but encouraged when relevant
-
-### Examples:
-```
-feat(auth): add OAuth2 integration
-
-Implement OAuth2 flow for third-party authentication providers.
-Supports Google and GitHub initially.
-
-Closes #123
-```
-
-```
-fix: prevent race condition in data sync
-
-The synchronization logic now uses proper mutex locking to prevent
-concurrent writes to the shared data structure.
-```
-
 ## Code Philosophy
 
 ### General Principles
@@ -59,26 +12,18 @@ concurrent writes to the shared data structure.
 - **Be Idiomatic**: Follow the conventions and patterns of the language
 - **Clarity First**: Readable code is better than clever code
 
-### Development Approach
-- Use Test-Driven Development (TDD) when appropriate
+### General Development Approach
 - Test and commit frequently
-- Do not push commits to GitHub until unit and integration tests succeed
-- For multi-project endeavors, focus on dependent systems first (e.g. APIs before UIs)
-- Write unit tests with language-appropriate framework
-- Write integration tests with `expect` scripts
+- Do not push commits until unit and integration tests succeed
+- Create and test APIs before creating and testing UIs
+- Use language-appropriate testing framework for unit tests
+- Use `expect` scripts and `tmux` for integration and TUI tests
 - Avoid premature optimization and over-engineering
-- Apply SOLID principles only when they add clear value
-
-### Creating an Editing files
-When creating a new file, avoid permissions errors by:
-1. Create the parent folder first (e.g. `mkdir -p <parent path>`)  
-2. Create a blank file with `touch` command
-3. Read() the empty file and then Edit() it
-
-When editing an existing file:
-1. Read() the file then Edit() it to avoid permissions errors
-
-Never create or edit files above the `~/workspace/` or `/home/devuser/workspace` directory
+- Create parent folder with `mkdir -p` before creating file
+- Avoid permissions errors creating files by using `touch` to create file, then Read(), then Edit()
+- Avoid permissions errors editing files by first using Read() and then Edit()
+- Never create or edit files above the `~/workspace/` or `/home/devuser/workspace` directory
+- Create and append to a ~/workspace/JOURNAL.md file key decisions, milestones, and blockers as you work
 
 ### Code Quality
 - Use descriptive, meaningful variable and function names
@@ -163,18 +108,13 @@ How to run tests
 ```
 
 ### Documentation Guidelines
-- Start with a minimal README and expand as the project matures
+- Start with a minimal README.md and expand as the project matures
 - Document complex algorithms inline with clear comments
 - Use language-specific documentation formats (JSDoc, docstrings, etc.)
-- Rely on git commit messages as the changelog during development
-- Maintain a JOURNAL.md file in the ~/workspace/ folder and append to it
-important decisions, milestones, and blockers as you perform your work.
 
 ## Security Considerations
 
 ### File System Access
-- **Never** access or manipulate files outside of the claude user's home directory (~)
-- All file operations should be contained within ~/workspace or other subdirectories of ~
 - Do not attempt to access the host file system outside the container
 - If a task requires access outside ~, explain the limitation and suggest alternatives
 
@@ -203,38 +143,6 @@ important decisions, milestones, and blockers as you perform your work.
 - **Check compatibility first**: Verify version compatibility before adding dependencies
 - **Test after adding**: Always run tests after adding new dependencies
 
-### Common Dependency Issues and Solutions
-
-#### Rust Async Crate Compatibility
-When using multiple async crates together, version conflicts are common:
-```toml
-# Known working combinations:
-[dependencies]
-async-graphql = { version = "5.0", features = ["chrono"] }
-async-graphql-axum = "5.0"
-axum = "0.6"
-tokio = { version = "1", features = ["full"] }
-async-trait = "0.1"
-
-# Use cargo tree to check for conflicts:
-# cargo tree -d  # Shows duplicate dependencies
-```
-
-#### Python Virtual Environments
-Always use virtual environments to avoid conflicts:
-```bash
-# Create and activate before installing
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-#### Node.js Lock Files
-Always commit package-lock.json for reproducible builds:
-```bash
-npm ci  # Use instead of npm install in CI/production
-```
-
 ## Code Review Preferences
 
 When reviewing code changes:
@@ -248,7 +156,54 @@ When reviewing code changes:
 
 Provide constructive feedback with specific suggestions for improvement.
 
-## Git Workflow
+## Git Approach
+
+### Git Commit Conventions
+
+Follow the Conventional Commits specification (https://www.conventionalcommits.org/):
+
+```
+<type>(<scope>): <subject>
+
+<body>
+
+<footer>
+```
+
+#### Allowed Types:
+- `feat`: New feature
+- `fix`: Bug fix
+- `docs`: Documentation only changes
+- `style`: Changes that don't affect code meaning (formatting, missing semicolons, etc.)
+- `refactor`: Code change that neither fixes a bug nor adds a feature
+- `perf`: Performance improvements
+- `test`: Adding or updating tests
+- `chore`: Changes to build process, auxiliary tools, or maintenance tasks
+- `ci`: Changes to CI configuration files and scripts
+- `build`: Changes affecting build system or external dependencies
+
+#### Guidelines:
+- Subject line: max 50 characters, imperative mood ("add" not "added")
+- Body: wrap at 72 characters, explain what and why (not how)
+- Footer: reference issues, breaking changes with `BREAKING CHANGE:`
+- Scope is optional but encouraged when relevant
+
+#### Examples:
+```
+feat(auth): add OAuth2 integration
+
+Implement OAuth2 flow for third-party authentication providers.
+Supports Google and GitHub initially.
+
+Closes #123
+```
+
+```
+fix: prevent race condition in data sync
+
+The synchronization logic now uses proper mutex locking to prevent
+concurrent writes to the shared data structure.
+```
 
 ### Branch Naming Convention
 Use descriptive branch names that align with the change type:
@@ -259,44 +214,19 @@ Use descriptive branch names that align with the change type:
 - `refactor/description` - Code refactoring
 - `test/description` - Test additions or updates
 
-### GitHub Repository Setup
-When creating repositories with Claude Code, configure them for efficient autonomous workflow:
+### New GitHub Repositories
 
-1. **Enable Auto-merge**: Allow PRs to be automatically merged when checks pass
+- **LICENSE**: If user does not provide a LICENSE, use `gh repo create --license MIT` to create the repo
+- **Enable Auto-merge**: Allow PRs to be automatically merged when checks pass
    ```bash
    gh repo edit --enable-auto-merge
    ```
-
-2. **Disable PR approval requirements** for personal/development repos:
+- **Disable PR approval requirements** for personal/development repos:
    ```bash
    # Via GitHub UI: Settings → Branches → Edit protection rules
    # Uncheck "Require pull request reviews before merging"
    # Or set "Required approving reviews" to 0
    ```
-3. Always prompt the user for which license (MIT, Apache, etc.) they would like 
-to use and ensure that the corresponding LICENSE file exists in the root of the 
-repo in GitHub upon initialization
-
-## Recommended Solo Developer Workflow
-For maximum efficiency when working alone with Claude Code:
-```bash
-# 1. Create feature branch and make changes
-git checkout -b feat/new-feature
-# ... make changes ...
-git add .
-git commit -m "feat: implement new feature"
-
-# 2. Push and create PR with auto-merge
-git push -u origin feat/new-feature
-gh pr create --title "feat: implement new feature" --body "Description"
-gh pr merge --auto --squash --delete-branch
-
-# 3. Or for simpler flow, work directly on main
-git checkout main
-# ... make changes ...
-git commit -am "feat: implement new feature"
-git push
-```
 
 ### Pull Request Template
 When creating PRs, include:
@@ -325,117 +255,277 @@ Brief description of changes
 Closes #(issue number)
 ```
 
-### Using Expect for Testing and Automation
+## Testing and Automation
 
-The environment includes `expect` and `autoexpect` tools for automating interactive 
-programs, such as TUIs and CLIs, as well as integration tests. Use these tools to enhance development autonomy:
+### Testing Philosophy
+**All tests must pass before pushing to GitHub.** Use a polyglot testing approach:
+- **Unit tests**: Language-specific testing frameworks
+- **Integration tests**: `expect`, `tmux`, and `curl` for cross-language compatibility
+- **TUI/CLI tests**: `expect` scripts for interactive program testing
+- **API tests**: `curl` for HTTP endpoints, `expect` for interactive clients
 
-#### When to Use Expect
-- **Testing TUI applications**: Automate user input for text-based interfaces
-- **API client testing**: Script interactive authentication or configuration flows  
-- **CLI tool validation**: Test command-line tools that require user input
-- **Setup automation**: Handle installation wizards or configuration prompts
-- **Regression testing**: Ensure interactive flows work consistently
+### Language-Specific Unit Testing
 
-#### Basic Expect Patterns
+Use the idiomatic testing framework for each language:
 
-**Simple interaction script** (`test_interactive.exp`):
+**Python**:
+```bash
+# pytest for unit tests
+pytest tests/
+# or unittest
+python -m unittest discover
+```
+
+**JavaScript/TypeScript**:
+```bash
+# Jest or Vitest
+npm test
+# or
+yarn test
+```
+
+**Rust**:
+```bash
+cargo test
+```
+
+**Go**:
+```bash
+go test ./...
+```
+
+**Java**:
+```bash
+# JUnit with Maven
+mvn test
+# or with Gradle
+gradle test
+```
+
+**Ruby**:
+```bash
+# RSpec
+rspec
+# or Minitest
+ruby -Ilib:test test/test_*.rb
+```
+
+### Integration Testing with Expect
+
+For any interactive programs (TUIs, CLIs, REPLs), create expect scripts:
+
+```bash
+# Directory structure
+tests/
+├── unit/           # Language-specific unit tests
+├── integration/    # Expect scripts for integration tests
+│   ├── test_cli_basic.exp
+│   ├── test_tui_navigation.exp
+│   └── test_api_flow.exp
+└── run_all_tests.sh
+```
+
+**Example integration test** (`tests/integration/test_cli.exp`):
 ```tcl
 #!/usr/bin/expect -f
 set timeout 10
+log_file tests/integration/test_cli.log
 
-spawn ./my_tui_app
-expect "Enter username:"
-send "testuser\r"
-expect "Enter password:"  
-send "testpass\r"
-expect "Main menu>"
-send "1\r"
-expect eof
-```
-
-**Using autoexpect to record interactions**:
-```bash
-# Record an interaction session
-autoexpect -f test_session.exp ./my_interactive_app
-# This creates test_session.exp with your recorded actions
-
-# Edit and clean up the generated script
-vim test_session.exp
-
-# Run the recorded script
-expect test_session.exp
-```
-
-**Testing API client with expect**:
-```tcl
-#!/usr/bin/expect -f
-spawn python api_client.py
-
-expect "API endpoint:"
-send "https://api.example.com\r"
-
-expect "Authentication method"
-send "2\r"  ;# Choose OAuth
-
-expect "Client ID:"
-send "$env(CLIENT_ID)\r"
-
-expect "Client Secret:"
-send "$env(CLIENT_SECRET)\r"
-
-expect ">"
-send "GET /users\r"
-
+# Test CLI basic functionality
+spawn ./myapp --interactive
 expect {
-    "200 OK" { puts "API test passed" }
-    timeout { puts "API test failed - timeout" }
+    "Welcome" { 
+        send "help\r"
+        exp_continue
+    }
+    "Commands:" {
+        send "status\r"
+        exp_continue
+    }
+    "Status: OK" {
+        send "exit\r"
+    }
+    timeout {
+        puts "FAIL: CLI test timeout"
+        exit 1
+    }
+}
+expect eof
+puts "PASS: CLI basic functionality"
+```
+
+### TUI Testing with tmux
+
+For complex TUI applications, combine tmux with expect:
+
+```bash
+#!/bin/bash
+# tests/integration/test_tui_tmux.sh
+
+# Start TUI in tmux
+tmux new-session -d -s test_session 'python tui_app.py'
+sleep 1
+
+# Send keystrokes
+tmux send-keys -t test_session Down Enter
+sleep 0.5
+
+# Capture and verify screen
+tmux capture-pane -t test_session -p > output.txt
+if grep -q "Expected Menu Item" output.txt; then
+    echo "PASS: Menu navigation"
+else
+    echo "FAIL: Menu navigation"
+    tmux kill-session -t test_session
+    exit 1
+fi
+
+tmux kill-session -t test_session
+```
+
+### API Testing with curl
+
+For HTTP APIs, create curl-based test scripts:
+
+```bash
+#!/bin/bash
+# tests/integration/test_api.sh
+
+BASE_URL="http://localhost:8080"
+
+# Test health endpoint
+response=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/health")
+if [ "$response" = "200" ]; then
+    echo "PASS: Health check"
+else
+    echo "FAIL: Health check (HTTP $response)"
+    exit 1
+fi
+
+# Test API endpoint with data
+response=$(curl -s -X POST "$BASE_URL/api/users" \
+    -H "Content-Type: application/json" \
+    -d '{"name":"test","email":"test@example.com"}')
+
+if echo "$response" | grep -q '"id"'; then
+    echo "PASS: User creation"
+else
+    echo "FAIL: User creation"
+    exit 1
+fi
+```
+
+### Pre-Push Testing Workflow
+
+**Always run this before pushing**:
+
+```bash
+#!/bin/bash
+# run_all_tests.sh
+
+set -e  # Exit on first failure
+
+echo "Running unit tests..."
+case "$(ls -1 | grep -E 'Cargo.toml|package.json|go.mod|pom.xml|Gemfile|setup.py|requirements.txt' | head -1)" in
+    "Cargo.toml")
+        cargo test
+        ;;
+    "package.json")
+        npm test
+        ;;
+    "go.mod")
+        go test ./...
+        ;;
+    "pom.xml")
+        mvn test
+        ;;
+    "Gemfile")
+        bundle exec rspec
+        ;;
+    *".py"|"requirements.txt"|"setup.py")
+        pytest || python -m unittest discover
+        ;;
+esac
+
+echo "Running integration tests..."
+for test in tests/integration/*.exp; do
+    [ -f "$test" ] || continue
+    echo "Running: $test"
+    expect "$test" || exit 1
+done
+
+# Run shell-based integration tests
+for test in tests/integration/*.sh; do
+    [ -f "$test" ] || continue
+    echo "Running: $test"
+    bash "$test" || exit 1
+done
+
+echo "All tests passed! Ready to push."
+```
+
+### Git Hook for Test Enforcement
+
+Install a pre-push hook to ensure tests run:
+
+```bash
+#!/bin/bash
+# .git/hooks/pre-push
+
+echo "Running tests before push..."
+./run_all_tests.sh || {
+    echo "Tests failed! Push aborted."
+    echo "Fix the failing tests before pushing."
+    exit 1
 }
 ```
 
-#### Best Practices for Expect Scripts
-1. **Set appropriate timeouts**: Use `set timeout` for operations that might take time
-2. **Handle multiple outcomes**: Use `expect { pattern1 {} pattern2 {} }` syntax
-3. **Use environment variables**: For sensitive data like passwords or API keys
-4. **Make scripts idempotent**: Ensure they can run multiple times safely
-5. **Add error handling**: Check for unexpected responses or failures
-6. **Comment thoroughly**: Explain what each interaction is testing
+### Best Practices
 
-#### Integration with Development Workflow
-- Create `tests/expect/` directory for expect scripts
-- Name scripts descriptively: `test_auth_flow.exp`, `test_menu_navigation.exp`
-- Run expect tests as part of your test suite:
-  ```bash
-  #!/bin/bash
-  # run_tui_tests.sh
-  for test in tests/expect/*.exp; do
-      echo "Running $test..."
-      expect "$test" || exit 1
-  done
-  ```
+1. **Write tests first**: Create expect scripts before implementing features
+2. **Test immediately**: Run tests after every significant change
+3. **Automate everything**: If you test it manually twice, write an expect script
+4. **Use tmux for complex TUIs**: Better screen capture and control
+5. **Log test output**: Use `log_file` in expect scripts for debugging
+6. **Version control tests**: Commit test scripts with the code they test
+7. **Document test requirements**: Include test running instructions in README
 
-#### Example: TUI App Development Workflow
+### Example Development Flow
+
 ```bash
-# 1. Develop TUI feature
-python tui_app.py
+# 1. Create feature branch
+git checkout -b feat/new-tui-menu
 
-# 2. Record interaction for testing
-autoexpect -f tests/expect/feature_test.exp python tui_app.py
+# 2. Write integration test first
+cat > tests/integration/test_new_menu.exp << 'EOF'
+#!/usr/bin/expect -f
+spawn python app.py
+expect "Main Menu"
+send "3\r"  # Select new option
+expect "New Feature"
+send "q\r"  # Quit
+expect eof
+EOF
+chmod +x tests/integration/test_new_menu.exp
 
-# 3. Clean up and enhance the generated script
-vim tests/expect/feature_test.exp
+# 3. Run test (it should fail)
+expect tests/integration/test_new_menu.exp
 
-# 4. Add to automated test suite
-echo "expect tests/expect/feature_test.exp" >> run_tests.sh
+# 4. Implement feature
+# ... code changes ...
+
+# 5. Run all tests
+./run_all_tests.sh
+
+# 6. Commit with tests
+git add .
+git commit -m "feat: add new menu option with integration tests"
+
+# 7. Push (pre-push hook ensures tests pass)
+git push origin feat/new-tui-menu
 ```
 
-#### Testing Best Practices
-- **Run tests immediately**: Execute tests as soon as they're created
-- **Test integration early**: Don't wait until the end to test component interaction
-- **Use expect for validation**: Automate checking of interactive flows
-- **Document test failures**: Keep notes on what went wrong for future reference
-
-By actively using expect for testing interactive programs, you can develop more robust TUI applications and API clients with comprehensive automated testing, reducing manual testing burden and catching regressions early.
+This polyglot approach ensures consistent testing across all languages while leveraging the best tools for each testing scenario.
 
 ## Common Development Blockers and Solutions
 
