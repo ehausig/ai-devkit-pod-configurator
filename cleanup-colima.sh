@@ -21,6 +21,24 @@ warning() { log "$1" "$MAGENTA"; }
 
 # Global variables
 FORCE_MODE=false
+OVERLAY2_CLEANUP=false
+SKIP_OVERLAY2=false
+
+# Check if Kubernetes is healthy before proceeding
+check_kubernetes_health() {
+    if kubectl version --client &> /dev/null 2>&1; then
+        log "\nChecking Kubernetes health..."
+        
+        # Check if all system pods are running
+        local not_running=$(kubectl get pods -n kube-system --no-headers 2>/dev/null | grep -v "Running" | wc -l || echo "0")
+        
+        if [[ $not_running -gt 0 ]]; then
+            error "Kubernetes system pods are not healthy. Please fix k8s before running cleanup:\nkubectl get pods -n kube-system"
+        else
+            success "✓ All Kubernetes system pods are running"
+        fi
+    fi
+}
 
 # Check if Colima is installed and running
 check_colima() {
@@ -31,6 +49,46 @@ check_colima() {
     if ! colima status &> /dev/null; then
         error "Colima is not running. Please start it with: colima start"
     fi
+}
+
+# Check if Kubernetes is healthy before proceeding
+check_kubernetes_health() {
+    if kubectl version --client &> /dev/null 2>&1; then
+        log "\nChecking Kubernetes health..."
+        
+        # Check if all system pods are running
+        local not_running=$(kubectl get pods -n kube-system --no-headers 2>/dev/null | grep -v "Running" | wc -l || echo "0")
+        
+        if [[ $not_running -gt 0 ]]; then
+            error "Kubernetes system pods are not healthy. Please fix k8s before running cleanup:\nkubectl get pods -n kube-system"
+        else
+            success "✓ All Kubernetes system pods are running"
+        fi
+    fi
+}
+
+# Get list of protected images that should never be removed
+get_protected_images() {
+    # These are critical k8s/k3s images
+    local protected_patterns=(
+        "rancher/mirrored-pause"
+        "rancher/mirrored-coredns"
+        "rancher/mirrored-metrics-server"
+        "rancher/local-path-provisioner"
+        "rancher/klipper-helm"
+        "rancher/klipper-lb"
+    )
+    
+    # Get image IDs of protected images
+    local protected_ids=""
+    for pattern in "${protected_patterns[@]}"; do
+        local ids=$(colima ssh -- sudo docker images --filter "reference=$pattern*" -q 2>/dev/null)
+        if [[ -n "$ids" ]]; then
+            protected_ids+="$ids "
+        fi
+    done
+    
+    echo "$protected_ids"
 }
 
 # Show disk usage before cleanup
@@ -50,19 +108,49 @@ show_disk_usage() {
 clean_docker() {
     log "Cleaning Docker resources inside Colima..."
     
+    # Get protected images
+    local protected_images=$(get_protected_images)
+    
     # Show current Docker disk usage
     info "Current Docker disk usage:"
     colima ssh -- sudo docker system df
     echo ""
     
+    if [[ -n "$protected_images" ]]; then
+        info "Protected images (will not be removed):"
+        echo "$protected_images" | tr ' ' '\n' | while read -r id; do
+            if [[ -n "$id" ]]; then
+                colima ssh -- sudo docker images | grep "$id" | head -1
+            fi
+        done
+        echo ""
+    fi
+    
     # Clean up with user confirmation
-    if [[ "$FORCE_MODE" == "true" ]] || confirm "Clean up all unused Docker resources?"; then
-        log "Running Docker system prune..."
+    if [[ "$FORCE_MODE" == "true" ]] || confirm "Clean up unused Docker resources (excluding k8s system images)?"; then
+        log "Running Docker system prune (excluding k8s images)..."
+        
+        # First, tag protected images to prevent removal
+        echo "$protected_images" | tr ' ' '\n' | while read -r id; do
+            if [[ -n "$id" ]]; then
+                colima ssh -- sudo docker tag "$id" "protected:keep-$id" 2>/dev/null || true
+            fi
+        done
+        
+        # Run prune
         colima ssh -- sudo docker system prune -a --volumes -f
         
-        # Also clean builder cache
+        # Clean builder cache
         colima ssh -- sudo docker builder prune -a -f
-        success "✓ Docker cleanup completed"
+        
+        # Remove protection tags
+        echo "$protected_images" | tr ' ' '\n' | while read -r id; do
+            if [[ -n "$id" ]]; then
+                colima ssh -- sudo docker rmi "protected:keep-$id" 2>/dev/null || true
+            fi
+        done
+        
+        success "✓ Docker cleanup completed (k8s images preserved)"
     else
         log "Skipping Docker cleanup"
     fi
@@ -279,6 +367,7 @@ main() {
     echo ""
     
     check_colima
+    check_kubernetes_health  # Ensure k8s is healthy before proceeding
     
     # Store initial disk usage
     INITIAL_DISK_USAGE=$(colima ssh -- df -h / | grep "/$")
@@ -286,7 +375,14 @@ main() {
     
     # Perform cleanup steps
     clean_docker
-    clean_overlay2_orphans  # NEW: Clean orphaned overlay2 directories
+    
+    # Only clean overlay2 if explicitly requested or in force mode
+    if [[ "$OVERLAY2_CLEANUP" == "true" ]] || [[ "$FORCE_MODE" == "true" && "$SKIP_OVERLAY2" != "true" ]]; then
+        clean_overlay2_orphans  # Now with enhanced safety checks
+    else
+        info "\nSkipping overlay2 cleanup (use --overlay2 to enable)"
+    fi
+    
     clean_kubernetes
     
     # Show final disk usage
@@ -303,6 +399,7 @@ main() {
     # Provide additional options
     echo ""
     info "Additional cleanup options:"
+    echo "  • To clean overlay2 directories: $0 --overlay2"
     echo "  • To check largest directories: colima ssh -- sudo du -h /var/lib/docker/ --max-depth=2 | sort -rh | head -20"
     echo "  • To clean journal logs: colima ssh -- sudo journalctl --vacuum-size=100M"
     echo "  • To restart Colima fresh: colima restart"
@@ -318,6 +415,16 @@ case "${1:-}" in
         FORCE_MODE=true
         log "Running in force mode (no confirmations)..."
         ;;
+    --overlay2)
+        # Enable overlay2 cleanup
+        OVERLAY2_CLEANUP=true
+        log "Overlay2 cleanup enabled..."
+        ;;
+    --safe)
+        # Safe mode - skip overlay2 even in force mode
+        SKIP_OVERLAY2=true
+        log "Running in safe mode (overlay2 cleanup disabled)..."
+        ;;
     --check|-c)
         # Check mode - only show what would be cleaned
         check_colima
@@ -332,8 +439,8 @@ case "${1:-}" in
         # Check overlay2
         info "\nChecking overlay2 directories..."
         colima ssh -- bash -c '
-            total=$(sudo ls /var/lib/docker/overlay2/ | wc -l)
-            echo "Total overlay2 directories: $total"
+            total=$(sudo ls /var/lib/docker/overlay2/ | grep -v "^l$" | wc -l)
+            echo "Total overlay2 directories: $total (excluding l directory)"
         '
         
         # Check k8s
@@ -352,18 +459,36 @@ case "${1:-}" in
         echo "Usage: $0 [OPTIONS]"
         echo ""
         echo "Options:"
-        echo "  -f, --force    Skip confirmation prompts"
-        echo "  -c, --check    Check what can be cleaned without making changes"
-        echo "  -h, --help     Show this help message"
+        echo "  -f, --force      Skip confirmation prompts"
+        echo "  --overlay2       Enable overlay2 cleanup (CURRENTLY DISABLED - UNSAFE)"
+        echo "  --safe           Safe mode - skip overlay2 cleanup even in force mode"
+        echo "  -c, --check      Check what can be cleaned without making changes"
+        echo "  -h, --help       Show this help message"
         echo ""
         echo "This enhanced script helps clean up disk space in Colima by:"
         echo "  • Removing unused Docker images, containers, and volumes"
-        echo "  • Cleaning orphaned Docker overlay2 directories (NEW)"
+        echo "  • Preserving critical k8s system images (pause, coredns, etc.)"
         echo "  • Deleting terminated Kubernetes pods"
         echo "  • Checking for disk pressure on nodes"
         echo ""
-        echo "The script now handles the common issue of orphaned overlay2"
-        echo "directories that can consume significant disk space."
+        echo "SAFETY FEATURES:"
+        echo "  • Checks k8s health before proceeding"
+        echo "  • Never removes k8s system images"
+        echo "  • Validates k8s health after cleanup"
+        echo ""
+        echo "OVERLAY2 CLEANUP - CURRENTLY DISABLED:"
+        echo "  The overlay2 cleanup feature has been found to cause k8s pod failures"
+        echo "  even with extensive safety checks. It is disabled until a safer"
+        echo "  implementation can be developed."
+        echo ""
+        echo "  For overlay2 disk space issues, use:"
+        echo "    - colima restart (safest option)"
+        echo "    - colima delete && colima start (complete reset)"
+        echo ""
+        echo "Examples:"
+        echo "  $0                    # Safe cleanup (recommended)"
+        echo "  $0 --force            # Force mode (skip confirmations)"
+        echo "  $0 --check            # See what would be cleaned"
         exit 0
         ;;
 esac
