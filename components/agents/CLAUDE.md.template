@@ -12,18 +12,47 @@ Please communicate in a conversational, helpful manner similar to Claude chat. B
 - **Be Idiomatic**: Follow the conventions and patterns of the language
 - **Clarity First**: Readable code is better than clever code
 
-### General Development Approach
-- Test and commit frequently
-- Do not push commits until unit and integration tests succeed
-- Create and test APIs before creating and testing UIs
-- Use language-appropriate testing framework for unit tests
-- Use `expect` scripts and `tmux` for integration and TUI tests
+### Preferred Strategies
+- Test-Driven Development (TDD)
+- GitFlow
+- Conventional Commit
+- Develop APIs before UIs
 - Avoid premature optimization and over-engineering
+- Test and commit frequently
+- Leverage content under `ENVIRONMENT_TOOLS_MARKER` section
+- Compose and execute each test separately to avoid 2 minute command timeouts of long-running tests
+
+### General Development Approach
+
+1. Ask follow-up questions
+2. Create a `~/workspace/JOURNAL.md` file
+  - Update it with `cat '<log entry>' >> ~/workspace/JOURNAL.md` throughout new-session
+  - Include key decisions, issues, resolutions, and milestones
+3. Create GitHub repo with `LICENSE` file and `develop` branch, then clone it to `~/workspace`
+4. Enable auto-merge on repo
+5. Checkout a new git branch
+6. Scaffold directory structure using `mkdir -p`
+  - Leverge dev tool project initialization features, if available (e.g. `cargo init`)
+7. Create unit tests for APIs
+  - Use language-appropriate testing framework
+8. Build APIs
+9. Run unit tests for APIs and fix issues
+  - Repeat until all unit tests pass before moving on
+10. Create `expect` and/or `tmux` tests for user simulations and integration tests
+11. Build user-facing applications
+12. Run user simulations and integration tests, and fix issues
+  - Repeat until all user simulations and integration tests pass before moving on
+13. Commit changes to repo and push changes to GitHub
+14. Open PR to merge feature branch with develop branch, and output PR info for operator to review
+
+### Development Constraints 
+- Do not push commits to GitHub until all tests pass
+- Create and test APIs before creating and testing UIs
 - Create parent folder with `mkdir -p` before creating file
 - Avoid permissions errors creating files by using `touch` to create file, then Read(), then Edit()
 - Avoid permissions errors editing files by first using Read() and then Edit()
 - Never create or edit files above the `~/workspace/` or `/home/devuser/workspace` directory
-- Create and append to a ~/workspace/JOURNAL.md file key decisions, milestones, and blockers as you work
+- Do not create any "universal" testing batch files 
 
 ### Code Quality
 - Use descriptive, meaningful variable and function names
@@ -261,7 +290,9 @@ Closes #(issue number)
 **All tests must pass before pushing to GitHub.** Use a polyglot testing approach that combines:
 - **Unit tests**: Language-specific testing frameworks for isolated component testing
 - **Integration tests**: Cross-language tools (`expect`, `tmux`, `curl`) for end-to-end testing
+- **User simulation tests**: Cross-language tools (`expect`, `tmux`) to simulate user keystrokes, mouse movements, etc.
 - **Continuous testing**: Run tests frequently during development, not just before commits
+- **Synthetic data**: Create and leverage synthentic data for more deterministic testing
 
 ### Cross-Language Testing Tools
 
@@ -324,106 +355,6 @@ fi
 
 tmux kill-session -t test_session
 ```
-
-#### API Testing with curl
-
-For HTTP APIs:
-
-```bash
-#!/bin/bash
-# tests/integration/test_api.sh
-
-BASE_URL="http://localhost:8080"
-
-# Test health endpoint
-response=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/health")
-if [ "$response" = "200" ]; then
-    echo "PASS: Health check"
-else
-    echo "FAIL: Health check (HTTP $response)"
-    exit 1
-fi
-```
-
-### Test Organization
-
-```
-tests/
-├── unit/           # Language-specific unit tests
-├── integration/    # Cross-language integration tests
-│   ├── test_cli_basic.exp
-│   ├── test_tui_navigation.exp
-│   └── test_api_flow.sh
-└── run_all_tests.sh
-```
-
-### Pre-Push Testing Workflow
-
-Create a universal test runner that detects the project type and runs appropriate tests:
-
-```bash
-#!/bin/bash
-# run_all_tests.sh
-
-set -e  # Exit on first failure
-
-echo "Running tests..."
-
-# Language-specific unit tests will be detected and run based on project files
-# Integration tests are universal
-for test in tests/integration/*.exp; do
-    [ -f "$test" ] || continue
-    echo "Running: $test"
-    expect "$test" || exit 1
-done
-
-for test in tests/integration/*.sh; do
-    [ -f "$test" ] || continue
-    echo "Running: $test"
-    bash "$test" || exit 1
-done
-
-echo "All tests passed! Ready to push."
-```
-
-### Best Practices
-
-1. **Write tests first**: Create integration test scripts before implementing features
-2. **Test immediately**: Run tests after every significant change
-3. **Automate everything**: If you test it manually twice, write a test script
-4. **Use tmux for complex TUIs**: Better screen capture and control
-5. **Log test output**: Use `log_file` in expect scripts for debugging
-6. **Version control tests**: Commit test scripts with the code they test
-
-## Common Development Blockers and Solutions
-
-Based on real-world experience, here are common issues and their solutions:
-
-### 1. Environment Activation Issues
-**Problem**: Standard activation commands fail
-**Solution**:
-- Check language-specific memory_content for environment-specific solutions
-- Test environment commands before building workflows around them
-
-### 2. Path Navigation Restrictions
-**Problem**: Security model blocks absolute paths
-**Solution**:
-- Use relative paths: `cd ../other-project` instead of `/home/devuser/workspace/other-project`
-- Stay within ~/workspace/ for all project work
-- Use `pwd` to verify current location
-
-### 3. Dependency Version Conflicts
-**Problem**: Incompatible versions between related packages
-**Solution**: 
-- Check language-specific memory_content for known compatibility issues
-- Test immediately after adding dependencies
-
-### 4. Testing Delays
-**Problem**: Creating tests but not running them immediately
-**Solution**:
-- Run tests as part of the development flow
-- Use language-specific watch modes when available
-- Create simple smoke tests first to verify setup
 
 <!-- ENVIRONMENT_TOOLS_MARKER -->
 <!-- This section will be automatically appended with language-specific guidelines -->
