@@ -46,6 +46,7 @@ RUN apt-get update && apt-get install -y \
     tree \
     less \
     expect \
+    tmux \
     openssh-server \
     sudo \
     --no-install-recommends \
