@@ -34,9 +34,9 @@ log "Generating project CLAUDE.md for selected components..."
 # Create project CLAUDE.md
 CLAUDE_OUTPUT="$TEMP_DIR/project-CLAUDE.md"
 cat > "$CLAUDE_OUTPUT" << 'EOF'
-# Additional Instructions
+# Installed Components
 
-This workspace includes the following development tools:
+This environment includes the following components:
 
 EOF
 
@@ -67,17 +67,22 @@ get_category_display_name() {
 # Create temporary files to store category data
 TEMP_CATEGORIES="$TEMP_DIR/.categories.tmp"
 TEMP_COMPONENTS="$TEMP_DIR/.components.tmp"
+TEMP_ALL_COMPONENTS="$TEMP_DIR/.all_components.tmp"
 
 # Clear temp files
 > "$TEMP_CATEGORIES"
 > "$TEMP_COMPONENTS"
+> "$TEMP_ALL_COMPONENTS"
 
 # Process each YAML file
 for yaml_file in $SELECTED_YAML_FILES; do
     info "Processing: $yaml_file"
     
-    # Extract component name from YAML file
+    # Extract component fields from YAML file
     comp_name=""
+    comp_version=""
+    comp_description=""
+    
     while IFS= read -r line; do
         if [[ "$line" =~ ^name:[[:space:]]*(.+)$ ]]; then
             comp_name="${BASH_REMATCH[1]}"
@@ -86,7 +91,20 @@ for yaml_file in $SELECTED_YAML_FILES; do
             comp_name="${comp_name%\"}"
             comp_name="${comp_name#\'}"
             comp_name="${comp_name%\'}"
-            break
+        elif [[ "$line" =~ ^version:[[:space:]]*(.+)$ ]]; then
+            comp_version="${BASH_REMATCH[1]}"
+            # Remove quotes if present
+            comp_version="${comp_version#\"}"
+            comp_version="${comp_version%\"}"
+            comp_version="${comp_version#\'}"
+            comp_version="${comp_version%\'}"
+        elif [[ "$line" =~ ^description:[[:space:]]*(.+)$ ]]; then
+            comp_description="${BASH_REMATCH[1]}"
+            # Remove quotes if present
+            comp_description="${comp_description#\"}"
+            comp_description="${comp_description%\"}"
+            comp_description="${comp_description#\'}"
+            comp_description="${comp_description%\'}"
         fi
     done < "$yaml_file"
     
@@ -102,6 +120,8 @@ for yaml_file in $SELECTED_YAML_FILES; do
     
     info "  Component: $comp_name"
     info "  Category: $category"
+    [[ -n "$comp_version" ]] && info "  Version: $comp_version"
+    [[ -n "$comp_description" ]] && info "  Description: $comp_description"
     
     # Get markdown filename
     yaml_basename=$(basename "$yaml_file" .yaml)
@@ -126,7 +146,10 @@ for yaml_file in $SELECTED_YAML_FILES; do
         echo "${category}|${display_name}" >> "$TEMP_CATEGORIES"
     fi
     
-    # Check if markdown file exists before recording component
+    # Record ALL components for the installed list (with version and description)
+    echo "${category}|${comp_name}|${comp_version}|${comp_description}" >> "$TEMP_ALL_COMPONENTS"
+    
+    # Check if markdown file exists before recording component for documentation
     md_source="$(dirname "$yaml_file")/${md_filename}"
     if [[ -f "$md_source" ]]; then
         # Only record component if markdown file exists
@@ -146,7 +169,60 @@ cat "$TEMP_CATEGORIES"
 info "Components collected:"
 cat "$TEMP_COMPONENTS"
 
-# Write categories and components to CLAUDE.md
+# Write installed components section organized by category
+while IFS='|' read -r category display_name; do
+    [[ -z "$category" ]] && continue
+    
+    # Check if this category has any components
+    category_has_components=false
+    while IFS='|' read -r comp_category comp_name comp_version comp_description; do
+        if [[ "$comp_category" == "$category" ]]; then
+            category_has_components=true
+            break
+        fi
+    done < "$TEMP_ALL_COMPONENTS"
+    
+    # Write category if it has components
+    if [[ "$category_has_components" == "true" ]]; then
+        echo "## $display_name" >> "$CLAUDE_OUTPUT"
+        echo "" >> "$CLAUDE_OUTPUT"
+        
+        # List all components for this category
+        while IFS='|' read -r comp_category comp_name comp_version comp_description; do
+            if [[ "$comp_category" == "$category" ]]; then
+                # Format component entry on single line
+                echo -n "- **$comp_name**" >> "$CLAUDE_OUTPUT"
+                
+                # Add version if available
+                if [[ -n "$comp_version" ]]; then
+                    echo -n " [version: $comp_version]" >> "$CLAUDE_OUTPUT"
+                fi
+                
+                # Add description if available
+                if [[ -n "$comp_description" ]]; then
+                    echo -n ": $comp_description" >> "$CLAUDE_OUTPUT"
+                fi
+                
+                # End the line
+                echo "" >> "$CLAUDE_OUTPUT"
+            fi
+        done < "$TEMP_ALL_COMPONENTS"
+        
+        echo "" >> "$CLAUDE_OUTPUT"
+    fi
+done < "$TEMP_CATEGORIES"
+
+# Add separator between sections
+echo "---" >> "$CLAUDE_OUTPUT"
+echo "" >> "$CLAUDE_OUTPUT"
+
+# Add Additional Instructions section header
+echo "# Additional Instructions" >> "$CLAUDE_OUTPUT"
+echo "" >> "$CLAUDE_OUTPUT"
+echo "This workspace includes the following development tools:" >> "$CLAUDE_OUTPUT"
+echo "" >> "$CLAUDE_OUTPUT"
+
+# Write categories and components to CLAUDE.md (only those with markdown files)
 while IFS='|' read -r category display_name; do
     [[ -z "$category" ]] && continue
     
@@ -175,7 +251,7 @@ while IFS='|' read -r category display_name; do
 done < "$TEMP_CATEGORIES"
 
 # Clean up temp files
-rm -f "$TEMP_CATEGORIES" "$TEMP_COMPONENTS"
+rm -f "$TEMP_CATEGORIES" "$TEMP_COMPONENTS" "$TEMP_ALL_COMPONENTS"
 
 success "Generated project CLAUDE.md with import references"
 
