@@ -1,113 +1,480 @@
-# Development Guidelines
+# MANDATORY Development Protocol
 
-## Communication
-Be conversational and helpful, providing clear explanations for decisions. Stay concise while maintaining clarity, especially for complex concepts.
+## STOP! READ THIS FIRST
+You MUST follow EVERY step in this document. No exceptions. No shortcuts.
 
-## Core Principles
-- **Start Simple**: Write the simplest working solution first
-- **Iterate Thoughtfully**: Add complexity only when needed
-- **Be Idiomatic**: Follow language conventions
-- **Test Everything**: All tests must pass before pushing code
-- **Stay Autonomous**: When encountering failures, iterate on solutions independently
+## Communication Style
+Be conversational, but ALWAYS follow the protocol below exactly.
 
-## Workspace Rules
-- **Work Directory**: All development happens under `~/workspace/`
-- **Project Structure**: Each project gets its own subdirectory (e.g., `~/workspace/project-name/`)
-- **File Creation**: Use `mkdir -p` for directories, `touch` then Read() then Edit() for files
-- **Navigation**: Use relative paths, avoid absolute paths
-- **Restrictions**: Never create/edit files outside `~/workspace/`
+## Path Navigation Rules
 
-## Development Workflow (Guidelines)
-1. **Initialize Session**
-   - Ask clarifying questions if needed
-   - Create `~/workspace/JOURNAL.md` and update throughout session:
-     ```bash
-     echo "$(date -Iseconds) [INFO] Session started - <description>" >> ~/workspace/JOURNAL.md
-     ```
+### CRITICAL: Working with Paths
+- **NEVER use `~/workspace` in cd commands** - Claude Code interprets this incorrectly
+- **Always use relative paths from current directory**
+- **Use these patterns:**
+  ```bash
+  # WRONG:
+  cd ~/workspace/project-name  # This will fail!
+  
+  # CORRECT:
+  cd project-name              # From workspace directory
+  cd ../project-name           # From sibling directory
+  cd /home/devuser/workspace/project-name  # Absolute path if needed
+  ```
 
-2. **Setup Project**
-   - Create GitHub repo with LICENSE and develop branch
-   - Enable auto-merge: `gh repo edit --enable-auto-merge`
-   - Clone to `~/workspace/` and checkout feature branch
-
-3. **Build & Test Cycle**
-   - Scaffold structure using language tools
-   - Create unit tests for APIs first
-   - Build APIs to pass tests
-   - Create integration tests using `expect`/`tmux` for CLI/TUI testing
-   - Build user interfaces
-   - Iterate until all tests pass
-
-4. **Finalize**
-   - Commit with conventional commits
-   - Push and create PR with description
-
-## Journal Format
-Append entries throughout session:
+### Navigation Examples:
 ```bash
-# Log format: timestamp [level] component - message
-echo "$(date -Iseconds) [ERROR] Testing - Unit test failed: <details>" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) [DECISION] Architecture - Chose <x> because <reason>" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) [RESOLUTION] Bug - Fixed <issue> by <solution>" >> ~/workspace/JOURNAL.md
+# Creating and entering a project directory
+mkdir -p project-name
+cd project-name
+
+# Moving between directories
+pwd  # Always check where you are first
+cd ../another-project  # Move to sibling
+cd /home/devuser/workspace  # Return to workspace root
 ```
 
-## Testing Strategy
-- **Run tests individually** to avoid 2-minute timeouts
-- **Test types**: Unit (language-specific), Integration (expect/tmux), User acceptance
-- **User simulation**: Use expect/tmux to simulate real user interactions
-- **Failure handling**: When tests fail, analyze → fix → rerun immediately. Repeat until resolved.
+## Step-by-Step Development Protocol
 
-## Git Conventions
-
-### Commits
-Follow Conventional Commits:
+### STEP 1: Session Initialization (DO THIS FIRST - NO EXCEPTIONS)
+```bash
+# You MUST execute these commands at the start of EVERY session:
+echo "$(date -Iseconds) [INFO] Session started - $TASK_DESCRIPTION" >> ~/workspace/JOURNAL.md
+echo "$(date -Iseconds) [INFO] Working directory: $(pwd)" >> ~/workspace/JOURNAL.md
+echo "$(date -Iseconds) [INFO] User request: $USER_REQUEST" >> ~/workspace/JOURNAL.md
 ```
-<type>(<scope>): <subject>
 
-<body>
+### STEP 2: Project Setup (REQUIRED FOR ALL NEW PROJECTS)
+
+1. **Ask clarifying questions first**:
+   ```bash
+   echo "$(date -Iseconds) [DECISION] Clarification needed on: $QUESTION" >> ~/workspace/JOURNAL.md
+   ```
+
+2. **Determine project structure**:
+   ```bash
+   # For single app:
+   PROJECT_ROOT="~/workspace/PROJECT_NAME"
+   
+   # For monorepo:
+   PROJECT_ROOT="~/workspace/PROJECT_NAME"
+   APP_DIR="$PROJECT_ROOT/APP_NAME"
+   
+   echo "$(date -Iseconds) [DECISION] Project structure: TYPE chosen because REASON" >> ~/workspace/JOURNAL.md
+   ```
+
+3. **Create GitHub repository** (NO EXCEPTIONS):
+   ```bash
+   # Create the project directory FIRST
+   mkdir -p PROJECT_NAME
+   cd PROJECT_NAME
+   
+   # Initialize git repo locally
+   git init
+   echo "$(date -Iseconds) [INFO] Git repository initialized in $(pwd)" >> ../JOURNAL.md
+   
+   # Create initial files
+   echo "# PROJECT_NAME" > README.md
+   touch requirements.txt .gitignore
+   
+   # Initial commit
+   git add .
+   git commit -m "Initial commit"
+   
+   # Create GitHub repo and add remote
+   gh repo create PROJECT_NAME --public --description "PROJECT_DESCRIPTION" || echo "$(date -Iseconds) [ERROR] Failed to create GitHub repo" >> ../JOURNAL.md
+   
+   # Add remote and push
+   git remote add origin https://github.com/USERNAME/PROJECT_NAME.git || true
+   git branch -M main
+   git push -u origin main
+   
+   echo "$(date -Iseconds) [MILESTONE] GitHub repo created and pushed: PROJECT_NAME" >> ../JOURNAL.md
+   ```
+
+4. **Initialize Git workflow**:
+   ```bash
+   # Create initial commit
+   echo "# PROJECT_NAME" > README.md
+   git add README.md
+   git commit -m "Initial commit"
+   git push -u origin main
+   
+   # Create develop branch
+   git checkout -b develop
+   git push -u origin develop
+   echo "$(date -Iseconds) [INFO] Created develop branch" >> ~/workspace/JOURNAL.md
+   
+   # Enable auto-merge
+   gh repo edit --enable-auto-merge
+   echo "$(date -Iseconds) [INFO] Auto-merge enabled" >> ~/workspace/JOURNAL.md
+   ```
+
+5. **Create project structure**:
+   ```bash
+   # For single app:
+   mkdir -p src tests docs
+   touch requirements.txt .gitignore
+   
+   # For monorepo:
+   mkdir -p APP_NAME/{src,tests,docs}
+   touch APP_NAME/requirements.txt
+   
+   echo "$(date -Iseconds) [INFO] Project structure created" >> ~/workspace/JOURNAL.md
+   ls -la
+   ```
+
+### STEP 3: Development Cycle (FOLLOW THIS EXACT ORDER)
+
+#### 3.1 Create Feature Branch (ALWAYS DO THIS FIRST)
+```bash
+git checkout develop  # Always branch from develop
+git pull origin develop  # Ensure up to date
+git checkout -b feat/FEATURE_NAME
+echo "$(date -Iseconds) [INFO] Created feature branch: feat/FEATURE_NAME" >> ~/workspace/JOURNAL.md
 ```
-Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`
 
-### Branches
-- `feat/description` - New features
-- `fix/issue-description` - Bug fixes
-- `chore/description` - Maintenance
+#### 3.2 Create Development Environment
+```bash
+# Check language-specific environment setup in the Environment Tools section below
+# Log environment creation
+echo "$(date -Iseconds) [INFO] Creating development environment for LANGUAGE" >> ~/workspace/JOURNAL.md
 
-### Pull Requests
-Include: Description, Type of Change, Testing checklist, Related issues
+# Follow the environment setup instructions for your language/tool
+# Examples:
+# - Python: conda/venv creation
+# - Node.js: npm init
+# - Go: go mod init
+# - Rust: cargo init
+# - Ruby: bundle init
 
-## Code Quality
-- Descriptive naming following language conventions
-- Comments for complex logic only
-- Handle errors appropriately
-- Prefer standard library over external dependencies when reasonable
+echo "$(date -Iseconds) [INFO] Development environment created" >> ~/workspace/JOURNAL.md
 
-## Documentation
-Start with minimal README.md:
-```markdown
-# Project Name
-Brief description
-
-## Getting Started
-### Installation
-### Usage
-
-## Development
-### Testing
-### Contributing
-
-## License
+# Install dependencies according to language conventions
+echo "$(date -Iseconds) [INFO] Installing dependencies" >> ~/workspace/JOURNAL.md
+# Use language-specific dependency manager (pip, npm, cargo, bundle, etc.)
+echo "$(date -Iseconds) [INFO] Dependencies installed" >> ~/workspace/JOURNAL.md
 ```
-Expand sections as project matures.
 
-## Problem Solving
-When encountering issues:
-1. Analyze the error thoroughly
-2. Implement a fix
-3. Test immediately
-4. If still failing, think deeper and try alternative approaches
-5. Document significant decisions in journal
-6. Continue iterating until successful
+#### 3.3 Write Tests FIRST (TDD is MANDATORY)
+
+**Create test structure**:
+```bash
+echo "$(date -Iseconds) [INFO] Creating test suite" >> ~/workspace/JOURNAL.md
+```
+
+**Unit Tests**:
+```bash
+# Create test files based on language conventions
+# Python: tests/test_*.py with pytest
+# Node.js: tests/*.test.js with jest
+# Go: *_test.go files
+# Rust: tests/*.rs or #[test] in source
+# Ruby: spec/*_spec.rb with rspec
+
+echo "$(date -Iseconds) [INFO] Creating test suite" >> ~/workspace/JOURNAL.md
+echo "$(date -Iseconds) [INFO] Created unit tests following LANGUAGE conventions" >> ~/workspace/JOURNAL.md
+```
+
+**Integration Tests for TUI/CLI apps**:
+```bash
+# Create expect test with proper terminal handling
+cat > tests/test_integration.exp << 'EOF'
+#!/usr/bin/expect -f
+set timeout 10
+log_file tests/integration_test.log
+
+# Configure terminal to avoid escape sequence issues
+set env(TERM) "dumb"
+
+# Start application
+spawn python src/main.py
+
+# Wait for app to initialize
+sleep 2
+
+# Test navigation (use literal key sequences)
+send "\033\[B"  ;# Down arrow
+expect "*"
+sleep 0.5
+
+send "\r"       ;# Enter
+expect "*"
+sleep 0.5
+
+# Gracefully exit
+send "q"
+expect eof
+
+# Check log for errors
+set log_content [exec cat tests/integration_test.log]
+if {[string match "*Error*" $log_content] || [string match "*Exception*" $log_content]} {
+    puts "FAIL: Errors found in application"
+    exit 1
+} else {
+    puts "PASS: Integration test successful"
+    exit 0
+}
+EOF
+chmod +x tests/test_integration.exp
+echo "$(date -Iseconds) [INFO] Created integration test with terminal handling" >> ~/workspace/JOURNAL.md
+```
+
+**TUI Simulation Tests with tmux**:
+```bash
+cat > tests/test_tui_simulation.sh << 'EOF'
+#!/bin/bash
+# TUI simulation test using tmux
+
+# Ensure tmux server is running
+tmux start-server 2>/dev/null || true
+
+# Kill any existing test sessions
+tmux kill-session -t test_session 2>/dev/null || true
+
+# Navigate to project root
+cd "$(dirname "$0")/.." || exit 1
+
+# Start app in tmux session with proper environment
+tmux new-session -d -s test_session "bash -c 'cd $(pwd) && python src/main.py'"
+
+# Wait for app to fully load
+sleep 3
+
+# Check if session is running
+if ! tmux has-session -t test_session 2>/dev/null; then
+    echo "FAIL: tmux session failed to start"
+    exit 1
+fi
+
+# Send keystrokes
+tmux send-keys -t test_session "Down" C-m
+sleep 1
+
+# Capture output
+tmux capture-pane -t test_session -p > test_output.txt
+
+# Check for expected content
+if grep -q "Expected Text" test_output.txt; then
+    echo "PASS: Found expected content"
+    RESULT=0
+else
+    echo "FAIL: Expected content not found"
+    echo "=== Captured output ==="
+    cat test_output.txt
+    echo "======================"
+    RESULT=1
+fi
+
+# Cleanup
+tmux send-keys -t test_session "q"
+sleep 1
+tmux kill-session -t test_session 2>/dev/null || true
+rm -f test_output.txt
+
+exit $RESULT
+EOF
+chmod +x tests/test_tui_simulation.sh
+echo "$(date -Iseconds) [INFO] Created TUI simulation test with tmux server check" >> ../JOURNAL.md
+```
+
+#### 3.4 Run Tests (MUST FAIL FIRST - This proves TDD)
+```bash
+# Run unit tests (expect failure)
+pytest tests/test_FEATURE.py -v || echo "Expected failure (TDD)"
+echo "$(date -Iseconds) [INFO] Initial test run - Tests failed as expected (TDD)" >> ~/workspace/JOURNAL.md
+```
+
+#### 3.5 Implement Feature (NOW you can code)
+```bash
+echo "$(date -Iseconds) [DECISION] Implementation approach: DESCRIPTION" >> ~/workspace/JOURNAL.md
+echo "$(date -Iseconds) [INFO] Starting implementation of FEATURE" >> ~/workspace/JOURNAL.md
+
+# Log each file created
+# When creating files, log it:
+echo "$(date -Iseconds) [INFO] Created file: FILENAME with PURPOSE" >> ~/workspace/JOURNAL.md
+
+# After implementation
+echo "$(date -Iseconds) [INFO] Implementation completed - FILES created/modified" >> ~/workspace/JOURNAL.md
+```
+
+#### 3.6 Run Tests Again (MUST PASS NOW)
+```bash
+# Run tests using language-specific test runner
+# Python: pytest
+# Node.js: npm test
+# Go: go test
+# Rust: cargo test
+# Ruby: rspec or bundle exec rake test
+
+echo "$(date -Iseconds) [INFO] Running test suite" >> ../JOURNAL.md
+TEST_RESULT=$?
+echo "$(date -Iseconds) [INFO] Test suite status: $TEST_RESULT" >> ../JOURNAL.md
+
+if [ $TEST_RESULT -ne 0 ]; then
+    echo "$(date -Iseconds) [ERROR] Tests failed" >> ../JOURNAL.md
+    # STOP and fix!
+fi
+
+# Run integration tests (REQUIRED for CLI/TUI apps)
+if [ -f tests/test_integration.exp ]; then
+    ./tests/test_integration.exp
+    INTEGRATION_RESULT=$?
+    echo "$(date -Iseconds) [INFO] Integration test status: $INTEGRATION_RESULT" >> ../JOURNAL.md
+    
+    if [ $INTEGRATION_RESULT -ne 0 ]; then
+        echo "$(date -Iseconds) [ERROR] Integration tests failed - debugging required" >> ../JOURNAL.md
+    fi
+fi
+
+# Run TUI simulations (REQUIRED for TUI apps)
+if [ -f tests/test_tui_simulation.sh ]; then
+    # Ensure tmux is available
+    if command -v tmux &> /dev/null; then
+        ./tests/test_tui_simulation.sh
+        SIMULATION_RESULT=$?
+        echo "$(date -Iseconds) [INFO] TUI simulation status: $SIMULATION_RESULT" >> ../JOURNAL.md
+        
+        if [ $SIMULATION_RESULT -ne 0 ]; then
+            echo "$(date -Iseconds) [ERROR] TUI simulation failed - check tmux setup" >> ../JOURNAL.md
+        fi
+    else
+        echo "$(date -Iseconds) [WARNING] tmux not available - skipping TUI simulation tests" >> ../JOURNAL.md
+    fi
+fi
+
+# ALL tests must pass before proceeding
+echo "$(date -Iseconds) [INFO] All test types must pass before continuing" >> ../JOURNAL.md
+```
+
+#### 3.7 Fix Until All Tests Pass
+```bash
+# If any test fails:
+echo "$(date -Iseconds) [ERROR] Test failed: TEST_NAME - REASON" >> ~/workspace/JOURNAL.md
+echo "$(date -Iseconds) [DECISION] Fix approach: APPROACH" >> ~/workspace/JOURNAL.md
+# Fix the code...
+echo "$(date -Iseconds) [RESOLUTION] Fixed by: SOLUTION" >> ~/workspace/JOURNAL.md
+# Re-run tests and repeat until all pass
+```
+
+#### 3.8 Update Documentation
+```bash
+# Ensure README has all sections
+echo "$(date -Iseconds) [INFO] Updating documentation" >> ~/workspace/JOURNAL.md
+
+# README must include:
+# - Installation instructions with conda/pip commands
+# - Usage examples with screenshots/output
+# - Testing instructions
+# - Project structure explanation
+# - API documentation (if applicable)
+
+echo "$(date -Iseconds) [INFO] Documentation updated - README.md complete" >> ~/workspace/JOURNAL.md
+```
+
+#### 3.9 Commit ONLY When All Tests Pass
+```bash
+# Verify all tests pass using language-specific test runner
+echo "$(date -Iseconds) [INFO] Verifying all tests pass before commit" >> ~/workspace/JOURNAL.md
+
+# Stage changes
+git add .
+git status
+echo "$(date -Iseconds) [INFO] Staged changes for commit" >> ~/workspace/JOURNAL.md
+
+# Commit with conventional format
+git commit -m "feat(SCOPE): description of feature
+
+- Detail 1
+- Detail 2
+
+Closes #ISSUE"
+echo "$(date -Iseconds) [MILESTONE] Committed: $(git log -1 --pretty=format:'%s')" >> ~/workspace/JOURNAL.md
+```
+
+#### 3.10 Push and Create Pull Request
+```bash
+# Push to remote
+git push origin feat/FEATURE_NAME
+echo "$(date -Iseconds) [INFO] Pushed to remote" >> ~/workspace/JOURNAL.md
+
+# Create PR
+PR_URL=$(gh pr create \
+  --title "feat: FEATURE_NAME" \
+  --body "## Changes
+- List specific changes
+
+## Testing
+- ✅ All unit tests pass
+- ✅ Integration tests verified
+- ✅ TUI simulation tests pass
+
+## Screenshots
+[Add if applicable]" \
+  --base develop)
+  
+echo "$(date -Iseconds) [MILESTONE] Pull request created: $PR_URL" >> ~/workspace/JOURNAL.md
+
+# Enable auto-merge
+gh pr merge --auto --squash --delete-branch
+echo "$(date -Iseconds) [INFO] Auto-merge enabled for PR" >> ~/workspace/JOURNAL.md
+```
+
+### STEP 4: Session Completion
+```bash
+# Final summary
+echo "$(date -Iseconds) [MILESTONE] Session completed successfully" >> ~/workspace/JOURNAL.md
+echo "$(date -Iseconds) [INFO] Final test summary:" >> ~/workspace/JOURNAL.md
+echo "$(date -Iseconds) [INFO] - Test suite: PASSED/FAILED with X tests" >> ~/workspace/JOURNAL.md
+echo "$(date -Iseconds) [INFO] - Integration tests: PASS/FAIL" >> ~/workspace/JOURNAL.md
+echo "$(date -Iseconds) [INFO] - Repository: $(git remote get-url origin)" >> ~/workspace/JOURNAL.md
+echo "$(date -Iseconds) [INFO] - PR: $PR_URL" >> ~/workspace/JOURNAL.md
+```
+
+## Critical Rules
+
+### tmux Testing Requirements
+For TUI applications, you MUST create working tmux tests:
+1. Always start tmux server first: `tmux start-server`
+2. Use full paths when starting applications
+3. Wait sufficient time (3+ seconds) for app startup
+4. Verify session is running before sending keys
+5. Use `C-m` for Enter key in tmux
+6. Always cleanup sessions after tests
+
+### DO NOT:
+- Create git repositories inside other git repositories
+- Skip ANY journal entry
+- Push code without ALL tests passing
+- Create directories without proper structure
+- Use generic test assertions - test actual behavior
+- Ignore terminal escape sequence issues in expect scripts
+
+### ALWAYS:
+- Use proper environment activation based on language/tool
+- Set `TERM=dumb` in expect scripts for TUI apps
+- Create comprehensive test suites with multiple test cases
+- Log EVERY significant action to the journal
+- Verify project structure with `tree` command
+- Follow language-specific conventions and idioms
+
+### Debugging Terminal Issues:
+If you see escape sequences like `^[[?2026;2$y`:
+1. Set `TERM=dumb` in expect scripts
+2. Use `log_file` in expect to capture output
+3. Use tmux for complex TUI testing
+4. Add proper sleep delays between commands
+
+## VERIFICATION CHECKLIST
+Before considering ANY task complete:
+- [ ] Journal has detailed entries for EVERY action
+- [ ] Project is in correct directory structure
+- [ ] No nested git repositories
+- [ ] All test files have actual test implementations
+- [ ] Integration tests handle terminal properly
+- [ ] All tests are passing
+- [ ] Documentation is comprehensive
+- [ ] PR is created and auto-merge enabled
 
 <!-- ENVIRONMENT_TOOLS_MARKER -->
 <!-- This section will be automatically appended with language-specific guidelines -->
