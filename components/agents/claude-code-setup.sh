@@ -64,10 +64,13 @@ get_category_display_name() {
     echo "$display_name"
 }
 
-# Create arrays to store component data organized by category
-declare -A category_components  # category -> list of "name|filename" entries
-declare -A category_display_names
-declare -a category_order
+# Create temporary files to store category data
+TEMP_CATEGORIES="$TEMP_DIR/.categories.tmp"
+TEMP_COMPONENTS="$TEMP_DIR/.components.tmp"
+
+# Clear temp files
+> "$TEMP_CATEGORIES"
+> "$TEMP_COMPONENTS"
 
 # Process each YAML file
 for yaml_file in $SELECTED_YAML_FILES; do
@@ -88,13 +91,13 @@ for yaml_file in $SELECTED_YAML_FILES; do
     done < "$yaml_file"
     
     # Extract category from path
-    # For path like "components/agents/claude-code.yaml", extract "agents"
+    # The path should be like "components/CATEGORY/file.yaml"
     category=""
-    if [[ "$yaml_file" =~ components/([^/]+)/ ]]; then
+    if [[ "$yaml_file" =~ components/([^/]+)/[^/]+\.yaml$ ]]; then
         category="${BASH_REMATCH[1]}"
     else
-        # Fallback: use parent directory
-        category=$(basename $(dirname "$yaml_file"))
+        # Last resort: parent directory
+        category=$(basename "$(dirname "$yaml_file")")
     fi
     
     info "  Component: $comp_name"
@@ -104,28 +107,27 @@ for yaml_file in $SELECTED_YAML_FILES; do
     yaml_basename=$(basename "$yaml_file" .yaml)
     md_filename="${yaml_basename}.md"
     
-    # Initialize category if this is the first component in this category
-    if [[ ! " ${category_order[@]} " =~ " ${category} " ]]; then
-        category_order+=("$category")
-        
-        # Get display name for category
-        local category_dir
-        if [[ "$yaml_file" =~ ^(.*components/${category})/ ]]; then
+    # Check if this category is already recorded
+    if ! grep -q "^${category}|" "$TEMP_CATEGORIES"; then
+        # Find the category directory to get display name
+        category_dir=""
+        if [[ "$yaml_file" =~ ^(.*/components/$category)/ ]]; then
             category_dir="${BASH_REMATCH[1]}"
+        elif [[ -d "components/$category" ]]; then
+            category_dir="components/$category"
         else
             category_dir=$(dirname "$yaml_file")
         fi
         
-        category_display_names[$category]=$(get_category_display_name "$category_dir")
-        info "  Category display name: ${category_display_names[$category]}"
+        display_name=$(get_category_display_name "$category_dir")
+        info "  Category display name: $display_name"
+        
+        # Record category and display name
+        echo "${category}|${display_name}" >> "$TEMP_CATEGORIES"
     fi
     
-    # Add component to its category
-    if [[ -n "${category_components[$category]}" ]]; then
-        category_components[$category]="${category_components[$category]}|${comp_name}:${md_filename}"
-    else
-        category_components[$category]="${comp_name}:${md_filename}"
-    fi
+    # Record component with its category
+    echo "${category}|${comp_name}|${md_filename}" >> "$TEMP_COMPONENTS"
     
     # Copy markdown file if it exists
     md_source="$(dirname "$yaml_file")/${md_filename}"
@@ -137,22 +139,30 @@ for yaml_file in $SELECTED_YAML_FILES; do
     fi
 done
 
+# Debug: Show collected data
+info "Categories collected:"
+cat "$TEMP_CATEGORIES"
+info "Components collected:"
+cat "$TEMP_COMPONENTS"
+
 # Write categories and components to CLAUDE.md
-for category in "${category_order[@]}"; do
-    display_name="${category_display_names[$category]}"
+while IFS='|' read -r category display_name; do
+    [[ -z "$category" ]] && continue
     
     echo "## $display_name" >> "$CLAUDE_OUTPUT"
     
-    # Split components and write them
-    IFS='|' read -ra components <<< "${category_components[$category]}"
-    for component in "${components[@]}"; do
-        # Split name:filename
-        IFS=':' read -r comp_name md_filename <<< "$component"
-        echo "- $comp_name @~/workspace/.claude/${md_filename}" >> "$CLAUDE_OUTPUT"
-    done
+    # Find all components for this category
+    while IFS='|' read -r comp_category comp_name md_filename; do
+        if [[ "$comp_category" == "$category" ]]; then
+            echo "- $comp_name @~/workspace/.claude/${md_filename}" >> "$CLAUDE_OUTPUT"
+        fi
+    done < "$TEMP_COMPONENTS"
     
     echo "" >> "$CLAUDE_OUTPUT"
-done
+done < "$TEMP_CATEGORIES"
+
+# Clean up temp files
+rm -f "$TEMP_CATEGORIES" "$TEMP_COMPONENTS"
 
 success "Generated project CLAUDE.md with import references"
 
