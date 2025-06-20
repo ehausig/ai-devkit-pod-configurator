@@ -126,16 +126,17 @@ for yaml_file in $SELECTED_YAML_FILES; do
         echo "${category}|${display_name}" >> "$TEMP_CATEGORIES"
     fi
     
-    # Record component with its category
-    echo "${category}|${comp_name}|${md_filename}" >> "$TEMP_COMPONENTS"
-    
-    # Copy markdown file if it exists
+    # Check if markdown file exists before recording component
     md_source="$(dirname "$yaml_file")/${md_filename}"
     if [[ -f "$md_source" ]]; then
+        # Only record component if markdown file exists
+        echo "${category}|${comp_name}|${md_filename}" >> "$TEMP_COMPONENTS"
+        
+        # Copy the markdown file
         cp "$md_source" "$TEMP_DIR/${md_filename}"
         success "  Copied ${md_filename}"
     else
-        log "  Warning: ${md_filename} not found for $comp_name"
+        info "  No ${md_filename} found - skipping component documentation"
     fi
 done
 
@@ -149,16 +150,28 @@ cat "$TEMP_COMPONENTS"
 while IFS='|' read -r category display_name; do
     [[ -z "$category" ]] && continue
     
-    echo "## $display_name" >> "$CLAUDE_OUTPUT"
-    
-    # Find all components for this category
+    # Check if this category has any components with markdown files
+    category_has_components=false
     while IFS='|' read -r comp_category comp_name md_filename; do
         if [[ "$comp_category" == "$category" ]]; then
-            echo "- $comp_name @~/workspace/.claude/${md_filename}" >> "$CLAUDE_OUTPUT"
+            category_has_components=true
+            break
         fi
     done < "$TEMP_COMPONENTS"
     
-    echo "" >> "$CLAUDE_OUTPUT"
+    # Only write category header if it has components
+    if [[ "$category_has_components" == "true" ]]; then
+        echo "## $display_name" >> "$CLAUDE_OUTPUT"
+        
+        # Find all components for this category
+        while IFS='|' read -r comp_category comp_name md_filename; do
+            if [[ "$comp_category" == "$category" ]]; then
+                echo "- $comp_name @~/workspace/.claude/${md_filename}" >> "$CLAUDE_OUTPUT"
+            fi
+        done < "$TEMP_COMPONENTS"
+        
+        echo "" >> "$CLAUDE_OUTPUT"
+    fi
 done < "$TEMP_CATEGORIES"
 
 # Clean up temp files
