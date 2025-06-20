@@ -1,5 +1,6 @@
 id: PYTHON_3_11
 name: Python 3.11 (Official)
+version: "3.11"
 group: python-version
 requires: []
 description: Official Python 3.11 release
@@ -28,35 +29,3 @@ entrypoint_setup: |
           echo "✓ Configured pip for devuser"
       fi
   fi
-memory_content: |
-  #### Python 3.11
-  
-  **Performance**: 10-60% faster than 3.10
-  
-  **New Features**:
-  - Better error messages with exact locations
-  - Exception groups: `except* ExceptionGroup`
-  - Type improvements: `Self` type
-  
-  **Testing**:
-  ```python
-  # pytest with async
-  pip install pytest pytest-asyncio pytest-cov
-  
-  @pytest.mark.asyncio
-  async def test_async():
-      result = await async_function()
-      assert result == expected
-  ```
-  
-  **TUI Stack**:
-  ```bash
-  pip install textual textual-dev
-  pip install gql[aiohttp] aiohttp pydantic
-  ```
-  
-  **Development**:
-  - Format: `black .`
-  - Lint: `ruff check .`
-  - Type check: `mypy .`
-  - Debug: `python -m pdb`

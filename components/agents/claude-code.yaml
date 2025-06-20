@@ -36,7 +36,6 @@ entrypoint_setup: |
   # Create .claude directory for global Claude configuration
   if command -v claude &> /dev/null 2>&1 || [ -f /tmp/user-CLAUDE.md ]; then
       mkdir -p /home/devuser/.claude
-      mkdir -p /home/devuser/workspace/.claude
   fi
   
   # Copy settings.json from template if it exists
@@ -54,28 +53,16 @@ entrypoint_setup: |
       echo "No /tmp/claude-settings.json.template found in image"
   fi
   
-  # Copy user-CLAUDE.md to ~/.claude/CLAUDE.md if it exists
-  echo "Checking for user-CLAUDE.md..."
-  if [ -f /tmp/user-CLAUDE.md ]; then
-      echo "Found /tmp/user-CLAUDE.md"
-      if [ ! -f /home/devuser/.claude/CLAUDE.md ]; then
-          echo "Copying user-CLAUDE.md to ~/.claude/CLAUDE.md..."
-          cp /tmp/user-CLAUDE.md /home/devuser/.claude/CLAUDE.md
-          echo "user-CLAUDE.md copied successfully to /home/devuser/.claude/CLAUDE.md"
-      else
-          echo "CLAUDE.md already exists in .claude folder"
-      fi
-  else
-      echo "No /tmp/user-CLAUDE.md found in image"
-  fi
+  # Note: user-CLAUDE.md is handled in the main entrypoint.sh script
+  # along with appending component imports
   
-  # Copy claude-code.md to workspace/.claude if it exists
+  # Copy claude-code.md to ~/.claude if it exists
   echo "Checking for claude-code.md..."
   if [ -f /tmp/claude-code.md ]; then
       echo "Found /tmp/claude-code.md"
-      if [ ! -f /home/devuser/workspace/.claude/claude-code.md ]; then
-          echo "Copying claude-code.md to workspace/.claude..."
-          cp /tmp/claude-code.md /home/devuser/workspace/.claude/claude-code.md
+      if [ ! -f /home/devuser/.claude/claude-code.md ]; then
+          echo "Copying claude-code.md to ~/.claude..."
+          cp /tmp/claude-code.md /home/devuser/.claude/claude-code.md
           echo "claude-code.md copied successfully"
       else
           echo "claude-code.md already exists"
@@ -86,7 +73,6 @@ entrypoint_setup: |
   
   # Ensure proper ownership
   chown -R devuser:devuser /home/devuser/.claude 2>/dev/null || true
-  chown -R devuser:devuser /home/devuser/workspace/.claude 2>/dev/null || true
   
   # Verify installed components (only if expected)
   if command -v claude &> /dev/null 2>&1; then

@@ -17,7 +17,7 @@ fi
 CONFIG_DIR="/home/devuser/.config/claude-code"
 mkdir -p "$CONFIG_DIR"
 mkdir -p /home/devuser/workspace
-mkdir -p /home/devuser/workspace/.claude
+mkdir -p /home/devuser/.claude
 mkdir -p /home/devuser/.local/bin
 
 # Start SSH daemon if host keys are mounted
@@ -68,25 +68,28 @@ if [ -f /tmp/git-mounted/gh-hosts.yml ]; then
     chmod 600 /home/devuser/.config/gh/hosts.yml
 fi
 
-# Copy project CLAUDE.md to workspace/.claude if it exists
-if [ -f /tmp/project-CLAUDE.md ]; then
-    echo "Found project CLAUDE.md, copying to workspace/.claude..."
-    if [ ! -f /home/devuser/workspace/.claude/CLAUDE.md ]; then
-        cp /tmp/project-CLAUDE.md /home/devuser/workspace/.claude/CLAUDE.md
-        echo "Project CLAUDE.md copied successfully"
-    else
-        echo "CLAUDE.md already exists in workspace/.claude"
+# Copy user-CLAUDE.md to ~/.claude/CLAUDE.md if it exists
+if [ -f /tmp/user-CLAUDE.md ]; then
+    echo "Found user CLAUDE.md, copying to ~/.claude..."
+    cp /tmp/user-CLAUDE.md /home/devuser/.claude/CLAUDE.md
+    echo "User CLAUDE.md copied successfully"
+    
+    # Append component imports to the CLAUDE.md file
+    if [ -f /tmp/component-imports.txt ]; then
+        echo "Appending component imports to CLAUDE.md..."
+        cat /tmp/component-imports.txt >> /home/devuser/.claude/CLAUDE.md
+        echo "Component imports appended successfully"
     fi
 fi
 
-# Copy all component markdown files to workspace/.claude
+# Copy all component markdown files to ~/.claude
 echo "Copying component documentation files..."
 for md_file in /tmp/*.md; do
-    if [ -f "$md_file" ] && [ "$md_file" != "/tmp/project-CLAUDE.md" ] && [ "$md_file" != "/tmp/user-CLAUDE.md" ]; then
+    if [ -f "$md_file" ] && [ "$md_file" != "/tmp/user-CLAUDE.md" ]; then
         basename_file=$(basename "$md_file")
-        if [ ! -f "/home/devuser/workspace/.claude/$basename_file" ]; then
-            cp "$md_file" "/home/devuser/workspace/.claude/$basename_file"
-            echo "Copied $basename_file to workspace/.claude"
+        if [ ! -f "/home/devuser/.claude/$basename_file" ]; then
+            cp "$md_file" "/home/devuser/.claude/$basename_file"
+            echo "Copied $basename_file to ~/.claude"
         fi
     fi
 done
@@ -106,7 +109,7 @@ touch "$BASHRC"
 
 # Ensure proper ownership of essential directories
 chown -R devuser:devuser /home/devuser/workspace 2>/dev/null || true
-chown -R devuser:devuser /home/devuser/workspace/.claude 2>/dev/null || true
+chown -R devuser:devuser /home/devuser/.claude 2>/dev/null || true
 chown -R devuser:devuser /home/devuser/.config/claude-code 2>/dev/null || true
 chown -R devuser:devuser /home/devuser/.local 2>/dev/null || true
 
@@ -179,10 +182,7 @@ if [ -n "$PS1" ] && [ -z "$DEVKIT_WELCOME_SHOWN" ]; then
     fi
     if [ -f ~/.claude/CLAUDE.md ]; then
         echo "User memory loaded: ~/.claude/CLAUDE.md"
-    fi
-    if [ -f ~/workspace/.claude/CLAUDE.md ]; then
-        echo "Project memory loaded: ~/workspace/.claude/CLAUDE.md"
-        echo "  • cat ~/workspace/.claude/CLAUDE.md - View component imports"
+        echo "  • cat ~/.claude/CLAUDE.md - View memory and component imports"
         echo ""
     fi
 fi

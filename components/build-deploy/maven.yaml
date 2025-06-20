@@ -1,5 +1,6 @@
 id: MAVEN
 name: Maven (Java build tool)
+version: "latest"
 group: build-tools
 requires: java-version
 description: Apache Maven - Build automation and dependency management for Java

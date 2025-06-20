@@ -1,5 +1,6 @@
 id: TYPESCRIPT
 name: TypeScript (Latest)
+version: "latest"
 group: typescript-version
 requires: nodejs-version
 description: TypeScript - JavaScript with syntax for types
@@ -20,36 +21,3 @@ entrypoint_setup: |
   if command -v ts-node &> /dev/null; then
       echo "ts-node available at: $(which ts-node)"
   fi
-memory_content: |
-  #### TypeScript
-  
-  **Setup**: `tsc --init` (creates tsconfig.json)
-  
-  **Commands**:
-  - Compile: `tsc` or `tsc file.ts`
-  - Watch: `tsc --watch`
-  - Run directly: `ts-node script.ts`
-  - Type check only: `tsc --noEmit`
-  
-  **Testing with Jest**:
-  ```bash
-  npm install -D jest @types/jest ts-jest
-  npx ts-jest config:init
-  ```
-  
-  **Development Scripts**:
-  ```json
-  {
-    "scripts": {
-      "dev": "ts-node-dev --respawn src/server.ts",
-      "build": "tsc",
-      "test": "jest --watch"
-    }
-  }
-  ```
-  
-  **Common Issues**:
-  - Module resolution: Set `"moduleResolution": "node"`
-  - Missing types: `npm i -D @types/package-name`
-  
-  **tsconfig.json**: Enable `"strict": true` for better type safety

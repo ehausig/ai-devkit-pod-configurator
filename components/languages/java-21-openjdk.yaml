@@ -1,5 +1,6 @@
 id: JAVA_21_OPENJDK
 name: Java 21 (OpenJDK)
+version: "21"
 group: java-version
 requires: []
 description: OpenJDK 21 - Open source Java implementation

@@ -1,9 +1,9 @@
 id: SCALA_3
 name: Scala 3
+version: "3.3.1"
 group: scala-version
 requires: java-version
 description: Scala 3 (Dotty) - Next generation of Scala
-version: "3.3.1"
 installation:
   dockerfile: |
     RUN export DEBIAN_FRONTEND=noninteractive && \
@@ -27,30 +27,3 @@ entrypoint_setup: |
       echo '# Scala 3 environment' >> "$BASHRC"
       echo 'export PATH="/opt/scala3/bin:$PATH"' >> "$BASHRC"
   fi
-memory_content: |
-  #### Scala 3
-  
-  **New Syntax**:
-  - Optional braces, `then` keyword
-  - Union types: `String | Int`
-  - Extension methods: `extension (x: Int) def twice = x * 2`
-  - Enums: `enum Color { case Red, Green, Blue }`
-  
-  **REPL**: `scala` or `scala3`
-  
-  **Testing**:
-  ```scala
-  // ScalaTest
-  class MySpec extends AnyFunSuite {
-    test("addition") { assert(1 + 1 === 2) }
-  }
-  
-  // MUnit (lightweight)
-  class MySuite extends munit.FunSuite {
-    test("example") { assertEquals(obtained, expected) }
-  }
-  ```
-  
-  **Quick Start**: Top-level definitions, given instances, export clauses
-  
-  **Build**: Use SBT (see SBT section)

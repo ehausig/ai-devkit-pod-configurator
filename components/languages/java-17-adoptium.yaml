@@ -1,8 +1,9 @@
 id: JAVA_17_ADOPTIUM
 name: Java 17 (Eclipse Adoptium)
+version: "17"
 group: java-version
 requires: []
-description: Eclipse Adoptium (formerly AdoptOpenJDK) Temurin 17
+description: Eclipse Adoptium Temurin 17 JDK
 installation:
   dockerfile: |
     # Pass Nexus configuration to this build stage
@@ -35,26 +36,3 @@ entrypoint_setup: |
       echo 'export JAVA_HOME=/usr/lib/jvm/temurin-17-jdk-'$(dpkg --print-architecture) >> "$BASHRC"
       echo 'export PATH="$JAVA_HOME/bin:$PATH"' >> "$BASHRC"
   fi
-memory_content: |
-  #### Java 17 (Eclipse Adoptium Temurin)
-  
-  **Why Adoptium**: TCK tested, regular updates, drop-in Oracle JDK replacement
-  
-  **Java 17 LTS Features**:
-  - Records: `record Person(String name, int age) {}`
-  - Pattern matching: `if (obj instanceof String s) { /* use s */ }`
-  - Text blocks: `"""multi-line"""`
-  - Sealed classes
-  
-  **Testing**:
-  ```java
-  @ParameterizedTest
-  @ValueSource(strings = {"hello", "world"})
-  void testWithParams(String value) {
-      assertNotNull(value);
-  }
-  ```
-  
-  **Microservices**: Spring Boot 2.5+ has full Java 17 support
-  
-  **Performance**: Use ZGC for low latency: `-XX:+UseZGC`

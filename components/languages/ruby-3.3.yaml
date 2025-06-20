@@ -1,9 +1,9 @@
 id: RUBY_3_3
 name: Ruby 3.3 (rbenv)
+version: "3.3.0"
 group: ruby-version
 requires: []
 description: Ruby 3.3.0 installed via rbenv
-version: "3.3.0"
 installation:
   dockerfile: |
     RUN export DEBIAN_FRONTEND=noninteractive && \
@@ -89,31 +89,3 @@ entrypoint_setup: |
   export PATH="$HOME/.local/bin:$HOME/.bundle/bin:$PATH"
   EOF
   fi
-memory_content: |
-  #### Ruby 3.3
-  
-  **Ruby 3.3 Features**: Prism parser, YJIT improvements, Range#overlap?
-  
-  **Project Setup**:
-  - `bundle init` - Create Gemfile
-  - `bundle add rails` - Add dependencies
-  - `bundle install` - Install gems
-  - `bundle exec command` - Run with bundled gems
-  
-  **Testing**:
-  ```ruby
-  # RSpec
-  bundle add rspec --group=test
-  bundle exec rspec --init
-  bundle exec rspec
-  
-  # Rails default
-  bundle exec rails test
-  ```
-  
-  **Rails**: `rails new myapp` → `bin/rails server`
-  
-  **Development**:
-  - Console: `irb` or `bin/rails console`
-  - Lint: `bundle add rubocop --group=development`
-  - Test continuously: `bundle add guard-rspec`

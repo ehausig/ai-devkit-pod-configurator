@@ -1,5 +1,6 @@
 id: PYTHON_MINICONDA
 name: Python (Miniconda)
+version: "latest"
 group: python-version
 requires: []
 description: Python distribution with conda package manager

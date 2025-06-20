@@ -1,8 +1,9 @@
 id: JAVA_21_ADOPTIUM
 name: Java 21 (Eclipse Adoptium)
+version: "21"
 group: java-version
 requires: []
-description: Eclipse Adoptium (formerly AdoptOpenJDK) Temurin 21
+description: Eclipse Adoptium Temurin 21 JDK
 installation:
   dockerfile: |
     # Pass Nexus configuration to this build stage
@@ -35,31 +36,3 @@ entrypoint_setup: |
       echo 'export JAVA_HOME=/usr/lib/jvm/temurin-21-jdk-'$(dpkg --print-architecture) >> "$BASHRC"
       echo 'export PATH="$JAVA_HOME/bin:$PATH"' >> "$BASHRC"
   fi
-memory_content: |
-  #### Java 21 (Eclipse Adoptium Temurin LTS)
-  
-  **Virtual Threads** (game changer):
-  ```java
-  try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-      IntStream.range(0, 10_000).forEach(i -> 
-          executor.submit(() -> processRequest(i))
-      );
-  }
-  ```
-  
-  **Modern API**:
-  ```java
-  var server = HttpServer.create(new InetSocketAddress(8080), 0);
-  server.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
-  server.createContext("/api", this::handleRequest);
-  server.start();
-  ```
-  
-  **Testing**: Test with thousands of virtual threads
-  
-  **Performance**:
-  - Low latency: `-XX:+UseZGC`
-  - Default G1GC for balance
-  - Profile with JFR
-  
-  **Migration**: Virtual threads are drop-in replacements, no pooling needed

@@ -1,8 +1,9 @@
 id: SBT
 name: SBT (Scala build tool)
+version: "latest"
 group: build-tools
 requires: java-version
-description: Simple Build Tool - Interactive build tool for Scala and Java (Note: Requires Java 17 or older when using Nexus cached version)
+description: Interactive build tool for Scala and Java projects
 installation:
   dockerfile: |
     # Pass Nexus configuration to this build stage
@@ -59,33 +60,3 @@ entrypoint_setup: |
   
   # Always ensure SBT directories are owned by devuser
   chown -R devuser:devuser /home/devuser/.sbt 2>/dev/null || true
-memory_content: |
-  #### SBT
-  
-  **Quick Start**: `sbt new scala/scala3.g8` or `sbt new scala/hello-world.g8`
-  
-  **Interactive Mode** (type `sbt`):
-  - `compile` - Compile sources
-  - `run` - Run main class
-  - `test` - Run tests
-  - `~test` - Watch mode (auto-rerun)
-  - `console` - Scala REPL with project
-  
-  **Testing**:
-  - Specific test: `testOnly com.example.MySpec`
-  - Test quick: `testQuick` (only changed)
-  - Continuous: `~test`
-  
-  **build.sbt**:
-  ```scala
-  lazy val root = project.in(file("."))
-    .settings(
-      name := "myapp",
-      scalaVersion := "3.3.1",
-      libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.17" % Test
-    )
-  ```
-  
-  **Commands**: `clean`, `package`, `publishLocal`, `dependencyTree`
-  
-  **Common Issues**: Binary compatibility → check Scala version alignment

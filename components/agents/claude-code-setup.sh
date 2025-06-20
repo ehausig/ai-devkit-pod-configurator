@@ -1,6 +1,6 @@
 #!/bin/bash
 # Claude Code pre-build script
-# Generates project CLAUDE.md and handles file copying
+# Generates component imports and handles file copying
 
 # Standard arguments
 TEMP_DIR="$1"
@@ -29,11 +29,14 @@ SETTINGS_TEMPLATE="$SCRIPT_DIR/claude-settings.json.template"
 [[ ! -f "$USER_CLAUDE" ]] && error "user-CLAUDE.md not found in $SCRIPT_DIR"
 [[ ! -f "$SETTINGS_TEMPLATE" ]] && error "claude-settings.json.template not found in $SCRIPT_DIR"
 
-log "Generating project CLAUDE.md for selected components..."
+log "Generating component imports for user CLAUDE.md..."
 
-# Create project CLAUDE.md
-CLAUDE_OUTPUT="$TEMP_DIR/project-CLAUDE.md"
-cat > "$CLAUDE_OUTPUT" << 'EOF'
+# Create component imports file
+IMPORTS_OUTPUT="$TEMP_DIR/component-imports.txt"
+cat > "$IMPORTS_OUTPUT" << 'EOF'
+
+---
+
 # Installed Components
 
 This environment includes the following components:
@@ -184,45 +187,45 @@ while IFS='|' read -r category display_name; do
     
     # Write category if it has components
     if [[ "$category_has_components" == "true" ]]; then
-        echo "## $display_name" >> "$CLAUDE_OUTPUT"
-        echo "" >> "$CLAUDE_OUTPUT"
+        echo "## $display_name" >> "$IMPORTS_OUTPUT"
+        echo "" >> "$IMPORTS_OUTPUT"
         
         # List all components for this category
         while IFS='|' read -r comp_category comp_name comp_version comp_description; do
             if [[ "$comp_category" == "$category" ]]; then
                 # Format component entry on single line
-                echo -n "- **$comp_name**" >> "$CLAUDE_OUTPUT"
+                echo -n "- **$comp_name**" >> "$IMPORTS_OUTPUT"
                 
                 # Add version if available
                 if [[ -n "$comp_version" ]]; then
-                    echo -n " [version: $comp_version]" >> "$CLAUDE_OUTPUT"
+                    echo -n " [version: $comp_version]" >> "$IMPORTS_OUTPUT"
                 fi
                 
                 # Add description if available
                 if [[ -n "$comp_description" ]]; then
-                    echo -n ": $comp_description" >> "$CLAUDE_OUTPUT"
+                    echo -n ": $comp_description" >> "$IMPORTS_OUTPUT"
                 fi
                 
                 # End the line
-                echo "" >> "$CLAUDE_OUTPUT"
+                echo "" >> "$IMPORTS_OUTPUT"
             fi
         done < "$TEMP_ALL_COMPONENTS"
         
-        echo "" >> "$CLAUDE_OUTPUT"
+        echo "" >> "$IMPORTS_OUTPUT"
     fi
 done < "$TEMP_CATEGORIES"
 
 # Add separator between sections
-echo "---" >> "$CLAUDE_OUTPUT"
-echo "" >> "$CLAUDE_OUTPUT"
+echo "---" >> "$IMPORTS_OUTPUT"
+echo "" >> "$IMPORTS_OUTPUT"
 
 # Add Additional Instructions section header
-echo "# Additional Instructions" >> "$CLAUDE_OUTPUT"
-echo "" >> "$CLAUDE_OUTPUT"
-echo "This workspace includes the following development tools:" >> "$CLAUDE_OUTPUT"
-echo "" >> "$CLAUDE_OUTPUT"
+echo "# Additional Instructions" >> "$IMPORTS_OUTPUT"
+echo "" >> "$IMPORTS_OUTPUT"
+echo "This workspace includes the following development tools:" >> "$IMPORTS_OUTPUT"
+echo "" >> "$IMPORTS_OUTPUT"
 
-# Write categories and components to CLAUDE.md (only those with markdown files)
+# Write categories and components to imports file (only those with markdown files)
 while IFS='|' read -r category display_name; do
     [[ -z "$category" ]] && continue
     
@@ -237,23 +240,23 @@ while IFS='|' read -r category display_name; do
     
     # Only write category header if it has components
     if [[ "$category_has_components" == "true" ]]; then
-        echo "## $display_name" >> "$CLAUDE_OUTPUT"
+        echo "## $display_name" >> "$IMPORTS_OUTPUT"
         
         # Find all components for this category
         while IFS='|' read -r comp_category comp_name md_filename; do
             if [[ "$comp_category" == "$category" ]]; then
-                echo "- $comp_name @~/workspace/.claude/${md_filename}" >> "$CLAUDE_OUTPUT"
+                echo "- $comp_name @~/.claude/${md_filename}" >> "$IMPORTS_OUTPUT"
             fi
         done < "$TEMP_COMPONENTS"
         
-        echo "" >> "$CLAUDE_OUTPUT"
+        echo "" >> "$IMPORTS_OUTPUT"
     fi
 done < "$TEMP_CATEGORIES"
 
 # Clean up temp files
 rm -f "$TEMP_CATEGORIES" "$TEMP_COMPONENTS" "$TEMP_ALL_COMPONENTS"
 
-success "Generated project CLAUDE.md with import references"
+success "Generated component imports for user CLAUDE.md"
 
 # Copy user-CLAUDE.md
 log "Copying user-CLAUDE.md..."
