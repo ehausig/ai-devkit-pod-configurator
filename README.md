@@ -348,6 +348,14 @@ If you find this project useful, please consider supporting its development:
 
 Your support helps maintain and improve this project. Thank you!
 
+## Roadmap
+
+- Add slash command definition support to YAML files
+
+## Known Issues
+
+- Repeated deployments and teardowns can leave orphaned overlay2 files in Colima, which can eventually lead to disk pressure errors. (Workaround is to periodically `colima delete` and recreate, but longterm fix would be desireable.)
+
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
