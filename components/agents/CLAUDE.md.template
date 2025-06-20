@@ -1,360 +1,113 @@
-# Universal Development Guidelines
+# Development Guidelines
 
-## Communication Style
+## Communication
+Be conversational and helpful, providing clear explanations for decisions. Stay concise while maintaining clarity, especially for complex concepts.
 
-Please communicate in a conversational, helpful manner similar to Claude chat. Be clear and informative while maintaining a friendly tone. Provide context for decisions and explain complex concepts when needed.
+## Core Principles
+- **Start Simple**: Write the simplest working solution first
+- **Iterate Thoughtfully**: Add complexity only when needed
+- **Be Idiomatic**: Follow language conventions
+- **Test Everything**: All tests must pass before pushing code
+- **Stay Autonomous**: When encountering failures, iterate on solutions independently
 
-## Code Philosophy
+## Workspace Rules
+- **Work Directory**: All development happens under `~/workspace/`
+- **Project Structure**: Each project gets its own subdirectory (e.g., `~/workspace/project-name/`)
+- **File Creation**: Use `mkdir -p` for directories, `touch` then Read() then Edit() for files
+- **Navigation**: Use relative paths, avoid absolute paths
+- **Restrictions**: Never create/edit files outside `~/workspace/`
 
-### General Principles
-- **Start Simple**: Write the simplest solution that works correctly
-- **Iterate Thoughtfully**: Only add abstractions when complexity demands it
-- **Be Idiomatic**: Follow the conventions and patterns of the language
-- **Clarity First**: Readable code is better than clever code
+## Development Workflow (Guidelines)
+1. **Initialize Session**
+   - Ask clarifying questions if needed
+   - Create `~/workspace/JOURNAL.md` and update throughout session:
+     ```bash
+     echo "$(date -Iseconds) [INFO] Session started - <description>" >> ~/workspace/JOURNAL.md
+     ```
 
-### Preferred Strategies
-- Test-Driven Development (TDD)
-- GitFlow
-- Conventional Commit
-- Develop APIs before UIs
-- Avoid premature optimization and over-engineering
-- Test and commit frequently
-- Leverage content under `ENVIRONMENT_TOOLS_MARKER` section
-- Compose and execute each test separately to avoid 2 minute command timeouts of long-running tests
+2. **Setup Project**
+   - Create GitHub repo with LICENSE and develop branch
+   - Enable auto-merge: `gh repo edit --enable-auto-merge`
+   - Clone to `~/workspace/` and checkout feature branch
 
-### General Development Approach
+3. **Build & Test Cycle**
+   - Scaffold structure using language tools
+   - Create unit tests for APIs first
+   - Build APIs to pass tests
+   - Create integration tests using `expect`/`tmux` for CLI/TUI testing
+   - Build user interfaces
+   - Iterate until all tests pass
 
-1. Ask follow-up questions
-2. Create a `~/workspace/JOURNAL.md` file
-  - Update it with `cat '<log entry>' >> ~/workspace/JOURNAL.md` throughout new-session
-  - Include key decisions, issues, resolutions, and milestones
-3. Create GitHub repo with `LICENSE` file and `develop` branch, then clone it to `~/workspace`
-4. Enable auto-merge on repo
-5. Checkout a new git branch
-6. Scaffold directory structure using `mkdir -p`
-  - Leverge dev tool project initialization features, if available (e.g. `cargo init`)
-7. Create unit tests for APIs
-  - Use language-appropriate testing framework
-8. Build APIs
-9. Run unit tests for APIs and fix issues
-  - Repeat until all unit tests pass before moving on
-10. Create `expect` and/or `tmux` tests for user simulations and integration tests
-11. Build user-facing applications
-12. Run user simulations and integration tests, and fix issues
-  - Repeat until all user simulations and integration tests pass before moving on
-13. Commit changes to repo and push changes to GitHub
-14. Open PR to merge feature branch with develop branch, and output PR info for operator to review
+4. **Finalize**
+   - Commit with conventional commits
+   - Push and create PR with description
 
-### Development Constraints 
-- Do not push commits to GitHub until all tests pass
-- Create and test APIs before creating and testing UIs
-- Create parent folder with `mkdir -p` before creating file
-- Avoid permissions errors creating files by using `touch` to create file, then Read(), then Edit()
-- Avoid permissions errors editing files by first using Read() and then Edit()
-- Never create or edit files above the `~/workspace/` or `/home/devuser/workspace` directory
-- Do not create any "universal" testing batch files 
-
-### Code Quality
-- Use descriptive, meaningful variable and function names
-- Follow language-specific naming conventions and be idiomatic
-- Add comments for complex algorithms or business logic
-- Keep functions focused and reasonably sized
-- Handle errors appropriately for the language and context
-
-## Project Structure
-
-### Workspace Organization
-- The `~/workspace` directory contains individual project folders
-- Each project should have its own subdirectory under `~/workspace`
-- Initialize git repositories at the project root level (e.g., `~/workspace/my-project/`), never directly in `~/workspace`
-- Follow language-specific conventions for internal project structure
-
-### Example Structure:
-```
-~/workspace/
-├── project-one/
-│   ├── .git/
-│   ├── README.md
-│   └── [language-specific structure]
-├── project-two/
-│   ├── .git/
-│   ├── README.md
-│   └── [language-specific structure]
-└── experiments/
-    └── [unversioned experimental code]
+## Journal Format
+Append entries throughout session:
+```bash
+# Log format: timestamp [level] component - message
+echo "$(date -Iseconds) [ERROR] Testing - Unit test failed: <details>" >> ~/workspace/JOURNAL.md
+echo "$(date -Iseconds) [DECISION] Architecture - Chose <x> because <reason>" >> ~/workspace/JOURNAL.md
+echo "$(date -Iseconds) [RESOLUTION] Bug - Fixed <issue> by <solution>" >> ~/workspace/JOURNAL.md
 ```
 
-### Navigation Best Practices
-- **Use relative paths**: Navigate with `cd ../project` instead of `/home/devuser/workspace/project`
-- **Stay within workspace**: All project work should be under `~/workspace/`
-- **Avoid absolute paths**: Security model prevents absolute path navigation
+## Testing Strategy
+- **Run tests individually** to avoid 2-minute timeouts
+- **Test types**: Unit (language-specific), Integration (expect/tmux), User acceptance
+- **User simulation**: Use expect/tmux to simulate real user interactions
+- **Failure handling**: When tests fail, analyze → fix → rerun immediately. Repeat until resolved.
 
-## Documentation Standards
+## Git Conventions
 
-### README.md Template
-Create a README.md with the following initial structure:
-
-```markdown
-# Project Name
-
-Brief description of what this project does and why it exists.
-
-## Getting Started
-
-### Prerequisites
-- List any requirements
-
-### Installation
-\```bash
-# Installation commands
-\```
-
-### Usage
-\```bash
-# Basic usage examples
-\```
-
-## Development
-
-### Setup
-Steps for development environment setup
-
-### Testing
-How to run tests
-
-### Contributing
-<!-- Guidelines for contributing to the project -->
-
-## API Documentation
-<!-- API endpoint documentation -->
-
-## Deployment
-<!-- Deployment instructions and considerations -->
-
-## License
-
-[License type] - see LICENSE file for details
-```
-
-### Documentation Guidelines
-- Start with a minimal README.md and expand as the project matures
-- Document complex algorithms inline with clear comments
-- Use language-specific documentation formats (JSDoc, docstrings, etc.)
-
-## Security Considerations
-
-### File System Access
-- Do not attempt to access the host file system outside the container
-- If a task requires access outside ~, explain the limitation and suggest alternatives
-
-### General Security Practices
-- Never commit sensitive information (API keys, passwords, tokens)
-- Use environment variables for configuration secrets
-- Validate and sanitize all user inputs
-- Follow OWASP guidelines for web applications
-- Keep dependencies updated for security patches
-
-## Dependency Management
-
-### Philosophy
-- **Start Minimal**: Only add dependencies that provide substantial value
-- **Security First**: Regularly audit dependencies for known vulnerabilities
-- **Version Stability**: Pin exact versions in lock files for reproducibility
-- **Regular Maintenance**: Update dependencies periodically, testing thoroughly
-- **License Compliance**: Ensure all dependencies are compatible with project license
-- **Prefer Standard**: Use language standard library when reasonable
-
-### Guidelines
-- Document why each dependency is needed
-- Evaluate the maintenance status of dependencies
-- Consider the size and complexity added by each dependency
-- Group dependency updates into logical commits
-- **Check compatibility first**: Verify version compatibility before adding dependencies
-- **Test after adding**: Always run tests after adding new dependencies
-
-## Code Review Preferences
-
-When reviewing code changes:
-- **Correctness**: Ensure the code does what it's supposed to do
-- **Readability**: Code should be clear and self-documenting
-- **Maintainability**: Consider future developers (including yourself)
-- **Testing**: Verify adequate test coverage for new functionality and that all the tests have succeeded
-- **Security**: Look for potential vulnerabilities or unsafe practices
-- **Performance**: Flag obvious performance issues, but avoid premature optimization
-- **Conventions**: Ensure consistency with project standards
-
-Provide constructive feedback with specific suggestions for improvement.
-
-## Git Approach
-
-### Git Commit Conventions
-
-Follow the Conventional Commits specification (https://www.conventionalcommits.org/):
-
+### Commits
+Follow Conventional Commits:
 ```
 <type>(<scope>): <subject>
 
 <body>
-
-<footer>
 ```
+Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`
 
-#### Allowed Types:
-- `feat`: New feature
-- `fix`: Bug fix
-- `docs`: Documentation only changes
-- `style`: Changes that don't affect code meaning (formatting, missing semicolons, etc.)
-- `refactor`: Code change that neither fixes a bug nor adds a feature
-- `perf`: Performance improvements
-- `test`: Adding or updating tests
-- `chore`: Changes to build process, auxiliary tools, or maintenance tasks
-- `ci`: Changes to CI configuration files and scripts
-- `build`: Changes affecting build system or external dependencies
+### Branches
+- `feat/description` - New features
+- `fix/issue-description` - Bug fixes
+- `chore/description` - Maintenance
 
-#### Guidelines:
-- Subject line: max 50 characters, imperative mood ("add" not "added")
-- Body: wrap at 72 characters, explain what and why (not how)
-- Footer: reference issues, breaking changes with `BREAKING CHANGE:`
-- Scope is optional but encouraged when relevant
+### Pull Requests
+Include: Description, Type of Change, Testing checklist, Related issues
 
-#### Examples:
-```
-feat(auth): add OAuth2 integration
+## Code Quality
+- Descriptive naming following language conventions
+- Comments for complex logic only
+- Handle errors appropriately
+- Prefer standard library over external dependencies when reasonable
 
-Implement OAuth2 flow for third-party authentication providers.
-Supports Google and GitHub initially.
-
-Closes #123
-```
-
-```
-fix: prevent race condition in data sync
-
-The synchronization logic now uses proper mutex locking to prevent
-concurrent writes to the shared data structure.
-```
-
-### Branch Naming Convention
-Use descriptive branch names that align with the change type:
-- `feat/short-description` - New features
-- `fix/issue-number-description` - Bug fixes (e.g., `fix/123-login-error`)
-- `chore/description` - Maintenance tasks
-- `docs/description` - Documentation updates
-- `refactor/description` - Code refactoring
-- `test/description` - Test additions or updates
-
-### New GitHub Repositories
-
-- **LICENSE**: If user does not provide a LICENSE, use `gh repo create --license MIT` to create the repo
-- **Enable Auto-merge**: Allow PRs to be automatically merged when checks pass
-   ```bash
-   gh repo edit --enable-auto-merge
-   ```
-- **Disable PR approval requirements** for personal/development repos:
-   ```bash
-   # Via GitHub UI: Settings → Branches → Edit protection rules
-   # Uncheck "Require pull request reviews before merging"
-   # Or set "Required approving reviews" to 0
-   ```
-
-### Pull Request Template
-When creating PRs, include:
+## Documentation
+Start with minimal README.md:
 ```markdown
-## Description
-Brief description of changes
+# Project Name
+Brief description
 
-## Type of Change
-- [ ] Bug fix (non-breaking change fixing an issue)
-- [ ] New feature (non-breaking change adding functionality)
-- [ ] Breaking change (fix or feature causing existing functionality to change)
-- [ ] Documentation update
+## Getting Started
+### Installation
+### Usage
 
-## Testing
-- [ ] Tests pass locally
-- [ ] Added new tests for new functionality
-- [ ] Existing tests updated as needed
+## Development
+### Testing
+### Contributing
 
-## Checklist
-- [ ] Code follows project style guidelines
-- [ ] Self-review completed
-- [ ] Comments added for complex logic
-- [ ] Documentation updated if needed
-
-## Related Issues
-Closes #(issue number)
+## License
 ```
+Expand sections as project matures.
 
-## Testing and Automation
-
-### Testing Philosophy
-**All tests must pass before pushing to GitHub.** Use a polyglot testing approach that combines:
-- **Unit tests**: Language-specific testing frameworks for isolated component testing
-- **Integration tests**: Cross-language tools (`expect`, `tmux`, `curl`) for end-to-end testing
-- **User simulation tests**: Cross-language tools (`expect`, `tmux`) to simulate user keystrokes, mouse movements, etc.
-- **Continuous testing**: Run tests frequently during development, not just before commits
-- **Synthetic data**: Create and leverage synthentic data for more deterministic testing
-
-### Cross-Language Testing Tools
-
-#### Integration Testing with Expect
-
-For interactive programs (TUIs, CLIs, REPLs), create expect scripts:
-
-```tcl
-#!/usr/bin/expect -f
-# Example: tests/integration/test_cli.exp
-set timeout 10
-log_file tests/integration/test_cli.log
-
-spawn ./myapp --interactive
-expect {
-    "Welcome" { 
-        send "help\r"
-        exp_continue
-    }
-    "Commands:" {
-        send "status\r"
-        exp_continue
-    }
-    "Status: OK" {
-        send "exit\r"
-    }
-    timeout {
-        puts "FAIL: CLI test timeout"
-        exit 1
-    }
-}
-expect eof
-puts "PASS: CLI basic functionality"
-```
-
-#### TUI Testing with tmux
-
-For complex TUI applications:
-
-```bash
-#!/bin/bash
-# tests/integration/test_tui_tmux.sh
-
-tmux new-session -d -s test_session './myapp'
-sleep 1
-
-# Send keystrokes
-tmux send-keys -t test_session Down Enter
-sleep 0.5
-
-# Capture and verify screen
-tmux capture-pane -t test_session -p > output.txt
-if grep -q "Expected Menu Item" output.txt; then
-    echo "PASS: Menu navigation"
-else
-    echo "FAIL: Menu navigation"
-    tmux kill-session -t test_session
-    exit 1
-fi
-
-tmux kill-session -t test_session
-```
+## Problem Solving
+When encountering issues:
+1. Analyze the error thoroughly
+2. Implement a fix
+3. Test immediately
+4. If still failing, think deeper and try alternative approaches
+5. Document significant decisions in journal
+6. Continue iterating until successful
 
 <!-- ENVIRONMENT_TOOLS_MARKER -->
 <!-- This section will be automatically appended with language-specific guidelines -->
