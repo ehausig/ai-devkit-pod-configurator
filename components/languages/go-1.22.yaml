@@ -53,55 +53,32 @@ entrypoint_setup: |
 memory_content: |
   #### Go 1.22
   
-  **What's New**:
-  - Range over integers: `for i := range 10 { }`
-  - Enhanced routing patterns in `net/http`
-  - Improved performance (2-4% faster)
+  **What's New**: Range over integers: `for i := range 10 { }`
   
-  **Project Management**:
-  - Create module: `go mod init example.com/myapp`
-  - Get dependencies: `go get ./...`
-  - Tidy modules: `go mod tidy`
-  - Build with vendor: `go build -mod=vendor`
+  **Quick Start**:
+  - Init module: `go mod init example.com/myapp`
+  - Run: `go run .`
+  - Build: `go build -o myapp`
+  - Test: `go test ./...`
   
-  **Unit Testing**:
+  **Testing**:
   ```go
   func TestFunction(t *testing.T) {
-      result := Function()
-      if result != expected {
-          t.Errorf("got %v, want %v", result, expected)
+      if got := Function(); got != expected {
+          t.Errorf("got %v, want %v", got, expected)
       }
   }
   ```
-  - Run tests: `go test ./...`
   - Coverage: `go test -cover ./...`
   - Race detector: `go test -race ./...`
-  - Verbose: `go test -v ./...`
   
-  **Integration Testing**:
-  - Use `testify` for assertions: `go get github.com/stretchr/testify`
-  - Table-driven tests for comprehensive coverage
-  - Mock interfaces, not implementations
-  
-  **Build Options**:
-  - Static binary: `CGO_ENABLED=0 go build`
-  - Cross-compile: `GOOS=windows GOARCH=amd64 go build`
-  - Optimize size: `go build -ldflags="-s -w"`
-  
-  **API Development Pattern**:
+  **HTTP Server (1.22 enhanced routing)**:
   ```go
-  // Quick HTTP server with Go 1.22 enhanced routing
   http.HandleFunc("GET /api/users/{id}", getUserHandler)
   http.HandleFunc("POST /api/users", createUserHandler)
   http.ListenAndServe(":8080", nil)
   ```
   
-  **Development Workflow**:
-  - Hot reload: `go install github.com/cosmtrek/air@latest && air`
-  - Format code: `go fmt ./...`
-  - Vet code: `go vet ./...`
+  **Tools**: `go fmt ./...`, `go vet ./...`, `go mod tidy`
   
-  **Common Issues**:
-  - Module not found: Run `go mod tidy` to sync dependencies
-  - Version conflicts: Check with `go mod graph`
-  - Clear cache: `go clean -modcache`
+  **Hot reload**: `go install github.com/cosmtrek/air@latest && air`

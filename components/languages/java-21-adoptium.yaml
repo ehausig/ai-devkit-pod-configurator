@@ -36,70 +36,30 @@ entrypoint_setup: |
       echo 'export PATH="$JAVA_HOME/bin:$PATH"' >> "$BASHRC"
   fi
 memory_content: |
-  #### Java 21 (Eclipse Adoptium Temurin) - Latest LTS
+  #### Java 21 (Eclipse Adoptium Temurin LTS)
   
-  **Environment**:
-  - Java version: `java -version`
-  - JAVA_HOME: Pre-configured at `/usr/lib/jvm/temurin-21-jdk-${TARGETARCH}`
-  
-  **Java 21 Highlights**:
-  - Virtual threads: `Thread.ofVirtual().start(() -> {})` for massive concurrency
-  - Pattern matching: Complete with record patterns in switch
-  - Sequenced collections: `List.reversed()`, `Map.firstEntry()`
-  - String templates (preview): Better string interpolation
-  
-  **Virtual Threads Example**:
+  **Virtual Threads** (game changer):
   ```java
-  // Handle thousands of concurrent requests efficiently
   try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
       IntStream.range(0, 10_000).forEach(i -> 
-          executor.submit(() -> {
-              // Each runs in a virtual thread
-              processRequest(i);
-          })
+          executor.submit(() -> processRequest(i))
       );
   }
   ```
   
-  **Unit Testing with Virtual Threads**:
+  **Modern API**:
   ```java
-  @Test
-  void testConcurrentRequests() throws Exception {
-      try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-          var futures = IntStream.range(0, 1000)
-              .mapToObj(i -> executor.submit(() -> makeRequest()))
-              .toList();
-          
-          // Wait for all to complete
-          futures.forEach(f -> assertDoesNotThrow(f::get));
-      }
-  }
-  ```
-  
-  **Modern API Development**:
-  ```java
-  // Using virtual threads with HTTP server
   var server = HttpServer.create(new InetSocketAddress(8080), 0);
   server.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
-  server.createContext("/api", exchange -> {
-      // Runs in virtual thread
-      handleRequest(exchange);
-  });
+  server.createContext("/api", this::handleRequest);
   server.start();
   ```
   
-  **Performance Tips**:
-  - Use G1GC (default): Balanced for most workloads
-  - For low latency: `java -XX:+UseZGC MyApp`
-  - For throughput: `java -XX:+UseParallelGC MyApp`
+  **Testing**: Test with thousands of virtual threads
   
-  **Testing Best Practices**:
-  - Test with thousands of virtual threads
-  - Use JUnit 5.10+ for better virtual thread support
-  - Profile with JFR to understand thread behavior
+  **Performance**:
+  - Low latency: `-XX:+UseZGC`
+  - Default G1GC for balance
+  - Profile with JFR
   
-  **Migration Tips**:
-  - Virtual threads are drop-in replacements for platform threads
-  - No pooling needed - create as many as you want
-  - Ideal for I/O-bound workloads
-  - Avoid synchronized blocks in hot paths
+  **Migration**: Virtual threads are drop-in replacements, no pooling needed

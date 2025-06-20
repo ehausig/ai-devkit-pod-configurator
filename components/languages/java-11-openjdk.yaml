@@ -26,39 +26,21 @@ entrypoint_setup: |
 memory_content: |
   #### Java 11 (OpenJDK)
   
-  **Environment**:
-  - Java version: `java -version`
-  - Compiler version: `javac -version`
-  - JAVA_HOME: Pre-configured at `/usr/lib/jvm/java-11-openjdk-${TARGETARCH}`
-  
-  **Compilation & Execution**:
-  - Compile: `javac MyClass.java`
-  - Run: `java MyClass`
-  - Compile with classpath: `javac -cp lib/*:. MyClass.java`
-  - Run with classpath: `java -cp lib/*:. MyClass`
-  
   **Java 11 Features**:
-  - Local variable type inference: `var list = new ArrayList<String>();`
+  - Local var inference: `var list = new ArrayList<String>();`
   - HTTP Client API: Built-in `java.net.http`
-  - Single-file execution: `java HelloWorld.java`
+  - Single-file: `java HelloWorld.java` (no javac needed)
   - String methods: `isBlank()`, `lines()`, `repeat(n)`
   
-  **Unit Testing**:
-  - JUnit 5: `mvn test` or `gradle test`
-  - Run continuously: `mvn test -Dtest=TestClass#testMethod`
-  - Generate reports: `mvn surefire-report:report`
-  
-  **Common Issues**:
-  - Legacy project considerations: Many enterprise projects still use Java 11
-  - Java 11 LTS support ends in 2026
-  - Consider upgrading to 17 or 21 for new projects
-  
-  **HTTP Client Example**:
+  **HTTP Client**:
   ```java
   var client = HttpClient.newHttpClient();
   var request = HttpRequest.newBuilder()
       .uri(URI.create("https://api.example.com"))
       .build();
   var response = client.send(request, HttpResponse.BodyHandlers.ofString());
-  System.out.println(response.body());
   ```
+  
+  **Testing**: Use JUnit 5 with Maven/Gradle
+  
+  **Note**: LTS support ends 2026. Consider Java 17/21 for new projects.

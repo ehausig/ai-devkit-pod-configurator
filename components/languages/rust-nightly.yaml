@@ -55,65 +55,26 @@ entrypoint_setup: |
 memory_content: |
   #### Rust (Nightly)
   
-  **Nightly Features**:
-  - Unstable features: Add `#![feature(name)]` to use
-  - Check available: `rustc +nightly --print target-features`
-  - Async traits, const generics experiments, and more
+  **Unstable Features**: Use `#![feature(name)]` in code
   
-  **Development**:
+  **Commands**:
   - Build: `cargo +nightly build`
   - Run: `cargo +nightly run`
-  - **Watch mode**: `cargo watch -x "run +nightly"`
-  - Watch tests: `cargo watch -x "test +nightly"`
-  
-  **Unit Testing**:
-  ```rust
-  #[cfg(test)]
-  mod tests {
-      use super::*;
-      
-      #[test]
-      fn test_basic() {
-          assert_eq!(2 + 2, 4);
-      }
-      
-      #[tokio::test]
-      async fn test_async() {
-          let result = async_function().await;
-          assert_eq!(result, expected);
-      }
-  }
-  ```
-  
-  **Integration Testing**:
-  - Place in `tests/` directory
-  - Run with: `cargo +nightly test`
-  - Use `--nocapture` to see println! output
-  
-  **Common Dependency Gotchas** (apply to nightly too):
-  - **async-graphql + axum**: Use compatible versions
-    ```toml
-    async-graphql = { version = "5.0", features = ["chrono"] }
-    async-graphql-axum = "5.0"
-    axum = "0.6"
-    tokio = { version = "1", features = ["full"] }
-    async-trait = "0.1"
-    ```
-  - **Check compatibility**: Run `cargo tree -d` to spot conflicts
+  - Watch: `cargo watch -x "run +nightly"`
+  - Test: `cargo +nightly test`
   
   **Advanced Tools**:
-  - Miri (interpreter): `rustup +nightly component add miri`
+  - Miri: `rustup +nightly component add miri`
   - Expand macros: `cargo +nightly expand`
   - Build std: `cargo +nightly build -Z build-std`
   
-  **Switching Toolchains**:
-  - Use stable: `cargo +stable build`
-  - Update nightly: `rustup update nightly`
-  - Override for project: `rustup override set nightly`
+  **Dependency Compatibility** (same as stable):
+  ```toml
+  async-graphql = "5.0"
+  axum = "0.6"
+  tokio = { version = "1", features = ["full"] }
+  ```
   
-  **Testing Best Practices**:
-  - Run tests immediately: `cargo test` after each feature
-  - Test with different feature flags
-  - Use property-based testing with `proptest`
+  **Switching**: `cargo +stable build` to use stable
   
-  **Warning**: Nightly may have breaking changes. Pin versions in CI.
+  **Warning**: Nightly may break. Pin versions in CI.

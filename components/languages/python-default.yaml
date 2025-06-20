@@ -27,54 +27,32 @@ entrypoint_setup: |
       fi
   fi
 memory_content: |
-  #### Python 3.10 (System)
+  #### Python 3.10
   
-  **Quick Start**:
-  - Run Python: `python` or `python3`
-  - Install packages: `pip install package` (installs to ~/.local)
-  - Create virtual env: `python -m venv .venv`
-  - Activate venv: `source .venv/bin/activate`
+  **Virtual Environments** (always use for projects):
+  ```bash
+  python -m venv .venv
+  source .venv/bin/activate
+  pip install -r requirements.txt
+  deactivate
+  ```
   
-  **Virtual Environment Best Practices**:
-  - Always use venv for projects
-  - Create: `python -m venv .venv`
-  - Activate: `source .venv/bin/activate`
-  - Deactivate: `deactivate`
-  - Requirements: `pip freeze > requirements.txt`
-  
-  **Unit Testing**:
+  **Testing**:
   ```python
-  # Using pytest (recommended)
+  # pytest (recommended)
   pip install pytest pytest-cov
+  pytest -v --cov=mypackage
   
-  # test_example.py
-  def test_function():
-      assert function_under_test() == expected_value
-  
-  # Run tests
-  pytest
-  pytest -v  # verbose
-  pytest --cov=mypackage  # with coverage
+  # unittest (built-in)
+  python -m unittest discover
   ```
-  
-  **Built-in unittest**:
-  ```python
-  import unittest
-  
-  class TestExample(unittest.TestCase):
-      def test_method(self):
-          self.assertEqual(actual, expected)
-  
-  # Run: python -m unittest discover
-  ```
-  
-  **Common Tasks**:
-  - Run script: `python script.py`
-  - Interactive mode: `python -i script.py`
-  - Module mode: `python -m http.server 8000`
-  - Type checking: `pip install mypy && mypy script.py`
   
   **Development Tools**:
-  - Format code: `pip install black && black .`
+  - Format: `pip install black && black .`
   - Lint: `pip install ruff && ruff check .`
+  - Type check: `pip install mypy && mypy .`
   - Debug: `python -m pdb script.py`
+  
+  **Common Commands**:
+  - HTTP server: `python -m http.server 8000`
+  - Install to user: `pip install --user package`

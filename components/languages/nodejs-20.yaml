@@ -78,26 +78,16 @@ entrypoint_setup: |
       export PRESERVE_NPM_CONFIG_REGISTRY="$NPM_CONFIG_REGISTRY"
   fi
 memory_content: |
-  #### Node.js 20.18.0 & npm
+  #### Node.js 20.18.0
   
-  **Node.js Usage**:
-  - Run JavaScript: `node script.js`
-  - Interactive REPL: `node`
-  - Check version: `node --version`
+  **Quick Start**:
+  - Init project: `npm init -y`
+  - Install deps: `npm install express`
+  - Install dev: `npm install --save-dev jest`
+  - Run scripts: `npm run test`
   
-  **npm (Node Package Manager)**:
-  - Install package: `npm install package-name`
-  - Install globally: `npm install -g package-name`
-  - Install dev dependency: `npm install --save-dev package-name`
-  - Initialize project: `npm init -y`
-  - Run scripts: `npm run script-name`
-  
-  **Unit Testing**:
-  ```javascript
-  // Install testing tools
-  npm install --save-dev jest supertest
-  
-  // package.json scripts
+  **Testing**:
+  ```json
   {
     "scripts": {
       "test": "jest",
@@ -107,26 +97,20 @@ memory_content: |
   }
   ```
   
-  **Common Development Patterns**:
+  **Development Scripts**:
   ```json
   {
     "scripts": {
       "dev": "nodemon server.js",
-      "test": "jest",
-      "test:watch": "jest --watch",
       "lint": "eslint .",
       "format": "prettier --write ."
     }
   }
   ```
   
-  **Integration Testing**:
-  - API testing with supertest
-  - E2E testing with Playwright or Cypress
-  - Use expect scripts for CLI tools
-  
   **Best Practices**:
-  - Use `package-lock.json` for reproducible installs
-  - Check for vulnerabilities: `npm audit`
-  - Run tests immediately: `npm test` after each feature
-  - Use watch mode during development: `npm run test:watch`
+  - Use `package-lock.json` for reproducible builds
+  - Check vulnerabilities: `npm audit`
+  - Test continuously: `npm run test:watch`
+  
+  **Common**: REPL → `node`, Run file → `node app.js`

@@ -54,55 +54,35 @@ entrypoint_setup: |
 memory_content: |
   #### Gradle 8.5
   
-  **Project Init**:
-  - Interactive: `gradle init`
-  - Java app: `gradle init --type java-application`
-  - Kotlin app: `gradle init --type kotlin-application`
-  - Library: `gradle init --type java-library`
+  **Quick Start**: `gradle init --type java-application` (interactive setup)
   
   **Common Tasks**:
-  - Build: `gradle build` or `./gradlew build`
-  - Run: `gradle run` or `./gradlew run`
-  - Test: `gradle test`
-  - Clean: `gradle clean`
-  - Tasks list: `gradle tasks`
+  - `gradle build` - Compile, test, and package
+  - `gradle test` - Run tests only
+  - `gradle run` - Execute application
+  - `gradle tasks` - List available tasks
   
-  **Testing with Gradle**:
-  - Run all tests: `gradle test`
-  - Continuous testing: `gradle test --continuous`
-  - Specific test: `gradle test --tests "com.example.TestClass"`
-  - Test reports: Generated in `build/reports/tests/`
-  - Integration tests: Configure separate source set
+  **Testing**:
+  - Continuous: `gradle test --continuous`
+  - Specific: `gradle test --tests "com.example.TestClass"`
+  - Reports in `build/reports/tests/`
   
-  **Dependency Management**:
-  - Show deps: `gradle dependencies`
-  - Specific config: `gradle dependencies --configuration compileClasspath`
-  - Refresh: `gradle build --refresh-dependencies`
-  
-  **Kotlin DSL** (build.gradle.kts):
+  **Kotlin DSL (build.gradle.kts)**:
   ```kotlin
   plugins {
       kotlin("jvm") version "1.9.22"
       application
   }
-  
   dependencies {
-      implementation("org.jetbrains.kotlin:kotlin-stdlib")
       testImplementation(kotlin("test"))
-  }
-  
-  tasks.test {
-      useJUnitPlatform()
   }
   ```
   
-  **Performance Options**:
-  - Daemon: `gradle --daemon` (speeds up builds)
+  **Performance**:
+  - Daemon: `gradle --daemon` (default)
   - Parallel: `gradle build --parallel`
-  - Continue on failure: `gradle build --continue`
-  
-  **Debugging**:
-  - Verbose: `gradle build --info` or `--debug`
-  - Stack traces: `gradle build --stacktrace`
+  - Debug: `gradle build --info`
   
   **Wrapper**: Always use `./gradlew` for version consistency
+  
+  **Dependencies**: `gradle dependencies` to view tree

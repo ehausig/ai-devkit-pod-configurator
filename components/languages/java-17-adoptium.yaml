@@ -36,35 +36,18 @@ entrypoint_setup: |
       echo 'export PATH="$JAVA_HOME/bin:$PATH"' >> "$BASHRC"
   fi
 memory_content: |
-  #### Java 17 (Eclipse Adoptium Temurin) - LTS
+  #### Java 17 (Eclipse Adoptium Temurin)
   
-  **Environment**:
-  - Java version: `java -version`
-  - JAVA_HOME: Pre-configured at `/usr/lib/jvm/temurin-17-jdk-${TARGETARCH}`
+  **Why Adoptium**: TCK tested, regular updates, drop-in Oracle JDK replacement
   
-  **Key Java 17 Features**:
+  **Java 17 LTS Features**:
   - Records: `record Person(String name, int age) {}`
-  - Sealed classes: `sealed class Shape permits Circle, Rectangle {}`
-  - Pattern matching: `if (obj instanceof String s) { use s directly }`
-  - Text blocks: Multi-line strings with `"""`
+  - Pattern matching: `if (obj instanceof String s) { /* use s */ }`
+  - Text blocks: `"""multi-line"""`
+  - Sealed classes
   
-  **Quick Commands**:
-  - Run single file: `java MyProgram.java`
-  - Memory settings: `java -Xmx2g -Xms512m MyApp`
-  - Enable GC logging: `java -Xlog:gc* MyApp`
-  
-  **Unit Testing**:
+  **Testing**:
   ```java
-  // JUnit 5
-  @Test
-  void testWithDisplayName() {
-      assertAll("person",
-          () -> assertNotNull(person.getName()),
-          () -> assertTrue(person.getAge() > 0)
-      );
-  }
-  
-  // Parameterized tests
   @ParameterizedTest
   @ValueSource(strings = {"hello", "world"})
   void testWithParams(String value) {
@@ -72,32 +55,6 @@ memory_content: |
   }
   ```
   
-  **Integration Testing**:
-  - RestAssured for API testing
-  - Testcontainers for database/service containers
-  - WireMock for HTTP mocking
+  **Microservices**: Spring Boot 2.5+ has full Java 17 support
   
-  **Microservices with Spring Boot**:
-  ```java
-  @SpringBootApplication
-  @RestController
-  public class MicroserviceApp {
-      record Health(String status, long timestamp) {}
-      
-      @GetMapping("/api/health")
-      public Health health() {
-          return new Health("UP", System.currentTimeMillis());
-      }
-  }
-  ```
-  
-  **Why Adoptium/Temurin?**:
-  - TCK tested for compatibility
-  - Regular security updates
-  - Production-ready JVM
-  - Drop-in replacement for Oracle JDK
-  
-  **Performance Tuning**:
-  - Use ZGC for low latency: `-XX:+UseZGC`
-  - G1GC is default and balanced
-  - Profile with JFR: `-XX:StartFlightRecording`
+  **Performance**: Use ZGC for low latency: `-XX:+UseZGC`

@@ -65,48 +65,31 @@ memory_content: |
   #### Python (Miniconda)
   
   **Environment Management**:
-  - Create env: `conda create -n myenv python=3.11`
-  - **Activation workaround** (if standard fails): `eval "$(conda shell.bash hook)" && conda activate myenv`
-  - Deactivate: `conda deactivate`
-  - List envs: `conda env list`
-  - Remove env: `conda env remove -n myenv`
+  - Create: `conda create -n myenv python=3.11`
+  - Activate: `eval "$(conda shell.bash hook)" && conda activate myenv`
+  - List: `conda env list`
   
-  **Common Activation Issue**:
-  If you see "Run 'conda init' before 'conda activate'", use:
+  **Common Activation Fix**:
   ```bash
   eval "$(conda shell.bash hook)"
   conda activate myenv
   ```
   
-  **Package Management**:
-  - Install: `conda install numpy pandas matplotlib`
-  - From conda-forge: `conda install -c conda-forge package`
-  - Search: `conda search package`
-  - Update all: `conda update --all`
+  **Packages**: `conda install numpy pandas` or `pip install` after conda
   
-  **Unit Testing**:
+  **Testing**:
   ```bash
-  # Install test frameworks
-  conda install pytest pytest-asyncio pytest-cov
-  
-  # Run tests
-  pytest tests/
-  pytest -v --cov=mypackage tests/
+  conda install pytest pytest-cov
+  pytest tests/ -v --cov=mypackage
   ```
   
-  **TUI Development Stack**:
+  **TUI Stack**:
   ```bash
-  conda create -n tui-dev python=3.11
-  eval "$(conda shell.bash hook)"
-  conda activate tui-dev
-  pip install textual textual-dev
-  pip install gql[aiohttp] aiohttp pydantic
-  pip install pytest pytest-asyncio
+  conda create -n tui python=3.11
+  eval "$(conda shell.bash hook)" && conda activate tui
+  pip install textual textual-dev pytest
   ```
   
   **Best Practices**:
   - Export env: `conda env export > environment.yml`
-  - Create from file: `conda env create -f environment.yml`
-  - Mix pip carefully: Use `pip` only after `conda` installs
-  - Clean cache: `conda clean -a` to free space
-  - **Test immediately**: Run your app after installing dependencies
+  - Clean cache: `conda clean -a`

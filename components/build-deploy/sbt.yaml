@@ -60,56 +60,32 @@ entrypoint_setup: |
   # Always ensure SBT directories are owned by devuser
   chown -R devuser:devuser /home/devuser/.sbt 2>/dev/null || true
 memory_content: |
-  #### SBT (Simple Build Tool)
+  #### SBT
   
-  **Project Creation**:
-  - New project: `sbt new scala/scala3.g8` (Scala 3)
-  - Or: `sbt new scala/hello-world.g8` (simple)
-  - List templates: `sbt new`
+  **Quick Start**: `sbt new scala/scala3.g8` or `sbt new scala/hello-world.g8`
   
-  **Interactive Mode**:
-  - Start: `sbt` (opens shell)
-  - Compile: `compile`
-  - Run: `run` or `runMain com.example.Main`
-  - Test: `test`
-  - Console: `console` (Scala REPL with project classpath)
+  **Interactive Mode** (type `sbt`):
+  - `compile` - Compile sources
+  - `run` - Run main class
+  - `test` - Run tests
+  - `~test` - Watch mode (auto-rerun)
+  - `console` - Scala REPL with project
   
-  **Testing with SBT**:
-  - Run all tests: `test`
-  - Continuous mode: `~test` (watches for changes)
+  **Testing**:
   - Specific test: `testOnly com.example.MySpec`
-  - Test quick: `testQuick` (only changed tests)
-  - Test coverage: Add sbt-coverage plugin
+  - Test quick: `testQuick` (only changed)
+  - Continuous: `~test`
   
-  **Common Commands**:
-  - Clean: `sbt clean`
-  - Package: `sbt package` (JAR without deps)
-  - Assembly: `sbt assembly` (fat JAR - needs plugin)
-  - Publish local: `sbt publishLocal`
-  
-  **Dependency Management**:
-  - Check deps: `sbt dependencyTree`
-  - Update: `sbt update`
-  - Evicted: `sbt evicted` (check conflicts)
-  - Clean ivy cache: `rm -rf ~/.ivy2/cache`
-  
-  **build.sbt Example**:
+  **build.sbt**:
   ```scala
-  lazy val root = project
-    .in(file("."))
+  lazy val root = project.in(file("."))
     .settings(
       name := "myapp",
-      version := "0.1.0",
       scalaVersion := "3.3.1",
-      libraryDependencies ++= Seq(
-        "org.scalatest" %% "scalatest" % "3.2.17" % Test
-      )
+      libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.17" % Test
     )
   ```
   
-  **Common Issues**:
-  - Java version: SBT may need specific Java versions
-  - Use `sbt -java-home /path/to/java` if needed
-  - Binary compatibility: Check Scala version alignment
+  **Commands**: `clean`, `package`, `publishLocal`, `dependencyTree`
   
-  **Note**: Uses Coursier for dependency resolution
+  **Common Issues**: Binary compatibility → check Scala version alignment

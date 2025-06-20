@@ -38,65 +38,21 @@ entrypoint_setup: |
 memory_content: |
   #### Java 11 (Eclipse Adoptium Temurin)
   
-  **Environment**:
-  - Java version: `java -version`
-  - JAVA_HOME: Pre-configured at `/usr/lib/jvm/temurin-11-jdk-${TARGETARCH}`
-  - Vendor: Eclipse Adoptium (high-quality, TCK-tested OpenJDK build)
+  **Why Adoptium**: Production-ready, TCK-tested, regular updates
   
-  **Why Adoptium?**:
-  - Long-term support with regular security updates
-  - Drop-in replacement for Oracle JDK
-  - Optimized for production use
-  
-  **Compilation & Execution**:
-  - Compile: `javac -d out src/**/*.java`
-  - Run: `java -cp out com.example.Main`
-  - JAR creation: `jar cf myapp.jar -C out .`
-  
-  **Unit Testing**:
-  ```java
-  // JUnit 5
-  @Test
-  void testMethod() {
-      assertEquals(expected, actual);
-  }
-  
-  // JUnit 4 (still common in Java 11 projects)
-  @Test
-  public void testMethod() {
-      Assert.assertEquals(expected, actual);
-  }
-  ```
-  
-  **Integration Testing**:
-  - Spring Boot Test for web apps
-  - Mockito for mocking dependencies
-  - AssertJ for fluent assertions
-  
-  **HTTP Client Example (Java 11 feature)**:
+  **HTTP Client (Java 11)**:
   ```java
   var client = HttpClient.newBuilder()
       .connectTimeout(Duration.ofSeconds(10))
       .build();
       
-  var request = HttpRequest.newBuilder()
-      .uri(URI.create("https://api.example.com/data"))
-      .header("Accept", "application/json")
-      .timeout(Duration.ofSeconds(30))
-      .build();
-      
   client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
       .thenApply(HttpResponse::body)
-      .thenAccept(System.out::println)
-      .join();
+      .thenAccept(System.out::println);
   ```
   
-  **Enterprise Framework Compatibility**:
-  - Spring Boot 2.x works perfectly
-  - Older enterprise apps often require Java 11
-  - Most libraries have excellent Java 11 support
+  **Testing**: JUnit 4/5, Mockito, AssertJ, Spring Boot Test
   
-  **Performance Notes**:
-  - G1GC is default and works well
-  - Use `-XX:+UseStringDeduplication` for memory savings
-  - Profile with JDK Mission Control
+  **Enterprise**: Spring Boot 2.x, older apps often require Java 11
+  
+  **Performance**: G1GC default, use `-XX:+UseStringDeduplication`

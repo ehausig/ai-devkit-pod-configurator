@@ -28,60 +28,29 @@ entrypoint_setup: |
       echo 'export PATH="/opt/scala3/bin:$PATH"' >> "$BASHRC"
   fi
 memory_content: |
-  #### Scala 3 (Dotty)
+  #### Scala 3
   
-  **What's New**:
-  - Cleaner syntax: Optional braces, `then` keyword
+  **New Syntax**:
+  - Optional braces, `then` keyword
   - Union types: `String | Int`
-  - Intersection types: `A & B`
   - Extension methods: `extension (x: Int) def twice = x * 2`
   - Enums: `enum Color { case Red, Green, Blue }`
   
-  **REPL & Running**:
-  - Start REPL: `scala` or `scala3`
-  - Run file: `scala MyApp.scala`
-  - Compile: `scalac MyApp.scala`
+  **REPL**: `scala` or `scala3`
   
-  **Unit Testing**:
+  **Testing**:
   ```scala
-  // ScalaTest example
+  // ScalaTest
   class MySpec extends AnyFunSuite {
-    test("addition works") {
-      assert(1 + 1 === 2)
-    }
+    test("addition") { assert(1 + 1 === 2) }
   }
   
-  // MUnit (lightweight alternative)
+  // MUnit (lightweight)
   class MySuite extends munit.FunSuite {
-    test("example") {
-      assertEquals(obtained, expected)
-    }
+    test("example") { assertEquals(obtained, expected) }
   }
   ```
   
-  **Quick Examples**:
-  ```scala
-  // Top-level definitions
-  def hello() = println("Hello Scala 3!")
+  **Quick Start**: Top-level definitions, given instances, export clauses
   
-  // Given instances (replacing implicits)
-  given Int = 42
-  
-  // Export clauses
-  export math.*
-  ```
-  
-  **API Development**:
-  - Consider http4s or Akka HTTP
-  - Pattern matching enhanced for request routing
-  - Union types great for error handling
-  
-  **Migration from Scala 2**:
-  - Use `-source:3.0-migration` flag
-  - Mix Scala 2/3 code with cross-compilation
-  - Most Scala 2 libraries work with Scala 3
-  
-  **Build Tools**:
-  - SBT is recommended (see SBT section)
-  - Mill also supports Scala 3
-  - Check dependency compatibility before adding
+  **Build**: Use SBT (see SBT section)

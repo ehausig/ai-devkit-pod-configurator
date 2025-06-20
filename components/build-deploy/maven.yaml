@@ -33,40 +33,24 @@ entrypoint_setup: |
 memory_content: |
   #### Maven
   
-  **Project Creation**:
-  - Quick start: `mvn archetype:generate -DgroupId=com.example -DartifactId=myapp -DarchetypeArtifactId=maven-archetype-quickstart -DinteractiveMode=false`
-  - Web app: Use `-DarchetypeArtifactId=maven-archetype-webapp`
+  **Quick Start**: `mvn archetype:generate -DgroupId=com.example -DartifactId=myapp -DarchetypeArtifactId=maven-archetype-quickstart -DinteractiveMode=false`
   
-  **Common Commands**:
-  - Compile: `mvn compile`
-  - Test: `mvn test`
-  - Package: `mvn package`
-  - Install: `mvn install` (to local repo)
-  - Clean: `mvn clean`
-  - Full build: `mvn clean package`
+  **Build Lifecycle**:
+  - `mvn clean package` - Clean and build JAR/WAR
+  - `mvn test` - Run tests only
+  - `mvn install` - Install to local repo
+  - `mvn verify` - Run integration tests
   
-  **Testing with Maven**:
-  - Run all tests: `mvn test`
-  - Specific test: `mvn test -Dtest=MyTest`
+  **Testing**:
+  - Run specific test: `mvn test -Dtest=MyTest`
   - Skip tests: `mvn package -DskipTests`
-  - Test reports: `mvn surefire-report:report`
-  - Integration tests: `mvn verify`
+  - Test reports in `target/surefire-reports/`
   
-  **Dependency Management**:
+  **Dependencies**:
   - Show tree: `mvn dependency:tree`
-  - Check updates: `mvn versions:display-dependency-updates`
-  - Download sources: `mvn dependency:sources`
-  - Analyze deps: `mvn dependency:analyze`
-  
-  **Common Issues & Solutions**:
-  - Version conflicts: Use `mvn dependency:tree -Dverbose`
   - Force update: `mvn clean install -U`
-  - Clear local cache: `rm -rf ~/.m2/repository/com/example/problematic-artifact`
+  - Check updates: `mvn versions:display-dependency-updates`
   
-  **Performance Tips**:
-  - Parallel builds: `mvn -T 4 clean package` (4 threads)
-  - Skip unnecessary: `-Dmaven.javadoc.skip=true`
-  - Use daemon: `mvnd` for faster builds
+  **Performance**: `mvn -T 4 clean package` (4 threads)
   
-  **Local repo**: `~/.m2/repository`
-  **Settings**: `~/.m2/settings.xml`
+  **Common Issues**: Version conflicts → use `mvn dependency:tree -Dverbose`

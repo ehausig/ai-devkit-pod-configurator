@@ -23,78 +23,33 @@ entrypoint_setup: |
 memory_content: |
   #### TypeScript
   
-  **Quick Start**:
-  - Initialize: `tsc --init` (creates tsconfig.json)
+  **Setup**: `tsc --init` (creates tsconfig.json)
+  
+  **Commands**:
   - Compile: `tsc` or `tsc file.ts`
-  - Watch mode: `tsc --watch`
+  - Watch: `tsc --watch`
   - Run directly: `ts-node script.ts`
+  - Type check only: `tsc --noEmit`
   
-  **Project Setup**:
-  - Strict mode: Enable in tsconfig.json for better type safety
-  - Source maps: `"sourceMap": true` for debugging
-  - Output dir: `"outDir": "./dist"`
-  - Root dir: `"rootDir": "./src"`
-  
-  **Unit Testing**:
-  ```typescript
-  // With Jest
+  **Testing with Jest**:
+  ```bash
   npm install -D jest @types/jest ts-jest
   npx ts-jest config:init
-  
-  // test/example.test.ts
-  describe('Calculator', () => {
-    test('adds 1 + 2 to equal 3', () => {
-      expect(add(1, 2)).toBe(3);
-    });
-  });
-  
-  // Run: npm test
   ```
   
-  **Integration Testing**:
-  ```typescript
-  // API testing with supertest
-  import request from 'supertest';
-  import app from '../src/app';
-  
-  describe('GET /api/users', () => {
-    it('responds with json', async () => {
-      const response = await request(app)
-        .get('/api/users')
-        .expect('Content-Type', /json/)
-        .expect(200);
-        
-      expect(response.body).toHaveProperty('users');
-    });
-  });
-  ```
-  
-  **Common Commands**:
-  - Check types only: `tsc --noEmit`
-  - Build project: `tsc --build`
-  - Clean: `tsc --build --clean`
-  
-  **With Node.js**:
-  - Run TS directly: `ts-node src/app.ts`
-  - REPL: `ts-node` (interactive TypeScript)
-  - Scripts in package.json: `"start": "ts-node src/index.ts"`
-  
-  **API Development**:
+  **Development Scripts**:
   ```json
   {
     "scripts": {
       "dev": "ts-node-dev --respawn src/server.ts",
       "build": "tsc",
-      "start": "node dist/server.js",
-      "test": "jest",
-      "test:watch": "jest --watch"
+      "test": "jest --watch"
     }
   }
   ```
   
-  **Common Type Issues**:
-  - Module resolution: Set `"moduleResolution": "node"` in tsconfig
-  - Type conflicts: Check with `npm ls @types/*`
-  - Missing types: Install `@types/package-name`
+  **Common Issues**:
+  - Module resolution: Set `"moduleResolution": "node"`
+  - Missing types: `npm i -D @types/package-name`
   
-  **Type packages**: Install @types/* for libraries, e.g., `npm i -D @types/express`
+  **tsconfig.json**: Enable `"strict": true` for better type safety

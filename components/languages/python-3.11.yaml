@@ -31,64 +31,32 @@ entrypoint_setup: |
 memory_content: |
   #### Python 3.11
   
-  **What's New**:
-  - Faster: 10-60% speedup vs 3.10
-  - Better error messages with exact error locations
+  **Performance**: 10-60% faster than 3.10
+  
+  **New Features**:
+  - Better error messages with exact locations
   - Exception groups: `except* ExceptionGroup`
-  - Type hint improvements: `Self` type, `TypedDict` enhancements
+  - Type improvements: `Self` type
   
-  **Environment Setup**:
-  - Create venv: `python -m venv .venv`
-  - Activate: `source .venv/bin/activate`
-  - Upgrade pip: `python -m pip install --upgrade pip`
-  
-  **Unit Testing**:
+  **Testing**:
   ```python
-  # pytest (recommended)
+  # pytest with async
   pip install pytest pytest-asyncio pytest-cov
-  
-  # test_example.py
-  import pytest
-  
-  def test_simple():
-      assert 1 + 1 == 2
   
   @pytest.mark.asyncio
   async def test_async():
       result = await async_function()
       assert result == expected
-  
-  # Run tests
-  pytest
-  pytest -v --cov=mypackage
-  pytest -k "test_name"  # Run specific test
   ```
   
-  **TUI Development Stack**:
+  **TUI Stack**:
   ```bash
-  # For Textual-based TUIs
   pip install textual textual-dev
-  
-  # For API integration
   pip install gql[aiohttp] aiohttp pydantic
-  
-  # Development tools
-  pip install black ruff mypy pytest pytest-asyncio
   ```
   
-  **Integration Testing**:
-  - Use pytest fixtures for setup/teardown
-  - Mock external APIs with `pytest-mock`
-  - Test async code with `pytest-asyncio`
-  - Use expect scripts for TUI testing
-  
-  **Development Tools**:
-  - Type checking: `mypy script.py`
-  - Formatting: `black .`
-  - Linting: `ruff check .`
-  - Debug: `python -m pdb script.py`
-  
-  **Performance Features**:
-  - Specialized adaptive interpreter
-  - Zero-cost exception handling (when no exceptions)
-  - Faster startup time
+  **Development**:
+  - Format: `black .`
+  - Lint: `ruff check .`
+  - Type check: `mypy .`
+  - Debug: `python -m pdb`

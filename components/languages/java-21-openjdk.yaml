@@ -24,62 +24,30 @@ entrypoint_setup: |
       echo 'export PATH="$JAVA_HOME/bin:$PATH"' >> "$BASHRC"
   fi
 memory_content: |
-  #### Java 21 (OpenJDK) - Latest LTS
+  #### Java 21 (OpenJDK LTS)
   
-  **Environment**:
-  - Java version: `java -version`
-  - JAVA_HOME: Pre-configured at `/usr/lib/jvm/java-21-openjdk-${TARGETARCH}`
-  
-  **Java 21 Features**:
-  - Virtual threads: `Thread.ofVirtual().start(() -> {...})`
-  - Pattern matching for switch: Enhanced with record patterns
-  - Sequenced collections: New interfaces like `SequencedSet`
-  - String templates (preview): `STR."Hello \{name}"`
-  
-  **Quick Start**:
-  - Run single file: `java MyProgram.java`
-  - With preview features: `java --enable-preview --source 21 MyProgram.java`
-  - REPL: `jshell` for interactive Java
-  
-  **Unit Testing**:
+  **Virtual Threads**:
   ```java
-  // JUnit 5 with virtual threads
-  @Test
-  void testWithVirtualThreads() throws Exception {
-      try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-          var future = executor.submit(() -> {
-              // Test code runs in virtual thread
-              return computeResult();
-          });
-          assertEquals(expected, future.get());
-      }
+  Thread.ofVirtual().start(() -> { /* millions of these! */ });
+  
+  try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+      // Handle massive concurrency
   }
   ```
   
-  **API Development Pattern**:
-  ```java
-  // Simple HTTP server with Java 21
-  import com.sun.net.httpserver.*;
+  **Features**: Pattern matching, sequenced collections, string templates (preview)
   
+  **Simple HTTP Server**:
+  ```java
   var server = HttpServer.create(new InetSocketAddress(8080), 0);
   server.createContext("/api", exchange -> {
-      var response = "{\"status\":\"ok\"}";
-      exchange.getResponseHeaders().set("Content-Type", "application/json");
       exchange.sendResponseHeaders(200, response.length());
-      try (var os = exchange.getResponseBody()) {
-          os.write(response.getBytes());
-      }
+      exchange.getResponseBody().write(response.getBytes());
   });
   server.start();
   ```
   
-  **Virtual Threads Best Practices**:
-  - Use for I/O-bound operations
-  - No pooling needed - create millions if needed
-  - Avoid synchronized blocks in hot paths
+  **Best Practices**:
+  - Use virtual threads for I/O-bound work
+  - No pooling needed - create as many as needed
   - Test with thousands of concurrent operations
-  
-  **Common Issues**:
-  - Module conflicts: Use `--add-opens` if needed
-  - Build tool versions: Update to latest for Java 21 support
-  - Library compatibility: Most modern libraries support Java 21

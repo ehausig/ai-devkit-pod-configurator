@@ -55,65 +55,39 @@ entrypoint_setup: |
 memory_content: |
   #### Rust (Stable)
   
-  **Project Management**:
+  **Quick Start**:
   - New project: `cargo new myproject`
-  - New library: `cargo new --lib mylib`
   - Build: `cargo build --release`
   - Run: `cargo run`
   - Test: `cargo test`
   
-  **Development Tools**:
-  - Format: `cargo fmt`
-  - Lint: `cargo clippy`
-  - Docs: `cargo doc --open`
-  - **Watch mode**: `cargo watch -x run` (auto-recompile on changes)
-  - Watch tests: `cargo watch -x test`
-  - Watch with clear: `cargo watch -c -x run`
+  **Watch Mode** (auto-recompile):
+  - `cargo watch -x run`
+  - `cargo watch -x test`
+  - `cargo watch -c -x run` (clear screen)
   
-  **Unit Testing**:
+  **Testing**:
   ```rust
-  #[cfg(test)]
-  mod tests {
-      use super::*;
-      
-      #[test]
-      fn test_function() {
-          assert_eq!(2 + 2, 4);
-      }
-      
-      #[tokio::test]
-      async fn test_async() {
-          // Async test code
-      }
+  #[test]
+  fn test_function() {
+      assert_eq!(2 + 2, 4);
+  }
+  
+  #[tokio::test]
+  async fn test_async() {
+      // async test
   }
   ```
   
-  **Integration Testing**:
-  - Place tests in `tests/` directory
-  - Run specific test: `cargo test test_name`
-  - Show output: `cargo test -- --nocapture`
-  - Run continuously: `cargo watch -x test`
-  
-  **Common Dependency Gotchas**:
-  - **async-graphql + axum**: Use compatible versions
-    ```toml
-    # These versions work together:
-    async-graphql = { version = "5.0", features = ["chrono"] }
-    async-graphql-axum = "5.0"
-    axum = "0.6"
-    tokio = { version = "1", features = ["full"] }
-    async-trait = "0.1"  # Often needed but forgotten
-    ```
-  - **Check compatibility**: Run `cargo tree -d` to spot version conflicts
-  - **Pin versions**: Use exact versions (e.g., "=5.0.0") when mixing async crates
-  
-  **GraphQL Development Pattern**:
-  ```rust
-  // When implementing GraphQL errors, remember async_graphql::Error 
-  // doesn't implement Display. Convert using:
-  impl From<async_graphql::Error> for YourError {
-      fn from(err: async_graphql::Error) -> Self {
-          YourError::GraphQL(err.message)
-      }
-  }
+  **Dependency Compatibility**:
+  ```toml
+  # Common async stack
+  async-graphql = "5.0"
+  async-graphql-axum = "5.0"
+  axum = "0.6"
+  tokio = { version = "1", features = ["full"] }
   ```
+  
+  Check conflicts: `cargo tree -d`
+  
+  **Tools**: `cargo fmt`, `cargo clippy`, `cargo doc --open`

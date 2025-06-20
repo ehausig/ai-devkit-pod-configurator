@@ -26,44 +26,17 @@ entrypoint_setup: |
 memory_content: |
   #### Java 17 (OpenJDK)
   
-  **Environment**:
-  - Java version: `java -version`
-  - JAVA_HOME: Pre-configured at `/usr/lib/jvm/java-17-openjdk-${TARGETARCH}`
-  
-  **Modern Java Features**:
-  - Text blocks: Use `"""` for multi-line strings
+  **Java 17 Features**:
+  - Text blocks: `"""multi-line strings"""`
   - Records: `record Point(int x, int y) {}`
-  - Pattern matching: Available for `instanceof`
-  - Sealed classes: Control inheritance with `sealed` keyword
+  - Pattern matching: `if (obj instanceof String s) { use s }`
+  - Sealed classes: `sealed class Shape permits Circle, Rectangle`
   
-  **Running Java**:
-  - Single-file programs: `java MyProgram.java` (no explicit compile needed)
-  - With preview features: `java --enable-preview --source 17 MyProgram.java`
+  **Quick Run**: `java MyProgram.java` (single-file programs)
   
-  **Unit Testing**:
-  ```java
-  // JUnit 5 example
-  @Test
-  void testMethod() {
-      assertEquals(expected, actual);
-  }
-  
-  // With AssertJ for fluent assertions
-  assertThat(result)
-      .isNotNull()
-      .hasSize(3)
-      .contains("expected");
-  ```
-  
-  **Integration Testing**:
-  - TestContainers for database/service testing
-  - MockWebServer for API mocking
-  - Spring Boot Test for full application testing
-  
-  **Spring Boot Development**:
+  **Spring Boot**:
   ```java
   @RestController
-  @RequestMapping("/api")
   public class ApiController {
       @GetMapping("/status")
       public Map<String, String> status() {
@@ -72,12 +45,6 @@ memory_content: |
   }
   ```
   
-  **Common Compatibility Notes**:
-  - Most libraries support Java 17
-  - Spring Boot 2.5+ has full Java 17 support
-  - Check third-party dependencies for compatibility
+  **Testing**: JUnit 5, AssertJ, TestContainers, MockWebServer
   
-  **Performance Tips**:
-  - Use G1GC (default) for balanced performance
-  - Enable text blocks for cleaner SQL/JSON in code
-  - Records reduce boilerplate significantly
+  **Performance**: G1GC default, records reduce boilerplate

@@ -30,89 +30,35 @@ entrypoint_setup: |
 memory_content: |
   #### Kotlin
   
-  **REPL & Scripts**:
-  - Start REPL: `kotlinc`
+  **Quick Start**:
+  - REPL: `kotlinc`
   - Run script: `kotlin script.kts`
-  - Compile & run: `kotlinc Hello.kt -include-runtime -d hello.jar && java -jar hello.jar`
+  - Compile: `kotlinc Hello.kt -include-runtime -d hello.jar`
   
-  **Compilation**:
-  - Compile to JAR: `kotlinc MyApp.kt -include-runtime -d myapp.jar`
-  - Compile to class: `kotlinc MyApp.kt -d classes/`
-  - With Java: `kotlinc MyApp.kt Java.java -d output/`
-  
-  **Kotlin Features**:
+  **Features**:
   - Null safety: `var name: String? = null`
-  - Data classes: `data class Person(val name: String, val age: Int)`
+  - Data classes: `data class Person(val name: String)`
   - Extension functions: `fun String.lastChar() = this[length - 1]`
-  - Coroutines: Add kotlinx-coroutines for async
   
-  **Unit Testing**:
+  **Testing**:
   ```kotlin
-  // Using JUnit 5 with Kotlin
-  import org.junit.jupiter.api.Test
-  import org.junit.jupiter.api.Assertions.*
-  
-  class ExampleTest {
-      @Test
-      fun `test something`() {
-          assertEquals(4, 2 + 2)
-      }
-  }
-  
-  // Kotlin test DSL
   import kotlin.test.*
   
   class MyTest {
       @Test
       fun testExample() {
           assertTrue { 1 + 1 == 2 }
-          assertFailsWith<IllegalArgumentException> {
-              throwingFunction()
-          }
       }
   }
   ```
   
-  **API Development with Ktor**:
+  **Ktor API**:
   ```kotlin
-  // Quick API setup
-  fun main() {
-      embeddedServer(Netty, port = 8080) {
-          routing {
-              get("/") { call.respondText("Hello") }
-              get("/api/users/{id}") {
-                  val id = call.parameters["id"]
-                  call.respond(User(id))
-              }
-          }
-      }.start(wait = true)
-  }
+  embeddedServer(Netty, port = 8080) {
+      routing {
+          get("/") { call.respondText("Hello") }
+      }
+  }.start(wait = true)
   ```
   
-  **Testing with MockK**:
-  ```kotlin
-  // Mocking in Kotlin
-  val mock = mockk<Service>()
-  every { mock.getData() } returns "test data"
-  
-  // Verify calls
-  verify { mock.getData() }
-  ```
-  
-  **Common Gradle Setup**:
-  ```kotlin
-  // build.gradle.kts
-  dependencies {
-      implementation("io.ktor:ktor-server-netty:2.3.7")
-      implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
-      testImplementation(kotlin("test"))
-      testImplementation("io.mockk:mockk:1.13.8")
-  }
-  ```
-  
-  **Development Tips**:
-  - Use Gradle or Maven for dependency management
-  - Enable null safety checks
-  - Test coroutines with `runBlocking` in tests
-  
-  **Note**: For Android or complex projects, use Gradle (see Gradle section)
+  **Build**: Use Gradle for dependencies (see Gradle section)

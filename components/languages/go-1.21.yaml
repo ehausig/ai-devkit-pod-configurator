@@ -53,42 +53,24 @@ entrypoint_setup: |
 memory_content: |
   #### Go 1.21
   
-  **Project Setup**:
-  - Initialize module: `go mod init github.com/user/project`
-  - Get dependencies: `go get ./...`
-  - Tidy modules: `go mod tidy`
-  - Download deps: `go mod download`
+  **Go 1.21 Features**: `min()`, `max()`, `clear()` built-ins
   
-  **Development**:
-  - Run: `go run .` or `go run main.go`
+  **Quick Start**:
+  - Init: `go mod init github.com/user/project`
+  - Run: `go run .`
   - Build: `go build -o myapp`
-  - Format: `go fmt ./...`
-  - Lint: `go vet ./...`
+  - Test: `go test ./...`
   
-  **Go 1.21 Features**:
-  - Built-in functions: `min()`, `max()`, `clear()`
-  - Improved type inference
-  - Profile-guided optimization: `go build -pgo=profile.pprof`
-  
-  **Unit Testing**:
+  **Table-Driven Tests**:
   ```go
-  func TestFunction(t *testing.T) {
-      result := Function()
-      if result != expected {
-          t.Errorf("got %v, want %v", result, expected)
-      }
-  }
-  
-  // Table-driven tests
   func TestWithTable(t *testing.T) {
       tests := []struct {
-          name string
+          name  string
           input int
-          want int
+          want  int
       }{
           {"positive", 5, 10},
           {"zero", 0, 0},
-          {"negative", -5, -10},
       }
       
       for _, tt := range tests {
@@ -102,30 +84,6 @@ memory_content: |
   }
   ```
   
-  **Testing Commands**:
-  - Run all: `go test ./...`
-  - Verbose: `go test -v ./...`
-  - Coverage: `go test -cover ./...`
-  - Race detector: `go test -race ./...`
-  - Specific test: `go test -run TestName`
+  **Tools**: `go fmt ./...`, `go vet ./...`, `go mod tidy`
   
-  **API Development**:
-  ```go
-  // Standard library HTTP server
-  mux := http.NewServeMux()
-  mux.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
-      w.Header().Set("Content-Type", "application/json")
-      w.Write([]byte(`{"status":"ok"}`))
-  })
-  http.ListenAndServe(":8080", mux)
-  ```
-  
-  **Common Patterns**:
-  - Error wrapping: Use `fmt.Errorf("context: %w", err)`
-  - Context usage: Pass context.Context as first parameter
-  - Graceful shutdown with signal handling
-  
-  **Tools**:
-  - Install tools: `go install github.com/user/tool@latest`
-  - Tools are installed to `~/go/bin` (in PATH)
-  - Hot reload: `air` or `reflex` for development
+  **Error wrapping**: `fmt.Errorf("context: %w", err)`
