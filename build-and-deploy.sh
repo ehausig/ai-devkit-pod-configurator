@@ -1296,46 +1296,6 @@ extract_inject_files_from_yaml() {
     echo -n "$inject_commands"
 }
 
-# Function to extract memory_content from YAML file
-extract_memory_content() {
-    local yaml_file=$1
-    local in_memory_content=false
-    local memory_content=""
-    local line_count=0
-    
-    while IFS= read -r line; do
-        ((line_count++))
-        
-        # Check if we're entering memory_content section
-        if [[ "$line" =~ ^memory_content:[[:space:]]*\|[[:space:]]*$ ]]; then
-            in_memory_content=true
-            continue
-        fi
-        
-        # Check if we're exiting memory_content section (new top-level key)
-        if [[ $in_memory_content == true ]] && [[ "$line" =~ ^[a-zA-Z_]+: ]] && [[ ! "$line" =~ ^[[:space:]] ]]; then
-            in_memory_content=false
-            break
-        fi
-        
-        # Collect memory_content lines
-        if [[ $in_memory_content == true ]]; then
-            # Remove the first 2 spaces of YAML indentation
-            if [[ "$line" =~ ^"  " ]]; then
-                memory_content+="${line:2}\n"
-            elif [[ -z "$line" ]]; then
-                # Preserve empty lines
-                memory_content+="\n"
-            fi
-        fi
-    done < "$yaml_file"
-    
-    # Trim trailing newlines
-    memory_content=$(echo -n "$memory_content" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}')
-    
-    echo "$memory_content"
-}
-
 # Function to extract entrypoint_setup from YAML file
 extract_entrypoint_setup() {
     local yaml_file=$1

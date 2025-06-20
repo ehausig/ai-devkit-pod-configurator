@@ -476,9 +476,5 @@ Before considering ANY task complete:
 - [ ] Documentation is comprehensive
 - [ ] PR is created and auto-merge enabled
 
-<!-- ENVIRONMENT_TOOLS_MARKER -->
-<!-- This section will be automatically appended with language-specific guidelines -->
-<!-- Do not edit below this line -->
-
 ---
-*Note: Language-specific configurations and tooling preferences will be automatically appended below by the setup script.*
+*Note: Language-specific configurations and tooling preferences are available via imports in the project CLAUDE.md file.*

@@ -17,6 +17,7 @@ fi
 CONFIG_DIR="/home/devuser/.config/claude-code"
 mkdir -p "$CONFIG_DIR"
 mkdir -p /home/devuser/workspace
+mkdir -p /home/devuser/workspace/.claude
 mkdir -p /home/devuser/.local/bin
 
 # Start SSH daemon if host keys are mounted
@@ -67,6 +68,29 @@ if [ -f /tmp/git-mounted/gh-hosts.yml ]; then
     chmod 600 /home/devuser/.config/gh/hosts.yml
 fi
 
+# Copy project CLAUDE.md to workspace/.claude if it exists
+if [ -f /tmp/project-CLAUDE.md ]; then
+    echo "Found project CLAUDE.md, copying to workspace/.claude..."
+    if [ ! -f /home/devuser/workspace/.claude/CLAUDE.md ]; then
+        cp /tmp/project-CLAUDE.md /home/devuser/workspace/.claude/CLAUDE.md
+        echo "Project CLAUDE.md copied successfully"
+    else
+        echo "CLAUDE.md already exists in workspace/.claude"
+    fi
+fi
+
+# Copy all component markdown files to workspace/.claude
+echo "Copying component documentation files..."
+for md_file in /tmp/*.md; do
+    if [ -f "$md_file" ] && [ "$md_file" != "/tmp/project-CLAUDE.md" ] && [ "$md_file" != "/tmp/user-CLAUDE.md" ]; then
+        basename_file=$(basename "$md_file")
+        if [ ! -f "/home/devuser/workspace/.claude/$basename_file" ]; then
+            cp "$md_file" "/home/devuser/workspace/.claude/$basename_file"
+            echo "Copied $basename_file to workspace/.claude"
+        fi
+    fi
+done
+
 # Function to add line to file if not already present
 add_if_not_exists() {
     local line="$1"
@@ -82,6 +106,7 @@ touch "$BASHRC"
 
 # Ensure proper ownership of essential directories
 chown -R devuser:devuser /home/devuser/workspace 2>/dev/null || true
+chown -R devuser:devuser /home/devuser/workspace/.claude 2>/dev/null || true
 chown -R devuser:devuser /home/devuser/.config/claude-code 2>/dev/null || true
 chown -R devuser:devuser /home/devuser/.local 2>/dev/null || true
 
@@ -153,23 +178,12 @@ if [ -n "$PS1" ] && [ -z "$DEVKIT_WELCOME_SHOWN" ]; then
         echo ""
     fi
     if [ -f ~/.claude/CLAUDE.md ]; then
-        # Count installed tools only in the "Installed Development Environment" section
-        TOOL_COUNT=$(sed -n '/## Installed Development Environment/,/^##[^#]/p' ~/.claude/CLAUDE.md 2>/dev/null | grep -E "^- " | wc -l)
-        if [ $TOOL_COUNT -gt 0 ]; then
-            echo "Environment: $TOOL_COUNT development tools installed"
-            echo "  • cat ~/.claude/CLAUDE.md - View full configuration & guidelines"
-            echo ""
-        fi
-    else
-        # Count installed tools by checking common commands
-        TOOL_COUNT=0
-        for cmd in node python3 java rustc go ruby php; do
-            command -v $cmd &> /dev/null && ((TOOL_COUNT++))
-        done
-        if [ $TOOL_COUNT -gt 0 ]; then
-            echo "Environment: $TOOL_COUNT+ development tools installed"
-            echo ""
-        fi
+        echo "User memory loaded: ~/.claude/CLAUDE.md"
+    fi
+    if [ -f ~/workspace/.claude/CLAUDE.md ]; then
+        echo "Project memory loaded: ~/workspace/.claude/CLAUDE.md"
+        echo "  • cat ~/workspace/.claude/CLAUDE.md - View component imports"
+        echo ""
     fi
 fi
 

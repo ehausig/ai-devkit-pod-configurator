@@ -1,6 +1,6 @@
 #!/bin/bash
 # Claude Code pre-build script
-# Generates CLAUDE.md and prepares claude-settings.json.template
+# Generates project CLAUDE.md and handles file copying
 
 # Standard arguments
 TEMP_DIR="$1"
@@ -22,68 +22,23 @@ success() { echo -e "${GREEN}✓ $1${NC}"; }
 error() { echo -e "${RED}✗ $1${NC}"; exit 1; }
 info() { echo -e "${BLUE}ℹ $1${NC}"; }
 
-# Verify template files exist
-CLAUDE_TEMPLATE="$SCRIPT_DIR/CLAUDE.md.template"
+# Verify files exist
+USER_CLAUDE="$SCRIPT_DIR/user-CLAUDE.md"
 SETTINGS_TEMPLATE="$SCRIPT_DIR/claude-settings.json.template"
 
-[[ ! -f "$CLAUDE_TEMPLATE" ]] && error "CLAUDE.md.template not found in $SCRIPT_DIR"
+[[ ! -f "$USER_CLAUDE" ]] && error "user-CLAUDE.md not found in $SCRIPT_DIR"
 [[ ! -f "$SETTINGS_TEMPLATE" ]] && error "claude-settings.json.template not found in $SCRIPT_DIR"
 
-log "Generating CLAUDE.md for selected components..."
+log "Generating project CLAUDE.md for selected components..."
 
-# Copy template up to marker
-CLAUDE_OUTPUT="$TEMP_DIR/CLAUDE.md"
-sed '/<!-- ENVIRONMENT_TOOLS_MARKER -->/q' "$CLAUDE_TEMPLATE" > "$CLAUDE_OUTPUT"
+# Create project CLAUDE.md
+CLAUDE_OUTPUT="$TEMP_DIR/project-CLAUDE.md"
+cat > "$CLAUDE_OUTPUT" << 'EOF'
+# Additional Instructions
 
-# Parse YAML file (simple parser using sed/awk)
-parse_yaml() {
-    local file=$1
-    local prefix=$2
-    
-    local s='[[:space:]]*' w='[a-zA-Z0-9_]*' fs=$(echo @|tr @ '\034')
-    sed -ne "s|^\($s\):|\1|" \
-        -e "s|^\($s\)\($w\)$s:$s[\"']\(.*\)[\"']$s\$|\1$fs\2$fs\3|p" \
-        -e "s|^\($s\)\($w\)$s:$s\(.*\)$s\$|\1$fs\2$fs\3|p" $file |
-    awk -F$fs '{
-        indent = length($1)/2;
-        vname[indent] = $2;
-        for (i in vname) {if (i > indent) {delete vname[i]}}
-        if (length($3) > 0) {
-            vn=""; for (i=0; i<indent; i++) {vn=(vn)(vname[i])("_")}
-            printf("%s%s%s=\"%s\"\n", "'$prefix'", vn, $2, $3);
-        }
-    }'
-}
+This workspace includes the following development tools:
 
-# Extract memory content from YAML file
-extract_memory_content() {
-    local yaml_file=$1
-    local in_memory_content=false
-    local memory_content=""
-    
-    while IFS= read -r line; do
-        if [[ "$line" =~ ^memory_content:[[:space:]]*\|[[:space:]]*$ ]]; then
-            in_memory_content=true
-            continue
-        fi
-        
-        if [[ $in_memory_content == true ]] && [[ "$line" =~ ^[a-zA-Z_]+: ]] && [[ ! "$line" =~ ^[[:space:]] ]]; then
-            in_memory_content=false
-            break
-        fi
-        
-        if [[ $in_memory_content == true ]]; then
-            if [[ "$line" =~ ^"  " ]]; then
-                memory_content+="${line:2}"$'\n'
-            elif [[ -z "$line" ]]; then
-                memory_content+=$'\n'
-            fi
-        fi
-    done < "$yaml_file"
-    
-    memory_content=$(echo -n "$memory_content" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}')
-    echo "$memory_content"
-}
+EOF
 
 # Get category display name from .category.yaml
 get_category_display_name() {
@@ -91,98 +46,130 @@ get_category_display_name() {
     local display_name=$(basename "$category_dir")
     
     if [[ -f "$category_dir/.category.yaml" ]]; then
-        eval $(parse_yaml "$category_dir/.category.yaml" "cat_")
-        [[ -n "$cat_display_name" ]] && display_name="$cat_display_name"
+        # Extract display_name from .category.yaml
+        local line
+        while IFS= read -r line; do
+            if [[ "$line" =~ ^display_name:[[:space:]]*(.+)$ ]]; then
+                display_name="${BASH_REMATCH[1]}"
+                # Remove quotes if present
+                display_name="${display_name#\"}"
+                display_name="${display_name%\"}"
+                display_name="${display_name#\'}"
+                display_name="${display_name%\'}"
+                break
+            fi
+        done < "$category_dir/.category.yaml"
     fi
     
     echo "$display_name"
 }
 
-# Generate tool list
-echo "" >> "$CLAUDE_OUTPUT"
-echo "## Installed Development Environment" >> "$CLAUDE_OUTPUT"
-echo "" >> "$CLAUDE_OUTPUT"
-echo "This container includes the following tools and languages:" >> "$CLAUDE_OUTPUT"
-echo "" >> "$CLAUDE_OUTPUT"
+# Create arrays to store component data organized by category
+declare -A category_components  # category -> list of "name|filename" entries
+declare -A category_display_names
+declare -a category_order
 
-# Base tools (always present)
-echo "### Base Tools" >> "$CLAUDE_OUTPUT"
-echo "- Git" >> "$CLAUDE_OUTPUT"
-echo "- GitHub CLI (gh)" >> "$CLAUDE_OUTPUT"
-
-# Add memory content for base tools
-echo "" >> "$CLAUDE_OUTPUT"
-echo "#### Base Development Tools" >> "$CLAUDE_OUTPUT"
-echo "" >> "$CLAUDE_OUTPUT"
-echo "**Git & GitHub**:" >> "$CLAUDE_OUTPUT"
-echo "- Clone repo: \`git clone https://github.com/user/repo.git\`" >> "$CLAUDE_OUTPUT"
-echo "- GitHub CLI: \`gh repo create\`, \`gh pr create\`" >> "$CLAUDE_OUTPUT"
-echo "- Git is pre-configured if you used host configuration" >> "$CLAUDE_OUTPUT"
-
-# Process selected components by category
-# Convert space-separated lists to arrays
-IFS=' ' read -ra yaml_files_array <<< "$SELECTED_YAML_FILES"
-IFS=' ' read -ra names_array <<< "$SELECTED_NAMES"
-
-# Simple arrays to track categories and components
-component_count=0
-categories_seen=""
-
-# First pass - collect and display components
-for i in "${!yaml_files_array[@]}"; do
-    yaml_file="${yaml_files_array[$i]}"
-    name="${names_array[$i]}"
+# Process each YAML file
+for yaml_file in $SELECTED_YAML_FILES; do
+    info "Processing: $yaml_file"
+    
+    # Extract component name from YAML file
+    comp_name=""
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^name:[[:space:]]*(.+)$ ]]; then
+            comp_name="${BASH_REMATCH[1]}"
+            # Remove quotes if present
+            comp_name="${comp_name#\"}"
+            comp_name="${comp_name%\"}"
+            comp_name="${comp_name#\'}"
+            comp_name="${comp_name%\'}"
+            break
+        fi
+    done < "$yaml_file"
     
     # Extract category from path
-    category=$(dirname "$yaml_file" | xargs basename)
+    # For path like "components/agents/claude-code.yaml", extract "agents"
+    category=""
+    if [[ "$yaml_file" =~ components/([^/]+)/ ]]; then
+        category="${BASH_REMATCH[1]}"
+    else
+        # Fallback: use parent directory
+        category=$(basename $(dirname "$yaml_file"))
+    fi
     
-    # Check if we've seen this category before
-    if [[ ! "$categories_seen" =~ "$category" ]]; then
-        categories_seen="$categories_seen $category"
+    info "  Component: $comp_name"
+    info "  Category: $category"
+    
+    # Get markdown filename
+    yaml_basename=$(basename "$yaml_file" .yaml)
+    md_filename="${yaml_basename}.md"
+    
+    # Initialize category if this is the first component in this category
+    if [[ ! " ${category_order[@]} " =~ " ${category} " ]]; then
+        category_order+=("$category")
         
         # Get display name for category
-        category_dir=$(dirname "$yaml_file")
-        display_name=$(get_category_display_name "$category_dir")
-        
-        echo "" >> "$CLAUDE_OUTPUT"
-        echo "### $display_name" >> "$CLAUDE_OUTPUT"
-    fi
-    
-    echo "- $name" >> "$CLAUDE_OUTPUT"
-    ((component_count++))
-done
-
-# Add Tool-Specific Guidelines section with memory content
-echo "" >> "$CLAUDE_OUTPUT"
-echo "## Tool-Specific Guidelines" >> "$CLAUDE_OUTPUT"
-
-# Extract and append memory content for each selected component
-memory_content_added=false
-
-for i in "${!yaml_files_array[@]}"; do
-    yaml_file="${yaml_files_array[$i]}"
-    component_name="${names_array[$i]}"
-    
-    info "Extracting memory content from $component_name..."
-    
-    memory_content=$(extract_memory_content "$yaml_file")
-    if [[ -n "$memory_content" ]]; then
-        if [[ $memory_content_added == true ]]; then
-            echo "" >> "$CLAUDE_OUTPUT"
+        local category_dir
+        if [[ "$yaml_file" =~ ^(.*components/${category})/ ]]; then
+            category_dir="${BASH_REMATCH[1]}"
+        else
+            category_dir=$(dirname "$yaml_file")
         fi
-        echo "$memory_content" >> "$CLAUDE_OUTPUT"
-        memory_content_added=true
-        success "Added memory content for $component_name"
+        
+        category_display_names[$category]=$(get_category_display_name "$category_dir")
+        info "  Category display name: ${category_display_names[$category]}"
+    fi
+    
+    # Add component to its category
+    if [[ -n "${category_components[$category]}" ]]; then
+        category_components[$category]="${category_components[$category]}|${comp_name}:${md_filename}"
     else
-        info "No memory content found for $component_name"
+        category_components[$category]="${comp_name}:${md_filename}"
+    fi
+    
+    # Copy markdown file if it exists
+    md_source="$(dirname "$yaml_file")/${md_filename}"
+    if [[ -f "$md_source" ]]; then
+        cp "$md_source" "$TEMP_DIR/${md_filename}"
+        success "  Copied ${md_filename}"
+    else
+        log "  Warning: ${md_filename} not found for $comp_name"
     fi
 done
 
-success "Generated CLAUDE.md with environment information"
+# Write categories and components to CLAUDE.md
+for category in "${category_order[@]}"; do
+    display_name="${category_display_names[$category]}"
+    
+    echo "## $display_name" >> "$CLAUDE_OUTPUT"
+    
+    # Split components and write them
+    IFS='|' read -ra components <<< "${category_components[$category]}"
+    for component in "${components[@]}"; do
+        # Split name:filename
+        IFS=':' read -r comp_name md_filename <<< "$component"
+        echo "- $comp_name @~/workspace/.claude/${md_filename}" >> "$CLAUDE_OUTPUT"
+    done
+    
+    echo "" >> "$CLAUDE_OUTPUT"
+done
+
+success "Generated project CLAUDE.md with import references"
+
+# Copy user-CLAUDE.md
+log "Copying user-CLAUDE.md..."
+cp "$USER_CLAUDE" "$TEMP_DIR/"
+success "Copied user-CLAUDE.md"
 
 # Copy settings template
 log "Copying claude-settings.json.template..."
 cp "$SETTINGS_TEMPLATE" "$TEMP_DIR/"
 success "Copied claude-settings.json.template"
+
+# Copy claude-code.md if it exists
+if [[ -f "$SCRIPT_DIR/claude-code.md" ]]; then
+    cp "$SCRIPT_DIR/claude-code.md" "$TEMP_DIR/"
+    success "Copied claude-code.md"
+fi
 
 log "Claude Code pre-build completed successfully"
