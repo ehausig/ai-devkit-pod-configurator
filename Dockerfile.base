@@ -27,7 +27,7 @@ RUN if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
         echo "✓ Configured APT to use Nexus proxy" ; \
     fi
 
-# Install base dependencies (minimal set) including OpenSSH server
+# Install base dependencies (minimal set) including OpenSSH server and locales
 RUN apt-get update && apt-get install -y \
     curl \
     ca-certificates \
@@ -49,9 +49,19 @@ RUN apt-get update && apt-get install -y \
     tmux \
     openssh-server \
     sudo \
+    locales \
     --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# Generate locales to fix the locale warning
+RUN locale-gen en_US.UTF-8 && \
+    update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+
+# Set locale environment variables
+ENV LANG=en_US.UTF-8
+ENV LC_ALL=en_US.UTF-8
+ENV LANGUAGE=en_US:en
 
 # Install GitHub CLI (gh) - handle both proxy and non-proxy scenarios
 RUN if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
@@ -91,15 +101,72 @@ RUN mkdir /var/run/sshd && \
     # Configure SSH to look for host keys in mounted location \
     echo "HostKey /etc/ssh/mounted_keys/ssh_host_rsa_key" >> /etc/ssh/sshd_config && \
     echo "HostKey /etc/ssh/mounted_keys/ssh_host_ecdsa_key" >> /etc/ssh/sshd_config && \
-    echo "HostKey /etc/ssh/mounted_keys/ssh_host_ed25519_key" >> /etc/ssh/sshd_config
+    echo "HostKey /etc/ssh/mounted_keys/ssh_host_ed25519_key" >> /etc/ssh/sshd_config && \
+    # Disable the default Ubuntu login banner \
+    echo "PrintMotd no" >> /etc/ssh/sshd_config && \
+    echo "PrintLastLog no" >> /etc/ssh/sshd_config
+
+# Copy MOTD script
+COPY motd-ai-devkit.sh /tmp/motd-ai-devkit.sh
+
+# Configure MOTD and remove default Ubuntu components
+RUN cp /tmp/motd-ai-devkit.sh /etc/update-motd.d/00-ai-devkit && \
+    chmod +x /etc/update-motd.d/00-ai-devkit && \
+    rm -f /tmp/motd-ai-devkit.sh && \
+    rm -rf /etc/update-motd.d/00-header \
+           /etc/update-motd.d/10-help-text \
+           /etc/update-motd.d/50-motd-news \
+           /etc/update-motd.d/60-unminimize \
+           /etc/update-motd.d/90-updates-available \
+           /etc/update-motd.d/95-hwe-eol && \
+    # Remove the legal notice that appears after MOTD \
+    : > /etc/legal && \
+    # Debug: Show permissions \
+    echo "MOTD permissions check:" && \
+    ls -la /etc/update-motd.d/00-ai-devkit && \
+    # Test execution \
+    echo "Testing MOTD execution:" && \
+    /etc/update-motd.d/00-ai-devkit || echo "MOTD script failed to execute"
 
 RUN mkdir -p /home/devuser/.config/claude-code
 RUN mkdir -p /home/devuser/workspace
 RUN mkdir -p /home/devuser/.claude
 RUN chown -R devuser:devuser /home/devuser/
 
-# Set up user's PATH to include .local/bin
-RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> /home/devuser/.bashrc
+# Create a clean .bashrc without the sudo message
+RUN echo '# ~/.bashrc: executed by bash(1) for non-login shells.' > /home/devuser/.bashrc && \
+    echo '' >> /home/devuser/.bashrc && \
+    echo '# If not running interactively, don'\''t do anything' >> /home/devuser/.bashrc && \
+    echo 'case $- in' >> /home/devuser/.bashrc && \
+    echo '    *i*) ;;' >> /home/devuser/.bashrc && \
+    echo '      *) return;;' >> /home/devuser/.bashrc && \
+    echo 'esac' >> /home/devuser/.bashrc && \
+    echo '' >> /home/devuser/.bashrc && \
+    echo '# Set prompt' >> /home/devuser/.bashrc && \
+    echo 'PS1='\''\[\033[01;32m\]devuser@ai-devkit\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]$ '\''' >> /home/devuser/.bashrc && \
+    echo '' >> /home/devuser/.bashrc && \
+    echo '# Enable color support' >> /home/devuser/.bashrc && \
+    echo 'alias ls='\''ls --color=auto'\''' >> /home/devuser/.bashrc && \
+    echo 'alias ll='\''ls -alF'\''' >> /home/devuser/.bashrc && \
+    echo 'alias la='\''ls -A'\''' >> /home/devuser/.bashrc && \
+    echo 'alias l='\''ls -CF'\''' >> /home/devuser/.bashrc && \
+    echo '' >> /home/devuser/.bashrc && \
+    echo '# Set PATH' >> /home/devuser/.bashrc && \
+    echo 'export PATH="$HOME/.local/bin:$PATH"' >> /home/devuser/.bashrc && \
+    echo '' >> /home/devuser/.bashrc && \
+    echo '# Source global definitions if they exist' >> /home/devuser/.bashrc && \
+    echo 'if [ -f /etc/bashrc ]; then' >> /home/devuser/.bashrc && \
+    echo '    . /etc/bashrc' >> /home/devuser/.bashrc && \
+    echo 'fi' >> /home/devuser/.bashrc && \
+    chown devuser:devuser /home/devuser/.bashrc && \
+    # Remove the sudo hint from system files \
+    sed -i '/To run a command as administrator/d' /etc/bash.bashrc 2>/dev/null || true && \
+    sed -i '/use "sudo <command>"/d' /etc/bash.bashrc 2>/dev/null || true && \
+    sed -i '/See "man sudo_root" for details/d' /etc/bash.bashrc 2>/dev/null || true && \
+    # Also check profile.d \
+    find /etc/profile.d -type f -name "*.sh" -exec sed -i '/To run a command as administrator/d' {} \; 2>/dev/null || true && \
+    find /etc/profile.d -type f -name "*.sh" -exec sed -i '/use "sudo <command>"/d' {} \; 2>/dev/null || true && \
+    find /etc/profile.d -type f -name "*.sh" -exec sed -i '/See "man sudo_root" for details/d' {} \; 2>/dev/null || true
 
 # LANGUAGE_INSTALLATIONS_PLACEHOLDER
 
@@ -114,6 +181,28 @@ RUN chmod +x /entrypoint.sh
 # Copy git setup script for user convenience
 COPY setup-git.sh /usr/local/bin/setup-git.sh
 RUN chmod +x /usr/local/bin/setup-git.sh
+
+# Copy MOTD script
+COPY motd-ai-devkit.sh /tmp/motd-ai-devkit.sh
+
+# Configure MOTD and remove default Ubuntu components
+RUN cp /tmp/motd-ai-devkit.sh /etc/update-motd.d/00-ai-devkit && \
+    chmod +x /etc/update-motd.d/00-ai-devkit && \
+    rm -f /tmp/motd-ai-devkit.sh && \
+    rm -rf /etc/update-motd.d/00-header \
+           /etc/update-motd.d/10-help-text \
+           /etc/update-motd.d/50-motd-news \
+           /etc/update-motd.d/60-unminimize \
+           /etc/update-motd.d/90-updates-available \
+           /etc/update-motd.d/95-hwe-eol && \
+    # Remove the legal notice that appears after MOTD \
+    : > /etc/legal && \
+    # Debug: Show permissions \
+    echo "MOTD permissions check:" && \
+    ls -la /etc/update-motd.d/00-ai-devkit && \
+    # Test execution \
+    echo "Testing MOTD execution:" && \
+    /etc/update-motd.d/00-ai-devkit || echo "MOTD script failed to execute"
 
 # Copy user-CLAUDE.md if it exists (generated by pre-build)
 COPY user-CLAUDE.md* /tmp/

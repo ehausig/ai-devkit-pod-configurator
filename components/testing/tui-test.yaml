@@ -1,0 +1,113 @@
+# components/testing/tui-test.yaml
+id: TUI_TEST
+name: Microsoft TUI Test
+version: "latest"
+group: testing-tools
+requires: nodejs-version
+description: End-to-end terminal testing framework for CLI and TUI experiences by Microsoft
+installation:
+  dockerfile: |
+    # Install Microsoft TUI Test globally
+    RUN export NPM_CONFIG_PREFIX=/home/devuser/.npm-global && \
+        export PATH="/home/devuser/.npm-global/bin:${PATH}" && \
+        npm install -g @microsoft/tui-test && \
+        # Verify installation
+        /home/devuser/.npm-global/bin/tui-test --version || echo "TUI Test installed successfully" && \
+        # Install npx if not already available
+        which npx || npm install -g npx && \
+        chown -R devuser:devuser /home/devuser/.npm-global
+  test_command: tui-test --version
+entrypoint_setup: |
+  # TUI Test specific setup
+  echo "Setting up Microsoft TUI Test environment..."
+  
+  # Create default test directory structure for projects
+  mkdir -p /home/devuser/workspace/.tui-test-templates
+  
+  # Create a sample tui-test.config.ts template
+  cat > /home/devuser/workspace/.tui-test-templates/tui-test.config.ts << 'EOF'
+  import { defineConfig } from "@microsoft/tui-test";
+  
+  export default defineConfig({
+    // Number of retries for flaky tests
+    retries: 3,
+    // Enable trace capture for debugging
+    trace: true,
+    // Test timeout in milliseconds
+    timeout: 30000,
+    // Directory for trace files
+    outputDir: "tui-traces",
+    // Run tests in parallel
+    parallel: true,
+    // Number of parallel workers
+    workers: 4
+  });
+  EOF
+  
+  # Create a sample test template
+  cat > /home/devuser/workspace/.tui-test-templates/example.test.ts << 'EOF'
+  import { test, expect } from "@microsoft/tui-test";
+  
+  test.describe("Example TUI Tests", () => {
+    test("basic terminal interaction", async ({ terminal }) => {
+      // Write to terminal
+      terminal.write("echo 'Hello, TUI Test!'");
+      terminal.submit(); // Press Enter
+      
+      // Wait for output and assert
+      await expect(terminal.getByText("Hello, TUI Test!")).toBeVisible();
+    });
+    
+    test("test with specific shell", async ({ terminal }) => {
+      // Configure to use bash
+      test.use({ shell: "bash" });
+      
+      terminal.write("pwd");
+      terminal.submit();
+      
+      await expect(terminal.getByText("/home/devuser")).toBeVisible();
+    });
+    
+    test("capture terminal snapshot", async ({ terminal }) => {
+      terminal.write("ls -la");
+      terminal.submit();
+      
+      // Wait for command to complete
+      await terminal.waitForRender();
+      
+      // Take snapshot for visual regression testing
+      await expect(terminal).toMatchSnapshot();
+    });
+    
+    test("test CLI application", async ({ terminal }) => {
+      // Start your application
+      test.use({ program: { file: "python", args: ["app.py"] } });
+      
+      // Wait for app to start
+      await expect(terminal.getByText("Welcome")).toBeVisible();
+      
+      // Navigate menu
+      terminal.sendNavigationKey("down");
+      terminal.sendNavigationKey("enter");
+      
+      // Assert state
+      await expect(terminal.getByText("Selected:")).toBeVisible();
+    });
+  });
+  EOF
+  
+  # Add helpful aliases to bashrc
+  if ! grep -q "TUI Test aliases" /home/devuser/.bashrc 2>/dev/null; then
+      cat >> /home/devuser/.bashrc << 'EOF'
+  
+  # TUI Test aliases
+  alias tui-test-init='cp ~/.tui-test-templates/tui-test.config.ts . && echo "Created tui-test.config.ts"'
+  alias tui-test-example='cp ~/.tui-test-templates/example.test.ts . && echo "Created example.test.ts"'
+  alias tui-test-trace='npx @microsoft/tui-test show-trace'
+  EOF
+  fi
+  
+  # Ensure proper ownership
+  chown -R devuser:devuser /home/devuser/workspace/.tui-test-templates 2>/dev/null || true
+  
+  echo "TUI Test setup complete. Use 'tui-test-init' to create a config file."

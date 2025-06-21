@@ -1480,6 +1480,10 @@ create_custom_dockerfile() {
     # Execute pre-build scripts
     execute_pre_build_scripts
     
+    # Create placeholder files if they don't exist (for when no components are selected)
+    touch "$TEMP_DIR/user-CLAUDE.md" 2>/dev/null || true
+    touch "$TEMP_DIR/component-imports.txt" 2>/dev/null || true
+    
     # Sort components by dependencies
     log "Sorting components by dependencies..."
     local sorted_indices=($(sort_components_by_dependencies))
@@ -1605,6 +1609,11 @@ main() {
     
     [[ ! -d "$COMPONENTS_DIR" ]] && error "Components directory '$COMPONENTS_DIR' not found"
     
+    # Check if MOTD file exists
+    if [[ ! -f "motd-ai-devkit.sh" ]]; then
+        error "motd-ai-devkit.sh not found in current directory. Please create this file first."
+    fi
+    
     # Check Colima status
     colima status &> /dev/null || error "Colima is not running\nPlease start Colima with: colima start --kubernetes"
     kubectl get nodes &> /dev/null || error "Kubernetes is not accessible\nPlease make sure Colima started with --kubernetes flag"
@@ -1678,6 +1687,7 @@ main() {
     log "Building Docker image..."
     # Always build from TEMP_DIR since we now generate entrypoint.sh
     cp setup-git.sh "$TEMP_DIR/"
+    cp motd-ai-devkit.sh "$TEMP_DIR/"
     
     cd "$TEMP_DIR"
     echo "Docker build output:" >> "../$LOG_FILE"

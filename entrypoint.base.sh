@@ -103,7 +103,6 @@ add_if_not_exists() {
 
 # Configure .bashrc for devuser - only essential setup
 BASHRC="/home/devuser/.bashrc"
-touch "$BASHRC"
 
 # COMPONENT_SETUP_PLACEHOLDER
 
@@ -145,70 +144,8 @@ fi
 # Ensure proper ownership of .bashrc
 chown devuser:devuser "$BASHRC"
 
-# Add welcome message to .bashrc
-if ! grep -q "AI Development Kit Welcome" "$BASHRC" 2>/dev/null; then
-    cat >> "$BASHRC" << 'EOF'
-
-# AI Development Kit Welcome Message
-if [ -n "$PS1" ] && [ -z "$DEVKIT_WELCOME_SHOWN" ]; then
-    export DEVKIT_WELCOME_SHOWN=1
-    echo ""
-    echo "Welcome to AI Development Kit! 🚀"
-    echo ""
-    
-    # Check if SSH is available
-    if pgrep -x sshd > /dev/null 2>&1; then
-        echo "  📡 SSH is running - connect via port 2222"
-        echo "     Initial password: devuser (please change with 'passwd')"
-    fi
-    
-    echo ""
-    echo "Quick Start:"
-    # Check if Claude Code is installed
-    if command -v claude &> /dev/null 2>&1; then
-        echo "  • claude           - Start Claude Code"
-        echo "  • claude --help    - Show available commands"
-    fi
-    echo "  • tree             - View directory structure"
-    echo ""
-    # Check if git is configured
-    GIT_NAME=$(git config --global user.name 2>/dev/null || echo "")
-    if [ -z "$GIT_NAME" ]; then
-        echo "  ⚠️  Git not configured - run 'setup-git.sh' to configure"
-        echo ""
-    else
-        echo "  ✓ Git configured as: $GIT_NAME"
-        echo ""
-    fi
-    if [ -f ~/.claude/CLAUDE.md ]; then
-        echo "User memory loaded: ~/.claude/CLAUDE.md"
-        echo "  • cat ~/.claude/CLAUDE.md - View memory and component imports"
-        echo ""
-    fi
-fi
-
-# Clear any input buffer to prevent command execution
-if [ -n "$PS1" ]; then
-    # Clear the input buffer
-    read -t 0.1 -n 10000 discard 2>/dev/null || true
-fi
-EOF
-fi
-
-# Add password change reminder for SSH users
-if ! grep -q "SSH_PASSWORD_REMINDER" "$BASHRC" 2>/dev/null; then
-    cat >> "$BASHRC" << 'EOF'
-
-# SSH Password Change Reminder
-if [ -n "$SSH_CONNECTION" ] && [ -z "$SSH_PASSWORD_CHANGED" ]; then
-    if [ "$(sudo grep devuser /etc/shadow | cut -d: -f2)" = "$(sudo grep devuser /etc/shadow.backup 2>/dev/null | cut -d: -f2)" ]; then
-        echo ""
-        echo "⚠️  SECURITY REMINDER: Please change your password with 'passwd'"
-        echo ""
-    fi
-fi
-EOF
-fi
+# Remove the old welcome message from .bashrc since we now use MOTD
+# (No need to add welcome message to .bashrc anymore)
 
 # Create shadow backup for password change detection
 if [ ! -f /etc/shadow.backup ]; then
