@@ -178,104 +178,19 @@ echo "$(date -Iseconds) [INFO] Created unit tests following LANGUAGE conventions
 
 **Integration Tests for TUI/CLI apps**:
 ```bash
-# Create expect test with proper terminal handling
-cat > tests/test_integration.exp << 'EOF'
-#!/usr/bin/expect -f
-set timeout 10
-log_file tests/integration_test.log
+# Create integration tests appropriate for your application type
+# Check the "Additional Instructions" section below for specific testing tools available in this environment
 
-# Configure terminal to avoid escape sequence issues
-set env(TERM) "dumb"
+# For TUI/CLI applications, ensure you test:
+# - Application startup and initialization
+# - User input handling and navigation
+# - Output verification and state changes
+# - Error handling and edge cases
 
-# Start application
-spawn python src/main.py
+echo "$(date -Iseconds) [INFO] Creating integration tests for TUI/CLI application" >> ~/workspace/JOURNAL.md
 
-# Wait for app to initialize
-sleep 2
-
-# Test navigation (use literal key sequences)
-send "\033\[B"  ;# Down arrow
-expect "*"
-sleep 0.5
-
-send "\r"       ;# Enter
-expect "*"
-sleep 0.5
-
-# Gracefully exit
-send "q"
-expect eof
-
-# Check log for errors
-set log_content [exec cat tests/integration_test.log]
-if {[string match "*Error*" $log_content] || [string match "*Exception*" $log_content]} {
-    puts "FAIL: Errors found in application"
-    exit 1
-} else {
-    puts "PASS: Integration test successful"
-    exit 0
-}
-EOF
-chmod +x tests/test_integration.exp
-echo "$(date -Iseconds) [INFO] Created integration test with terminal handling" >> ~/workspace/JOURNAL.md
-```
-
-**TUI Simulation Tests with tmux**:
-```bash
-cat > tests/test_tui_simulation.sh << 'EOF'
-#!/bin/bash
-# TUI simulation test using tmux
-
-# Ensure tmux server is running
-tmux start-server 2>/dev/null || true
-
-# Kill any existing test sessions
-tmux kill-session -t test_session 2>/dev/null || true
-
-# Navigate to project root
-cd "$(dirname "$0")/.." || exit 1
-
-# Start app in tmux session with proper environment
-tmux new-session -d -s test_session "bash -c 'cd $(pwd) && python src/main.py'"
-
-# Wait for app to fully load
-sleep 3
-
-# Check if session is running
-if ! tmux has-session -t test_session 2>/dev/null; then
-    echo "FAIL: tmux session failed to start"
-    exit 1
-fi
-
-# Send keystrokes
-tmux send-keys -t test_session "Down" C-m
-sleep 1
-
-# Capture output
-tmux capture-pane -t test_session -p > test_output.txt
-
-# Check for expected content
-if grep -q "Expected Text" test_output.txt; then
-    echo "PASS: Found expected content"
-    RESULT=0
-else
-    echo "FAIL: Expected content not found"
-    echo "=== Captured output ==="
-    cat test_output.txt
-    echo "======================"
-    RESULT=1
-fi
-
-# Cleanup
-tmux send-keys -t test_session "q"
-sleep 1
-tmux kill-session -t test_session 2>/dev/null || true
-rm -f test_output.txt
-
-exit $RESULT
-EOF
-chmod +x tests/test_tui_simulation.sh
-echo "$(date -Iseconds) [INFO] Created TUI simulation test with tmux server check" >> ../JOURNAL.md
+# The specific testing approach depends on available tools
+# See imported component documentation for detailed examples
 ```
 
 #### 3.4 Run Tests (MUST FAIL FIRST - This proves TDD)
@@ -316,32 +231,20 @@ if [ $TEST_RESULT -ne 0 ]; then
     # STOP and fix!
 fi
 
-# Run integration tests (REQUIRED for CLI/TUI apps)
-if [ -f tests/test_integration.exp ]; then
-    ./tests/test_integration.exp
-    INTEGRATION_RESULT=$?
-    echo "$(date -Iseconds) [INFO] Integration test status: $INTEGRATION_RESULT" >> ../JOURNAL.md
-    
-    if [ $INTEGRATION_RESULT -ne 0 ]; then
-        echo "$(date -Iseconds) [ERROR] Integration tests failed - debugging required" >> ../JOURNAL.md
-    fi
-fi
+# Run integration tests for TUI/CLI apps
+echo "$(date -Iseconds) [INFO] Running integration tests" >> ../JOURNAL.md
 
-# Run TUI simulations (REQUIRED for TUI apps)
-if [ -f tests/test_tui_simulation.sh ]; then
-    # Ensure tmux is available
-    if command -v tmux &> /dev/null; then
-        ./tests/test_tui_simulation.sh
-        SIMULATION_RESULT=$?
-        echo "$(date -Iseconds) [INFO] TUI simulation status: $SIMULATION_RESULT" >> ../JOURNAL.md
-        
-        if [ $SIMULATION_RESULT -ne 0 ]; then
-            echo "$(date -Iseconds) [ERROR] TUI simulation failed - check tmux setup" >> ../JOURNAL.md
-        fi
-    else
-        echo "$(date -Iseconds) [WARNING] tmux not available - skipping TUI simulation tests" >> ../JOURNAL.md
-    fi
-fi
+# Use appropriate testing tools based on what's available
+# Check imported component documentation for specific commands
+# Common patterns:
+# - For Node.js: npm test, jest, mocha
+# - For Python: pytest, unittest
+# - For Go: go test
+# - For Rust: cargo test
+# - For specialized TUI testing: see imported testing tools
+
+INTEGRATION_RESULT=$?
+echo "$(date -Iseconds) [INFO] Integration test status: $INTEGRATION_RESULT" >> ../JOURNAL.md
 
 # ALL tests must pass before proceeding
 echo "$(date -Iseconds) [INFO] All test types must pass before continuing" >> ../JOURNAL.md
@@ -407,7 +310,6 @@ PR_URL=$(gh pr create \
 ## Testing
 - ✅ All unit tests pass
 - ✅ Integration tests verified
-- ✅ TUI simulation tests pass
 
 ## Screenshots
 [Add if applicable]" \
@@ -433,14 +335,15 @@ echo "$(date -Iseconds) [INFO] - PR: $PR_URL" >> ~/workspace/JOURNAL.md
 
 ## Critical Rules
 
-### tmux Testing Requirements
-For TUI applications, you MUST create working tmux tests:
-1. Always start tmux server first: `tmux start-server`
-2. Use full paths when starting applications
-3. Wait sufficient time (3+ seconds) for app startup
-4. Verify session is running before sending keys
-5. Use `C-m` for Enter key in tmux
-6. Always cleanup sessions after tests
+### Testing Requirements
+For all applications:
+1. Write comprehensive unit tests using language-appropriate frameworks
+2. Create integration tests that verify actual behavior
+3. Test both happy paths and edge cases
+4. Ensure tests are deterministic and reliable
+5. Check the "Additional Instructions" section for specialized testing tools
+
+**Note**: This environment may include specialized testing frameworks. Review the imported component documentation at the end of this file for specific testing tools and their usage patterns.
 
 ### DO NOT:
 - Create git repositories inside other git repositories
@@ -448,22 +351,21 @@ For TUI applications, you MUST create working tmux tests:
 - Push code without ALL tests passing
 - Create directories without proper structure
 - Use generic test assertions - test actual behavior
-- Ignore terminal escape sequence issues in expect scripts
 
 ### ALWAYS:
 - Use proper environment activation based on language/tool
-- Set `TERM=dumb` in expect scripts for TUI apps
 - Create comprehensive test suites with multiple test cases
 - Log EVERY significant action to the journal
 - Verify project structure with `tree` command
 - Follow language-specific conventions and idioms
 
-### Debugging Terminal Issues:
-If you see escape sequences like `^[[?2026;2$y`:
-1. Set `TERM=dumb` in expect scripts
-2. Use `log_file` in expect to capture output
-3. Use tmux for complex TUI testing
-4. Add proper sleep delays between commands
+### Testing Best Practices:
+1. Write tests that describe actual behavior
+2. Use appropriate testing frameworks for your language
+3. Test both happy path and edge cases
+4. Ensure tests are deterministic and reliable
+5. Add proper assertions for all expected outcomes
+6. **IMPORTANT**: Check the imported component documentation below for specialized testing tools available in this environment
 
 ## VERIFICATION CHECKLIST
 Before considering ANY task complete:
@@ -471,7 +373,7 @@ Before considering ANY task complete:
 - [ ] Project is in correct directory structure
 - [ ] No nested git repositories
 - [ ] All test files have actual test implementations
-- [ ] Integration tests handle terminal properly
+- [ ] Integration tests verify real behavior
 - [ ] All tests are passing
 - [ ] Documentation is comprehensive
 - [ ] PR is created and auto-merge enabled

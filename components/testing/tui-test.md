@@ -1,5 +1,7 @@
 #### Microsoft TUI Test
 
+**IMPORTANT**: This environment includes Microsoft TUI Test - use it for testing ALL terminal applications (Python, Go, Rust, etc.)!
+
 **Quick Start**:
 ```bash
 # Install in project
@@ -15,21 +17,43 @@ tui-test-example  # Creates example.test.ts
 npx @microsoft/tui-test
 ```
 
-**Writing Tests**:
+**Testing ANY Language**:
+```typescript
+// Test Python TUI applications
+test.use({ program: { file: "python", args: ["app.py"] } });
+
+// Test Go applications
+test.use({ program: { file: "./myapp" } });
+
+// Test Rust applications
+test.use({ program: { file: "cargo", args: ["run"] } });
+
+// Test any executable
+test.use({ program: { file: "/path/to/executable" } });
+```
+
+**Integration Test Template**:
 ```typescript
 import { test, expect } from "@microsoft/tui-test";
 
-// Basic test
-test("CLI output test", async ({ terminal }) => {
-    terminal.write("echo 'Hello World'");
-    terminal.submit();
-    await expect(terminal.getByText("Hello World")).toBeVisible();
-});
-
-// Test with specific program
-test.use({ program: { file: "python", args: ["app.py"] } });
-test("app startup", async ({ terminal }) => {
-    await expect(terminal.getByText("Ready")).toBeVisible();
+test.describe("TUI Application Tests", () => {
+    test("application lifecycle", async ({ terminal }) => {
+        // Start your app (any language)
+        test.use({ program: { file: "python", args: ["src/main.py"] } });
+        
+        // Wait for initialization
+        await expect(terminal.getByText("Ready")).toBeVisible();
+        
+        // Test user interactions
+        terminal.sendNavigationKey("down");
+        terminal.sendNavigationKey("enter");
+        
+        // Verify behavior
+        await expect(terminal.getByText("Selected")).toBeVisible();
+        
+        // Exit gracefully
+        terminal.sendKey("ctrl+c");
+    });
 });
 ```
 
