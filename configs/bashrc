@@ -1,0 +1,30 @@
+# ~/.bashrc: executed by bash(1) for non-login shells.
+
+# If not running interactively, don't do anything
+case $- in
+    *i*) ;;
+      *) return;;
+esac
+
+# Set prompt
+PS1='\[\033[01;32m\]devuser@ai-devkit\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]$ '
+
+# Enable color support
+alias ls='ls --color=auto'
+alias ll='ls -alF'
+alias la='ls -A'
+alias l='ls -CF'
+
+# Set PATH
+export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"
+export NPM_CONFIG_PREFIX="$HOME/.npm-global"
+
+# Source global definitions if they exist
+if [ -f /etc/bashrc ]; then
+    . /etc/bashrc
+fi
+
+# TUI Test aliases
+alias tui-test-init='cp ~/.tui-test-templates/tui-test.config.ts . && echo "Created tui-test.config.ts"'
+alias tui-test-example='cp ~/.tui-test-templates/example.test.ts . && echo "Created example.test.ts"'
+alias tui-test-trace='npx @microsoft/tui-test show-trace'

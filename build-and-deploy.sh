@@ -1698,7 +1698,9 @@ main() {
     cp setup-git.sh "$TEMP_DIR/"
     cp motd-ai-devkit.sh "$TEMP_DIR/"
     cp nodejs-base.md "$TEMP_DIR/"
-    
+    cp -r configs "$TEMP_DIR/"
+    cp -r templates "$TEMP_DIR/"
+
     cd "$TEMP_DIR"
     echo "Docker build output:" >> "../$LOG_FILE"
     echo "=================================================================================" >> "../$LOG_FILE"
