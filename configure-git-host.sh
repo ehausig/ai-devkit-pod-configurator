@@ -1,12 +1,12 @@
 #!/bin/bash
-# Host-based Git configuration script for Claude Code K8s
+# Host-based Git configuration script for AI DevKit
 # This script creates an isolated git configuration for containers
 # using HTTPS and Personal Access Tokens (PAT)
 
 set -e
 
 # Configuration
-CONFIG_DIR="$HOME/.claude-code-k8s"
+CONFIG_DIR="$HOME/.ai-devkit"
 GIT_CONFIG_DIR="$CONFIG_DIR/git-config"
 GITHUB_CONFIG_DIR="$CONFIG_DIR/github"
 
@@ -25,7 +25,7 @@ info() { echo -e "${BLUE}ℹ $1${NC}"; }
 
 # Print banner
 print_banner() {
-    echo -e "${BLUE}=== Claude Code K8s - Git Configuration Manager ===${NC}"
+    echo -e "${BLUE}=== AI DevKit - Git Configuration Manager ===${NC}"
     echo ""
     info "This tool creates an isolated git configuration for your containers"
     info "using HTTPS authentication with GitHub Personal Access Tokens"
@@ -91,7 +91,7 @@ EOF
 configure_github_pat() {
     log "Step 2: GitHub Authentication Setup"
     echo ""
-    info "Claude Code needs a GitHub Personal Access Token (PAT) to:"
+    info "AI agents need a GitHub Personal Access Token (PAT) to:"
     echo "  • Clone private repositories"
     echo "  • Push changes to your repositories"
     echo "  • Use GitHub CLI (gh) commands"
@@ -103,7 +103,7 @@ configure_github_pat() {
     echo ""
     echo "To create a token:"
     echo -e "  1. Open: ${BLUE}https://github.com/settings/tokens/new${NC}"
-    echo "  2. Give it a descriptive name (e.g., 'Claude Code K8s')"
+    echo "  2. Give it a descriptive name (e.g., 'AI DevKit')"
     echo "  3. Select the permissions listed above"
     echo "  4. Set expiration (recommend 90 days for security)"
     echo "  5. Click 'Generate token' and copy it"
@@ -203,7 +203,7 @@ show_summary() {
 
 # Clear configuration
 clear_configuration() {
-    log "Clearing Claude Code K8s git configuration..."
+    log "Clearing AI DevKit Git configuration..."
     echo ""
     
     if [[ -d "$CONFIG_DIR" ]]; then
@@ -243,15 +243,17 @@ main() {
             echo "  -c, --clear    Clear all stored container git configuration"
             echo "  -h, --help     Show this help message"
             echo ""
-            echo "This script creates an isolated git configuration for Claude Code K8s"
+            echo "This script creates an isolated git configuration for AI DevKit"
             echo "containers using HTTPS authentication with GitHub Personal Access Tokens."
             echo ""
-            echo "The configuration is stored in ~/.claude-code-k8s/ and includes:"
+            echo "The configuration is stored in ~/.ai-devkit/ and includes:"
             echo "  • Git user name and email"
             echo "  • GitHub Personal Access Token"
             echo "  • GitHub CLI configuration"
             echo ""
-            echo "This configuration is completely isolated from your host git setup."
+            echo "This configuration is completely isolated from your host git setup"
+            echo "and is dynamically-injected by the AI DevKit Build Configurator"
+            echo "into AI DevKit pods."
             exit 0
             ;;
     esac

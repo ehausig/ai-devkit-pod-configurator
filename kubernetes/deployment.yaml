@@ -1,25 +1,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: claude-code
-  namespace: claude-code
+  name: ai-devkit
+  namespace: ai-devkit
   labels:
-    app: claude-code
+    app: ai-devkit
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: claude-code
+      app: ai-devkit
   template:
     metadata:
       labels:
-        app: claude-code
+        app: ai-devkit
       annotations:
-        kubectl.kubernetes.io/default-container: claude-code
+        kubectl.kubernetes.io/default-container: ai-devkit
     spec:
       containers:
       # Main Claude Code container
-      - name: claude-code
+      - name: ai-devkit
         image: claude-code:latest
         imagePullPolicy: IfNotPresent
         ports:
@@ -193,10 +193,10 @@ spec:
       volumes:
       - name: config-volume
         persistentVolumeClaim:
-          claimName: claude-code-config-pvc
+          claimName: ai-devkit-config-pvc
       - name: workspace-volume
         persistentVolumeClaim:
-          claimName: claude-code-workspace-pvc
+          claimName: ai-devkit-workspace-pvc
       - name: cargo-dir
         emptyDir: {}
       - name: filebrowser-config
@@ -305,11 +305,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: claude-code
-  namespace: claude-code
+  name: ai-devkit
+  namespace: ai-devkit
 spec:
   selector:
-    app: claude-code
+    app: ai-devkit
   ports:
   - name: ssh
     port: 22
@@ -324,7 +324,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: filebrowser-config
-  namespace: claude-code
+  namespace: ai-devkit
 data:
   settings.json: |
     {

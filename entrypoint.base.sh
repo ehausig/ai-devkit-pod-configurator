@@ -14,6 +14,7 @@ if [ -d /etc/profile.d ]; then
 fi
 
 # Create essential directories that are always needed
+# TODO: incoporate Claude Code specific configurations in components/agents/* files
 CONFIG_DIR="/home/devuser/.config/claude-code"
 mkdir -p "$CONFIG_DIR"
 mkdir -p /home/devuser/workspace
@@ -69,6 +70,7 @@ if [ -f /tmp/git-mounted/gh-hosts.yml ]; then
 fi
 
 # Copy user-CLAUDE.md to ~/.claude/CLAUDE.md if it exists
+# TODO: incorporate Claude Code specific configuration in components/agents files
 if [ -f /tmp/user-CLAUDE.md ]; then
     echo "Found user CLAUDE.md, copying to ~/.claude..."
     cp /tmp/user-CLAUDE.md /home/devuser/.claude/CLAUDE.md
@@ -83,6 +85,7 @@ if [ -f /tmp/user-CLAUDE.md ]; then
 fi
 
 # Copy all component markdown files to ~/.claude
+# TODO: maybe put in generic ~/.prompts directory, then use symlink for .claude?
 echo "Copying component documentation files..."
 for md_file in /tmp/*.md; do
     if [ -f "$md_file" ] && [ "$md_file" != "/tmp/user-CLAUDE.md" ]; then

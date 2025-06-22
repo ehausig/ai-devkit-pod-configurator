@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: nexus-proxy-config
-  namespace: claude-code
+  namespace: ai-devkit
 data:
   pip.conf: |
     [global]
@@ -61,7 +61,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: nexus-env-config
-  namespace: claude-code
+  namespace: ai-devkit
 data:
   PIP_INDEX_URL: "http://host.lima.internal:8081/repository/pypi-proxy/simple"
   PIP_TRUSTED_HOST: "host.lima.internal"
