@@ -8,7 +8,7 @@ IMAGE_TAG="latest"
 NAMESPACE="ai-devkit"
 TEMP_DIR=".build-temp"
 COMPONENTS_DIR="components"
-SSH_KEYS_DIR="$HOME/.ai-devkit/ssh-keys"
+SSH_KEYS_DIR="$HOME/.ai-devkit-k8s/ssh-keys"
 LOG_FILE="build-and-deploy.log"
 
 # Colors for output
@@ -1086,12 +1086,12 @@ select_components() {
     tput cup 0 0
     for ((i=0; i<term_width; i++)); do echo -ne "${BLUE}━${NC}"; done
     
-    local title="AI DevKit Pod Configurator"
+    local title="AI DevKit Pod Configurator - Deployment Manifest"
     local title_len=${#title}
     local title_pos=$(( (term_width - title_len) / 2 ))
     tput cup 1 $title_pos
     echo -ne "${YELLOW}${title}${NC}"
-
+    
     tput cup 2 0
     for ((i=0; i<term_width; i++)); do echo -ne "${BLUE}━${NC}"; done
     
@@ -1574,7 +1574,7 @@ create_custom_dockerfile() {
 
 # Check for host git configuration
 check_host_git_config() {
-    local config_dir="$HOME/.ai-devkit"
+    local config_dir="$HOME/.ai-devkit-k8s"
     
     if [[ -d "$config_dir" ]] && [[ -f "$config_dir/git-config/.gitconfig" ]]; then
         return 0
@@ -1584,7 +1584,7 @@ check_host_git_config() {
 
 # Create git configuration secret
 create_git_config_secret() {
-    local config_dir="$HOME/.ai-devkit"
+    local config_dir="$HOME/.ai-devkit-k8s"
     
     # Delete existing secret if it exists
     kubectl delete secret git-config -n ${NAMESPACE} --ignore-not-found=true >/dev/null 2>&1
@@ -1673,16 +1673,19 @@ main() {
         export NEXUS_BUILD_ARGS="--build-arg PIP_INDEX_URL=http://host.lima.internal:8081/repository/pypi-proxy/simple --build-arg PIP_TRUSTED_HOST=host.lima.internal --build-arg NPM_REGISTRY=http://host.lima.internal:8081/repository/npm-proxy/ --build-arg GOPROXY=http://host.lima.internal:8081/repository/go-proxy/ --build-arg USE_NEXUS_APT=true --build-arg NEXUS_APT_URL=http://host.lima.internal:8081"
     fi
     
-    # Handle flags
-    if [[ "$1" =~ ^(--clean|-c)$ ]]; then
-        log "Cleaning up previous deployment..."
-        kubectl delete deployment ai-devkit -n ${NAMESPACE} --ignore-not-found=true
-        docker rmi ${IMAGE_NAME}:${IMAGE_TAG} 2>/dev/null || true
-        rm -rf "$TEMP_DIR"
-    fi
-    
     # Component selection
     [[ ! "$1" =~ --no-select && ! "$2" =~ --no-select ]] && select_components
+    
+    # Clean up only AFTER user confirms they want to build
+    if [[ -d "$TEMP_DIR" ]]; then
+        log "Cleaning up previous build directory..."
+        rm -rf "$TEMP_DIR"/*
+    fi
+    
+    # Delete the deployment to ensure fresh container
+    log "Removing previous deployment..."
+    kubectl delete deployment ai-devkit -n ${NAMESPACE} --ignore-not-found=true >> "$LOG_FILE" 2>&1
+    docker rmi ${IMAGE_NAME}:${IMAGE_TAG} >> "$LOG_FILE" 2>&1 || true
     
     # Create base components
     log "Creating custom Dockerfile..."
