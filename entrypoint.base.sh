@@ -111,6 +111,7 @@ chown -R devuser:devuser /home/devuser/workspace 2>/dev/null || true
 chown -R devuser:devuser /home/devuser/.claude 2>/dev/null || true
 chown -R devuser:devuser /home/devuser/.config/claude-code 2>/dev/null || true
 chown -R devuser:devuser /home/devuser/.local 2>/dev/null || true
+chown -R devuser:devuser /home/devuser/.tui-test-templates 2>/dev/null || true
 
 # Add user's local bin to PATH
 add_if_not_exists 'export PATH="$HOME/.local/bin:$PATH"' "$BASHRC"

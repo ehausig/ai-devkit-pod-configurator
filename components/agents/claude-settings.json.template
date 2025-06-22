@@ -3,13 +3,13 @@
   "verbose": true,
   "includeCoAuthoredBy": true,
   "env": {
-    "CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR": "1"
+    "CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR": "1",
     "DISABLE_AUTOUPDATER": "1",
     "DISABLE_BUG_COMMAND": "1",
     "DISABLE_COST_WARNINGS": "0",
     "DISABLE_ERROR_REPORTING": "1",
     "DISABLE_NON_ESSENTIAL_MODEL_CALLS": "0",
-    "DISABLE_TELEMETRY": "1",
+    "DISABLE_TELEMETRY": "1"
   },
   "permissions": {
     "allow": [
@@ -134,9 +134,9 @@
       "Read(~/.npmrc)",
       "Read(~/.profile)",
       "Read(~/workspace/*)",
-      "WebFetch(*)"
+      "WebFetch(*)",
       "WebSearch(*)",
-      "Write(~/workspace/*)",
+      "Write(~/workspace/*)"
     ],
     "deny": [
       "Bash(apt-get:*)",

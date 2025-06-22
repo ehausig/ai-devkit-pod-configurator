@@ -2,7 +2,7 @@
 id: CLAUDE_CODE
 name: Claude Code (AI Assistant)
 group: ai-agents
-requires: nodejs-version
+requires: []
 description: Anthropic's AI coding assistant for development
 pre_build_script: claude-code-setup.sh
 installation:
@@ -25,9 +25,6 @@ installation:
       permissions: 644
     - source: claude-settings.json.template
       destination: /tmp/claude-settings.json.template
-      permissions: 644
-    - source: claude-code.md
-      destination: /tmp/claude-code.md
       permissions: 644
 entrypoint_setup: |
   # Claude Code specific setup
@@ -55,21 +52,6 @@ entrypoint_setup: |
   
   # Note: user-CLAUDE.md is handled in the main entrypoint.sh script
   # along with appending component imports
-  
-  # Copy claude-code.md to ~/.claude if it exists
-  echo "Checking for claude-code.md..."
-  if [ -f /tmp/claude-code.md ]; then
-      echo "Found /tmp/claude-code.md"
-      if [ ! -f /home/devuser/.claude/claude-code.md ]; then
-          echo "Copying claude-code.md to ~/.claude..."
-          cp /tmp/claude-code.md /home/devuser/.claude/claude-code.md
-          echo "claude-code.md copied successfully"
-      else
-          echo "claude-code.md already exists"
-      fi
-  else
-      echo "No /tmp/claude-code.md found"
-  fi
   
   # Ensure proper ownership
   chown -R devuser:devuser /home/devuser/.claude 2>/dev/null || true

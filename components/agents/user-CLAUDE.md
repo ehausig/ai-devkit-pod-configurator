@@ -333,6 +333,64 @@ echo "$(date -Iseconds) [INFO] - Repository: $(git remote get-url origin)" >> ~/
 echo "$(date -Iseconds) [INFO] - PR: $PR_URL" >> ~/workspace/JOURNAL.md
 ```
 
+## TUI Testing with Microsoft TUI Test
+
+This environment includes Microsoft TUI Test pre-installed - a powerful framework for testing ANY terminal application regardless of the language it's written in.
+
+### Quick Start
+```bash
+# Create config file using the provided alias
+tui-test-init  # Creates tui-test.config.ts in current directory
+
+# Create example test using the provided alias
+tui-test-example  # Creates example.test.ts in current directory
+
+# Run tests (TUI Test is globally available)
+tui-test
+
+# Or use npx to run with options
+npx @microsoft/tui-test --trace
+```
+
+### Writing TUI Tests
+```typescript
+import { test, expect } from "@microsoft/tui-test";
+
+test("application lifecycle", async ({ terminal }) => {
+    // Start any application (Python, Go, Rust, etc.)
+    test.use({ program: { file: "python", args: ["src/main.py"] } });
+    
+    // Wait for initialization
+    await expect(terminal.getByText("Ready")).toBeVisible();
+    
+    // Test user interactions
+    terminal.sendNavigationKey("down");
+    terminal.sendNavigationKey("enter");
+    
+    // Verify behavior
+    await expect(terminal.getByText("Selected")).toBeVisible();
+});
+```
+
+### Key Features
+- **Language Agnostic**: Test Python, Go, Rust, Node.js, or any executable
+- **Auto-wait**: Automatically waits for terminal to be ready
+- **Rich API**: Navigation keys, text matching, snapshots
+- **Tracing**: Capture and replay test failures
+- **Cross-platform**: Works on Linux, macOS, and Windows
+
+### Common Commands
+```bash
+# Run with traces
+npx @microsoft/tui-test --trace
+
+# View trace
+tui-test-trace tui-traces/test-failed.zip
+
+# Run specific test
+npx @microsoft/tui-test test-file.ts -g "test name"
+```
+
 ## Critical Rules
 
 ### Testing Requirements
@@ -380,3 +438,14 @@ Before considering ANY task complete:
 
 ---
 *Note: Language-specific configurations and tooling preferences are available via imports in the project CLAUDE.md file.*
+
+## Base Development Tools
+
+This environment always includes these pre-installed tools:
+
+### Core Tools
+- Git @~/.claude/nodejs-base.md
+- GitHub CLI (gh)
+- SSH Server
+- Node.js 20.18.0 @~/.claude/nodejs-base.md
+- Microsoft TUI Test (see TUI Testing section above)

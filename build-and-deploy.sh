@@ -610,9 +610,12 @@ select_components() {
         
         # Base components list (updated to include SSH)
         local base_components=(
+            "• Filebrowser (port 8090)"
             "• Git"
             "• GitHub CLI (gh)"
-            "• SSH Server"
+            "• Microsoft TUI Test"
+            "• Node.js 20.18.0"
+            "• SSH Server (port 2222)"
         )
         
         for base_comp in "${base_components[@]}"; do
@@ -1099,9 +1102,12 @@ select_components() {
     echo -e "${GREEN}Base Development Tools (included in all builds):${NC}"
     echo ""
     echo -e "  ${BLUE}━ Base Development Tools ━${NC}"
+    echo -e "    ${GREEN}✓${NC} Filebrowser (port 8090)"
     echo -e "    ${GREEN}✓${NC} Git"
     echo -e "    ${GREEN}✓${NC} GitHub CLI (gh)"
-    echo -e "    ${GREEN}✓${NC} SSH Server (port 22)"
+    echo -e "    ${GREEN}✓${NC} Microsoft TUI Test"
+    echo -e "    ${GREEN}✓${NC} Node.js 20.18.0" 
+    echo -e "    ${GREEN}✓${NC} SSH Server (port 2222)"
     
     # Count selections
     local selection_count=0
@@ -1688,6 +1694,7 @@ main() {
     # Always build from TEMP_DIR since we now generate entrypoint.sh
     cp setup-git.sh "$TEMP_DIR/"
     cp motd-ai-devkit.sh "$TEMP_DIR/"
+    cp nodejs-base.md "$TEMP_DIR/"
     
     cd "$TEMP_DIR"
     echo "Docker build output:" >> "../$LOG_FILE"

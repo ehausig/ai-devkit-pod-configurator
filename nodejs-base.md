@@ -34,3 +34,27 @@
 - Test continuously: `npm run test:watch`
 
 **Common**: REPL → `node`, Run file → `node app.js`
+
+## TUI Testing with Node.js
+
+Since TUI Test is pre-installed globally, you can test any Node.js TUI application:
+
+```typescript
+import { test, expect } from "@microsoft/tui-test";
+
+test("Node.js CLI app", async ({ terminal }) => {
+    test.use({ program: { file: "node", args: ["cli.js"] } });
+    
+    await expect(terminal.getByText("CLI Started")).toBeVisible();
+    
+    terminal.write("help");
+    terminal.submit();
+    
+    await expect(terminal.getByText("Available commands")).toBeVisible();
+});
+```
+
+**Testing Node.js TUI Apps**:
+- Use `tui-test-init` to create config
+- Test with `npx @microsoft/tui-test`
+- No installation needed - already global

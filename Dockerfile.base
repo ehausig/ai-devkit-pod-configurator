@@ -85,6 +85,35 @@ RUN if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+# Install Node.js 20.x (required for Microsoft TUI Test and Claude Code)
+# Direct binary installation to avoid repository issues with proxy
+RUN export DEBIAN_FRONTEND=noninteractive && \
+    ARCH=$(dpkg --print-architecture) && \
+    NODE_ARCH=${ARCH} && \
+    if [ "${ARCH}" = "arm64" ]; then NODE_ARCH="arm64"; elif [ "${ARCH}" = "amd64" ]; then NODE_ARCH="x64"; fi && \
+    NODE_VERSION="v20.18.0" && \
+    wget -q https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz && \
+    tar -xJf node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz -C /usr/local --strip-components=1 && \
+    rm node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz && \
+    npm install -g npm@latest
+
+# Configure npm if proxy URL is provided
+RUN if [ -n "$NPM_REGISTRY" ]; then \
+        npm config set registry ${NPM_REGISTRY} && \
+        echo "✓ Configured npm to use proxy" ; \
+    fi
+
+# Set up user's npm configuration
+RUN mkdir -p /home/devuser/.npm-global && \
+    echo 'export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"' >> /etc/skel/.bashrc && \
+    echo 'export NPM_CONFIG_PREFIX="$HOME/.npm-global"' >> /etc/skel/.bashrc
+
+# Install Microsoft TUI Test globally
+RUN export NPM_CONFIG_PREFIX=/usr/local && \
+    npm install -g @microsoft/tui-test && \
+    # Verify installation
+    tui-test --version || echo "TUI Test installed successfully"
+
 # Create a non-root user to run development tools
 RUN useradd -ms /bin/bash devuser && \
     echo 'devuser:devuser' | chpasswd && \
@@ -152,13 +181,34 @@ RUN echo '# ~/.bashrc: executed by bash(1) for non-login shells.' > /home/devuse
     echo 'alias l='\''ls -CF'\''' >> /home/devuser/.bashrc && \
     echo '' >> /home/devuser/.bashrc && \
     echo '# Set PATH' >> /home/devuser/.bashrc && \
-    echo 'export PATH="$HOME/.local/bin:$PATH"' >> /home/devuser/.bashrc && \
+    echo 'export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"' >> /home/devuser/.bashrc && \
+    echo 'export NPM_CONFIG_PREFIX="$HOME/.npm-global"' >> /home/devuser/.bashrc && \
     echo '' >> /home/devuser/.bashrc && \
     echo '# Source global definitions if they exist' >> /home/devuser/.bashrc && \
     echo 'if [ -f /etc/bashrc ]; then' >> /home/devuser/.bashrc && \
     echo '    . /etc/bashrc' >> /home/devuser/.bashrc && \
     echo 'fi' >> /home/devuser/.bashrc && \
+    echo '' >> /home/devuser/.bashrc && \
+    echo '# TUI Test aliases' >> /home/devuser/.bashrc && \
+    echo 'alias tui-test-init='\''cp ~/.tui-test-templates/tui-test.config.ts . && echo "Created tui-test.config.ts"'\''' >> /home/devuser/.bashrc && \
+    echo 'alias tui-test-example='\''cp ~/.tui-test-templates/example.test.ts . && echo "Created example.test.ts"'\''' >> /home/devuser/.bashrc && \
+    echo 'alias tui-test-trace='\''npx @microsoft/tui-test show-trace'\''' >> /home/devuser/.bashrc && \
     chown devuser:devuser /home/devuser/.bashrc && \
+    # Create .profile that sources .bashrc for SSH login shells \
+    echo '# ~/.profile: executed by the command interpreter for login shells.' > /home/devuser/.profile && \
+    echo '' >> /home/devuser/.profile && \
+    echo '# Source .bashrc for login shells (SSH)' >> /home/devuser/.profile && \
+    echo 'if [ -n "$BASH_VERSION" ]; then' >> /home/devuser/.profile && \
+    echo '    if [ -f "$HOME/.bashrc" ]; then' >> /home/devuser/.profile && \
+    echo '        . "$HOME/.bashrc"' >> /home/devuser/.profile && \
+    echo '    fi' >> /home/devuser/.profile && \
+    echo 'fi' >> /home/devuser/.profile && \
+    echo '' >> /home/devuser/.profile && \
+    echo '# Set PATH if not already set' >> /home/devuser/.profile && \
+    echo 'if [ -d "$HOME/.local/bin" ] ; then' >> /home/devuser/.profile && \
+    echo '    PATH="$HOME/.local/bin:$PATH"' >> /home/devuser/.profile && \
+    echo 'fi' >> /home/devuser/.profile && \
+    chown devuser:devuser /home/devuser/.profile && \
     # Remove the sudo hint from system files \
     sed -i '/To run a command as administrator/d' /etc/bash.bashrc 2>/dev/null || true && \
     sed -i '/use "sudo <command>"/d' /etc/bash.bashrc 2>/dev/null || true && \
@@ -167,6 +217,96 @@ RUN echo '# ~/.bashrc: executed by bash(1) for non-login shells.' > /home/devuse
     find /etc/profile.d -type f -name "*.sh" -exec sed -i '/To run a command as administrator/d' {} \; 2>/dev/null || true && \
     find /etc/profile.d -type f -name "*.sh" -exec sed -i '/use "sudo <command>"/d' {} \; 2>/dev/null || true && \
     find /etc/profile.d -type f -name "*.sh" -exec sed -i '/See "man sudo_root" for details/d' {} \; 2>/dev/null || true
+
+# Configure npm for the devuser if proxy URL is provided
+RUN if [ -n "$NPM_REGISTRY" ]; then \
+        echo "registry=${NPM_REGISTRY}" > /home/devuser/.npmrc && \
+        echo "prefix=/home/devuser/.npm-global" >> /home/devuser/.npmrc && \
+        chown devuser:devuser /home/devuser/.npmrc && \
+        echo "✓ Configured npm for devuser" ; \
+    else \
+        echo "prefix=/home/devuser/.npm-global" > /home/devuser/.npmrc && \
+        chown devuser:devuser /home/devuser/.npmrc ; \
+    fi
+
+# Ensure npm global directory exists and has correct permissions
+RUN mkdir -p /home/devuser/.npm-global && \
+    chown -R devuser:devuser /home/devuser/.npm-global
+
+# Create TUI Test template directory
+RUN mkdir -p /home/devuser/.tui-test-templates && \
+    chown -R devuser:devuser /home/devuser/.tui-test-templates
+
+# Create sample tui-test.config.ts template
+RUN echo 'import { defineConfig } from "@microsoft/tui-test";' > /home/devuser/.tui-test-templates/tui-test.config.ts && \
+    echo '' >> /home/devuser/.tui-test-templates/tui-test.config.ts && \
+    echo 'export default defineConfig({' >> /home/devuser/.tui-test-templates/tui-test.config.ts && \
+    echo '  // Number of retries for flaky tests' >> /home/devuser/.tui-test-templates/tui-test.config.ts && \
+    echo '  retries: 3,' >> /home/devuser/.tui-test-templates/tui-test.config.ts && \
+    echo '  // Enable trace capture for debugging' >> /home/devuser/.tui-test-templates/tui-test.config.ts && \
+    echo '  trace: true,' >> /home/devuser/.tui-test-templates/tui-test.config.ts && \
+    echo '  // Test timeout in milliseconds' >> /home/devuser/.tui-test-templates/tui-test.config.ts && \
+    echo '  timeout: 30000,' >> /home/devuser/.tui-test-templates/tui-test.config.ts && \
+    echo '  // Directory for trace files' >> /home/devuser/.tui-test-templates/tui-test.config.ts && \
+    echo '  outputDir: "tui-traces",' >> /home/devuser/.tui-test-templates/tui-test.config.ts && \
+    echo '  // Run tests in parallel' >> /home/devuser/.tui-test-templates/tui-test.config.ts && \
+    echo '  parallel: true,' >> /home/devuser/.tui-test-templates/tui-test.config.ts && \
+    echo '  // Number of parallel workers' >> /home/devuser/.tui-test-templates/tui-test.config.ts && \
+    echo '  workers: 4' >> /home/devuser/.tui-test-templates/tui-test.config.ts && \
+    echo '});' >> /home/devuser/.tui-test-templates/tui-test.config.ts
+
+# Create sample test template
+RUN echo 'import { test, expect } from "@microsoft/tui-test";' > /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo 'test.describe("Example TUI Tests", () => {' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '  test("basic terminal interaction", async ({ terminal }) => {' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '    // Write to terminal' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '    terminal.write("echo '"'"'Hello, TUI Test!'"'"'");' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '    terminal.submit(); // Press Enter' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '    ' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '    // Wait for output and assert' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '    await expect(terminal.getByText("Hello, TUI Test!")).toBeVisible();' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '  });' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '  ' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '  test("test with specific shell", async ({ terminal }) => {' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '    // Configure to use bash' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '    test.use({ shell: "bash" });' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '    ' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '    terminal.write("pwd");' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '    terminal.submit();' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '    ' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '    await expect(terminal.getByText("/home/devuser")).toBeVisible();' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '  });' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '  ' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '  test("capture terminal snapshot", async ({ terminal }) => {' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '    terminal.write("ls -la");' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '    terminal.submit();' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '    ' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '    // Wait for command to complete' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '    await terminal.waitForRender();' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '    ' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '    // Take snapshot for visual regression testing' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '    await expect(terminal).toMatchSnapshot();' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '  });' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '  ' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '  test("test CLI application", async ({ terminal }) => {' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '    // Start your application' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '    test.use({ program: { file: "python", args: ["app.py"] } });' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '    ' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '    // Wait for app to start' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '    await expect(terminal.getByText("Welcome")).toBeVisible();' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '    ' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '    // Navigate menu' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '    terminal.sendNavigationKey("down");' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '    terminal.sendNavigationKey("enter");' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '    ' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '    // Assert state' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '    await expect(terminal.getByText("Selected:")).toBeVisible();' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '  });' >> /home/devuser/.tui-test-templates/example.test.ts && \
+    echo '});' >> /home/devuser/.tui-test-templates/example.test.ts
+
+# Ensure proper ownership
+RUN chown -R devuser:devuser /home/devuser/.tui-test-templates
 
 # LANGUAGE_INSTALLATIONS_PLACEHOLDER
 
@@ -203,6 +343,9 @@ RUN cp /tmp/motd-ai-devkit.sh /etc/update-motd.d/00-ai-devkit && \
     # Test execution \
     echo "Testing MOTD execution:" && \
     /etc/update-motd.d/00-ai-devkit || echo "MOTD script failed to execute"
+
+# Copy base documentation files
+COPY nodejs-base.md /tmp/
 
 # Copy user-CLAUDE.md if it exists (generated by pre-build)
 COPY user-CLAUDE.md* /tmp/
