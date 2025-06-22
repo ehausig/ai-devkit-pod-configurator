@@ -217,28 +217,6 @@ RUN chmod +x /entrypoint.sh
 COPY setup-git.sh /usr/local/bin/setup-git.sh
 RUN chmod +x /usr/local/bin/setup-git.sh
 
-# Copy MOTD script
-COPY motd-ai-devkit.sh /tmp/motd-ai-devkit.sh
-
-# Configure MOTD and remove default Ubuntu components
-RUN cp /tmp/motd-ai-devkit.sh /etc/update-motd.d/00-ai-devkit && \
-    chmod +x /etc/update-motd.d/00-ai-devkit && \
-    rm -f /tmp/motd-ai-devkit.sh && \
-    rm -rf /etc/update-motd.d/00-header \
-           /etc/update-motd.d/10-help-text \
-           /etc/update-motd.d/50-motd-news \
-           /etc/update-motd.d/60-unminimize \
-           /etc/update-motd.d/90-updates-available \
-           /etc/update-motd.d/95-hwe-eol && \
-    # Remove the legal notice that appears after MOTD \
-    : > /etc/legal && \
-    # Debug: Show permissions \
-    echo "MOTD permissions check:" && \
-    ls -la /etc/update-motd.d/00-ai-devkit && \
-    # Test execution \
-    echo "Testing MOTD execution:" && \
-    /etc/update-motd.d/00-ai-devkit || echo "MOTD script failed to execute"
-
 # Copy base documentation files
 COPY nodejs-base.md /tmp/
 
