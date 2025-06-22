@@ -314,17 +314,6 @@ select_components() {
         return 1
     }
     
-    # Function to get cart item name from group
-    get_group_cart_item() {
-        local check_group=$1
-        for j in "${!groups[@]}"; do
-            if [[ "${groups[$j]}" == "$check_group" && "${in_cart[$j]}" == true ]]; then
-                echo "${names[$j]}"
-                return
-            fi
-        done
-    }
-    
     # Check if requirements are met
     requirements_met() {
         local item_requires=$1
