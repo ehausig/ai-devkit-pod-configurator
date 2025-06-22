@@ -351,6 +351,8 @@ Your support helps maintain and improve this project. Thank you!
 ## Roadmap
 
 - Add slash command definition support to YAML files
+  - `/journal` to make it easy for Claude Code to append to JOURNAL.md file
+- Add more robust license injection feature for builds (e.g. copyright holders)
 
 ## Known Issues
 
