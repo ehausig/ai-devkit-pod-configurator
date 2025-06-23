@@ -12,10 +12,10 @@ SSH_KEYS_DIR="$HOME/.ai-devkit-k8s/ssh-keys"
 LOG_FILE="build-and-deploy.log"
 
 # ============================================================================
-# THEME SYSTEM
+# THEME SYSTEM - ENHANCED GRANULARITY
 # ============================================================================
 
-# Base colors
+# Base colors (unchanged)
 readonly COLOR_BLACK='\033[0;30m'
 readonly COLOR_RED='\033[0;31m'
 readonly COLOR_GREEN='\033[0;32m'
@@ -26,7 +26,7 @@ readonly COLOR_CYAN='\033[0;36m'
 readonly COLOR_WHITE='\033[0;37m'
 readonly COLOR_GRAY='\033[0;90m'
 
-# Bright colors
+# Bright colors (unchanged)
 readonly COLOR_BRIGHT_RED='\033[0;91m'
 readonly COLOR_BRIGHT_GREEN='\033[0;92m'
 readonly COLOR_BRIGHT_YELLOW='\033[0;93m'
@@ -35,7 +35,7 @@ readonly COLOR_BRIGHT_MAGENTA='\033[0;95m'
 readonly COLOR_BRIGHT_CYAN='\033[0;96m'
 readonly COLOR_BRIGHT_WHITE='\033[0;97m'
 
-# Styles
+# Styles (unchanged)
 readonly STYLE_BOLD='\033[1m'
 readonly STYLE_DIM='\033[2m'
 readonly STYLE_ITALIC='\033[3m'
@@ -44,7 +44,7 @@ readonly STYLE_BLINK='\033[5m'
 readonly STYLE_REVERSE='\033[7m'
 readonly STYLE_RESET='\033[0m'
 
-# Compound styles
+# Compound styles (unchanged)
 readonly BOLD_RED='\033[1;31m'
 readonly BOLD_GREEN='\033[1;32m'
 readonly BOLD_YELLOW='\033[1;33m'
@@ -53,7 +53,7 @@ readonly BOLD_MAGENTA='\033[1;35m'
 readonly BOLD_CYAN='\033[1;36m'
 readonly BOLD_WHITE='\033[1;37m'
 
-# Icons
+# Icons (unchanged)
 readonly ICON_SELECTED="✓"
 readonly ICON_AVAILABLE="○"
 readonly ICON_DISABLED="○"
@@ -63,7 +63,7 @@ readonly ICON_WARNING="⚠️"
 readonly ICON_INFO="ℹ️"
 readonly ICON_SUCCESS="✓"
 
-# Box Drawing Characters
+# Box Drawing Characters (unchanged)
 readonly BOX_TOP_LEFT="┌"
 readonly BOX_TOP_RIGHT="┐"
 readonly BOX_BOTTOM_LEFT="└"
@@ -74,19 +74,45 @@ readonly BOX_TITLE_LEFT="┤"
 readonly BOX_TITLE_RIGHT="├"
 readonly BOX_SEPARATOR="━"
 
-# Default theme values (will be overridden by load_theme)
-MENU_BORDER_COLOR="$COLOR_BLUE"
-MENU_TITLE_STYLE="$BOLD_YELLOW"
-MENU_CATEGORY_STYLE="$COLOR_GREEN"
-MENU_CURSOR_COLOR="$COLOR_BRIGHT_BLUE"
-MENU_SELECTED_STYLE="$COLOR_BRIGHT_GREEN"
-MENU_DISABLED_COLOR="$COLOR_GRAY"
-MENU_WARNING_COLOR="$COLOR_YELLOW"
-MENU_HINT_STYLE="$BOLD_YELLOW"
-MENU_PAGE_INDICATOR_STYLE="$BOLD_YELLOW"
-MENU_INSTRUCTION_KEY_STYLE="$COLOR_YELLOW"
-MENU_INSTRUCTION_TEXT_STYLE="$STYLE_RESET"
+# NEW GRANULAR THEME VARIABLES
+# Global UI Elements
+GLOBAL_TITLE_STYLE="$BOLD_YELLOW"
+GLOBAL_SEPARATOR_COLOR="$COLOR_BLUE"
+GLOBAL_HINT_STYLE="$BOLD_YELLOW"
 
+# Catalog Box (Available Components)
+CATALOG_BORDER_COLOR="$COLOR_BLUE"
+CATALOG_TITLE_STYLE="$BOLD_YELLOW"
+CATALOG_CATEGORY_STYLE="$COLOR_GREEN"
+CATALOG_CURSOR_COLOR="$COLOR_BRIGHT_BLUE"
+CATALOG_ITEM_SELECTED_STYLE="$COLOR_BRIGHT_GREEN"
+CATALOG_ITEM_AVAILABLE_STYLE="$STYLE_RESET"
+CATALOG_ITEM_DISABLED_STYLE="$COLOR_GRAY"
+CATALOG_STATUS_IN_STACK_STYLE="$COLOR_BRIGHT_GREEN"
+CATALOG_STATUS_REQUIRED_STYLE="$COLOR_YELLOW"
+CATALOG_PAGE_INDICATOR_STYLE="$BOLD_YELLOW"
+CATALOG_ICON_SELECTED_COLOR="$COLOR_BRIGHT_GREEN"
+CATALOG_ICON_AVAILABLE_COLOR="$STYLE_RESET"
+CATALOG_ICON_DISABLED_COLOR="$COLOR_GRAY"
+CATALOG_ICON_WARNING_COLOR="$COLOR_YELLOW"
+
+# Cart Box (Build Stack)
+CART_BORDER_COLOR="$COLOR_BLUE"
+CART_TITLE_STYLE="$BOLD_YELLOW"
+CART_CATEGORY_STYLE="$COLOR_BLUE"
+CART_CURSOR_COLOR="$COLOR_BRIGHT_BLUE"
+CART_ITEM_STYLE="$COLOR_WHITE"
+CART_BASE_CATEGORY_STYLE="$COLOR_BLUE"
+CART_BASE_ITEM_STYLE="$COLOR_WHITE"
+CART_REMOVE_HINT_STYLE="$COLOR_RED"
+CART_COUNT_STYLE="$BOLD_YELLOW"
+
+# Instructions Bar
+INSTRUCTION_SEPARATOR_COLOR="$COLOR_BLUE"
+INSTRUCTION_KEY_STYLE="$COLOR_YELLOW"
+INSTRUCTION_TEXT_STYLE="$STYLE_RESET"
+
+# Summary Screen
 SUMMARY_BORDER_COLOR="$COLOR_BLUE"
 SUMMARY_TITLE_STYLE="$BOLD_YELLOW"
 SUMMARY_SECTION_STYLE="$BOLD_WHITE"
@@ -95,6 +121,7 @@ SUMMARY_CATEGORY_STYLE="$COLOR_BLUE"
 SUMMARY_ITEM_COLOR="$COLOR_WHITE"
 SUMMARY_COUNT_STYLE="$COLOR_GREEN"
 
+# Logging
 LOG_ERROR_STYLE="$COLOR_RED"
 LOG_SUCCESS_STYLE="$COLOR_GREEN"
 LOG_WARNING_STYLE="$BOLD_YELLOW"
@@ -109,68 +136,186 @@ load_theme() {
     case "$THEME" in
         "dark")
             # Dark theme - softer colors for dark terminals
-            MENU_BORDER_COLOR="$COLOR_GRAY"
-            MENU_TITLE_STYLE="$BOLD_CYAN"
-            MENU_CATEGORY_STYLE="$COLOR_MAGENTA"
-            MENU_CURSOR_COLOR="$COLOR_CYAN"
-            MENU_SELECTED_STYLE="$COLOR_BRIGHT_CYAN"
-            MENU_HINT_STYLE="$COLOR_BRIGHT_YELLOW"
+            GLOBAL_SEPARATOR_COLOR="$COLOR_GRAY"
+            GLOBAL_TITLE_STYLE="$BOLD_CYAN"
+            
+            CATALOG_BORDER_COLOR="$COLOR_GRAY"
+            CATALOG_TITLE_STYLE="$BOLD_CYAN"
+            CATALOG_CATEGORY_STYLE="$COLOR_MAGENTA"
+            CATALOG_CURSOR_COLOR="$COLOR_CYAN"
+            CATALOG_ITEM_SELECTED_STYLE="$COLOR_BRIGHT_CYAN"
+            CATALOG_STATUS_IN_STACK_STYLE="$COLOR_BRIGHT_CYAN"
+            CATALOG_ICON_SELECTED_COLOR="$COLOR_BRIGHT_CYAN"
+            
+            CART_BORDER_COLOR="$COLOR_GRAY"
+            CART_TITLE_STYLE="$BOLD_CYAN"
+            CART_CATEGORY_STYLE="$COLOR_MAGENTA"
+            CART_CURSOR_COLOR="$COLOR_BRIGHT_MAGENTA"
+            CART_ITEM_STYLE="$COLOR_BRIGHT_WHITE"
+            
+            GLOBAL_HINT_STYLE="$COLOR_BRIGHT_YELLOW"
+            INSTRUCTION_SEPARATOR_COLOR="$COLOR_GRAY"
+            
             SUMMARY_BORDER_COLOR="$COLOR_GRAY"
             SUMMARY_CATEGORY_STYLE="$COLOR_MAGENTA"
             ;;
+            
         "matrix")
             # Matrix theme - green on black
-            MENU_BORDER_COLOR="$COLOR_GREEN"
-            MENU_TITLE_STYLE="$BOLD_GREEN"
-            MENU_CATEGORY_STYLE="$COLOR_BRIGHT_GREEN"
-            MENU_CURSOR_COLOR="$BOLD_GREEN"
-            MENU_SELECTED_STYLE="$BOLD_GREEN"
-            MENU_DISABLED_COLOR="$COLOR_GREEN"
-            MENU_WARNING_COLOR="$COLOR_BRIGHT_GREEN"
-            MENU_HINT_STYLE="$BOLD_GREEN"
-            MENU_PAGE_INDICATOR_STYLE="$COLOR_BRIGHT_GREEN"
-            MENU_INSTRUCTION_KEY_STYLE="$BOLD_GREEN"
+            GLOBAL_SEPARATOR_COLOR="$COLOR_GREEN"
+            GLOBAL_TITLE_STYLE="$BOLD_GREEN"
+            GLOBAL_HINT_STYLE="$BOLD_GREEN"
+            
+            CATALOG_BORDER_COLOR="$COLOR_GREEN"
+            CATALOG_TITLE_STYLE="$BOLD_GREEN"
+            CATALOG_CATEGORY_STYLE="$COLOR_BRIGHT_GREEN"
+            CATALOG_CURSOR_COLOR="$BOLD_GREEN"
+            CATALOG_ITEM_SELECTED_STYLE="$BOLD_GREEN"
+            CATALOG_ITEM_AVAILABLE_STYLE="$COLOR_GREEN"
+            CATALOG_ITEM_DISABLED_STYLE="$COLOR_GREEN"
+            CATALOG_STATUS_IN_STACK_STYLE="$BOLD_GREEN"
+            CATALOG_STATUS_REQUIRED_STYLE="$COLOR_BRIGHT_GREEN"
+            CATALOG_PAGE_INDICATOR_STYLE="$COLOR_BRIGHT_GREEN"
+            CATALOG_ICON_SELECTED_COLOR="$BOLD_GREEN"
+            CATALOG_ICON_AVAILABLE_COLOR="$COLOR_GREEN"
+            CATALOG_ICON_DISABLED_COLOR="$COLOR_GREEN"
+            CATALOG_ICON_WARNING_COLOR="$COLOR_BRIGHT_GREEN"
+            
+            CART_BORDER_COLOR="$COLOR_GREEN"
+            CART_TITLE_STYLE="$BOLD_GREEN"
+            CART_CATEGORY_STYLE="$COLOR_BRIGHT_GREEN"
+            CART_CURSOR_COLOR="$BOLD_GREEN"
+            CART_ITEM_STYLE="$COLOR_GREEN"
+            CART_BASE_CATEGORY_STYLE="$COLOR_BRIGHT_GREEN"
+            CART_BASE_ITEM_STYLE="$COLOR_GREEN"
+            CART_REMOVE_HINT_STYLE="$COLOR_BRIGHT_GREEN"
+            CART_COUNT_STYLE="$COLOR_BRIGHT_GREEN"
+            
+            INSTRUCTION_SEPARATOR_COLOR="$COLOR_GREEN"
+            INSTRUCTION_KEY_STYLE="$BOLD_GREEN"
+            INSTRUCTION_TEXT_STYLE="$COLOR_GREEN"
+            
             SUMMARY_BORDER_COLOR="$COLOR_GREEN"
             SUMMARY_TITLE_STYLE="$BOLD_GREEN"
             SUMMARY_CATEGORY_STYLE="$COLOR_BRIGHT_GREEN"
             SUMMARY_CHECKMARK_COLOR="$BOLD_GREEN"
+            
             LOG_SUCCESS_STYLE="$BOLD_GREEN"
             LOG_WARNING_STYLE="$COLOR_BRIGHT_GREEN"
             LOG_INFO_STYLE="$COLOR_GREEN"
             ;;
+            
         "ocean")
             # Ocean theme - blues and cyans
-            MENU_BORDER_COLOR="$COLOR_CYAN"
-            MENU_TITLE_STYLE="$BOLD_CYAN"
-            MENU_CATEGORY_STYLE="$COLOR_BRIGHT_BLUE"
-            MENU_CURSOR_COLOR="$COLOR_BRIGHT_CYAN"
-            MENU_SELECTED_STYLE="$BOLD_CYAN"
-            MENU_HINT_STYLE="$COLOR_BRIGHT_CYAN"
+            GLOBAL_SEPARATOR_COLOR="$COLOR_CYAN"
+            GLOBAL_TITLE_STYLE="$BOLD_CYAN"
+            
+            CATALOG_BORDER_COLOR="$COLOR_CYAN"
+            CATALOG_TITLE_STYLE="$BOLD_CYAN"
+            CATALOG_CATEGORY_STYLE="$COLOR_BRIGHT_BLUE"
+            CATALOG_CURSOR_COLOR="$COLOR_BRIGHT_CYAN"
+            CATALOG_ITEM_SELECTED_STYLE="$BOLD_CYAN"
+            CATALOG_STATUS_IN_STACK_STYLE="$BOLD_CYAN"
+            CATALOG_ICON_SELECTED_COLOR="$BOLD_CYAN"
+            
+            CART_BORDER_COLOR="$COLOR_BLUE"
+            CART_TITLE_STYLE="$BOLD_BLUE"
+            CART_CATEGORY_STYLE="$COLOR_BRIGHT_CYAN"
+            CART_CURSOR_COLOR="$COLOR_BRIGHT_BLUE"
+            CART_ITEM_STYLE="$COLOR_CYAN"
+            CART_BASE_CATEGORY_STYLE="$COLOR_BRIGHT_CYAN"
+            
+            GLOBAL_HINT_STYLE="$COLOR_BRIGHT_CYAN"
+            INSTRUCTION_SEPARATOR_COLOR="$COLOR_CYAN"
+            
             SUMMARY_BORDER_COLOR="$COLOR_CYAN"
             SUMMARY_TITLE_STYLE="$BOLD_CYAN"
             SUMMARY_CATEGORY_STYLE="$COLOR_BRIGHT_BLUE"
+            
             LOG_INFO_STYLE="$BOLD_BLUE"
             ;;
+            
         "minimal")
             # Minimal theme - mostly white/gray
-            MENU_BORDER_COLOR="$COLOR_GRAY"
-            MENU_TITLE_STYLE="$BOLD_WHITE"
-            MENU_CATEGORY_STYLE="$COLOR_WHITE"
-            MENU_CURSOR_COLOR="$BOLD_WHITE"
-            MENU_SELECTED_STYLE="$BOLD_WHITE"
-            MENU_DISABLED_COLOR="$COLOR_GRAY"
-            MENU_WARNING_COLOR="$COLOR_WHITE"
-            MENU_HINT_STYLE="$COLOR_WHITE"
-            MENU_PAGE_INDICATOR_STYLE="$COLOR_WHITE"
-            MENU_INSTRUCTION_KEY_STYLE="$BOLD_WHITE"
+            GLOBAL_SEPARATOR_COLOR="$COLOR_GRAY"
+            GLOBAL_TITLE_STYLE="$BOLD_WHITE"
+            GLOBAL_HINT_STYLE="$COLOR_WHITE"
+            
+            CATALOG_BORDER_COLOR="$COLOR_GRAY"
+            CATALOG_TITLE_STYLE="$BOLD_WHITE"
+            CATALOG_CATEGORY_STYLE="$COLOR_WHITE"
+            CATALOG_CURSOR_COLOR="$BOLD_WHITE"
+            CATALOG_ITEM_SELECTED_STYLE="$BOLD_WHITE"
+            CATALOG_ITEM_AVAILABLE_STYLE="$COLOR_WHITE"
+            CATALOG_ITEM_DISABLED_STYLE="$COLOR_GRAY"
+            CATALOG_STATUS_IN_STACK_STYLE="$BOLD_WHITE"
+            CATALOG_STATUS_REQUIRED_STYLE="$COLOR_WHITE"
+            CATALOG_PAGE_INDICATOR_STYLE="$COLOR_WHITE"
+            CATALOG_ICON_SELECTED_COLOR="$BOLD_WHITE"
+            CATALOG_ICON_AVAILABLE_COLOR="$COLOR_WHITE"
+            CATALOG_ICON_DISABLED_COLOR="$COLOR_GRAY"
+            CATALOG_ICON_WARNING_COLOR="$COLOR_WHITE"
+            
+            CART_BORDER_COLOR="$COLOR_GRAY"
+            CART_TITLE_STYLE="$BOLD_WHITE"
+            CART_CATEGORY_STYLE="$COLOR_WHITE"
+            CART_CURSOR_COLOR="$BOLD_WHITE"
+            CART_ITEM_STYLE="$COLOR_GRAY"
+            CART_BASE_CATEGORY_STYLE="$COLOR_WHITE"
+            CART_BASE_ITEM_STYLE="$COLOR_GRAY"
+            CART_REMOVE_HINT_STYLE="$COLOR_WHITE"
+            CART_COUNT_STYLE="$COLOR_WHITE"
+            
+            INSTRUCTION_SEPARATOR_COLOR="$COLOR_GRAY"
+            INSTRUCTION_KEY_STYLE="$BOLD_WHITE"
+            INSTRUCTION_TEXT_STYLE="$COLOR_GRAY"
+            
             SUMMARY_BORDER_COLOR="$COLOR_GRAY"
             SUMMARY_TITLE_STYLE="$BOLD_WHITE"
             SUMMARY_CATEGORY_STYLE="$COLOR_WHITE"
             SUMMARY_CHECKMARK_COLOR="$BOLD_WHITE"
+            
             LOG_SUCCESS_STYLE="$BOLD_WHITE"
             LOG_WARNING_STYLE="$COLOR_WHITE"
             LOG_INFO_STYLE="$COLOR_GRAY"
             ;;
+            
+        "neon")
+            # New neon theme - high contrast with bright colors
+            GLOBAL_SEPARATOR_COLOR="$COLOR_BRIGHT_MAGENTA"
+            GLOBAL_TITLE_STYLE="$BOLD_MAGENTA"
+            GLOBAL_HINT_STYLE="$COLOR_BRIGHT_YELLOW"
+            
+            CATALOG_BORDER_COLOR="$COLOR_BRIGHT_CYAN"
+            CATALOG_TITLE_STYLE="$BOLD_CYAN"
+            CATALOG_CATEGORY_STYLE="$COLOR_BRIGHT_MAGENTA"
+            CATALOG_CURSOR_COLOR="$COLOR_BRIGHT_YELLOW"
+            CATALOG_ITEM_SELECTED_STYLE="$COLOR_BRIGHT_GREEN"
+            CATALOG_ITEM_AVAILABLE_STYLE="$COLOR_BRIGHT_WHITE"
+            CATALOG_ITEM_DISABLED_STYLE="$COLOR_GRAY"
+            CATALOG_STATUS_IN_STACK_STYLE="$COLOR_BRIGHT_GREEN"
+            CATALOG_STATUS_REQUIRED_STYLE="$COLOR_BRIGHT_YELLOW"
+            CATALOG_ICON_SELECTED_COLOR="$COLOR_BRIGHT_GREEN"
+            CATALOG_ICON_WARNING_COLOR="$COLOR_BRIGHT_YELLOW"
+            
+            CART_BORDER_COLOR="$COLOR_BRIGHT_MAGENTA"
+            CART_TITLE_STYLE="$BOLD_MAGENTA"
+            CART_CATEGORY_STYLE="$COLOR_BRIGHT_CYAN"
+            CART_CURSOR_COLOR="$COLOR_BRIGHT_YELLOW"
+            CART_ITEM_STYLE="$COLOR_BRIGHT_WHITE"
+            CART_REMOVE_HINT_STYLE="$COLOR_BRIGHT_RED"
+            CART_COUNT_STYLE="$COLOR_BRIGHT_YELLOW"
+            
+            INSTRUCTION_SEPARATOR_COLOR="$COLOR_BRIGHT_MAGENTA"
+            INSTRUCTION_KEY_STYLE="$COLOR_BRIGHT_YELLOW"
+            INSTRUCTION_TEXT_STYLE="$COLOR_BRIGHT_WHITE"
+            
+            SUMMARY_BORDER_COLOR="$COLOR_BRIGHT_MAGENTA"
+            SUMMARY_TITLE_STYLE="$BOLD_MAGENTA"
+            SUMMARY_CATEGORY_STYLE="$COLOR_BRIGHT_CYAN"
+            SUMMARY_CHECKMARK_COLOR="$COLOR_BRIGHT_GREEN"
+            ;;
+            
         *)
             # Default theme - already set above
             ;;
@@ -393,63 +538,67 @@ load_components() {
 
 # Function to draw a box with optional title and bottom text
 draw_box() {
-    local x=$1 y=$2 width=$3 height=$4 title=$5 bottom_text=$6
+    local x=$1 y=$2 width=$3 height=$4 title=$5 bottom_text=$6 
+    local border_color="${7:-$CATALOG_BORDER_COLOR}"  # Allow custom border color
+    local title_style="${8:-$CATALOG_TITLE_STYLE}"    # Allow custom title style
     
     tput cup $y $x
-    printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_TOP_LEFT" "$STYLE_RESET"
+    printf "%b%s%b" "$border_color" "$BOX_TOP_LEFT" "$STYLE_RESET"
     for ((i=0; i<width-2; i++)); do 
-        printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
+        printf "%b%s%b" "$border_color" "$BOX_HORIZONTAL" "$STYLE_RESET"
     done
-    printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_TOP_RIGHT" "$STYLE_RESET"
+    printf "%b%s%b" "$border_color" "$BOX_TOP_RIGHT" "$STYLE_RESET"
     
     if [[ -n "$title" ]]; then
         local title_len=${#title}
         local title_pos=$(( (width - title_len - 2) / 2 ))
         tput cup $y $((x + title_pos))
         printf "%b%s%b %b%s%b %b%s%b" \
-            "$MENU_BORDER_COLOR" "$BOX_TITLE_LEFT" "$STYLE_RESET" \
-            "$MENU_TITLE_STYLE" "$title" "$STYLE_RESET" \
-            "$MENU_BORDER_COLOR" "$BOX_TITLE_RIGHT" "$STYLE_RESET"
+            "$border_color" "$BOX_TITLE_LEFT" "$STYLE_RESET" \
+            "$title_style" "$title" "$STYLE_RESET" \
+            "$border_color" "$BOX_TITLE_RIGHT" "$STYLE_RESET"
     fi
     
     for ((i=1; i<height-1; i++)); do
         tput cup $((y + i)) $x
-        printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_VERTICAL" "$STYLE_RESET"
+        printf "%b%s%b" "$border_color" "$BOX_VERTICAL" "$STYLE_RESET"
         tput cup $((y + i)) $((x + width - 1))
-        printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_VERTICAL" "$STYLE_RESET"
+        printf "%b%s%b" "$border_color" "$BOX_VERTICAL" "$STYLE_RESET"
     done
     
     tput cup $((y + height - 1)) $x
-    printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_BOTTOM_LEFT" "$STYLE_RESET"
+    printf "%b%s%b" "$border_color" "$BOX_BOTTOM_LEFT" "$STYLE_RESET"
     
     if [[ -n "$bottom_text" ]]; then
         local text_len=${#bottom_text}
         local center_pos=$(( (width - text_len - 4) / 2 ))
+        local page_style="${9:-$CATALOG_PAGE_INDICATOR_STYLE}"
         
         for ((i=0; i<center_pos; i++)); do 
-            printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
+            printf "%b%s%b" "$border_color" "$BOX_HORIZONTAL" "$STYLE_RESET"
         done
-        printf " %b%s%b " "$MENU_PAGE_INDICATOR_STYLE" "$bottom_text" "$STYLE_RESET"
+        printf " %b%s%b " "$page_style" "$bottom_text" "$STYLE_RESET"
         for ((i=0; i<width-center_pos-text_len-6; i++)); do 
-            printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
+            printf "%b%s%b" "$border_color" "$BOX_HORIZONTAL" "$STYLE_RESET"
         done
     else
         for ((i=0; i<width-2; i++)); do 
-            printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
+            printf "%b%s%b" "$border_color" "$BOX_HORIZONTAL" "$STYLE_RESET"
         done
     fi
     
-    printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_BOTTOM_RIGHT" "$STYLE_RESET"
+    printf "%b%s%b" "$border_color" "$BOX_BOTTOM_RIGHT" "$STYLE_RESET"
 }
 
 # Function to draw a horizontal separator line
 draw_separator() {
     local width=$1
     local y=$2
+    local color="${3:-$GLOBAL_SEPARATOR_COLOR}"
     
     tput cup $y 0
     for ((i=0; i<width; i++)); do 
-        printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_SEPARATOR" "$STYLE_RESET"
+        printf "%b%s%b" "$color" "$BOX_SEPARATOR" "$STYLE_RESET"
     done
 }
 
@@ -733,11 +882,11 @@ select_components() {
         # Clear catalog area
         for ((row=5; row<content_height+5; row++)); do
             tput cup $row 0
-            printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_VERTICAL" "$STYLE_RESET"
+            printf "%b%s%b" "$CATALOG_BORDER_COLOR" "$BOX_VERTICAL" "$STYLE_RESET"
             for ((col=1; col<catalog_width-1; col++)); do
                 printf " "
             done
-            printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_VERTICAL" "$STYLE_RESET"
+            printf "%b%s%b" "$CATALOG_BORDER_COLOR" "$BOX_VERTICAL" "$STYLE_RESET"
         done
         
         display_row=5
@@ -752,7 +901,7 @@ select_components() {
             # Category headers
             if [[ "$item_category" != "$last_category" ]]; then
                 tput cup $display_row 2
-                printf "%b%s%b" "$MENU_CATEGORY_STYLE" "$display_name" "$STYLE_RESET"
+                printf "%b%s%b" "$CATALOG_CATEGORY_STYLE" "$display_name" "$STYLE_RESET"
                 last_category="$item_category"
                 ((display_row++))
                 [[ $display_row -ge $((content_height + 5)) ]] && break
@@ -767,7 +916,7 @@ select_components() {
                 
                 # Cursor
                 if [[ $view == "catalog" && $idx -eq $current ]]; then
-                    printf "%b%s%b " "$MENU_CURSOR_COLOR" "$ICON_CURSOR" "$STYLE_RESET"
+                    printf "%b%s%b " "$CATALOG_CURSOR_COLOR" "$ICON_CURSOR" "$STYLE_RESET"
                 else
                     printf "  "
                 fi
@@ -776,25 +925,25 @@ select_components() {
                 local available=true status="" status_color=""
                 
                 if [[ "${in_cart[$idx]}" == true ]]; then
-                    printf "%b%s%b " "$MENU_SELECTED_STYLE" "$ICON_SELECTED" "$STYLE_RESET"
+                    printf "%b%s%b " "$CATALOG_ICON_SELECTED_COLOR" "$ICON_SELECTED" "$STYLE_RESET"
                     status="(in stack)"
-                    status_color="$MENU_SELECTED_STYLE"
+                    status_color="$CATALOG_STATUS_IN_STACK_STYLE"
                 elif has_group_in_cart "${groups[$idx]}"; then
-                    printf "%b%s%b " "$MENU_DISABLED_COLOR" "$ICON_DISABLED" "$STYLE_RESET"
+                    printf "%b%s%b " "$CATALOG_ICON_DISABLED_COLOR" "$ICON_DISABLED" "$STYLE_RESET"
                     available=false
                 elif [[ -n "${requires[$idx]}" ]] && [[ "${requires[$idx]}" != "[]" ]] && ! requirements_met "${requires[$idx]}"; then
-                    printf "%b%s%b " "$MENU_WARNING_COLOR" "$ICON_AVAILABLE" "$STYLE_RESET"
+                    printf "%b%s%b " "$CATALOG_ICON_WARNING_COLOR" "$ICON_AVAILABLE" "$STYLE_RESET"
                     status="* ${requires[$idx]} required"
-                    status_color="$MENU_WARNING_COLOR"
+                    status_color="$CATALOG_STATUS_REQUIRED_STYLE"
                 else
-                    printf "%s " "$ICON_AVAILABLE"
+                    printf "%b%s%b " "$CATALOG_ICON_AVAILABLE_COLOR" "$ICON_AVAILABLE" "$STYLE_RESET"
                 fi
                 
                 # Item name
                 if [[ $available == true || "${in_cart[$idx]}" == true ]]; then
-                    printf "%s" "${names[$idx]}"
+                    printf "%b%s%b" "$CATALOG_ITEM_AVAILABLE_STYLE" "${names[$idx]}" "$STYLE_RESET"
                 else
-                    printf "%b%s%b" "$MENU_DISABLED_COLOR" "${names[$idx]}" "$STYLE_RESET"
+                    printf "%b%s%b" "$CATALOG_ITEM_DISABLED_STYLE" "${names[$idx]}" "$STYLE_RESET"
                 fi
                 
                 # Status
@@ -822,19 +971,19 @@ select_components() {
             local center_pos=$(( (catalog_width - text_len - 4) / 2 ))
             
             tput cup $((content_height + 5)) 0
-            printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_BOTTOM_LEFT" "$STYLE_RESET"
+            printf "%b%s%b" "$CATALOG_BORDER_COLOR" "$BOX_BOTTOM_LEFT" "$STYLE_RESET"
             
             for ((i=0; i<center_pos; i++)); do 
-                printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
+                printf "%b%s%b" "$CATALOG_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
             done
-            printf " %b%s%b " "$MENU_PAGE_INDICATOR_STYLE" "$page_text" "$STYLE_RESET"
+            printf " %b%s%b " "$CATALOG_PAGE_INDICATOR_STYLE" "$page_text" "$STYLE_RESET"
             
             local remaining=$((catalog_width - center_pos - text_len - 4))
             for ((i=0; i<remaining; i++)); do 
-                printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
+                printf "%b%s%b" "$CATALOG_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
             done
             
-            printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_BOTTOM_RIGHT" "$STYLE_RESET"
+            printf "%b%s%b" "$CATALOG_BORDER_COLOR" "$BOX_BOTTOM_RIGHT" "$STYLE_RESET"
         fi
     }
 
@@ -862,7 +1011,7 @@ select_components() {
         ((display_row++))
         if [[ $display_row -lt $((content_height + 5)) ]]; then
             tput cup $display_row $((catalog_width + 4))
-            printf "%b%s Base Development Tools %s%b" "$SUMMARY_CATEGORY_STYLE" "$BOX_SEPARATOR" "$BOX_SEPARATOR" "$STYLE_RESET"
+            printf "%b%s Base Development Tools %s%b" "$CART_BASE_CATEGORY_STYLE" "$BOX_SEPARATOR" "$BOX_SEPARATOR" "$STYLE_RESET"
             ((display_row++))
         fi
         
@@ -879,7 +1028,7 @@ select_components() {
         for base_comp in "${base_components[@]}"; do
             if [[ $display_row -lt $((content_height + 5)) ]]; then
                 tput cup $display_row $((catalog_width + 4))
-                printf "  %s" "$base_comp"
+                printf "  %b%s%b" "$CART_BASE_ITEM_STYLE" "$base_comp" "$STYLE_RESET"
                 ((display_row++))
             fi
         done
@@ -900,7 +1049,7 @@ select_components() {
                             ((display_row++))
                             if [[ $display_row -lt $((content_height + 5)) ]]; then
                                 tput cup $display_row $((catalog_width + 4))
-                                printf "%b%s %s %s%b" "$SUMMARY_CATEGORY_STYLE" "$BOX_SEPARATOR" "$category_display" "$BOX_SEPARATOR" "$STYLE_RESET"
+                                printf "%b%s %s %s%b" "$CART_CATEGORY_STYLE" "$BOX_SEPARATOR" "$category_display" "$BOX_SEPARATOR" "$STYLE_RESET"
                                 ((display_row++))
                                 category_has_items=true
                             fi
@@ -911,16 +1060,16 @@ select_components() {
                             
                             # Cursor
                             if [[ $view == "cart" && $cart_display_count -eq $cart_cursor ]]; then
-                                printf "%b%s%b " "$MENU_CURSOR_COLOR" "$ICON_CURSOR" "$STYLE_RESET"
+                                printf "%b%s%b " "$CART_CURSOR_COLOR" "$ICON_CURSOR" "$STYLE_RESET"
                             else
                                 printf "  "
                             fi
                             
-                            printf "• %s" "${names[$idx]}"
+                            printf "%b• %s%b" "$CART_ITEM_STYLE" "${names[$idx]}" "$STYLE_RESET"
                             
                             # Remove hint
                             if [[ $view == "cart" && $cart_display_count -eq $cart_cursor ]]; then
-                                printf " %b[DEL to remove]%b" "$LOG_ERROR_STYLE" "$STYLE_RESET"
+                                printf " %b[DEL to remove]%b" "$CART_REMOVE_HINT_STYLE" "$STYLE_RESET"
                             fi
                             
                             ((display_row++))
@@ -948,22 +1097,22 @@ select_components() {
             local width=$cart_width
             
             tput cup $y $x
-            printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_BOTTOM_LEFT" "$STYLE_RESET"
+            printf "%b%s%b" "$CART_BORDER_COLOR" "$BOX_BOTTOM_LEFT" "$STYLE_RESET"
             
             local text_len=${#bottom_text}
             local center_pos=$(( (width - text_len - 4) / 2 ))
             
             for ((i=0; i<center_pos; i++)); do 
-                printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
+                printf "%b%s%b" "$CART_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
             done
-            printf " %b%s%b " "$MENU_PAGE_INDICATOR_STYLE" "$bottom_text" "$STYLE_RESET"
+            printf " %b%s%b " "$CART_COUNT_STYLE" "$bottom_text" "$STYLE_RESET"
             
             local remaining=$((width - center_pos - text_len - 4))
             for ((i=0; i<remaining; i++)); do 
-                printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
+                printf "%b%s%b" "$CART_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
             done
             
-            printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_BOTTOM_RIGHT" "$STYLE_RESET"
+            printf "%b%s%b" "$CART_BORDER_COLOR" "$BOX_BOTTOM_RIGHT" "$STYLE_RESET"
         fi
     } 
     
@@ -976,16 +1125,16 @@ select_components() {
             
             # Title
             local title="AI DevKit Pod Configurator"
-            draw_separator $term_width 0
-            print_centered "$title" $term_width 1 "$MENU_TITLE_STYLE"
-            draw_separator $term_width 2
+            draw_separator $term_width 0 "$GLOBAL_SEPARATOR_COLOR"
+            print_centered "$title" $term_width 1 "$GLOBAL_TITLE_STYLE"
+            draw_separator $term_width 2 "$GLOBAL_SEPARATOR_COLOR"
             
             echo ""
-            draw_box 0 4 $catalog_width $((content_height + 2)) "Available Components"
-            draw_box $((catalog_width + 2)) 4 $cart_width $((content_height + 2)) "Build Stack"
+            draw_box 0 4 $catalog_width $((content_height + 2)) "Available Components" "" "$CATALOG_BORDER_COLOR" "$CATALOG_TITLE_STYLE"
+            draw_box $((catalog_width + 2)) 4 $cart_width $((content_height + 2)) "Build Stack" "" "$CART_BORDER_COLOR" "$CART_TITLE_STYLE"
             
             # Instructions separator
-            draw_separator $term_width $((term_height - 2))
+            draw_separator $term_width $((term_height - 2)) "$INSTRUCTION_SEPARATOR_COLOR"
             
             screen_initialized=true
         fi
@@ -1021,7 +1170,7 @@ select_components() {
                 printf "  "
                 
                 tput cup $new_screen_row 2
-                printf "%b%s%b " "$MENU_CURSOR_COLOR" "$ICON_CURSOR" "$STYLE_RESET"
+                printf "%b%s%b " "$CATALOG_CURSOR_COLOR" "$ICON_CURSOR" "$STYLE_RESET"
             else
                 render_catalog
             fi
@@ -1039,19 +1188,19 @@ select_components() {
             tput el
             if [[ $view == "catalog" ]]; then
                 printf "%b↑↓/jk:%b Navigate  %b←→/hl:%b Page  %bSPACE:%b Add to stack  %bTAB:%b Switch to stack  %bENTER:%b Build  %bq:%b Cancel" \
-                    "$MENU_INSTRUCTION_KEY_STYLE" "$MENU_INSTRUCTION_TEXT_STYLE" \
-                    "$MENU_INSTRUCTION_KEY_STYLE" "$MENU_INSTRUCTION_TEXT_STYLE" \
-                    "$MENU_INSTRUCTION_KEY_STYLE" "$MENU_INSTRUCTION_TEXT_STYLE" \
-                    "$MENU_INSTRUCTION_KEY_STYLE" "$MENU_INSTRUCTION_TEXT_STYLE" \
-                    "$MENU_INSTRUCTION_KEY_STYLE" "$MENU_INSTRUCTION_TEXT_STYLE" \
-                    "$MENU_INSTRUCTION_KEY_STYLE" "$MENU_INSTRUCTION_TEXT_STYLE"
+                    "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
+                    "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
+                    "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
+                    "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
+                    "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
+                    "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE"
             else
                 printf "%b↑↓/jk:%b Navigate  %bDEL/d:%b Remove  %bTAB:%b Switch to catalog  %bENTER:%b Build  %bq:%b Cancel" \
-                    "$MENU_INSTRUCTION_KEY_STYLE" "$MENU_INSTRUCTION_TEXT_STYLE" \
-                    "$MENU_INSTRUCTION_KEY_STYLE" "$MENU_INSTRUCTION_TEXT_STYLE" \
-                    "$MENU_INSTRUCTION_KEY_STYLE" "$MENU_INSTRUCTION_TEXT_STYLE" \
-                    "$MENU_INSTRUCTION_KEY_STYLE" "$MENU_INSTRUCTION_TEXT_STYLE" \
-                    "$MENU_INSTRUCTION_KEY_STYLE" "$MENU_INSTRUCTION_TEXT_STYLE"
+                    "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
+                    "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
+                    "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
+                    "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
+                    "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE"
             fi
         fi
         
@@ -1061,7 +1210,7 @@ select_components() {
             tput el
             local hint_pos=$(( (term_width - ${#hint_message}) / 2 ))
             tput cup 3 $hint_pos
-            printf "%b%s%b" "$MENU_HINT_STYLE" "$hint_message" "$STYLE_RESET"
+            printf "%b%s%b" "$GLOBAL_HINT_STYLE" "$hint_message" "$STYLE_RESET"
             ((hint_timer--))
         elif [[ $hint_timer -eq 0 && -n "$hint_message" ]]; then
             tput cup 3 0
@@ -1350,10 +1499,10 @@ select_components() {
     local term_width=$(tput cols)
     
     # Header
-    draw_separator $term_width 0
+    draw_separator $term_width 0 "$SUMMARY_BORDER_COLOR"
     local title="AI DevKit Pod Configurator - Deployment Manifest"
     print_centered "$title" $term_width 1 "$SUMMARY_TITLE_STYLE"
-    draw_separator $term_width 2
+    draw_separator $term_width 2 "$SUMMARY_BORDER_COLOR"
     
     echo ""
     echo ""
