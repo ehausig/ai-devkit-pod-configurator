@@ -148,7 +148,7 @@ SUMMARY_TITLE_STYLE="$BOLD_YELLOW"
 SUMMARY_SECTION_STYLE="$BOLD_WHITE"
 SUMMARY_CHECKMARK_COLOR="$COLOR_GREEN"
 SUMMARY_CATEGORY_STYLE="$COLOR_BLUE"
-SUMMARY_ITEM_COLOR="$COLOR_WHITE"
+SUMMARY_ITEM_COLOR="$COLOR_RED"
 SUMMARY_COUNT_STYLE="$COLOR_GREEN"
 
 # Logging
@@ -1621,15 +1621,10 @@ select_components() {
     # Draw the summary box
     draw_box 2 3 $box_width $box_height "Deployment Manifest" "" "$SUMMARY_BORDER_COLOR" "$SUMMARY_TITLE_STYLE"  # Changed box title
    
-
     # Start content inside the box
     local content_row=5  # Start 2 rows inside the box for spacing
 
-    # Always show base components first
-    tput cup $content_row 4
-    style_line "$SUMMARY_SECTION_STYLE" "Base Development Tools (included in all builds):"
-    ((content_row+=2))
-
+    # Show base components first - just like Build Stack
     tput cup $content_row 6
     style_line "$SUMMARY_CATEGORY_STYLE" "Base Development Tools"
     ((content_row++))
@@ -1656,15 +1651,7 @@ select_components() {
         [[ "${in_cart[$i]}" == true ]] && ((selection_count++))
     done
 
-    if [[ $selection_count -eq 0 ]]; then
-        ((content_row+=2))
-        tput cup $content_row 4
-        style_line "$LOG_WARNING_STYLE" "No additional components selected"
-    else
-        ((content_row+=2))
-        tput cup $content_row 4
-        style_line "$SUMMARY_COUNT_STYLE" "Additional components selected: $selection_count"
-        
+    if [[ $selection_count -gt 0 ]]; then
         # Store selections
         SELECTED_YAML_FILES=()
         SELECTED_IDS=()
@@ -1682,7 +1669,7 @@ select_components() {
             for i in "${!ids[@]}"; do
                 if [[ "${in_cart[$i]}" == true ]] && [[ "${component_categories[$i]}" == "$category" ]]; then
                     if [[ $category_has_items == false ]]; then
-                        ((content_row+=2))
+                        ((content_row++))  # Single line spacing between categories (like Build Stack)
                         tput cup $content_row 6
                         style_line "$SUMMARY_CATEGORY_STYLE" "$category_display"
                         ((content_row++))
@@ -1713,7 +1700,7 @@ select_components() {
     printf "Press %bENTER%b to continue or %b'q'%b to quit: " \
         "$LOG_SUCCESS_STYLE" "$STYLE_RESET" \
         "$LOG_ERROR_STYLE" "$STYLE_RESET"
-    read -r CONFIRM
+    read -r CONFIRM 
 
     [[ "$CONFIRM" =~ ^[qQ]$ ]] && log "Build cancelled." && exit 0
 
