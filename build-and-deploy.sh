@@ -11,19 +11,220 @@ COMPONENTS_DIR="components"
 SSH_KEYS_DIR="$HOME/.ai-devkit-k8s/ssh-keys"
 LOG_FILE="build-and-deploy.log"
 
-# Colors for output
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-BLUE='\033[0;34m'
-GRAY='\033[0;90m'
-NC='\033[0m' # No Color
+# ============================================================================
+# THEME SYSTEM
+# ============================================================================
 
-# Utility functions
-log() { echo -e "${2:-$YELLOW}$1${NC}"; }
-error() { log "Error: $1" "$RED"; exit 1; }
-success() { log "$1" "$GREEN"; }
-info() { log "$1" "$BLUE"; }
+# Base colors
+readonly COLOR_BLACK='\033[0;30m'
+readonly COLOR_RED='\033[0;31m'
+readonly COLOR_GREEN='\033[0;32m'
+readonly COLOR_YELLOW='\033[0;33m'
+readonly COLOR_BLUE='\033[0;34m'
+readonly COLOR_MAGENTA='\033[0;35m'
+readonly COLOR_CYAN='\033[0;36m'
+readonly COLOR_WHITE='\033[0;37m'
+readonly COLOR_GRAY='\033[0;90m'
+
+# Bright colors
+readonly COLOR_BRIGHT_RED='\033[0;91m'
+readonly COLOR_BRIGHT_GREEN='\033[0;92m'
+readonly COLOR_BRIGHT_YELLOW='\033[0;93m'
+readonly COLOR_BRIGHT_BLUE='\033[0;94m'
+readonly COLOR_BRIGHT_MAGENTA='\033[0;95m'
+readonly COLOR_BRIGHT_CYAN='\033[0;96m'
+readonly COLOR_BRIGHT_WHITE='\033[0;97m'
+
+# Styles
+readonly STYLE_BOLD='\033[1m'
+readonly STYLE_DIM='\033[2m'
+readonly STYLE_ITALIC='\033[3m'
+readonly STYLE_UNDERLINE='\033[4m'
+readonly STYLE_BLINK='\033[5m'
+readonly STYLE_REVERSE='\033[7m'
+readonly STYLE_RESET='\033[0m'
+
+# Compound styles
+readonly BOLD_RED='\033[1;31m'
+readonly BOLD_GREEN='\033[1;32m'
+readonly BOLD_YELLOW='\033[1;33m'
+readonly BOLD_BLUE='\033[1;34m'
+readonly BOLD_MAGENTA='\033[1;35m'
+readonly BOLD_CYAN='\033[1;36m'
+readonly BOLD_WHITE='\033[1;37m'
+
+# Icons
+readonly ICON_SELECTED="✓"
+readonly ICON_AVAILABLE="○"
+readonly ICON_DISABLED="○"
+readonly ICON_CURSOR="▸"
+readonly ICON_CHECKMARK="✓"
+readonly ICON_WARNING="⚠️"
+readonly ICON_INFO="ℹ️"
+readonly ICON_SUCCESS="✓"
+
+# Box Drawing Characters
+readonly BOX_TOP_LEFT="┌"
+readonly BOX_TOP_RIGHT="┐"
+readonly BOX_BOTTOM_LEFT="└"
+readonly BOX_BOTTOM_RIGHT="┘"
+readonly BOX_HORIZONTAL="─"
+readonly BOX_VERTICAL="│"
+readonly BOX_TITLE_LEFT="┤"
+readonly BOX_TITLE_RIGHT="├"
+readonly BOX_SEPARATOR="━"
+
+# Default theme values (will be overridden by load_theme)
+MENU_BORDER_COLOR="$COLOR_BLUE"
+MENU_TITLE_STYLE="$BOLD_YELLOW"
+MENU_CATEGORY_STYLE="$COLOR_GREEN"
+MENU_CURSOR_COLOR="$COLOR_BRIGHT_BLUE"
+MENU_SELECTED_STYLE="$COLOR_BRIGHT_GREEN"
+MENU_DISABLED_COLOR="$COLOR_GRAY"
+MENU_WARNING_COLOR="$COLOR_YELLOW"
+MENU_HINT_STYLE="$BOLD_YELLOW"
+MENU_PAGE_INDICATOR_STYLE="$BOLD_YELLOW"
+MENU_INSTRUCTION_KEY_STYLE="$COLOR_YELLOW"
+MENU_INSTRUCTION_TEXT_STYLE="$STYLE_RESET"
+
+SUMMARY_BORDER_COLOR="$COLOR_BLUE"
+SUMMARY_TITLE_STYLE="$BOLD_YELLOW"
+SUMMARY_SECTION_STYLE="$BOLD_WHITE"
+SUMMARY_CHECKMARK_COLOR="$COLOR_GREEN"
+SUMMARY_CATEGORY_STYLE="$COLOR_BLUE"
+SUMMARY_ITEM_COLOR="$COLOR_WHITE"
+SUMMARY_COUNT_STYLE="$COLOR_GREEN"
+
+LOG_ERROR_STYLE="$COLOR_RED"
+LOG_SUCCESS_STYLE="$COLOR_GREEN"
+LOG_WARNING_STYLE="$BOLD_YELLOW"
+LOG_INFO_STYLE="$COLOR_BLUE"
+LOG_DEFAULT_STYLE="$COLOR_YELLOW"
+
+# Theme selection
+THEME="${AI_DEVKIT_THEME:-default}"
+
+# Load theme
+load_theme() {
+    case "$THEME" in
+        "dark")
+            # Dark theme - softer colors for dark terminals
+            MENU_BORDER_COLOR="$COLOR_GRAY"
+            MENU_TITLE_STYLE="$BOLD_CYAN"
+            MENU_CATEGORY_STYLE="$COLOR_MAGENTA"
+            MENU_CURSOR_COLOR="$COLOR_CYAN"
+            MENU_SELECTED_STYLE="$COLOR_BRIGHT_CYAN"
+            MENU_HINT_STYLE="$COLOR_BRIGHT_YELLOW"
+            SUMMARY_BORDER_COLOR="$COLOR_GRAY"
+            SUMMARY_CATEGORY_STYLE="$COLOR_MAGENTA"
+            ;;
+        "matrix")
+            # Matrix theme - green on black
+            MENU_BORDER_COLOR="$COLOR_GREEN"
+            MENU_TITLE_STYLE="$BOLD_GREEN"
+            MENU_CATEGORY_STYLE="$COLOR_BRIGHT_GREEN"
+            MENU_CURSOR_COLOR="$BOLD_GREEN"
+            MENU_SELECTED_STYLE="$BOLD_GREEN"
+            MENU_DISABLED_COLOR="$COLOR_GREEN"
+            MENU_WARNING_COLOR="$COLOR_BRIGHT_GREEN"
+            MENU_HINT_STYLE="$BOLD_GREEN"
+            MENU_PAGE_INDICATOR_STYLE="$COLOR_BRIGHT_GREEN"
+            MENU_INSTRUCTION_KEY_STYLE="$BOLD_GREEN"
+            SUMMARY_BORDER_COLOR="$COLOR_GREEN"
+            SUMMARY_TITLE_STYLE="$BOLD_GREEN"
+            SUMMARY_CATEGORY_STYLE="$COLOR_BRIGHT_GREEN"
+            SUMMARY_CHECKMARK_COLOR="$BOLD_GREEN"
+            LOG_SUCCESS_STYLE="$BOLD_GREEN"
+            LOG_WARNING_STYLE="$COLOR_BRIGHT_GREEN"
+            LOG_INFO_STYLE="$COLOR_GREEN"
+            ;;
+        "ocean")
+            # Ocean theme - blues and cyans
+            MENU_BORDER_COLOR="$COLOR_CYAN"
+            MENU_TITLE_STYLE="$BOLD_CYAN"
+            MENU_CATEGORY_STYLE="$COLOR_BRIGHT_BLUE"
+            MENU_CURSOR_COLOR="$COLOR_BRIGHT_CYAN"
+            MENU_SELECTED_STYLE="$BOLD_CYAN"
+            MENU_HINT_STYLE="$COLOR_BRIGHT_CYAN"
+            SUMMARY_BORDER_COLOR="$COLOR_CYAN"
+            SUMMARY_TITLE_STYLE="$BOLD_CYAN"
+            SUMMARY_CATEGORY_STYLE="$COLOR_BRIGHT_BLUE"
+            LOG_INFO_STYLE="$BOLD_BLUE"
+            ;;
+        "minimal")
+            # Minimal theme - mostly white/gray
+            MENU_BORDER_COLOR="$COLOR_GRAY"
+            MENU_TITLE_STYLE="$BOLD_WHITE"
+            MENU_CATEGORY_STYLE="$COLOR_WHITE"
+            MENU_CURSOR_COLOR="$BOLD_WHITE"
+            MENU_SELECTED_STYLE="$BOLD_WHITE"
+            MENU_DISABLED_COLOR="$COLOR_GRAY"
+            MENU_WARNING_COLOR="$COLOR_WHITE"
+            MENU_HINT_STYLE="$COLOR_WHITE"
+            MENU_PAGE_INDICATOR_STYLE="$COLOR_WHITE"
+            MENU_INSTRUCTION_KEY_STYLE="$BOLD_WHITE"
+            SUMMARY_BORDER_COLOR="$COLOR_GRAY"
+            SUMMARY_TITLE_STYLE="$BOLD_WHITE"
+            SUMMARY_CATEGORY_STYLE="$COLOR_WHITE"
+            SUMMARY_CHECKMARK_COLOR="$BOLD_WHITE"
+            LOG_SUCCESS_STYLE="$BOLD_WHITE"
+            LOG_WARNING_STYLE="$COLOR_WHITE"
+            LOG_INFO_STYLE="$COLOR_GRAY"
+            ;;
+        *)
+            # Default theme - already set above
+            ;;
+    esac
+}
+
+# Load the selected theme
+load_theme
+
+# ============================================================================
+# STYLING HELPER FUNCTIONS
+# ============================================================================
+
+# Style text with automatic reset
+style_text() {
+    local style="$1"
+    local text="$2"
+    printf "%b%s%b" "$style" "$text" "$STYLE_RESET"
+}
+
+# Print styled line with newline
+style_line() {
+    local style="$1"
+    local text="$2"
+    echo -e "${style}${text}${STYLE_RESET}"
+}
+
+# ============================================================================
+# UTILITY FUNCTIONS
+# ============================================================================
+
+# Logging functions with themed output
+log() { 
+    local message="$1"
+    local style="${2:-$LOG_DEFAULT_STYLE}"
+    echo -e "${style}${message}${STYLE_RESET}"
+}
+
+error() { 
+    log "Error: $1" "$LOG_ERROR_STYLE"
+    exit 1
+}
+
+success() { 
+    log "$1" "$LOG_SUCCESS_STYLE"
+}
+
+info() { 
+    log "$1" "$LOG_INFO_STYLE"
+}
+
+warning() {
+    log "$1" "$LOG_WARNING_STYLE"
+}
 
 # Check prerequisites
 check_deps() {
@@ -36,7 +237,7 @@ check_deps() {
 # Check if Nexus is available
 check_nexus() {
     if curl -s http://localhost:8081 > /dev/null 2>&1; then
-        success "✓ Nexus detected at http://localhost:8081"
+        success "${ICON_SUCCESS} Nexus detected at http://localhost:8081"
         return 0
     fi
     return 1
@@ -188,7 +389,7 @@ load_components() {
 
 # Function to display component selection menu
 select_components() {
-    set +e  # Don't exit on error
+    set +e  # Do not exit on error
     
     # Load components data
     local component_data=$(load_components)
@@ -340,24 +541,22 @@ select_components() {
         if [[ "$action" == "add" ]]; then
             # Check requirements
             if [[ -n "${requires[$index]}" ]] && [[ "${requires[$index]}" != "[]" ]] && ! requirements_met "${requires[$index]}"; then
-                hint_message="⚠️  Requires: ${requires[$index]}"
+                hint_message="${ICON_WARNING}  Requires: ${requires[$index]}"
                 hint_timer=30
                 return 1
             fi
             
             # Handle mutually exclusive groups
-            #if [[ "${groups[$index]}" == *"-version" ]]; then
-                for j in "${!groups[@]}"; do
-                    if [[ "${groups[$j]}" == "${groups[$index]}" ]] && [[ $j -ne $index ]] && [[ "${in_cart[$j]}" == true ]]; then
-                        in_cart[$j]=false
-                        hint_message="ℹ️  Replaced ${names[$j]} with ${names[$index]}"
-                        hint_timer=30
-                    fi
-                done
-            #fi
+            for j in "${!groups[@]}"; do
+                if [[ "${groups[$j]}" == "${groups[$index]}" ]] && [[ $j -ne $index ]] && [[ "${in_cart[$j]}" == true ]]; then
+                    in_cart[$j]=false
+                    hint_message="${ICON_INFO}  Replaced ${names[$j]} with ${names[$index]}"
+                    hint_timer=30
+                fi
+            done
             
             in_cart[$index]=true
-            [[ -z "$hint_message" ]] && hint_message="✓ Added ${names[$index]} to stack" && hint_timer=20
+            [[ -z "$hint_message" ]] && hint_message="${ICON_SUCCESS} Added ${names[$index]} to stack" && hint_timer=20
         else
             in_cart[$index]=false
             
@@ -388,10 +587,10 @@ select_components() {
             done
             
             if [[ -n "$dependents" ]]; then
-                hint_message="⚠️  Also removed dependent items: $dependents"
+                hint_message="${ICON_WARNING}  Also removed dependent items: $dependents"
                 hint_timer=40
             else
-                hint_message="✓ Removed ${names[$index]} from cart"
+                hint_message="${ICON_SUCCESS} Removed ${names[$index]} from cart"
                 hint_timer=20
             fi
         fi
@@ -402,38 +601,50 @@ select_components() {
         local x=$1 y=$2 width=$3 height=$4 title=$5 bottom_text=$6
         
         tput cup $y $x
-        echo -ne "┌"
-        for ((i=0; i<width-2; i++)); do echo -ne "─"; done
-        echo -ne "┐"
+        printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_TOP_LEFT" "$STYLE_RESET"
+        for ((i=0; i<width-2; i++)); do 
+            printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
+        done
+        printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_TOP_RIGHT" "$STYLE_RESET"
         
         if [[ -n "$title" ]]; then
             local title_len=${#title}
             local title_pos=$(( (width - title_len - 2) / 2 ))
             tput cup $y $((x + title_pos))
-            #echo -ne "┤ $title ├"
-            echo -ne "\033[1;37m┤ $title ├\033[0m"
+            printf "%b%s%b %b%s%b %b%s%b" \
+                "$MENU_BORDER_COLOR" "$BOX_TITLE_LEFT" "$STYLE_RESET" \
+                "$MENU_TITLE_STYLE" "$title" "$STYLE_RESET" \
+                "$MENU_BORDER_COLOR" "$BOX_TITLE_RIGHT" "$STYLE_RESET"
         fi
         
         for ((i=1; i<height-1; i++)); do
-            tput cup $((y + i)) $x; echo -ne "│"
-            tput cup $((y + i)) $((x + width - 1)); echo -ne "│"
+            tput cup $((y + i)) $x
+            printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_VERTICAL" "$STYLE_RESET"
+            tput cup $((y + i)) $((x + width - 1))
+            printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_VERTICAL" "$STYLE_RESET"
         done
         
         tput cup $((y + height - 1)) $x
-        echo -ne "└"
+        printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_BOTTOM_LEFT" "$STYLE_RESET"
         
         if [[ -n "$bottom_text" ]]; then
             local text_len=${#bottom_text}
             local center_pos=$(( (width - text_len - 4) / 2 ))
             
-            for ((i=0; i<center_pos; i++)); do echo -ne "─"; done
-            echo -ne " ${YELLOW}${bottom_text}${NC} "
-            for ((i=0; i<width-center_pos-text_len-6; i++)); do echo -ne "─"; done
+            for ((i=0; i<center_pos; i++)); do 
+                printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
+            done
+            printf " %b%s%b " "$MENU_PAGE_INDICATOR_STYLE" "$bottom_text" "$STYLE_RESET"
+            for ((i=0; i<width-center_pos-text_len-6; i++)); do 
+                printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
+            done
         else
-            for ((i=0; i<width-2; i++)); do echo -ne "─"; done
+            for ((i=0; i<width-2; i++)); do 
+                printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
+            done
         fi
         
-        echo -ne "┘"
+        printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_BOTTOM_RIGHT" "$STYLE_RESET"
     }
     
     # Function to get display name for category
@@ -465,11 +676,11 @@ select_components() {
         # Clear catalog area
         for ((row=5; row<content_height+5; row++)); do
             tput cup $row 0
-            printf "│"
+            printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_VERTICAL" "$STYLE_RESET"
             for ((col=1; col<catalog_width-1; col++)); do
                 printf " "
             done
-            printf "│"
+            printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_VERTICAL" "$STYLE_RESET"
         done
         
         display_row=5
@@ -484,7 +695,7 @@ select_components() {
             # Category headers
             if [[ "$item_category" != "$last_category" ]]; then
                 tput cup $display_row 2
-                printf "%b%s%b" "${GREEN}" "$display_name" "${NC}"
+                printf "%b%s%b" "$MENU_CATEGORY_STYLE" "$display_name" "$STYLE_RESET"
                 last_category="$item_category"
                 ((display_row++))
                 [[ $display_row -ge $((content_height + 5)) ]] && break
@@ -499,7 +710,7 @@ select_components() {
                 
                 # Cursor
                 if [[ $view == "catalog" && $idx -eq $current ]]; then
-                    printf "\033[0;34m▸\033[0m "
+                    printf "%b%s%b " "$MENU_CURSOR_COLOR" "$ICON_CURSOR" "$STYLE_RESET"
                 else
                     printf "  "
                 fi
@@ -508,26 +719,25 @@ select_components() {
                 local available=true status="" status_color=""
                 
                 if [[ "${in_cart[$idx]}" == true ]]; then
-                    printf "\033[0;32m✓\033[0m "
+                    printf "%b%s%b " "$MENU_SELECTED_STYLE" "$ICON_SELECTED" "$STYLE_RESET"
                     status="(in stack)"
-                    status_color="\033[0;32m"
-                #elif [[ "${groups[$idx]}" == *"-version" ]] && has_group_in_cart "${groups[$idx]}"; then
+                    status_color="$MENU_SELECTED_STYLE"
                 elif has_group_in_cart "${groups[$idx]}"; then
-                    printf "\033[0;90m○\033[0m "
+                    printf "%b%s%b " "$MENU_DISABLED_COLOR" "$ICON_DISABLED" "$STYLE_RESET"
                     available=false
                 elif [[ -n "${requires[$idx]}" ]] && [[ "${requires[$idx]}" != "[]" ]] && ! requirements_met "${requires[$idx]}"; then
-                    printf "\033[0;33m○\033[0m "
+                    printf "%b%s%b " "$MENU_WARNING_COLOR" "$ICON_AVAILABLE" "$STYLE_RESET"
                     status="* ${requires[$idx]} required"
-                    status_color="\033[0;33m"
+                    status_color="$MENU_WARNING_COLOR"
                 else
-                    printf "○ "
+                    printf "%s " "$ICON_AVAILABLE"
                 fi
                 
                 # Item name
                 if [[ $available == true || "${in_cart[$idx]}" == true ]]; then
                     printf "%s" "${names[$idx]}"
                 else
-                    printf "\033[0;90m%s\033[0m" "${names[$idx]}"
+                    printf "%b%s%b" "$MENU_DISABLED_COLOR" "${names[$idx]}" "$STYLE_RESET"
                 fi
                 
                 # Status
@@ -537,7 +747,7 @@ select_components() {
                     local padding=$((catalog_width - name_len - status_len - 8))
                     if [[ $padding -gt 0 ]]; then
                         tput cuf $padding
-                        printf "%b%s\033[0m" "$status_color" "$status"
+                        printf "%b%s%b" "$status_color" "$status" "$STYLE_RESET"
                     fi
                 fi
                 
@@ -555,15 +765,19 @@ select_components() {
             local center_pos=$(( (catalog_width - text_len - 4) / 2 ))
             
             tput cup $((content_height + 5)) 0
-            printf "└"
+            printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_BOTTOM_LEFT" "$STYLE_RESET"
             
-            for ((i=0; i<center_pos; i++)); do printf "─"; done
-            printf " \033[1;33m%s\033[0m " "${page_text}"
+            for ((i=0; i<center_pos; i++)); do 
+                printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
+            done
+            printf " %b%s%b " "$MENU_PAGE_INDICATOR_STYLE" "$page_text" "$STYLE_RESET"
             
             local remaining=$((catalog_width - center_pos - text_len - 4))
-            for ((i=0; i<remaining; i++)); do printf "─"; done
+            for ((i=0; i<remaining; i++)); do 
+                printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
+            done
             
-            printf "┘"
+            printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_BOTTOM_RIGHT" "$STYLE_RESET"
         fi
     }
 
@@ -588,14 +802,14 @@ select_components() {
         tput cup $display_row $((catalog_width + 4))
         
         # Always show base components
-        printf "%b%d selected + base components:%b" "${GREEN}" "$cart_count" "${NC}"
+        printf "%b%d selected + base components:%b" "$SUMMARY_COUNT_STYLE" "$cart_count" "$STYLE_RESET"
         ((display_row++))
         
         # Show base components first
         ((display_row++))
         if [[ $display_row -lt $((content_height + 5)) ]]; then
             tput cup $display_row $((catalog_width + 4))
-            printf "%b━ Base Development Tools ━%b" "${BLUE}" "${NC}"
+            printf "%b%s Base Development Tools %s%b" "$SUMMARY_CATEGORY_STYLE" "$BOX_SEPARATOR" "$BOX_SEPARATOR" "$STYLE_RESET"
             ((display_row++))
         fi
         
@@ -633,7 +847,7 @@ select_components() {
                             ((display_row++))
                             if [[ $display_row -lt $((content_height + 5)) ]]; then
                                 tput cup $display_row $((catalog_width + 4))
-                                printf "%b━ %s ━%b" "${BLUE}" "$category_display" "${NC}"
+                                printf "%b%s %s %s%b" "$SUMMARY_CATEGORY_STYLE" "$BOX_SEPARATOR" "$category_display" "$BOX_SEPARATOR" "$STYLE_RESET"
                                 ((display_row++))
                                 category_has_items=true
                             fi
@@ -643,12 +857,18 @@ select_components() {
                             tput cup $display_row $((catalog_width + 4))
                             
                             # Cursor
-                            [[ $view == "cart" && $cart_display_count -eq $cart_cursor ]] && printf "%b▸%b " "${BLUE}" "${NC}" || printf "  "
+                            if [[ $view == "cart" && $cart_display_count -eq $cart_cursor ]]; then
+                                printf "%b%s%b " "$MENU_CURSOR_COLOR" "$ICON_CURSOR" "$STYLE_RESET"
+                            else
+                                printf "  "
+                            fi
                             
                             printf "• %s" "${names[$idx]}"
                             
                             # Remove hint
-                            [[ $view == "cart" && $cart_display_count -eq $cart_cursor ]] && printf " %b[DEL to remove]%b" "${RED}" "${NC}"
+                            if [[ $view == "cart" && $cart_display_count -eq $cart_cursor ]]; then
+                                printf " %b[DEL to remove]%b" "$LOG_ERROR_STYLE" "$STYLE_RESET"
+                            fi
                             
                             ((display_row++))
                         fi
@@ -656,13 +876,6 @@ select_components() {
                     fi
                 done
             done
-        #else
-            # Show message when no additional components selected
-        #    ((display_row++))
-        #    if [[ $display_row -lt $((content_height + 5)) ]]; then
-        #        tput cup $display_row $((catalog_width + 4))
-        #        printf "%b(No additional components selected)%b" "${YELLOW}" "${NC}"
-        #    fi
         fi
     }
     
@@ -678,13 +891,17 @@ select_components() {
             local title_pos=$(( (term_width - title_len) / 2 ))
             
             tput cup 0 0
-            for ((i=0; i<term_width; i++)); do echo -ne "${BLUE}━${NC}"; done
+            for ((i=0; i<term_width; i++)); do 
+                printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_SEPARATOR" "$STYLE_RESET"
+            done
             
             tput cup 1 $title_pos
-            echo -ne "${YELLOW}${title}${NC}"
+            printf "%b%s%b" "$MENU_TITLE_STYLE" "$title" "$STYLE_RESET"
             
             tput cup 2 0
-            for ((i=0; i<term_width; i++)); do echo -ne "${BLUE}━${NC}"; done
+            for ((i=0; i<term_width; i++)); do 
+                printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_SEPARATOR" "$STYLE_RESET"
+            done
             
             echo ""
             draw_box 0 4 $catalog_width $((content_height + 2)) "Available Components"
@@ -692,7 +909,9 @@ select_components() {
             
             # Instructions
             tput cup $((term_height - 2)) 0
-            for ((i=0; i<term_width; i++)); do echo -ne "${BLUE}─${NC}"; done
+            for ((i=0; i<term_width; i++)); do 
+                printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
+            done
             
             screen_initialized=true
         fi
@@ -750,7 +969,7 @@ select_components() {
                 printf "  "
                 
                 tput cup $new_screen_row 2
-                printf "\033[0;34m▸\033[0m "
+                printf "%b%s%b " "$MENU_CURSOR_COLOR" "$ICON_CURSOR" "$STYLE_RESET"
             else
                 render_catalog
             fi
@@ -767,9 +986,20 @@ select_components() {
             tput cup $((term_height - 1)) 0
             tput el
             if [[ $view == "catalog" ]]; then
-                echo -ne "${YELLOW}↑↓/jk:${NC} Navigate  ${YELLOW}←→/hl:${NC} Page  ${YELLOW}SPACE:${NC} Add to stack  ${YELLOW}TAB:${NC} Switch to stack  ${YELLOW}ENTER:${NC} Build  ${YELLOW}q:${NC} Cancel"
+                printf "%b↑↓/jk:%b Navigate  %b←→/hl:%b Page  %bSPACE:%b Add to stack  %bTAB:%b Switch to stack  %bENTER:%b Build  %bq:%b Cancel" \
+                    "$MENU_INSTRUCTION_KEY_STYLE" "$MENU_INSTRUCTION_TEXT_STYLE" \
+                    "$MENU_INSTRUCTION_KEY_STYLE" "$MENU_INSTRUCTION_TEXT_STYLE" \
+                    "$MENU_INSTRUCTION_KEY_STYLE" "$MENU_INSTRUCTION_TEXT_STYLE" \
+                    "$MENU_INSTRUCTION_KEY_STYLE" "$MENU_INSTRUCTION_TEXT_STYLE" \
+                    "$MENU_INSTRUCTION_KEY_STYLE" "$MENU_INSTRUCTION_TEXT_STYLE" \
+                    "$MENU_INSTRUCTION_KEY_STYLE" "$MENU_INSTRUCTION_TEXT_STYLE"
             else
-                echo -ne "${YELLOW}↑↓/jk:${NC} Navigate  ${YELLOW}DEL/d:${NC} Remove  ${YELLOW}TAB:${NC} Switch to catalog  ${YELLOW}ENTER:${NC} Build  ${YELLOW}q:${NC} Cancel"
+                printf "%b↑↓/jk:%b Navigate  %bDEL/d:%b Remove  %bTAB:%b Switch to catalog  %bENTER:%b Build  %bq:%b Cancel" \
+                    "$MENU_INSTRUCTION_KEY_STYLE" "$MENU_INSTRUCTION_TEXT_STYLE" \
+                    "$MENU_INSTRUCTION_KEY_STYLE" "$MENU_INSTRUCTION_TEXT_STYLE" \
+                    "$MENU_INSTRUCTION_KEY_STYLE" "$MENU_INSTRUCTION_TEXT_STYLE" \
+                    "$MENU_INSTRUCTION_KEY_STYLE" "$MENU_INSTRUCTION_TEXT_STYLE" \
+                    "$MENU_INSTRUCTION_KEY_STYLE" "$MENU_INSTRUCTION_TEXT_STYLE"
             fi
         fi
         
@@ -779,7 +1009,7 @@ select_components() {
             tput el
             local hint_pos=$(( (term_width - ${#hint_message}) / 2 ))
             tput cup 3 $hint_pos
-            echo -ne "${YELLOW}$hint_message${NC}"
+            printf "%b%s%b" "$MENU_HINT_STYLE" "$hint_message" "$STYLE_RESET"
             ((hint_timer--))
         elif [[ $hint_timer -eq 0 && -n "$hint_message" ]]; then
             tput cup 3 0
@@ -1070,35 +1300,39 @@ select_components() {
     stty echo
     clear
     
-    # Build final selections
+    # Build final selections - Summary Screen
     local term_width=$(tput cols)
     
     # Header
     tput cup 0 0
-    for ((i=0; i<term_width; i++)); do echo -ne "${BLUE}━${NC}"; done
+    for ((i=0; i<term_width; i++)); do 
+        printf "%b%s%b" "$SUMMARY_BORDER_COLOR" "$BOX_SEPARATOR" "$STYLE_RESET"
+    done
     
     local title="AI DevKit Pod Configurator - Deployment Manifest"
     local title_len=${#title}
     local title_pos=$(( (term_width - title_len) / 2 ))
     tput cup 1 $title_pos
-    echo -ne "${YELLOW}${title}${NC}"
+    printf "%b%s%b" "$SUMMARY_TITLE_STYLE" "$title" "$STYLE_RESET"
     
     tput cup 2 0
-    for ((i=0; i<term_width; i++)); do echo -ne "${BLUE}━${NC}"; done
+    for ((i=0; i<term_width; i++)); do 
+        printf "%b%s%b" "$SUMMARY_BORDER_COLOR" "$BOX_SEPARATOR" "$STYLE_RESET"
+    done
     
     echo ""
     echo ""
     
     # Always show base components first
-    echo -e "${GREEN}Base Development Tools (included in all builds):${NC}"
+    style_line "$SUMMARY_SECTION_STYLE" "Base Development Tools (included in all builds):"
     echo ""
-    echo -e "  ${BLUE}━ Base Development Tools ━${NC}"
-    echo -e "    ${GREEN}✓${NC} Filebrowser (port 8090)"
-    echo -e "    ${GREEN}✓${NC} Git"
-    echo -e "    ${GREEN}✓${NC} GitHub CLI (gh)"
-    echo -e "    ${GREEN}✓${NC} Microsoft TUI Test"
-    echo -e "    ${GREEN}✓${NC} Node.js 20.18.0" 
-    echo -e "    ${GREEN}✓${NC} SSH Server (port 2222)"
+    style_line "$SUMMARY_CATEGORY_STYLE" "  ${BOX_SEPARATOR} Base Development Tools ${BOX_SEPARATOR}"
+    echo -e "    ${SUMMARY_CHECKMARK_COLOR}${ICON_CHECKMARK}${STYLE_RESET} Filebrowser (port 8090)"
+    echo -e "    ${SUMMARY_CHECKMARK_COLOR}${ICON_CHECKMARK}${STYLE_RESET} Git"
+    echo -e "    ${SUMMARY_CHECKMARK_COLOR}${ICON_CHECKMARK}${STYLE_RESET} GitHub CLI (gh)"
+    echo -e "    ${SUMMARY_CHECKMARK_COLOR}${ICON_CHECKMARK}${STYLE_RESET} Microsoft TUI Test"
+    echo -e "    ${SUMMARY_CHECKMARK_COLOR}${ICON_CHECKMARK}${STYLE_RESET} Node.js 20.18.0" 
+    echo -e "    ${SUMMARY_CHECKMARK_COLOR}${ICON_CHECKMARK}${STYLE_RESET} SSH Server (port 2222)"
     
     # Count selections
     local selection_count=0
@@ -1108,10 +1342,10 @@ select_components() {
     
     if [[ $selection_count -eq 0 ]]; then
         echo ""
-        echo -e "${YELLOW}No additional components selected${NC}"
+        style_line "$LOG_WARNING_STYLE" "No additional components selected"
     else
         echo ""
-        echo -e "${GREEN}Additional components selected: $selection_count${NC}"
+        style_line "$SUMMARY_COUNT_STYLE" "Additional components selected: $selection_count"
         
         # Store selections
         SELECTED_YAML_FILES=()
@@ -1131,11 +1365,11 @@ select_components() {
                 if [[ "${in_cart[$i]}" == true ]] && [[ "${component_categories[$i]}" == "$category" ]]; then
                     if [[ $category_has_items == false ]]; then
                         echo ""
-                        echo -e "  ${BLUE}━ ${category_display} ━${NC}"
+                        style_line "$SUMMARY_CATEGORY_STYLE" "  ${BOX_SEPARATOR} ${category_display} ${BOX_SEPARATOR}"
                         category_has_items=true
                     fi
                     
-                    echo -e "    ${GREEN}✓${NC} ${names[$i]}"
+                    echo -e "    ${SUMMARY_CHECKMARK_COLOR}${ICON_CHECKMARK}${STYLE_RESET} ${names[$i]}"
                     
                     # Store selection details
                     SELECTED_YAML_FILES+=("${yaml_files[$i]}")
@@ -1153,11 +1387,15 @@ select_components() {
     echo ""
     
     # Separator
-    for ((i=0; i<term_width; i++)); do echo -ne "${BLUE}─${NC}"; done
+    for ((i=0; i<term_width; i++)); do 
+        printf "%b%s%b" "$SUMMARY_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
+    done
     echo ""
     
     log "Ready to build with this configuration?"
-    echo -ne "Press ${GREEN}ENTER${NC} to continue or ${RED}'q'${NC} to quit: "
+    printf "Press %bENTER%b to continue or %b'q'%b to quit: " \
+        "$LOG_SUCCESS_STYLE" "$STYLE_RESET" \
+        "$LOG_ERROR_STYLE" "$STYLE_RESET"
     read -r CONFIRM
     
     [[ "$CONFIRM" =~ ^[qQ]$ ]] && log "Build cancelled." && exit 0
@@ -1229,7 +1467,7 @@ execute_pre_build_scripts() {
                     error "Pre-build script failed for $component_name"
                 fi
             else
-                log "Warning: Pre-build script $script_name not found for $component_name"
+                warning "Pre-build script $script_name not found for $component_name"
             fi
         fi
     done
@@ -1260,10 +1498,10 @@ extract_inject_files_from_yaml() {
             # New item starts with - source:
             if [[ "$line" =~ ^[[:space:]]*-[[:space:]]+source:[[:space:]]*(.+)$ ]]; then
                 # Process previous item if exists
-                if [[ -n "$source" && -n "$destination" ]]; then
-                    inject_commands+="COPY $source $destination\n"
+                if [[ -n "$source" ]] && [[ -n "$destination" ]]; then
+                    inject_commands+="COPY $source $destination"$'\n'
                     if [[ -n "$permissions" ]]; then
-                        inject_commands+="RUN chmod $permissions $destination\n"
+                        inject_commands+="RUN chmod $permissions $destination"$'\n'
                     fi
                 fi
                 
@@ -1283,10 +1521,10 @@ extract_inject_files_from_yaml() {
     done < "$yaml_file"
     
     # Process last item
-    if [[ -n "$source" && -n "$destination" ]]; then
-        inject_commands+="COPY $source $destination\n"
+    if [[ -n "$source" ]] && [[ -n "$destination" ]]; then
+        inject_commands+="COPY $source $destination"$'\n'
         if [[ -n "$permissions" ]]; then
-            inject_commands+="RUN chmod $permissions $destination\n"
+            inject_commands+="RUN chmod $permissions $destination"$'\n'
         fi
     fi
     
@@ -1468,7 +1706,7 @@ create_custom_dockerfile() {
     fi
     
     chmod +x "$TEMP_DIR/entrypoint.sh"
-    log "Successfully created entrypoint.sh in $TEMP_DIR"
+    success "Successfully created entrypoint.sh in $TEMP_DIR"
     
     # Copy Dockerfile.base
     log "Copying Dockerfile.base to $TEMP_DIR/Dockerfile"
@@ -1477,7 +1715,7 @@ create_custom_dockerfile() {
     # Execute pre-build scripts
     execute_pre_build_scripts
     
-    # Create placeholder files if they don't exist (for when no components are selected)
+    # Create placeholder files if they do not exist (for when no components are selected)
     touch "$TEMP_DIR/user-CLAUDE.md" 2>/dev/null || true
     touch "$TEMP_DIR/component-imports.txt" 2>/dev/null || true
     
@@ -1499,22 +1737,22 @@ create_custom_dockerfile() {
         # Extract installation commands
         local install_cmds=$(extract_installation_from_yaml "$yaml_file")
         if [[ -n "$install_cmds" ]]; then
-            installation_content+="\n# From $yaml_file\n"
-            installation_content+="$install_cmds\n"
+            installation_content+=\n'"# From $yaml_file"\n'
+            installation_content+="$install_cmds"\n'
         fi
         
         # Extract inject_files directives
         local inject_cmds=$(extract_inject_files_from_yaml "$yaml_file")
         if [[ -n "$inject_cmds" ]]; then
-            inject_files_content+="\n# Files injected by $component_name\n"
+            inject_files_content+=\n'"# Files injected by $component_name"\n'
             inject_files_content+="$inject_cmds"
         fi
         
         # Extract entrypoint setup
         local entrypoint_cmds=$(extract_entrypoint_setup "$yaml_file")
         if [[ -n "$entrypoint_cmds" ]]; then
-            entrypoint_setup_content+="\n# Setup for $component_name\n"
-            entrypoint_setup_content+="$entrypoint_cmds\n"
+            entrypoint_setup_content+=\n'"# Setup for $component_name"\n'
+            entrypoint_setup_content+="$entrypoint_cmds"\n'
         fi
     done
     
@@ -1612,8 +1850,8 @@ main() {
     fi
     
     # Check Colima status
-    colima status &> /dev/null || error "Colima is not running\nPlease start Colima with: colima start --kubernetes"
-    kubectl get nodes &> /dev/null || error "Kubernetes is not accessible\nPlease make sure Colima started with --kubernetes flag"
+    colima status &> /dev/null || error "Colima is not running. Please start Colima with: colima start --kubernetes"
+    kubectl get nodes &> /dev/null || error "Kubernetes is not accessible. Please make sure Colima started with --kubernetes flag"
     
     success "Colima with Kubernetes is running and accessible"
     
@@ -1754,13 +1992,14 @@ main() {
     [[ "$NEXUS_AVAILABLE" = true ]] && success "Using Nexus proxy for package downloads"
     
     # Simple connection instructions
-    echo -e "${GREEN}Ready to connect!${NC} Port forwarding is active (PID: $PORT_FORWARD_PID)"
+    style_line "$LOG_SUCCESS_STYLE" "Ready to connect! Port forwarding is active (PID: $PORT_FORWARD_PID)"
     echo ""
-    echo -e "${YELLOW}1. SSH to your environment:${NC}"
-    echo -e "   ${BLUE}ssh devuser@localhost -p 2222${NC}"
-    echo -e "   Password: ${YELLOW}devuser${NC} (change with 'passwd')"
+    style_line "$LOG_WARNING_STYLE" "1. SSH to your environment:"
+    style_line "$LOG_INFO_STYLE" "   ssh devuser@localhost -p 2222"
+    printf "   Password: %bdevuser%b (change with 'passwd')\n" "$LOG_WARNING_STYLE" "$STYLE_RESET"
     echo ""
-    echo -e "${YELLOW}2. Access file manager:${NC} ${BLUE}http://localhost:8090${NC} (admin/admin)"
+    printf "%b2. Access file manager:%b %bhttp://localhost:8090%b (admin/admin)\n" \
+        "$LOG_WARNING_STYLE" "$STYLE_RESET" "$LOG_INFO_STYLE" "$STYLE_RESET"
     echo ""
     
     # Check if Claude Code was selected
@@ -1773,14 +2012,15 @@ main() {
     done
     
     if [[ $claude_selected == true ]]; then
-        echo -e "${GREEN}Start Claude Code:${NC} ${YELLOW}claude${NC}"
+        printf "%bStart Claude Code:%b %bclaude%b\n" \
+            "$LOG_SUCCESS_STYLE" "$STYLE_RESET" "$LOG_WARNING_STYLE" "$STYLE_RESET"
     fi
     
     echo ""
-    echo -e "${GRAY}Alternative: kubectl exec -it -n ${NAMESPACE} ${POD_NAME} -c ai-devkit -- su - devuser${NC}"
-    echo -e "${GRAY}Stop port forwarding: kill $PORT_FORWARD_PID${NC}"
+    style_line "$COLOR_GRAY" "Alternative: kubectl exec -it -n ${NAMESPACE} ${POD_NAME} -c ai-devkit -- su - devuser"
+    style_line "$COLOR_GRAY" "Stop port forwarding: kill $PORT_FORWARD_PID"
     echo ""
-    echo -e "${GRAY}Build log saved to: $LOG_FILE${NC}"
+    style_line "$COLOR_GRAY" "Build log saved to: $LOG_FILE"
 }
 
 # Run main
