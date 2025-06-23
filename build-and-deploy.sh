@@ -138,7 +138,6 @@ CART_REMOVE_HINT_STYLE="$COLOR_WHITE"
 CART_COUNT_STYLE="$COLOR_SAND"
 
 # Instructions Bar
-INSTRUCTION_SEPARATOR_COLOR="$COLOR_BLUE"
 INSTRUCTION_KEY_STYLE="$COLOR_BRIGHT_SKY"
 INSTRUCTION_TEXT_STYLE="$COLOR_SILVER"
 
@@ -184,7 +183,6 @@ load_theme() {
             CART_ITEM_STYLE="$COLOR_BRIGHT_WHITE"
             
             GLOBAL_HINT_STYLE="$COLOR_BRIGHT_YELLOW"
-            INSTRUCTION_SEPARATOR_COLOR="$COLOR_GRAY"
             
             SUMMARY_BORDER_COLOR="$COLOR_GRAY"
             SUMMARY_CATEGORY_STYLE="$COLOR_MAGENTA"
@@ -221,7 +219,6 @@ load_theme() {
             CART_REMOVE_HINT_STYLE="$COLOR_BRIGHT_GREEN"
             CART_COUNT_STYLE="$COLOR_BRIGHT_GREEN"
             
-            INSTRUCTION_SEPARATOR_COLOR="$COLOR_GREEN"
             INSTRUCTION_KEY_STYLE="$BOLD_GREEN"
             INSTRUCTION_TEXT_STYLE="$COLOR_GREEN"
             
@@ -256,7 +253,6 @@ load_theme() {
             CART_BASE_CATEGORY_STYLE="$COLOR_BRIGHT_CYAN"
             
             GLOBAL_HINT_STYLE="$COLOR_BRIGHT_CYAN"
-            INSTRUCTION_SEPARATOR_COLOR="$COLOR_CYAN"
             
             SUMMARY_BORDER_COLOR="$COLOR_CYAN"
             SUMMARY_TITLE_STYLE="$BOLD_CYAN"
@@ -296,7 +292,6 @@ load_theme() {
             CART_REMOVE_HINT_STYLE="$COLOR_WHITE"
             CART_COUNT_STYLE="$COLOR_WHITE"
             
-            INSTRUCTION_SEPARATOR_COLOR="$COLOR_GRAY"
             INSTRUCTION_KEY_STYLE="$BOLD_WHITE"
             INSTRUCTION_TEXT_STYLE="$COLOR_GRAY"
             
@@ -336,7 +331,6 @@ load_theme() {
             CART_REMOVE_HINT_STYLE="$COLOR_BRIGHT_RED"
             CART_COUNT_STYLE="$COLOR_BRIGHT_YELLOW"
             
-            INSTRUCTION_SEPARATOR_COLOR="$COLOR_BRIGHT_MAGENTA"
             INSTRUCTION_KEY_STYLE="$COLOR_BRIGHT_YELLOW"
             INSTRUCTION_TEXT_STYLE="$COLOR_BRIGHT_WHITE"
             
@@ -716,11 +710,24 @@ select_components() {
     # Terminal dimensions and pagination
     local term_width=$(tput cols)
     local term_height=$(tput lines)
+
+    # Calculate catalog width (left box)
     local catalog_width=$((term_width / 2 - 2))
-    local cart_width=$((term_width / 2 - 2))
-    local content_height=$((term_height - 10))
+
+    # Calculate starting position of cart box
+    # Catalog starts at column 0, ends at catalog_width + 1 (including borders)
+    # Space between boxes at column catalog_width + 2
+    # Cart starts at column catalog_width + 3
+    local cart_start_col=$((catalog_width + 3))
+
+    # Calculate cart width to fill exactly to the right edge
+    # The cart box needs to end at column term_width - 1
+    # So cart_width = (term_width - 1) - cart_start_col + 1
+    local cart_width=$((term_width - cart_start_col))
+
+    local content_height=$((term_height - 7))
     local catalog_page=0 cart_page=0
-    
+
     # Calculate pagination
     local page_boundaries=()
     page_boundaries+=(0)
@@ -876,7 +883,7 @@ select_components() {
     # Function to get screen row for item
     get_screen_row_for_item() {
         local target_idx=$1
-        local row=5
+        local row=4  # Changed from 5
         local prev_category=""
         
         for ((idx=$catalog_first_visible; idx<=$catalog_last_visible && idx<=$target_idx; idx++)); do
@@ -904,13 +911,13 @@ select_components() {
             end_idx=${page_boundaries[$((catalog_page + 1))]}
         fi
         
-        local display_row=5
+        local display_row=4  # Changed from 5
         local last_category=""
         local first_visible_idx=-1
         local last_visible_idx=-1
         
         # Clear catalog area
-        for ((row=5; row<content_height+5; row++)); do
+        for ((row=4; row<content_height+4; row++)); do  # Changed from row=5
             tput cup $row 0
             printf "%b%s%b" "$CATALOG_BORDER_COLOR" "$BOX_VERTICAL" "$STYLE_RESET"
             for ((col=1; col<catalog_width-1; col++)); do
@@ -919,11 +926,11 @@ select_components() {
             printf "%b%s%b" "$CATALOG_BORDER_COLOR" "$BOX_VERTICAL" "$STYLE_RESET"
         done
         
-        display_row=5
+        display_row=4  # Changed from 5
         last_category=""
         
         for ((idx=start_idx; idx<end_idx; idx++)); do
-            [[ $display_row -ge $((content_height + 5)) ]] && break
+            [[ $display_row -ge $((content_height + 4)) ]] && break  # Changed from +5
             
             local item_category="${component_categories[$idx]}"
             local display_name=$(get_category_display_name "$item_category")
@@ -934,11 +941,11 @@ select_components() {
                 printf "%b%s%b" "$CATALOG_CATEGORY_STYLE" "$display_name" "$STYLE_RESET"
                 last_category="$item_category"
                 ((display_row++))
-                [[ $display_row -ge $((content_height + 5)) ]] && break
+                [[ $display_row -ge $((content_height + 4)) ]] && break  # Changed from +5
             fi
             
             # Render item
-            if [[ $display_row -lt $((content_height + 5)) ]]; then
+            if [[ $display_row -lt $((content_height + 4)) ]]; then  # Changed from +5
                 [[ $first_visible_idx -eq -1 ]] && first_visible_idx=$idx
                 last_visible_idx=$idx
                 
@@ -1000,7 +1007,7 @@ select_components() {
             local text_len=${#page_text}
             local center_pos=$(( (catalog_width - text_len - 4) / 2 ))
             
-            tput cup $((content_height + 5)) 0
+            tput cup $((content_height + 4)) 0  # Changed from +5
             printf "%b%s%b" "$CATALOG_BORDER_COLOR" "$BOX_BOTTOM_LEFT" "$STYLE_RESET"
             
             for ((i=0; i<center_pos; i++)); do 
@@ -1019,7 +1026,7 @@ select_components() {
 
     # Function to render cart items
     render_cart() {
-        local display_row=5
+        local display_row=4  # Changed from 5
         local cart_items_array=()
         
         # Collect cart items
@@ -1030,17 +1037,16 @@ select_components() {
         local cart_count=${#cart_items_array[@]}
         
         # Clear cart area
-        for ((row=5; row<content_height+5; row++)); do
-            tput cup $row $((catalog_width + 4))
-            printf "%-$((cart_width-4))s" " "
+        for ((row=4; row<content_height+4; row++)); do
+            tput cup $row $((cart_start_col + 1))
+            printf "%-$((cart_width-2))s" " "
         done
-        
-        tput cup $display_row $((catalog_width + 4))
-        
+
+tput cup $display_row $((cart_start_col + 1))       
         # Show base components first (removed the count from here)
         ((display_row++))
-        if [[ $display_row -lt $((content_height + 5)) ]]; then
-            tput cup $display_row $((catalog_width + 4))
+        if [[ $display_row -lt $((content_height + 4)) ]]; then  # Changed from +5
+            tput cup $display_row $((cart_start_col + 1))
             printf "%b%s Base Development Tools %s%b" "$CART_BASE_CATEGORY_STYLE" "$BOX_SEPARATOR" "$BOX_SEPARATOR" "$STYLE_RESET"
             ((display_row++))
         fi
@@ -1056,8 +1062,8 @@ select_components() {
         )
         
         for base_comp in "${base_components[@]}"; do
-            if [[ $display_row -lt $((content_height + 5)) ]]; then
-                tput cup $display_row $((catalog_width + 4))
+            if [[ $display_row -lt $((content_height + 4)) ]]; then  # Changed from +5
+                tput cup $display_row $((cart_start_col + 1))
                 printf "  %b%s%b" "$CART_BASE_ITEM_STYLE" "$base_comp" "$STYLE_RESET"
                 ((display_row++))
             fi
@@ -1077,16 +1083,16 @@ select_components() {
                     if [[ "${component_categories[$idx]}" == "$category" ]]; then
                         if [[ $category_has_items == false ]]; then
                             ((display_row++))
-                            if [[ $display_row -lt $((content_height + 5)) ]]; then
-                                tput cup $display_row $((catalog_width + 4))
+                            if [[ $display_row -lt $((content_height + 4)) ]]; then  # Changed from +5
+                                tput cup $display_row $((cart_start_col + 1))
                                 printf "%b%s %s %s%b" "$CART_CATEGORY_STYLE" "$BOX_SEPARATOR" "$category_display" "$BOX_SEPARATOR" "$STYLE_RESET"
                                 ((display_row++))
                                 category_has_items=true
                             fi
                         fi
                         
-                        if [[ $display_row -lt $((content_height + 5)) ]]; then
-                            tput cup $display_row $((catalog_width + 4))
+                        if [[ $display_row -lt $((content_height + 4)) ]]; then  # Changed from +5
+                            tput cup $display_row $((cart_start_col + 1))
                             
                             # Cursor
                             if [[ $view == "cart" && $cart_display_count -eq $cart_cursor ]]; then
@@ -1123,7 +1129,7 @@ select_components() {
         # Redraw the Build Stack box bottom border with the count
         if [[ -n "$bottom_text" ]]; then
             local x=$((catalog_width + 2))
-            local y=$((content_height + 5))
+            local y=$((content_height + 4))  # Changed from +5
             local width=$cart_width
             
             tput cup $y $x
@@ -1153,19 +1159,43 @@ select_components() {
         if [[ $screen_initialized == false ]]; then
             clear
             
-            # Title
+            # Title with gradient effect using vertical bars throughout
             local title="AI DevKit Pod Configurator"
-            draw_separator $term_width 0 "$GLOBAL_SEPARATOR_COLOR"
-            print_centered "$title" $term_width 1 "$GLOBAL_TITLE_STYLE"
-            draw_separator $term_width 2 "$GLOBAL_SEPARATOR_COLOR"
-            
+            local title_len=${#title}
+            local padding_each_side=$(( (term_width - title_len - 2) / 2 ))  # -2 for spaces around title
+            local extra_padding=$(( (term_width - title_len - 2) % 2 ))
+
+            # Create gradient array
+            local gradient_colors=("$COLOR_CYAN" "$COLOR_BLUE" "$COLOR_LAVENDER" "$COLOR_MAGENTA")
+            local gradient_len=${#gradient_colors[@]}
+
+            # Move cursor to row 1
+            tput cup 1 0
+
+            # Left side with gradient using vertical bars
+            for ((i=0; i<padding_each_side; i++)); do
+                local color_idx=$((i * gradient_len / padding_each_side))
+                [[ $color_idx -ge $gradient_len ]] && color_idx=$((gradient_len - 1))
+                printf "%b%s" "${gradient_colors[$color_idx]}" "$BOX_VERTICAL"
+            done
+
+            # Title
+            printf " %b%s%b " "$BOLD_WHITE" "$title" "$STYLE_RESET"
+
+            # Right side with reverse gradient using vertical bars
+            for ((i=padding_each_side+extra_padding; i>0; i--)); do
+                local color_idx=$((i * gradient_len / (padding_each_side + extra_padding)))
+                [[ $color_idx -ge $gradient_len ]] && color_idx=$((gradient_len - 1))
+                printf "%b%s" "${gradient_colors[$color_idx]}" "$BOX_VERTICAL"
+            done
+            printf "%b\n" "$STYLE_RESET" 
+
+            # Add some spacing
             echo ""
-            draw_box 0 4 $catalog_width $((content_height + 2)) "Available Components" "" "$CATALOG_BORDER_COLOR" "$CATALOG_TITLE_STYLE"
-            draw_box $((catalog_width + 2)) 4 $cart_width $((content_height + 2)) "Build Stack" "" "$CART_BORDER_COLOR" "$CART_TITLE_STYLE"
             
-            # Instructions separator
-            draw_separator $term_width $((term_height - 2)) "$INSTRUCTION_SEPARATOR_COLOR"
-            
+            # Draw boxes (now at row 3 instead of row 4)
+            draw_box 0 3 $catalog_width $((content_height + 2)) "Available Components" "" "$CATALOG_BORDER_COLOR" "$CATALOG_TITLE_STYLE"
+            draw_box $cart_start_col 3 $cart_width $((content_height + 2)) "Build Stack" "" "$CART_BORDER_COLOR" "$CART_TITLE_STYLE" 
             screen_initialized=true
         fi
         
@@ -1216,6 +1246,24 @@ select_components() {
         if [[ $last_view != $view ]]; then
             tput cup $((term_height - 1)) 0
             tput el
+            
+            # Build the instruction text based on view
+            local instruction_text=""
+            if [[ $view == "catalog" ]]; then
+                # Create the instruction text with embedded formatting
+                instruction_text="↑↓/jk: Navigate  ←→/hl: Page  SPACE: Add to stack  TAB: Switch to stack  ENTER: Build  q: Cancel"
+            else
+                instruction_text="↑↓/jk: Navigate  DEL/d: Remove  TAB: Switch to catalog  ENTER: Build  q: Cancel"
+            fi
+            
+            # Calculate center position
+            local text_len=${#instruction_text}
+            local start_pos=$(( (term_width - text_len) / 2 ))
+            
+            # Move to center position
+            tput cup $((term_height - 1)) $start_pos
+            
+            # Print with formatting
             if [[ $view == "catalog" ]]; then
                 printf "%b↑↓/jk:%b Navigate  %b←→/hl:%b Page  %bSPACE:%b Add to stack  %bTAB:%b Switch to stack  %bENTER:%b Build  %bq:%b Cancel" \
                     "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
@@ -1232,18 +1280,18 @@ select_components() {
                     "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
                     "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE"
             fi
-        fi
+        fi 
         
         # Display hint message
         if [[ $hint_timer -gt 0 ]]; then
-            tput cup 3 0
+            tput cup 2 0  # Changed from 3 to 2
             tput el
             local hint_pos=$(( (term_width - ${#hint_message}) / 2 ))
-            tput cup 3 $hint_pos
+            tput cup 2 $hint_pos  # Changed from 3 to 2
             printf "%b%s%b" "$GLOBAL_HINT_STYLE" "$hint_message" "$STYLE_RESET"
             ((hint_timer--))
         elif [[ $hint_timer -eq 0 && -n "$hint_message" ]]; then
-            tput cup 3 0
+            tput cup 2 0  # Changed from 3 to 2
             tput el
             hint_message=""
         fi
