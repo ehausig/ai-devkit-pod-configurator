@@ -1558,16 +1558,19 @@ extract_entrypoint_setup() {
         if [[ $in_entrypoint_setup == true ]]; then
             # Remove the first 2 spaces of YAML indentation
             if [[ "$line" =~ ^"  " ]]; then
-                entrypoint_content+="${line:2}"\n'
+                entrypoint_content+="${line:2}"$'\n'
             elif [[ -z "$line" ]]; then
                 # Preserve empty lines
-                entrypoint_content+=\n'
+                entrypoint_content+=$'\n'
             fi
         fi
     done < "$yaml_file"
     
-    # Trim trailing newlines
-    entrypoint_content=$(echo -n "$entrypoint_content" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}')
+    # Trim trailing newlines but keep the content intact
+    # Don't use complex sed operations that might corrupt the content
+    while [[ "$entrypoint_content" =~ $'\n'$ ]]; do
+        entrypoint_content="${entrypoint_content%$'\n'}"
+    done
     
     echo "$entrypoint_content"
 }
