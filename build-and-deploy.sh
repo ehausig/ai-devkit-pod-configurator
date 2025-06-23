@@ -1128,7 +1128,7 @@ tput cup $display_row $((cart_start_col + 1))
         
         # Redraw the Build Stack box bottom border with the count
         if [[ -n "$bottom_text" ]]; then
-            local x=$((catalog_width + 2))
+            local x=$cart_start_col  # Changed from $((catalog_width + 2))
             local y=$((content_height + 4))  # Changed from +5
             local width=$cart_width
             
@@ -1149,7 +1149,7 @@ tput cup $display_row $((cart_start_col + 1))
             done
             
             printf "%b%s%b" "$CART_BORDER_COLOR" "$BOX_BOTTOM_RIGHT" "$STYLE_RESET"
-        fi
+        fi 
     } 
     
     # ========== MAIN DISPLAY LOOP ==========
