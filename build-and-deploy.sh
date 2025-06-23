@@ -410,7 +410,8 @@ select_components() {
             local title_len=${#title}
             local title_pos=$(( (width - title_len - 2) / 2 ))
             tput cup $y $((x + title_pos))
-            echo -ne "┤ $title ├"
+            #echo -ne "┤ $title ├"
+            echo -ne "\033[1;37m┤ $title ├\033[0m"
         fi
         
         for ((i=1; i<height-1; i++)); do
@@ -514,9 +515,9 @@ select_components() {
                     printf "\033[0;90m○\033[0m "
                     available=false
                 elif [[ -n "${requires[$idx]}" ]] && [[ "${requires[$idx]}" != "[]" ]] && ! requirements_met "${requires[$idx]}"; then
-                    printf "\033[1;33m○\033[0m "
-                    status="(needs ${requires[$idx]})"
-                    status_color="\033[1;33m"
+                    printf "\033[0;33m○\033[0m "
+                    status="* ${requires[$idx]} required"
+                    status_color="\033[0;33m"
                 else
                     printf "○ "
                 fi
@@ -654,13 +655,13 @@ select_components() {
                     fi
                 done
             done
-        else
+        #else
             # Show message when no additional components selected
-            ((display_row++))
-            if [[ $display_row -lt $((content_height + 5)) ]]; then
-                tput cup $display_row $((catalog_width + 4))
-                printf "%b(No additional components selected)%b" "${YELLOW}" "${NC}"
-            fi
+        #    ((display_row++))
+        #    if [[ $display_row -lt $((content_height + 5)) ]]; then
+        #        tput cup $display_row $((catalog_width + 4))
+        #        printf "%b(No additional components selected)%b" "${YELLOW}" "${NC}"
+        #    fi
         fi
     }
     
