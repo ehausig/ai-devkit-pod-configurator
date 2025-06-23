@@ -1619,8 +1619,12 @@ extract_installation_from_yaml() {
     local full_content="$dockerfile_content"
     if [[ -n "$nexus_content" ]]; then
         # The nexus_config should already be properly formatted in the YAML
-        # Just wrap it in RUN
-        full_content+=$'\n'"# Nexus configuration"$'\n'"RUN ${nexus_content}"
+        # Just wrap it in RUN - but be careful with the newline
+        if [[ -n "$full_content" ]]; then
+            full_content+=$'\n'
+        fi
+        full_content+="# Nexus configuration"$'\n'
+        full_content+="RUN ${nexus_content}"
     fi
     
     printf "%s" "$full_content"
@@ -1715,7 +1719,7 @@ create_custom_dockerfile() {
     # Execute pre-build scripts
     execute_pre_build_scripts
     
-    # Create placeholder files if they do not exist (for when no components are selected)
+    # Create placeholder files if they don't exist (for when no components are selected)
     touch "$TEMP_DIR/user-CLAUDE.md" 2>/dev/null || true
     touch "$TEMP_DIR/component-imports.txt" 2>/dev/null || true
     
@@ -1737,28 +1741,39 @@ create_custom_dockerfile() {
         # Extract installation commands
         local install_cmds=$(extract_installation_from_yaml "$yaml_file")
         if [[ -n "$install_cmds" ]]; then
-            installation_content+=\n'"# From $yaml_file"\n'
-            installation_content+="$install_cmds"\n'
+            if [[ -n "$installation_content" ]]; then
+                installation_content+=$'\n'
+            fi
+            installation_content+="# From $yaml_file"$'\n'
+            installation_content+="$install_cmds"
         fi
         
         # Extract inject_files directives
         local inject_cmds=$(extract_inject_files_from_yaml "$yaml_file")
         if [[ -n "$inject_cmds" ]]; then
-            inject_files_content+=\n'"# Files injected by $component_name"\n'
+            if [[ -n "$inject_files_content" ]]; then
+                inject_files_content+=$'\n'
+            fi
+            inject_files_content+="# Files injected by $component_name"$'\n'
             inject_files_content+="$inject_cmds"
         fi
         
         # Extract entrypoint setup
         local entrypoint_cmds=$(extract_entrypoint_setup "$yaml_file")
         if [[ -n "$entrypoint_cmds" ]]; then
-            entrypoint_setup_content+=\n'"# Setup for $component_name"\n'
-            entrypoint_setup_content+="$entrypoint_cmds"\n'
+            if [[ -n "$entrypoint_setup_content" ]]; then
+                entrypoint_setup_content+=$'\n'
+            fi
+            entrypoint_setup_content+="# Setup for $component_name"$'\n'
+            entrypoint_setup_content+="$entrypoint_cmds"
         fi
     done
     
     # Insert installations
     if [[ -n "$installation_content" ]]; then
-        echo -e "$installation_content" > "$TEMP_DIR/installations.txt"
+        # Remove any trailing newlines to avoid parse errors
+        installation_content=$(echo -n "$installation_content")
+        echo "$installation_content" > "$TEMP_DIR/installations.txt"
         sed -i.bak "/# LANGUAGE_INSTALLATIONS_PLACEHOLDER/r $TEMP_DIR/installations.txt" "$TEMP_DIR/Dockerfile"
         sed -i.bak "/# LANGUAGE_INSTALLATIONS_PLACEHOLDER/d" "$TEMP_DIR/Dockerfile"
         rm -f "$TEMP_DIR/Dockerfile.bak" "$TEMP_DIR/installations.txt"
@@ -1769,8 +1784,10 @@ create_custom_dockerfile() {
     
     # Insert file injections before volume declarations
     if [[ -n "$inject_files_content" ]]; then
-        echo -e "$inject_files_content" > "$TEMP_DIR/inject_files.txt"
-        # Insert before the VOLUME declaration
+        # Remove any trailing newlines
+        inject_files_content=$(echo -n "$inject_files_content")
+        echo "$inject_files_content" > "$TEMP_DIR/inject_files.txt"
+        # Insert before the VOLUME declaration - add a blank line first
         sed -i.bak '/^# Set up volume mount points/i\
 ' "$TEMP_DIR/Dockerfile"
         sed -i.bak "/^# Set up volume mount points/r $TEMP_DIR/inject_files.txt" "$TEMP_DIR/Dockerfile"
@@ -1780,7 +1797,7 @@ create_custom_dockerfile() {
     # Now modify the generated entrypoint.sh with component setup
     if [[ -n "$entrypoint_setup_content" ]]; then
         # Create temporary file with the setup content
-        echo -e "$entrypoint_setup_content" > "$TEMP_DIR/entrypoint_setup.txt"
+        echo "$entrypoint_setup_content" > "$TEMP_DIR/entrypoint_setup.txt"
         
         # Insert the setup content at the placeholder
         sed -i.bak "/# COMPONENT_SETUP_PLACEHOLDER/r $TEMP_DIR/entrypoint_setup.txt" "$TEMP_DIR/entrypoint.sh"
@@ -1832,14 +1849,8 @@ create_git_config_secret() {
     kubectl create secret generic git-config -n ${NAMESPACE} $secret_args >/dev/null 2>&1
 }
 
-# Main execution
-main() {
-    # Initialize log file
-    echo "Build started at $(date)" > "$LOG_FILE"
-    echo "=================================================================================" >> "$LOG_FILE"
-    
-    log "=== Starting AI DevKit Pod Configurator ==="
-    
+# Function to validate environment
+validate_environment() {
     check_deps
     
     [[ ! -d "$COMPONENTS_DIR" ]] && error "Components directory '$COMPONENTS_DIR' not found"
@@ -1854,12 +1865,11 @@ main() {
     kubectl get nodes &> /dev/null || error "Kubernetes is not accessible. Please make sure Colima started with --kubernetes flag"
     
     success "Colima with Kubernetes is running and accessible"
-    
-    # Generate SSH host keys
-    generate_ssh_host_keys
-    
+}
+
+# Function to initialize component system
+initialize_components() {
     # Load categories for use in generate_claude_md
-    # This is a bit hacky but necessary since we need the category display names
     local component_data=$(load_components)
     local categories_line=$(echo "$component_data" | sed -n '1p')
     
@@ -1883,7 +1893,10 @@ main() {
             category_names+=("$line")
         fi
     done <<< "$component_data"
-    
+}
+
+# Function to setup configuration options
+setup_configuration() {
     # Check for host git configuration
     USE_HOST_GIT_CONFIG=false
     if check_host_git_config; then
@@ -1901,10 +1914,10 @@ main() {
         export DOCKER_BUILDKIT=0
         export NEXUS_BUILD_ARGS="--build-arg PIP_INDEX_URL=http://host.lima.internal:8081/repository/pypi-proxy/simple --build-arg PIP_TRUSTED_HOST=host.lima.internal --build-arg NPM_REGISTRY=http://host.lima.internal:8081/repository/npm-proxy/ --build-arg GOPROXY=http://host.lima.internal:8081/repository/go-proxy/ --build-arg USE_NEXUS_APT=true --build-arg NEXUS_APT_URL=http://host.lima.internal:8081"
     fi
-    
-    # Component selection
-    [[ ! "$1" =~ --no-select && ! "$2" =~ --no-select ]] && select_components
-    
+}
+
+# Function to cleanup previous build
+cleanup_previous_build() {
     # Clean up only AFTER user confirms they want to build
     if [[ -d "$TEMP_DIR" ]]; then
         log "Cleaning up previous build directory..."
@@ -1915,8 +1928,10 @@ main() {
     log "Removing previous deployment..."
     kubectl delete deployment ai-devkit -n ${NAMESPACE} --ignore-not-found=true >> "$LOG_FILE" 2>&1
     docker rmi ${IMAGE_NAME}:${IMAGE_TAG} >> "$LOG_FILE" 2>&1 || true
-    
-    # Create base components
+}
+
+# Function to build Docker image
+build_docker_image() {
     log "Creating custom Dockerfile..."
     echo -e "\nDockerfile generation output:" >> "$LOG_FILE"
     echo "=================================================================================" >> "$LOG_FILE"
@@ -1942,8 +1957,10 @@ main() {
     fi
     cd ..
     success "Docker image built (detailed log in $LOG_FILE)"
-    
-    # Deploy
+}
+
+# Function to deploy to Kubernetes
+deploy_to_kubernetes() {
     log "Deploying to Kubernetes..."
     echo -e "\nKubernetes deployment output:" >> "$LOG_FILE"
     echo "=================================================================================" >> "$LOG_FILE"
@@ -1972,8 +1989,10 @@ main() {
     kubectl wait --for=condition=available --timeout=120s deployment/ai-devkit -n ${NAMESPACE} >> "$LOG_FILE" 2>&1
     
     POD_NAME=$(kubectl get pods -n ${NAMESPACE} -l app=ai-devkit -o jsonpath="{.items[0].metadata.name}")
-    
-    # Start port forwarding automatically
+}
+
+# Function to setup port forwarding
+setup_port_forwarding() {
     log "Setting up port forwarding..."
     pkill -f 'kubectl.*port-forward.*ai-devkit' 2>/dev/null || true
     sleep 1
@@ -1985,7 +2004,10 @@ main() {
     if ! ps -p $PORT_FORWARD_PID > /dev/null 2>&1; then
         error "Port forwarding failed to start - check $LOG_FILE for details"
     fi
-    
+}
+
+# Function to display connection instructions
+display_connection_instructions() {
     success "=== Deployment Complete ==="
     echo ""
     
@@ -2021,6 +2043,45 @@ main() {
     style_line "$COLOR_GRAY" "Stop port forwarding: kill $PORT_FORWARD_PID"
     echo ""
     style_line "$COLOR_GRAY" "Build log saved to: $LOG_FILE"
+}
+
+# Refactored main function
+main() {
+    # Initialize log file
+    echo "Build started at $(date)" > "$LOG_FILE"
+    echo "=================================================================================" >> "$LOG_FILE"
+    
+    log "=== Starting AI DevKit Pod Configurator ==="
+    
+    # Validate environment
+    validate_environment
+    
+    # Generate SSH host keys
+    generate_ssh_host_keys
+    
+    # Initialize component system
+    initialize_components
+    
+    # Setup configuration options
+    setup_configuration
+    
+    # Component selection
+    [[ ! "$1" =~ --no-select && ! "$2" =~ --no-select ]] && select_components
+    
+    # Clean up previous build
+    cleanup_previous_build
+    
+    # Build Docker image
+    build_docker_image
+    
+    # Deploy to Kubernetes
+    deploy_to_kubernetes
+    
+    # Setup port forwarding
+    setup_port_forwarding
+    
+    # Display connection instructions
+    display_connection_instructions
 }
 
 # Run main
