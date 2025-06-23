@@ -1284,18 +1284,18 @@ select_components() {
         
         # Display hint message
         if [[ $hint_timer -gt 0 ]]; then
-            tput cup 2 0  # Changed from 3 to 2
+            tput cup $((content_height + 5)) 0  # Changed from 2 to position below boxes
             tput el
             local hint_pos=$(( (term_width - ${#hint_message}) / 2 ))
-            tput cup 2 $hint_pos  # Changed from 3 to 2
+            tput cup $((content_height + 5)) $hint_pos  # Changed from 2
             printf "%b%s%b" "$GLOBAL_HINT_STYLE" "$hint_message" "$STYLE_RESET"
             ((hint_timer--))
         elif [[ $hint_timer -eq 0 && -n "$hint_message" ]]; then
-            tput cup 2 0  # Changed from 3 to 2
+            tput cup $((content_height + 5)) 0  # Changed from 2
             tput el
             hint_message=""
-        fi
-        
+        fi        
+
         # Save state
         last_current=$current
         last_cart_cursor=$cart_cursor
