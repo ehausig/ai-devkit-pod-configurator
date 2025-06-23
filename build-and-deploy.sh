@@ -1576,38 +1576,93 @@ select_components() {
     
     # Build final selections - Summary Screen
     local term_width=$(tput cols)
-    
-    # Header
-    draw_separator $term_width 0 "$SUMMARY_BORDER_COLOR"
-    local title="AI DevKit Pod Configurator - Deployment Manifest"
-    print_centered "$title" $term_width 1 "$SUMMARY_TITLE_STYLE"
-    draw_separator $term_width 2 "$SUMMARY_BORDER_COLOR"
-    
+
+    # Clear screen
+    clear
+
+    # Title with gradient effect and vertical bars (same as main menu)
+    local title="AI DevKit Pod Configurator"  # Changed back to match main menu
+    local title_len=${#title}
+    local padding_each_side=$(( (term_width - title_len - 2) / 2 ))
+    local extra_padding=$(( (term_width - title_len - 2) % 2 ))
+
+    # Create gradient array
+    local gradient_colors=("$COLOR_CYAN" "$COLOR_BLUE" "$COLOR_LAVENDER" "$COLOR_MAGENTA")
+    local gradient_len=${#gradient_colors[@]}
+
+    # Move cursor to row 1
+    tput cup 1 0
+
+    # Left side with gradient using vertical bars
+    for ((i=0; i<padding_each_side; i++)); do
+        local color_idx=$((i * gradient_len / padding_each_side))
+        [[ $color_idx -ge $gradient_len ]] && color_idx=$((gradient_len - 1))
+        printf "%b%s" "${gradient_colors[$color_idx]}" "$BOX_VERTICAL"
+    done
+
+    # Title
+    printf " %b%s%b " "$BOLD_WHITE" "$title" "$STYLE_RESET"
+
+    # Right side with reverse gradient using vertical bars
+    for ((i=padding_each_side+extra_padding; i>0; i--)); do
+        local color_idx=$((i * gradient_len / (padding_each_side + extra_padding)))
+        [[ $color_idx -ge $gradient_len ]] && color_idx=$((gradient_len - 1))
+        printf "%b%s" "${gradient_colors[$color_idx]}" "$BOX_VERTICAL"
+    done
+    printf "%b\n" "$STYLE_RESET"
+
+    # Add spacing
     echo ""
-    echo ""
-    
+
+    # Calculate box dimensions
+    local box_width=$((term_width - 4))  # Leave 2 spaces on each side
+    local box_height=$((term_height - 8)) # Leave room for title, spacing, and prompt
+
+    # Draw the summary box
+    draw_box 2 3 $box_width $box_height "Deployment Manifest" "" "$SUMMARY_BORDER_COLOR" "$SUMMARY_TITLE_STYLE"  # Changed box title
+   
+
+    # Start content inside the box
+    local content_row=5  # Start 2 rows inside the box for spacing
+
     # Always show base components first
+    tput cup $content_row 4
     style_line "$SUMMARY_SECTION_STYLE" "Base Development Tools (included in all builds):"
-    echo ""
-    style_line "$SUMMARY_CATEGORY_STYLE" "  ${BOX_SEPARATOR} Base Development Tools ${BOX_SEPARATOR}"
-    echo -e "    ${SUMMARY_CHECKMARK_COLOR}${ICON_CHECKMARK}${STYLE_RESET} Filebrowser (port 8090)"
-    echo -e "    ${SUMMARY_CHECKMARK_COLOR}${ICON_CHECKMARK}${STYLE_RESET} Git"
-    echo -e "    ${SUMMARY_CHECKMARK_COLOR}${ICON_CHECKMARK}${STYLE_RESET} GitHub CLI (gh)"
-    echo -e "    ${SUMMARY_CHECKMARK_COLOR}${ICON_CHECKMARK}${STYLE_RESET} Microsoft TUI Test"
-    echo -e "    ${SUMMARY_CHECKMARK_COLOR}${ICON_CHECKMARK}${STYLE_RESET} Node.js 20.18.0" 
-    echo -e "    ${SUMMARY_CHECKMARK_COLOR}${ICON_CHECKMARK}${STYLE_RESET} SSH Server (port 2222)"
-    
+    ((content_row+=2))
+
+    tput cup $content_row 6
+    style_line "$SUMMARY_CATEGORY_STYLE" "Base Development Tools"
+    ((content_row++))
+
+    # Base components with checkmarks
+    local base_items=(
+        "Filebrowser (port 8090)"
+        "Git"
+        "GitHub CLI (gh)"
+        "Microsoft TUI Test"
+        "Node.js 20.18.0"
+        "SSH Server (port 2222)"
+    )
+
+    for item in "${base_items[@]}"; do
+        tput cup $content_row 8
+        echo -e "${SUMMARY_CHECKMARK_COLOR}${ICON_CHECKMARK}${STYLE_RESET} ${item}"
+        ((content_row++))
+    done
+
     # Count selections
     local selection_count=0
     for i in "${!in_cart[@]}"; do
         [[ "${in_cart[$i]}" == true ]] && ((selection_count++))
     done
-    
+
     if [[ $selection_count -eq 0 ]]; then
-        echo ""
+        ((content_row+=2))
+        tput cup $content_row 4
         style_line "$LOG_WARNING_STYLE" "No additional components selected"
     else
-        echo ""
+        ((content_row+=2))
+        tput cup $content_row 4
         style_line "$SUMMARY_COUNT_STYLE" "Additional components selected: $selection_count"
         
         # Store selections
@@ -1627,12 +1682,16 @@ select_components() {
             for i in "${!ids[@]}"; do
                 if [[ "${in_cart[$i]}" == true ]] && [[ "${component_categories[$i]}" == "$category" ]]; then
                     if [[ $category_has_items == false ]]; then
-                        echo ""
-                        style_line "$SUMMARY_CATEGORY_STYLE" "  ${BOX_SEPARATOR} ${category_display} ${BOX_SEPARATOR}"
+                        ((content_row+=2))
+                        tput cup $content_row 6
+                        style_line "$SUMMARY_CATEGORY_STYLE" "$category_display"
+                        ((content_row++))
                         category_has_items=true
                     fi
                     
-                    echo -e "    ${SUMMARY_CHECKMARK_COLOR}${ICON_CHECKMARK}${STYLE_RESET} ${names[$i]}"
+                    tput cup $content_row 8
+                    echo -e "${SUMMARY_CHECKMARK_COLOR}${ICON_CHECKMARK}${STYLE_RESET} ${names[$i]}"
+                    ((content_row++))
                     
                     # Store selection details
                     SELECTED_YAML_FILES+=("${yaml_files[$i]}")
@@ -1645,26 +1704,22 @@ select_components() {
             done
         done
     fi
-    
-    echo ""
-    echo ""
-    
-    # Separator
-    for ((i=0; i<term_width; i++)); do 
-        printf "%b%s%b" "$SUMMARY_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
-    done
-    echo ""
-    
+
+    # Position prompt below the box
+    local prompt_row=$((box_height + 5))
+    tput cup $prompt_row 4
     log "Ready to build with this configuration?"
+    tput cup $((prompt_row + 1)) 4
     printf "Press %bENTER%b to continue or %b'q'%b to quit: " \
         "$LOG_SUCCESS_STYLE" "$STYLE_RESET" \
         "$LOG_ERROR_STYLE" "$STYLE_RESET"
     read -r CONFIRM
-    
+
     [[ "$CONFIRM" =~ ^[qQ]$ ]] && log "Build cancelled." && exit 0
+
+    set -e   
     
-    set -e
-}
+ }
 
 # Global variables for selected items
 declare -a SELECTED_YAML_FILES
