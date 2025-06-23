@@ -20,7 +20,7 @@ spec:
       containers:
       # Main Claude Code container
       - name: ai-devkit
-        image: claude-code:latest
+        image: ai-devkit:latest
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 22
