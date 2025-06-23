@@ -346,7 +346,7 @@ select_components() {
             fi
             
             # Handle mutually exclusive groups
-            if [[ "${groups[$index]}" == *"-version" ]]; then
+            #if [[ "${groups[$index]}" == *"-version" ]]; then
                 for j in "${!groups[@]}"; do
                     if [[ "${groups[$j]}" == "${groups[$index]}" ]] && [[ $j -ne $index ]] && [[ "${in_cart[$j]}" == true ]]; then
                         in_cart[$j]=false
@@ -354,7 +354,7 @@ select_components() {
                         hint_timer=30
                     fi
                 done
-            fi
+            #fi
             
             in_cart[$index]=true
             [[ -z "$hint_message" ]] && hint_message="✓ Added ${names[$index]} to stack" && hint_timer=20
@@ -511,7 +511,8 @@ select_components() {
                     printf "\033[0;32m✓\033[0m "
                     status="(in stack)"
                     status_color="\033[0;32m"
-                elif [[ "${groups[$idx]}" == *"-version" ]] && has_group_in_cart "${groups[$idx]}"; then
+                #elif [[ "${groups[$idx]}" == *"-version" ]] && has_group_in_cart "${groups[$idx]}"; then
+                elif has_group_in_cart "${groups[$idx]}"; then
                     printf "\033[0;90m○\033[0m "
                     available=false
                 elif [[ -n "${requires[$idx]}" ]] && [[ "${requires[$idx]}" != "[]" ]] && ! requirements_met "${requires[$idx]}"; then
