@@ -1,8 +1,8 @@
 id: KOTLIN
 name: Kotlin
 version: "1.9.22"
-group: kotlin-version
-requires: java-version
+group: kotlin
+requires: java
 description: Modern programming language for JVM and Android development
 installation:
   dockerfile: |

@@ -1,7 +1,7 @@
 id: JAVA_11_ADOPTIUM
 name: Java 11 (Eclipse Adoptium)
 version: "11"
-group: java-version
+group: java
 requires: []
 description: Eclipse Adoptium Temurin 11 JDK
 installation:

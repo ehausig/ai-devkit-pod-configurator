@@ -1,7 +1,7 @@
 id: JAVA_17_ADOPTIUM
 name: Java 17 (Eclipse Adoptium)
 version: "17"
-group: java-version
+group: java
 requires: []
 description: Eclipse Adoptium Temurin 17 JDK
 installation:

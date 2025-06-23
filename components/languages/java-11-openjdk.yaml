@@ -1,7 +1,7 @@
 id: JAVA_11_OPENJDK
 name: Java 11 (OpenJDK)
 version: "11"
-group: java-version
+group: java
 requires: []
 description: OpenJDK 11 - Open source Java implementation
 installation:

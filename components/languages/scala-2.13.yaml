@@ -2,7 +2,7 @@ id: SCALA_2_13
 name: Scala 2.13
 version: "2.13.12"
 group: scala-version
-requires: java-version
+requires: java
 description: Scala 2.13 - Object-oriented and functional programming language
 installation:
   dockerfile: |

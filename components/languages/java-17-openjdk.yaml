@@ -1,7 +1,7 @@
 id: JAVA_17_OPENJDK
 name: Java 17 (OpenJDK)
 version: "17"
-group: java-version
+group: java
 requires: []
 description: OpenJDK 17 - Open source Java implementation
 installation:
