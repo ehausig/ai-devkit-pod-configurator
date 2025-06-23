@@ -387,6 +387,90 @@ load_components() {
     done
 }
 
+# ============================================================================
+# UI DRAWING FUNCTIONS
+# ============================================================================
+
+# Function to draw a box with optional title and bottom text
+draw_box() {
+    local x=$1 y=$2 width=$3 height=$4 title=$5 bottom_text=$6
+    
+    tput cup $y $x
+    printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_TOP_LEFT" "$STYLE_RESET"
+    for ((i=0; i<width-2; i++)); do 
+        printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
+    done
+    printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_TOP_RIGHT" "$STYLE_RESET"
+    
+    if [[ -n "$title" ]]; then
+        local title_len=${#title}
+        local title_pos=$(( (width - title_len - 2) / 2 ))
+        tput cup $y $((x + title_pos))
+        printf "%b%s%b %b%s%b %b%s%b" \
+            "$MENU_BORDER_COLOR" "$BOX_TITLE_LEFT" "$STYLE_RESET" \
+            "$MENU_TITLE_STYLE" "$title" "$STYLE_RESET" \
+            "$MENU_BORDER_COLOR" "$BOX_TITLE_RIGHT" "$STYLE_RESET"
+    fi
+    
+    for ((i=1; i<height-1; i++)); do
+        tput cup $((y + i)) $x
+        printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_VERTICAL" "$STYLE_RESET"
+        tput cup $((y + i)) $((x + width - 1))
+        printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_VERTICAL" "$STYLE_RESET"
+    done
+    
+    tput cup $((y + height - 1)) $x
+    printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_BOTTOM_LEFT" "$STYLE_RESET"
+    
+    if [[ -n "$bottom_text" ]]; then
+        local text_len=${#bottom_text}
+        local center_pos=$(( (width - text_len - 4) / 2 ))
+        
+        for ((i=0; i<center_pos; i++)); do 
+            printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
+        done
+        printf " %b%s%b " "$MENU_PAGE_INDICATOR_STYLE" "$bottom_text" "$STYLE_RESET"
+        for ((i=0; i<width-center_pos-text_len-6; i++)); do 
+            printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
+        done
+    else
+        for ((i=0; i<width-2; i++)); do 
+            printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
+        done
+    fi
+    
+    printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_BOTTOM_RIGHT" "$STYLE_RESET"
+}
+
+# Function to draw a horizontal separator line
+draw_separator() {
+    local width=$1
+    local y=$2
+    
+    tput cup $y 0
+    for ((i=0; i<width; i++)); do 
+        printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_SEPARATOR" "$STYLE_RESET"
+    done
+}
+
+# Function to center text on a line
+print_centered() {
+    local text=$1
+    local width=$2
+    local y=$3
+    local style=$4
+    
+    local text_len=${#text}
+    local x=$(( (width - text_len) / 2 ))
+    
+    tput cup $y $x
+    printf "%b%s%b" "$style" "$text" "$STYLE_RESET"
+}
+
+# ============================================================================
+# COMPONENT SELECTION MENU
+# ============================================================================
+
 # Function to display component selection menu
 select_components() {
     set +e  # Do not exit on error
@@ -506,6 +590,8 @@ select_components() {
     local force_cart_update=false
     local force_catalog_update=false
     
+    # ========== INTERNAL FUNCTIONS (need access to local state) ==========
+    
     # Function to check if a group has items in cart
     has_group_in_cart() {
         local check_group=$1
@@ -596,57 +682,6 @@ select_components() {
         fi
     }
     
-    # Function to draw a box
-    draw_box() {
-        local x=$1 y=$2 width=$3 height=$4 title=$5 bottom_text=$6
-        
-        tput cup $y $x
-        printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_TOP_LEFT" "$STYLE_RESET"
-        for ((i=0; i<width-2; i++)); do 
-            printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
-        done
-        printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_TOP_RIGHT" "$STYLE_RESET"
-        
-        if [[ -n "$title" ]]; then
-            local title_len=${#title}
-            local title_pos=$(( (width - title_len - 2) / 2 ))
-            tput cup $y $((x + title_pos))
-            printf "%b%s%b %b%s%b %b%s%b" \
-                "$MENU_BORDER_COLOR" "$BOX_TITLE_LEFT" "$STYLE_RESET" \
-                "$MENU_TITLE_STYLE" "$title" "$STYLE_RESET" \
-                "$MENU_BORDER_COLOR" "$BOX_TITLE_RIGHT" "$STYLE_RESET"
-        fi
-        
-        for ((i=1; i<height-1; i++)); do
-            tput cup $((y + i)) $x
-            printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_VERTICAL" "$STYLE_RESET"
-            tput cup $((y + i)) $((x + width - 1))
-            printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_VERTICAL" "$STYLE_RESET"
-        done
-        
-        tput cup $((y + height - 1)) $x
-        printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_BOTTOM_LEFT" "$STYLE_RESET"
-        
-        if [[ -n "$bottom_text" ]]; then
-            local text_len=${#bottom_text}
-            local center_pos=$(( (width - text_len - 4) / 2 ))
-            
-            for ((i=0; i<center_pos; i++)); do 
-                printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
-            done
-            printf " %b%s%b " "$MENU_PAGE_INDICATOR_STYLE" "$bottom_text" "$STYLE_RESET"
-            for ((i=0; i<width-center_pos-text_len-6; i++)); do 
-                printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
-            done
-        else
-            for ((i=0; i<width-2; i++)); do 
-                printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
-            done
-        fi
-        
-        printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_BOTTOM_RIGHT" "$STYLE_RESET"
-    }
-    
     # Function to get display name for category
     get_category_display_name() {
         local cat=$1
@@ -657,6 +692,28 @@ select_components() {
             fi
         done
         echo "$cat"
+    }
+    
+    # Function to get screen row for item
+    get_screen_row_for_item() {
+        local target_idx=$1
+        local row=5
+        local prev_category=""
+        
+        for ((idx=$catalog_first_visible; idx<=$catalog_last_visible && idx<=$target_idx; idx++)); do
+            local item_category="${component_categories[$idx]}"
+            
+            if [[ "$item_category" != "$prev_category" ]]; then
+                prev_category="$item_category"
+                ((row++))
+            fi
+            
+            if [[ $idx -eq $target_idx ]]; then
+                echo $row
+                return
+            fi
+            ((row++))
+        done
     }
     
     # Function to render catalog items for current page
@@ -879,7 +936,8 @@ select_components() {
         fi
     }
     
-    # Main display loop
+    # ========== MAIN DISPLAY LOOP ==========
+    
     while true; do
         # Only clear screen on first draw
         if [[ $screen_initialized == false ]]; then
@@ -887,31 +945,16 @@ select_components() {
             
             # Title
             local title="AI DevKit Pod Configurator"
-            local title_len=${#title}
-            local title_pos=$(( (term_width - title_len) / 2 ))
-            
-            tput cup 0 0
-            for ((i=0; i<term_width; i++)); do 
-                printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_SEPARATOR" "$STYLE_RESET"
-            done
-            
-            tput cup 1 $title_pos
-            printf "%b%s%b" "$MENU_TITLE_STYLE" "$title" "$STYLE_RESET"
-            
-            tput cup 2 0
-            for ((i=0; i<term_width; i++)); do 
-                printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_SEPARATOR" "$STYLE_RESET"
-            done
+            draw_separator $term_width 0
+            print_centered "$title" $term_width 1 "$MENU_TITLE_STYLE"
+            draw_separator $term_width 2
             
             echo ""
             draw_box 0 4 $catalog_width $((content_height + 2)) "Available Components"
             draw_box $((catalog_width + 2)) 4 $cart_width $((content_height + 2)) "Build Stack"
             
-            # Instructions
-            tput cup $((term_height - 2)) 0
-            for ((i=0; i<term_width; i++)); do 
-                printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
-            done
+            # Instructions separator
+            draw_separator $term_width $((term_height - 2))
             
             screen_initialized=true
         fi
@@ -938,28 +981,6 @@ select_components() {
             # Optimized cursor movement
             if [[ $current -ge $catalog_first_visible && $current -le $catalog_last_visible && 
                   $last_current -ge $catalog_first_visible && $last_current -le $catalog_last_visible ]]; then
-                
-                # Function to calculate screen row for item
-                get_screen_row_for_item() {
-                    local target_idx=$1
-                    local row=5
-                    local prev_category=""
-                    
-                    for ((idx=$catalog_first_visible; idx<=$catalog_last_visible && idx<=$target_idx; idx++)); do
-                        local item_category="${component_categories[$idx]}"
-                        
-                        if [[ "$item_category" != "$prev_category" ]]; then
-                            prev_category="$item_category"
-                            ((row++))
-                        fi
-                        
-                        if [[ $idx -eq $target_idx ]]; then
-                            echo $row
-                            return
-                        fi
-                        ((row++))
-                    done
-                }
                 
                 # Update cursor positions
                 local old_screen_row=$(get_screen_row_for_item $last_current)
@@ -1024,12 +1045,6 @@ select_components() {
         
         # Read key
         IFS= read -rsn1 key
-        
-        # Debug: Uncomment to see raw key codes
-        # if [[ -n "$key" ]]; then
-        #     hint_message="DEBUG: Key pressed: $(printf %q "$key") ($(printf '%02x' "'$key"))"
-        #     hint_timer=30
-        # fi
         
         # Handle input
         if [[ $key == $'\e' ]]; then
@@ -1304,21 +1319,10 @@ select_components() {
     local term_width=$(tput cols)
     
     # Header
-    tput cup 0 0
-    for ((i=0; i<term_width; i++)); do 
-        printf "%b%s%b" "$SUMMARY_BORDER_COLOR" "$BOX_SEPARATOR" "$STYLE_RESET"
-    done
-    
+    draw_separator $term_width 0
     local title="AI DevKit Pod Configurator - Deployment Manifest"
-    local title_len=${#title}
-    local title_pos=$(( (term_width - title_len) / 2 ))
-    tput cup 1 $title_pos
-    printf "%b%s%b" "$SUMMARY_TITLE_STYLE" "$title" "$STYLE_RESET"
-    
-    tput cup 2 0
-    for ((i=0; i<term_width; i++)); do 
-        printf "%b%s%b" "$SUMMARY_BORDER_COLOR" "$BOX_SEPARATOR" "$STYLE_RESET"
-    done
+    print_centered "$title" $term_width 1 "$SUMMARY_TITLE_STYLE"
+    draw_separator $term_width 2
     
     echo ""
     echo ""
@@ -1554,10 +1558,10 @@ extract_entrypoint_setup() {
         if [[ $in_entrypoint_setup == true ]]; then
             # Remove the first 2 spaces of YAML indentation
             if [[ "$line" =~ ^"  " ]]; then
-                entrypoint_content+="${line:2}"$'\n'
+                entrypoint_content+="${line:2}"\n'
             elif [[ -z "$line" ]]; then
                 # Preserve empty lines
-                entrypoint_content+=$'\n'
+                entrypoint_content+=\n'
             fi
         fi
     done < "$yaml_file"
@@ -1602,10 +1606,10 @@ extract_installation_from_yaml() {
             # For dockerfile content, we need to preserve the exact formatting
             # Only remove the first 4 spaces that are YAML indentation
             if [[ "$line" =~ ^"    " ]]; then
-                dockerfile_content+="${line:4}"$'\n'
+                dockerfile_content+="${line:4}"\n'
             else
                 # Handle empty lines or lines with different indentation
-                dockerfile_content+="$line"$'\n'
+                dockerfile_content+="$line"\n'
             fi
         elif [[ $in_nexus == true ]]; then
             # For nexus content, preserve it as-is after removing YAML indent
@@ -1742,7 +1746,7 @@ create_custom_dockerfile() {
         local install_cmds=$(extract_installation_from_yaml "$yaml_file")
         if [[ -n "$install_cmds" ]]; then
             if [[ -n "$installation_content" ]]; then
-                installation_content+=$'\n'
+                installation_content+=\n'
             fi
             installation_content+="# From $yaml_file"$'\n'
             installation_content+="$install_cmds"
@@ -1752,7 +1756,7 @@ create_custom_dockerfile() {
         local inject_cmds=$(extract_inject_files_from_yaml "$yaml_file")
         if [[ -n "$inject_cmds" ]]; then
             if [[ -n "$inject_files_content" ]]; then
-                inject_files_content+=$'\n'
+                inject_files_content+=\n'
             fi
             inject_files_content+="# Files injected by $component_name"$'\n'
             inject_files_content+="$inject_cmds"
@@ -1848,6 +1852,10 @@ create_git_config_secret() {
     # Create the secret
     kubectl create secret generic git-config -n ${NAMESPACE} $secret_args >/dev/null 2>&1
 }
+
+# ============================================================================
+# MAIN EXECUTION HELPER FUNCTIONS
+# ============================================================================
 
 # Function to validate environment
 validate_environment() {
