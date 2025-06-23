@@ -143,13 +143,10 @@ INSTRUCTION_KEY_STYLE="$COLOR_BRIGHT_SKY"
 INSTRUCTION_TEXT_STYLE="$COLOR_SILVER"
 
 # Summary Screen
-SUMMARY_BORDER_COLOR="$COLOR_BLUE"
-SUMMARY_TITLE_STYLE="$BOLD_YELLOW"
-SUMMARY_SECTION_STYLE="$BOLD_WHITE"
-SUMMARY_CHECKMARK_COLOR="$COLOR_GREEN"
-SUMMARY_CATEGORY_STYLE="$COLOR_BLUE"
-SUMMARY_ITEM_COLOR="$COLOR_RED"
-SUMMARY_COUNT_STYLE="$COLOR_GREEN"
+SUMMARY_BORDER_COLOR="$COLOR_SAGE"
+SUMMARY_TITLE_STYLE="$BOLD_BRIGHT_WHITE"
+SUMMARY_CHECKMARK_COLOR="$COLOR_BRIGHT_SAGE"
+SUMMARY_CATEGORY_STYLE="$COLOR_BRIGHT_SEAFOAM"
 
 # Logging
 LOG_ERROR_STYLE="$COLOR_RED"
@@ -639,6 +636,42 @@ print_centered() {
     
     tput cup $y $x
     printf "%b%s%b" "$style" "$text" "$STYLE_RESET"
+}
+
+# Function to draw the gradient title bar
+draw_gradient_title() {
+    local title="${1:-AI DevKit Pod Configurator}"  # Default title if none provided
+    local row="${2:-1}"  # Default to row 1
+    
+    local term_width=$(tput cols)
+    local title_len=${#title}
+    local padding_each_side=$(( (term_width - title_len - 2) / 2 ))
+    local extra_padding=$(( (term_width - title_len - 2) % 2 ))
+    
+    # Create gradient array
+    local gradient_colors=("$COLOR_CYAN" "$COLOR_BLUE" "$COLOR_LAVENDER" "$COLOR_MAGENTA")
+    local gradient_len=${#gradient_colors[@]}
+    
+    # Move cursor to specified row
+    tput cup $row 0
+    
+    # Left side with gradient using vertical bars
+    for ((i=0; i<padding_each_side; i++)); do
+        local color_idx=$((i * gradient_len / padding_each_side))
+        [[ $color_idx -ge $gradient_len ]] && color_idx=$((gradient_len - 1))
+        printf "%b%s" "${gradient_colors[$color_idx]}" "$BOX_VERTICAL"
+    done
+    
+    # Title
+    printf " %b%s%b " "$BOLD_WHITE" "$title" "$STYLE_RESET"
+    
+    # Right side with reverse gradient using vertical bars
+    for ((i=padding_each_side+extra_padding; i>0; i--)); do
+        local color_idx=$((i * gradient_len / (padding_each_side + extra_padding)))
+        [[ $color_idx -ge $gradient_len ]] && color_idx=$((gradient_len - 1))
+        printf "%b%s" "${gradient_colors[$color_idx]}" "$BOX_VERTICAL"
+    done
+    printf "%b\n" "$STYLE_RESET"
 }
 
 # ============================================================================
@@ -1160,36 +1193,8 @@ select_components() {
         if [[ $screen_initialized == false ]]; then
             clear
             
-            # Title with gradient effect using vertical bars throughout
-            local title="AI DevKit Pod Configurator"
-            local title_len=${#title}
-            local padding_each_side=$(( (term_width - title_len - 2) / 2 ))  # -2 for spaces around title
-            local extra_padding=$(( (term_width - title_len - 2) % 2 ))
-
-            # Create gradient array
-            local gradient_colors=("$COLOR_CYAN" "$COLOR_BLUE" "$COLOR_LAVENDER" "$COLOR_MAGENTA")
-            local gradient_len=${#gradient_colors[@]}
-
-            # Move cursor to row 1
-            tput cup 1 0
-
-            # Left side with gradient using vertical bars
-            for ((i=0; i<padding_each_side; i++)); do
-                local color_idx=$((i * gradient_len / padding_each_side))
-                [[ $color_idx -ge $gradient_len ]] && color_idx=$((gradient_len - 1))
-                printf "%b%s" "${gradient_colors[$color_idx]}" "$BOX_VERTICAL"
-            done
-
-            # Title
-            printf " %b%s%b " "$GLOBAL_TITLE_STYLE" "$title" "$STYLE_RESET"
-
-            # Right side with reverse gradient using vertical bars
-            for ((i=padding_each_side+extra_padding; i>0; i--)); do
-                local color_idx=$((i * gradient_len / (padding_each_side + extra_padding)))
-                [[ $color_idx -ge $gradient_len ]] && color_idx=$((gradient_len - 1))
-                printf "%b%s" "${gradient_colors[$color_idx]}" "$BOX_VERTICAL"
-            done
-            printf "%b\n" "$STYLE_RESET" 
+            # Draw gradient title
+            draw_gradient_title "AI DevKit Pod Configurator" 1 
 
             # Add some spacing
             echo ""
@@ -1580,36 +1585,8 @@ select_components() {
     # Clear screen
     clear
 
-    # Title with gradient effect and vertical bars (same as main menu)
-    local title="AI DevKit Pod Configurator"  # Changed back to match main menu
-    local title_len=${#title}
-    local padding_each_side=$(( (term_width - title_len - 2) / 2 ))
-    local extra_padding=$(( (term_width - title_len - 2) % 2 ))
-
-    # Create gradient array
-    local gradient_colors=("$COLOR_CYAN" "$COLOR_BLUE" "$COLOR_LAVENDER" "$COLOR_MAGENTA")
-    local gradient_len=${#gradient_colors[@]}
-
-    # Move cursor to row 1
-    tput cup 1 0
-
-    # Left side with gradient using vertical bars
-    for ((i=0; i<padding_each_side; i++)); do
-        local color_idx=$((i * gradient_len / padding_each_side))
-        [[ $color_idx -ge $gradient_len ]] && color_idx=$((gradient_len - 1))
-        printf "%b%s" "${gradient_colors[$color_idx]}" "$BOX_VERTICAL"
-    done
-
-    # Title
-    printf " %b%s%b " "$BOLD_WHITE" "$title" "$STYLE_RESET"
-
-    # Right side with reverse gradient using vertical bars
-    for ((i=padding_each_side+extra_padding; i>0; i--)); do
-        local color_idx=$((i * gradient_len / (padding_each_side + extra_padding)))
-        [[ $color_idx -ge $gradient_len ]] && color_idx=$((gradient_len - 1))
-        printf "%b%s" "${gradient_colors[$color_idx]}" "$BOX_VERTICAL"
-    done
-    printf "%b\n" "$STYLE_RESET"
+    # Draw gradient title
+    draw_gradient_title "AI DevKit Pod Configurator" 1   
 
     # Add spacing
     echo ""
@@ -1619,7 +1596,7 @@ select_components() {
     local box_height=$((term_height - 8)) # Leave room for title, spacing, and prompt
 
     # Draw the summary box
-    draw_box 2 3 $box_width $box_height "Deployment Manifest" "" "$SUMMARY_BORDER_COLOR" "$SUMMARY_TITLE_STYLE"  # Changed box title
+    draw_box 2 3 $box_width $box_height "Pod Deployment Manifest" "" "$SUMMARY_BORDER_COLOR" "$SUMMARY_TITLE_STYLE"  # Changed box title
    
     # Start content inside the box
     local content_row=5  # Start 2 rows inside the box for spacing
