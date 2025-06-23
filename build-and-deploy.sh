@@ -115,13 +115,13 @@ CATALOG_BORDER_COLOR="$COLOR_BRIGHT_CHARCOAL"
 CATALOG_TITLE_STYLE="$BOLD_WHITE"
 CATALOG_CATEGORY_STYLE="$COLOR_SEAFOAM"
 CATALOG_CURSOR_COLOR="$COLOR_BRIGHT_BLUE"
-CATALOG_ITEM_SELECTED_STYLE="$COLOR_BRIGHT_GREEN"
+CATALOG_ITEM_SELECTED_STYLE="$COLOR_BRIGHT_SAGE"
 CATALOG_ITEM_AVAILABLE_STYLE="$STYLE_RESET"
 CATALOG_ITEM_DISABLED_STYLE="$COLOR_GRAY"
-CATALOG_STATUS_IN_STACK_STYLE="$COLOR_BRIGHT_GREEN"
+CATALOG_STATUS_IN_STACK_STYLE="$COLOR_BRIGHT_SAGE"
 CATALOG_STATUS_REQUIRED_STYLE="$COLOR_SAND"
 CATALOG_PAGE_INDICATOR_STYLE="$COLOR_SAND"
-CATALOG_ICON_SELECTED_COLOR="$COLOR_BRIGHT_GREEN"
+CATALOG_ICON_SELECTED_COLOR="$COLOR_BRIGHT_SAGE"
 CATALOG_ICON_AVAILABLE_COLOR="$STYLE_RESET"
 CATALOG_ICON_DISABLED_COLOR="$COLOR_GRAY"
 CATALOG_ICON_WARNING_COLOR="$COLOR_MAGENTA"
@@ -883,7 +883,7 @@ select_components() {
     # Function to get screen row for item
     get_screen_row_for_item() {
         local target_idx=$1
-        local row=4  # Changed from 5
+        local row=5  # Changed from 4 to account for spacing
         local prev_category=""
         
         for ((idx=$catalog_first_visible; idx<=$catalog_last_visible && idx<=$target_idx; idx++)); do
@@ -901,9 +901,9 @@ select_components() {
             ((row++))
         done
     }
-    
+
     # Function to render catalog items for current page
-    render_catalog() {
+   render_catalog() {
         local start_idx=${page_boundaries[$catalog_page]}
         local end_idx=$total_items
         
@@ -926,7 +926,7 @@ select_components() {
             printf "%b%s%b" "$CATALOG_BORDER_COLOR" "$BOX_VERTICAL" "$STYLE_RESET"
         done
         
-        display_row=4  # Changed from 5
+        display_row=5  # Start content one row down for spacing
         last_category=""
         
         for ((idx=start_idx; idx<end_idx; idx++)); do
@@ -944,20 +944,20 @@ select_components() {
                 [[ $display_row -ge $((content_height + 4)) ]] && break  # Changed from +5
             fi
             
-            # Render item
+            # Render item with proper indentation
             if [[ $display_row -lt $((content_height + 4)) ]]; then  # Changed from +5
                 [[ $first_visible_idx -eq -1 ]] && first_visible_idx=$idx
                 last_visible_idx=$idx
                 
                 tput cup $display_row 2
                 
-                # Cursor
+                # Cursor (no indentation for cursor)
                 if [[ $view == "catalog" && $idx -eq $current ]]; then
                     printf "%b%s%b " "$CATALOG_CURSOR_COLOR" "$ICON_CURSOR" "$STYLE_RESET"
                 else
                     printf "  "
                 fi
-                
+              
                 # Check availability
                 local available=true status="" status_color=""
                 
@@ -1037,34 +1037,34 @@ select_components() {
         local cart_count=${#cart_items_array[@]}
         
         # Clear cart area
-        for ((row=4; row<content_height+4; row++)); do
+        for ((row=4; row<content_height+4; row++)); do  # Changed from row=5
             tput cup $row $((cart_start_col + 1))
             printf "%-$((cart_width-2))s" " "
         done
-
-tput cup $display_row $((cart_start_col + 1))       
-        # Show base components first (removed the count from here)
-        ((display_row++))
-        if [[ $display_row -lt $((content_height + 4)) ]]; then  # Changed from +5
-            tput cup $display_row $((cart_start_col + 1))
-            printf "%b%s Base Development Tools %s%b" "$CART_BASE_CATEGORY_STYLE" "$BOX_SEPARATOR" "$BOX_SEPARATOR" "$STYLE_RESET"
-            ((display_row++))
-        fi
         
-        # Base components list
+        # Start content one row down for spacing
+        display_row=5
+        tput cup $display_row $((cart_start_col + 1))
+        
+        # Show base components first
+        tput cup $display_row $((cart_start_col + 2))  # Indent by 2 like catalog
+        printf "%b%s%b" "$CART_BASE_CATEGORY_STYLE" "Base Development Tools" "$STYLE_RESET"
+        ((display_row++))
+        
+        # Base components list with checkmarks
         local base_components=(
-            "• Filebrowser (port 8090)"
-            "• Git"
-            "• GitHub CLI (gh)"
-            "• Microsoft TUI Test"
-            "• Node.js 20.18.0"
-            "• SSH Server (port 2222)"
+            "Filebrowser (port 8090)"
+            "Git"
+            "GitHub CLI (gh)"
+            "Microsoft TUI Test"
+            "Node.js 20.18.0"
+            "SSH Server (port 2222)"
         )
         
         for base_comp in "${base_components[@]}"; do
             if [[ $display_row -lt $((content_height + 4)) ]]; then  # Changed from +5
-                tput cup $display_row $((cart_start_col + 1))
-                printf "  %b%s%b" "$CART_BASE_ITEM_STYLE" "$base_comp" "$STYLE_RESET"
+                tput cup $display_row $((cart_start_col + 4))  # Indent by 4 for items
+                printf "%b%s%b %s" "$SUMMARY_CHECKMARK_COLOR" "$ICON_CHECKMARK" "$STYLE_RESET" "$base_comp"
                 ((display_row++))
             fi
         done
@@ -1084,24 +1084,25 @@ tput cup $display_row $((cart_start_col + 1))
                         if [[ $category_has_items == false ]]; then
                             ((display_row++))
                             if [[ $display_row -lt $((content_height + 4)) ]]; then  # Changed from +5
-                                tput cup $display_row $((cart_start_col + 1))
-                                printf "%b%s %s %s%b" "$CART_CATEGORY_STYLE" "$BOX_SEPARATOR" "$category_display" "$BOX_SEPARATOR" "$STYLE_RESET"
+                                tput cup $display_row $((cart_start_col + 2))  # Indent by 2 like catalog
+                                printf "%b%s%b" "$CART_CATEGORY_STYLE" "$category_display" "$STYLE_RESET"
                                 ((display_row++))
                                 category_has_items=true
                             fi
                         fi
                         
                         if [[ $display_row -lt $((content_height + 4)) ]]; then  # Changed from +5
-                            tput cup $display_row $((cart_start_col + 1))
+                            tput cup $display_row $((cart_start_col + 2))  # Start at same indent as catalog
                             
-                            # Cursor
+                            # Cursor (no indentation for cursor)
                             if [[ $view == "cart" && $cart_display_count -eq $cart_cursor ]]; then
                                 printf "%b%s%b " "$CART_CURSOR_COLOR" "$ICON_CURSOR" "$STYLE_RESET"
                             else
                                 printf "  "
                             fi
                             
-                            printf "%b• %s%b" "$CART_ITEM_STYLE" "${names[$idx]}" "$STYLE_RESET"
+                            # Checkmark instead of bullet
+                            printf "%b%s%b %b%s%b" "$SUMMARY_CHECKMARK_COLOR" "$ICON_CHECKMARK" "$STYLE_RESET" "$CART_ITEM_STYLE" "${names[$idx]}" "$STYLE_RESET"
                             
                             # Remove hint
                             if [[ $view == "cart" && $cart_display_count -eq $cart_cursor ]]; then
@@ -1114,8 +1115,7 @@ tput cup $display_row $((cart_start_col + 1))
                     fi
                 done
             done
-        fi
-        
+        fi       
         # Update the Build Stack box to show count in footer
         local bottom_text=""
         if [[ $cart_count -gt 0 ]]; then
