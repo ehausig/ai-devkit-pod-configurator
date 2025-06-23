@@ -15,27 +15,48 @@ LOG_FILE="build-and-deploy.log"
 # THEME SYSTEM - ENHANCED GRANULARITY
 # ============================================================================
 
-# Base colors (unchanged)
-readonly COLOR_BLACK='\033[0;30m'
-readonly COLOR_RED='\033[0;31m'
-readonly COLOR_GREEN='\033[0;32m'
-readonly COLOR_YELLOW='\033[0;33m'
-readonly COLOR_BLUE='\033[0;34m'
-readonly COLOR_MAGENTA='\033[0;35m'
-readonly COLOR_CYAN='\033[0;36m'
-readonly COLOR_WHITE='\033[0;37m'
-readonly COLOR_GRAY='\033[0;90m'
+# Base colors
+readonly COLOR_BLACK='\033[0;30m'                    # #000000
+readonly COLOR_RED='\033[0;31m'                      # #800000
+readonly COLOR_GREEN='\033[0;32m'                    # #008000
+readonly COLOR_YELLOW='\033[0;33m'                   # #808000
+readonly COLOR_BLUE='\033[0;34m'                     # #000080
+readonly COLOR_MAGENTA='\033[0;35m'                  # #800080
+readonly COLOR_CYAN='\033[0;36m'                     # #008080
+readonly COLOR_WHITE='\033[0;37m'                    # #C0C0C0
+readonly COLOR_GRAY='\033[0;90m'                     # #555555
 
-# Bright colors (unchanged)
-readonly COLOR_BRIGHT_RED='\033[0;91m'
-readonly COLOR_BRIGHT_GREEN='\033[0;92m'
-readonly COLOR_BRIGHT_YELLOW='\033[0;93m'
-readonly COLOR_BRIGHT_BLUE='\033[0;94m'
-readonly COLOR_BRIGHT_MAGENTA='\033[0;95m'
-readonly COLOR_BRIGHT_CYAN='\033[0;96m'
-readonly COLOR_BRIGHT_WHITE='\033[0;97m'
+# Custom base colors (from hex codes)
+readonly COLOR_SILVER='\033[38;2;171;178;191m'       # #ABB2BF
+readonly COLOR_CHARCOAL='\033[38;2;92;99;112m'       # #5C6370
+readonly COLOR_SKY='\033[38;2;97;175;239m'           # #61AFEF
+readonly COLOR_SAGE='\033[38;2;178;193;121m'         # #B2C179
+readonly COLOR_CORAL='\033[38;2;224;108;117m'        # #E06C75
+readonly COLOR_SAND='\033[38;2;229;192;123m'         # #E5C07B
+readonly COLOR_SEAFOAM='\033[38;2;138;191;183m'      # #8ABFB7
+readonly COLOR_LAVENDER='\033[38;2;198;120;221m'     # #C678DD
 
-# Styles (unchanged)
+# Bright colors
+readonly COLOR_BRIGHT_RED='\033[0;91m'                # #FF0000
+readonly COLOR_BRIGHT_GREEN='\033[0;92m'              # #00FF00
+readonly COLOR_BRIGHT_YELLOW='\033[0;93m'             # #FFFF00
+readonly COLOR_BRIGHT_BLUE='\033[0;94m'               # #0000FF
+readonly COLOR_BRIGHT_MAGENTA='\033[0;95m'            # #FF00FF
+readonly COLOR_BRIGHT_CYAN='\033[0;96m'               # #00FFFF
+readonly COLOR_BRIGHT_WHITE='\033[0;97m'              # #FFFFFF
+readonly COLOR_BRIGHT_LAVENDER='\033[38;2;218;140;241m'   # #DA8CF1
+
+# Custom bright colors (from hex codes - slightly brightened)
+readonly COLOR_BRIGHT_SILVER='\033[38;2;193;200;213m'     # #C1C8D5
+readonly COLOR_BRIGHT_CHARCOAL='\033[38;2;112;119;132m'   # #707784
+readonly COLOR_BRIGHT_SKY='\033[38;2;127;195;255m'        # #7FC3FF
+readonly COLOR_BRIGHT_SAGE='\033[38;2;198;213;141m'       # #C6D58D
+readonly COLOR_BRIGHT_CORAL='\033[38;2;244;128;137m'      # #F48089
+readonly COLOR_BRIGHT_SAND='\033[38;2;249;212;143m'       # #F9D48F
+readonly COLOR_BRIGHT_SEAFOAM='\033[38;2;158;211;203m'    # #9ED3CB
+readonly BOLD_LAVENDER='\033[1;38;2;198;120;221m'    # #C678DD
+
+# Styles
 readonly STYLE_BOLD='\033[1m'
 readonly STYLE_DIM='\033[2m'
 readonly STYLE_ITALIC='\033[3m'
@@ -44,14 +65,23 @@ readonly STYLE_BLINK='\033[5m'
 readonly STYLE_REVERSE='\033[7m'
 readonly STYLE_RESET='\033[0m'
 
-# Compound styles (unchanged)
-readonly BOLD_RED='\033[1;31m'
-readonly BOLD_GREEN='\033[1;32m'
-readonly BOLD_YELLOW='\033[1;33m'
-readonly BOLD_BLUE='\033[1;34m'
-readonly BOLD_MAGENTA='\033[1;35m'
-readonly BOLD_CYAN='\033[1;36m'
-readonly BOLD_WHITE='\033[1;37m'
+# Compound styles
+readonly BOLD_RED='\033[1;31m'                       # #800000 (bold)
+readonly BOLD_GREEN='\033[1;32m'                     # #008000 (bold)
+readonly BOLD_YELLOW='\033[1;33m'                    # #808000 (bold)
+readonly BOLD_BLUE='\033[1;34m'                      # #000080 (bold)
+readonly BOLD_MAGENTA='\033[1;35m'                   # #800080 (bold)
+readonly BOLD_CYAN='\033[1;36m'                      # #008080 (bold)
+readonly BOLD_WHITE='\033[1;37m'                     # #C0C0C0 (bold)
+
+# Custom bold colors (from hex codes)
+readonly BOLD_SILVER='\033[1;38;2;171;178;191m'      # #ABB2BF (bold)
+readonly BOLD_CHARCOAL='\033[1;38;2;92;99;112m'      # #5C6370 (bold)
+readonly BOLD_SKY='\033[1;38;2;97;175;239m'          # #61AFEF (bold)
+readonly BOLD_SAGE='\033[1;38;2;178;193;121m'        # #B2C179 (bold)
+readonly BOLD_CORAL='\033[1;38;2;224;108;117m'       # #E06C75 (bold)
+readonly BOLD_SAND='\033[1;38;2;229;192;123m'        # #E5C07B (bold)
+readonly BOLD_SEAFOAM='\033[1;38;2;138;191;183m'     # #8ABFB7 (bold)
 
 # Icons (unchanged)
 readonly ICON_SELECTED="✓"
@@ -64,53 +94,53 @@ readonly ICON_INFO="ℹ️"
 readonly ICON_SUCCESS="✓"
 
 # Box Drawing Characters (unchanged)
-readonly BOX_TOP_LEFT="┌"
-readonly BOX_TOP_RIGHT="┐"
-readonly BOX_BOTTOM_LEFT="└"
-readonly BOX_BOTTOM_RIGHT="┘"
+readonly BOX_TOP_LEFT="╭"
+readonly BOX_TOP_RIGHT="╮"
+readonly BOX_BOTTOM_LEFT="╰"
+readonly BOX_BOTTOM_RIGHT="╯"
 readonly BOX_HORIZONTAL="─"
 readonly BOX_VERTICAL="│"
-readonly BOX_TITLE_LEFT="┤"
-readonly BOX_TITLE_RIGHT="├"
+readonly BOX_TITLE_LEFT="┐"
+readonly BOX_TITLE_RIGHT="┌"
 readonly BOX_SEPARATOR="━"
 
 # NEW GRANULAR THEME VARIABLES
 # Global UI Elements
-GLOBAL_TITLE_STYLE="$BOLD_YELLOW"
-GLOBAL_SEPARATOR_COLOR="$COLOR_BLUE"
-GLOBAL_HINT_STYLE="$BOLD_YELLOW"
+GLOBAL_TITLE_STYLE="$BOLD_RED" # deprecated
+GLOBAL_SEPARATOR_COLOR="$COLOR_RED" # deprecated
+GLOBAL_HINT_STYLE="$COLOR_YELLOW"
 
 # Catalog Box (Available Components)
-CATALOG_BORDER_COLOR="$COLOR_BLUE"
-CATALOG_TITLE_STYLE="$BOLD_YELLOW"
-CATALOG_CATEGORY_STYLE="$COLOR_GREEN"
+CATALOG_BORDER_COLOR="$COLOR_BRIGHT_CHARCOAL"
+CATALOG_TITLE_STYLE="$BOLD_WHITE"
+CATALOG_CATEGORY_STYLE="$COLOR_SEAFOAM"
 CATALOG_CURSOR_COLOR="$COLOR_BRIGHT_BLUE"
 CATALOG_ITEM_SELECTED_STYLE="$COLOR_BRIGHT_GREEN"
 CATALOG_ITEM_AVAILABLE_STYLE="$STYLE_RESET"
 CATALOG_ITEM_DISABLED_STYLE="$COLOR_GRAY"
 CATALOG_STATUS_IN_STACK_STYLE="$COLOR_BRIGHT_GREEN"
-CATALOG_STATUS_REQUIRED_STYLE="$COLOR_YELLOW"
-CATALOG_PAGE_INDICATOR_STYLE="$BOLD_YELLOW"
+CATALOG_STATUS_REQUIRED_STYLE="$COLOR_SAND"
+CATALOG_PAGE_INDICATOR_STYLE="$COLOR_SAND"
 CATALOG_ICON_SELECTED_COLOR="$COLOR_BRIGHT_GREEN"
 CATALOG_ICON_AVAILABLE_COLOR="$STYLE_RESET"
 CATALOG_ICON_DISABLED_COLOR="$COLOR_GRAY"
-CATALOG_ICON_WARNING_COLOR="$COLOR_YELLOW"
+CATALOG_ICON_WARNING_COLOR="$COLOR_MAGENTA"
 
 # Cart Box (Build Stack)
-CART_BORDER_COLOR="$COLOR_BLUE"
-CART_TITLE_STYLE="$BOLD_YELLOW"
-CART_CATEGORY_STYLE="$COLOR_BLUE"
+CART_BORDER_COLOR="$COLOR_BRIGHT_CHARCOAL"
+CART_TITLE_STYLE="$BOLD_WHITE"
+CART_CATEGORY_STYLE="$COLOR_BRIGHT_SEAFOAM"
 CART_CURSOR_COLOR="$COLOR_BRIGHT_BLUE"
-CART_ITEM_STYLE="$COLOR_WHITE"
-CART_BASE_CATEGORY_STYLE="$COLOR_BLUE"
-CART_BASE_ITEM_STYLE="$COLOR_WHITE"
-CART_REMOVE_HINT_STYLE="$COLOR_RED"
-CART_COUNT_STYLE="$BOLD_YELLOW"
+CART_ITEM_STYLE="$COLOR_BRIGHT_SAGE"
+CART_BASE_CATEGORY_STYLE="$COLOR_SEAFOAM"
+CART_BASE_ITEM_STYLE="$COLOR_wh"
+CART_REMOVE_HINT_STYLE="$COLOR_WHITE"
+CART_COUNT_STYLE="$COLOR_SAND"
 
 # Instructions Bar
 INSTRUCTION_SEPARATOR_COLOR="$COLOR_BLUE"
-INSTRUCTION_KEY_STYLE="$COLOR_YELLOW"
-INSTRUCTION_TEXT_STYLE="$STYLE_RESET"
+INSTRUCTION_KEY_STYLE="$COLOR_BRIGHT_SKY"
+INSTRUCTION_TEXT_STYLE="$COLOR_SILVER"
 
 # Summary Screen
 SUMMARY_BORDER_COLOR="$COLOR_BLUE"
