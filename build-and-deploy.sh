@@ -858,11 +858,7 @@ select_components() {
         
         tput cup $display_row $((catalog_width + 4))
         
-        # Always show base components
-        printf "%b%d selected + base components:%b" "$SUMMARY_COUNT_STYLE" "$cart_count" "$STYLE_RESET"
-        ((display_row++))
-        
-        # Show base components first
+        # Show base components first (removed the count from here)
         ((display_row++))
         if [[ $display_row -lt $((content_height + 5)) ]]; then
             tput cup $display_row $((catalog_width + 4))
@@ -870,7 +866,7 @@ select_components() {
             ((display_row++))
         fi
         
-        # Base components list (updated to include SSH)
+        # Base components list
         local base_components=(
             "• Filebrowser (port 8090)"
             "• Git"
@@ -934,7 +930,42 @@ select_components() {
                 done
             done
         fi
-    }
+        
+        # Update the Build Stack box to show count in footer
+        local bottom_text=""
+        if [[ $cart_count -gt 0 ]]; then
+            if [[ $cart_count -eq 1 ]]; then
+                bottom_text="1 selected"
+            else
+                bottom_text="$cart_count selected"
+            fi
+        fi
+        
+        # Redraw the Build Stack box bottom border with the count
+        if [[ -n "$bottom_text" ]]; then
+            local x=$((catalog_width + 2))
+            local y=$((content_height + 5))
+            local width=$cart_width
+            
+            tput cup $y $x
+            printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_BOTTOM_LEFT" "$STYLE_RESET"
+            
+            local text_len=${#bottom_text}
+            local center_pos=$(( (width - text_len - 4) / 2 ))
+            
+            for ((i=0; i<center_pos; i++)); do 
+                printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
+            done
+            printf " %b%s%b " "$MENU_PAGE_INDICATOR_STYLE" "$bottom_text" "$STYLE_RESET"
+            
+            local remaining=$((width - center_pos - text_len - 4))
+            for ((i=0; i<remaining; i++)); do 
+                printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
+            done
+            
+            printf "%b%s%b" "$MENU_BORDER_COLOR" "$BOX_BOTTOM_RIGHT" "$STYLE_RESET"
+        fi
+    } 
     
     # ========== MAIN DISPLAY LOOP ==========
     
