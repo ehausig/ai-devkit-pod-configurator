@@ -107,6 +107,7 @@ readonly ICON_INFO="ℹ️"
 readonly ICON_SUCCESS="✓"
 readonly ICON_PENDING="⟳"
 readonly ICON_FAILED="✗"
+readonly ICON_NOT_STARTED="○"
 
 # Box Drawing Characters
 readonly BOX_TOP_LEFT="╭"
@@ -157,6 +158,7 @@ CART_COUNT_STYLE="$COLOR_SAND"
 # Instructions Bar
 INSTRUCTION_KEY_STYLE="$COLOR_BRIGHT_SKY"
 INSTRUCTION_TEXT_STYLE="$COLOR_SILVER"
+INSTRUCTION_ABORT_STYLE="$COLOR_BRIGHT_CORAL"
 
 # Summary Screen
 SUMMARY_BORDER_COLOR="$COLOR_SAGE"
@@ -191,7 +193,11 @@ load_theme() {
             # Dark theme - softer colors for dark terminals
             GLOBAL_SEPARATOR_COLOR="$COLOR_GRAY"
             GLOBAL_TITLE_STYLE="$BOLD_CYAN"
-            
+
+            INSTRUCTION_KEY_STYLE="$BOLD_WHITE"
+            INSTRUCTION_TEXT_STYLE="$COLOR_GRAY"
+            INSTRUCTION_ABORT_STYLE="$COLOR_BRIGHT_RED"
+
             CATALOG_BORDER_COLOR="$COLOR_GRAY"
             CATALOG_TITLE_STYLE="$BOLD_CYAN"
             CATALOG_CATEGORY_STYLE="$COLOR_MAGENTA"
@@ -220,7 +226,11 @@ load_theme() {
             GLOBAL_SEPARATOR_COLOR="$COLOR_GREEN"
             GLOBAL_TITLE_STYLE="$BOLD_GREEN"
             GLOBAL_HINT_STYLE="$BOLD_GREEN"
-            
+           
+            INSTRUCTION_KEY_STYLE="$BOLD_GREEN"
+            INSTRUCTION_TEXT_STYLE="$COLOR_GREEN"
+            INSTRUCTION_ABORT_STYLE="$COLOR_BRIGHT_GREEN"
+
             CATALOG_BORDER_COLOR="$COLOR_GREEN"
             CATALOG_TITLE_STYLE="$BOLD_GREEN"
             CATALOG_CATEGORY_STYLE="$COLOR_BRIGHT_GREEN"
@@ -246,9 +256,6 @@ load_theme() {
             CART_REMOVE_HINT_STYLE="$COLOR_BRIGHT_GREEN"
             CART_COUNT_STYLE="$COLOR_BRIGHT_GREEN"
             
-            INSTRUCTION_KEY_STYLE="$BOLD_GREEN"
-            INSTRUCTION_TEXT_STYLE="$COLOR_GREEN"
-            
             SUMMARY_BORDER_COLOR="$COLOR_GREEN"
             SUMMARY_TITLE_STYLE="$BOLD_GREEN"
             SUMMARY_CATEGORY_STYLE="$COLOR_BRIGHT_GREEN"
@@ -270,7 +277,11 @@ load_theme() {
             # Ocean theme - blues and cyans
             GLOBAL_SEPARATOR_COLOR="$COLOR_CYAN"
             GLOBAL_TITLE_STYLE="$BOLD_CYAN"
-            
+           
+            INSTRUCTION_KEY_STYLE="$COLOR_BRIGHT_CYAN"
+            INSTRUCTION_TEXT_STYLE="$COLOR_CYAN"
+            INSTRUCTION_ABORT_STYLE="$COLOR_BRIGHT_RED"
+
             CATALOG_BORDER_COLOR="$COLOR_CYAN"
             CATALOG_TITLE_STYLE="$BOLD_CYAN"
             CATALOG_CATEGORY_STYLE="$COLOR_BRIGHT_BLUE"
@@ -303,7 +314,11 @@ load_theme() {
             GLOBAL_SEPARATOR_COLOR="$COLOR_GRAY"
             GLOBAL_TITLE_STYLE="$BOLD_WHITE"
             GLOBAL_HINT_STYLE="$COLOR_WHITE"
-            
+
+            INSTRUCTION_KEY_STYLE="$BOLD_WHITE"
+            INSTRUCTION_TEXT_STYLE="$COLOR_GRAY"
+            INSTRUCTION_ABORT_STYLE="$COLOR_RED"
+
             CATALOG_BORDER_COLOR="$COLOR_GRAY"
             CATALOG_TITLE_STYLE="$BOLD_WHITE"
             CATALOG_CATEGORY_STYLE="$COLOR_WHITE"
@@ -329,9 +344,6 @@ load_theme() {
             CART_REMOVE_HINT_STYLE="$COLOR_WHITE"
             CART_COUNT_STYLE="$COLOR_WHITE"
             
-            INSTRUCTION_KEY_STYLE="$BOLD_WHITE"
-            INSTRUCTION_TEXT_STYLE="$COLOR_GRAY"
-            
             SUMMARY_BORDER_COLOR="$COLOR_GRAY"
             SUMMARY_TITLE_STYLE="$BOLD_WHITE"
             SUMMARY_CATEGORY_STYLE="$COLOR_WHITE"
@@ -350,7 +362,11 @@ load_theme() {
             GLOBAL_SEPARATOR_COLOR="$COLOR_BRIGHT_MAGENTA"
             GLOBAL_TITLE_STYLE="$BOLD_MAGENTA"
             GLOBAL_HINT_STYLE="$COLOR_BRIGHT_YELLOW"
-            
+
+            INSTRUCTION_KEY_STYLE="$COLOR_BRIGHT_YELLOW"
+            INSTRUCTION_TEXT_STYLE="$COLOR_BRIGHT_WHITE"
+            INSTRUCTION_ABORT_STYLE="$COLOR_BRIGHT_RED"
+
             CATALOG_BORDER_COLOR="$COLOR_BRIGHT_CYAN"
             CATALOG_TITLE_STYLE="$BOLD_CYAN"
             CATALOG_CATEGORY_STYLE="$COLOR_BRIGHT_MAGENTA"
@@ -370,9 +386,6 @@ load_theme() {
             CART_ITEM_STYLE="$COLOR_BRIGHT_WHITE"
             CART_REMOVE_HINT_STYLE="$COLOR_BRIGHT_RED"
             CART_COUNT_STYLE="$COLOR_BRIGHT_YELLOW"
-            
-            INSTRUCTION_KEY_STYLE="$COLOR_BRIGHT_YELLOW"
-            INSTRUCTION_TEXT_STYLE="$COLOR_BRIGHT_WHITE"
             
             SUMMARY_BORDER_COLOR="$COLOR_BRIGHT_MAGENTA"
             SUMMARY_TITLE_STYLE="$BOLD_MAGENTA"
@@ -744,7 +757,7 @@ render_deployment_steps() {
         
         case "${statuses[$i]}" in
             "pending")
-                icon="$ICON_PENDING"
+                icon="$ICON_NOT_STARTED"  # Use hollow circle for not started
                 icon_style="$STATUS_PENDING_STYLE"
                 ;;
             "running")
@@ -2231,12 +2244,14 @@ display_selection_summary() {
     # Position prompt below the boxes
     local prompt_row=$((box_height + 5))
     tput cup $prompt_row 4
-    log "Ready to build with this configuration?"
+    printf "%bReady to build with this configuration?%b" "$INSTRUCTION_TEXT_STYLE" "$STYLE_RESET"
     tput cup $((prompt_row + 1)) 4
-    printf "Press %bENTER%b to continue or %b'q'%b to quit: " \
-        "$LOG_SUCCESS_STYLE" "$STYLE_RESET" \
-        "$LOG_ERROR_STYLE" "$STYLE_RESET"
-    read -r CONFIRM 
+    printf "%bPress %b%bENTER%b%b to continue or %b%b'q'%b%b to quit: %b" \
+        "$INSTRUCTION_TEXT_STYLE" \
+        "$STYLE_RESET" "$INSTRUCTION_KEY_STYLE" "$STYLE_RESET" "$INSTRUCTION_TEXT_STYLE" \
+        "$STYLE_RESET" "$INSTRUCTION_ABORT_STYLE" "$STYLE_RESET" "$INSTRUCTION_TEXT_STYLE" \
+        "$STYLE_RESET"
+    read -r CONFIRM   
 
     if [[ "$CONFIRM" =~ ^[qQ]$ ]]; then
         tput cnorm
@@ -2922,9 +2937,12 @@ main() {
     else
         update_deployment_step 1 "failed" "Check $LOG_FILE for details" step_statuses step_messages
         render_deployment_steps $status_start_col $status_width deployment_steps[@] step_statuses[@] step_messages[@]
-        
+
         tput cup $((box_height + 5)) 4
-        printf "Press %bENTER%b to exit: " "$LOG_ERROR_STYLE" "$STYLE_RESET"
+        printf "%bPress %b%bENTER%b%b to exit: %b" \
+            "$INSTRUCTION_TEXT_STYLE" \
+            "$STYLE_RESET" "$INSTRUCTION_KEY_STYLE" "$STYLE_RESET" "$INSTRUCTION_TEXT_STYLE" \
+            "$STYLE_RESET"
         read -r
         tput cnorm
         stty echo
@@ -2989,7 +3007,10 @@ main() {
     
     # Show the final prompt
     tput cup $prompt_row 4
-    printf "Press %bENTER%b to return to terminal: " "$LOG_SUCCESS_STYLE" "$STYLE_RESET"
+    printf "%bPress %b%bENTER%b%b to return to terminal: %b" \
+        "$INSTRUCTION_TEXT_STYLE" \
+        "$STYLE_RESET" "$INSTRUCTION_KEY_STYLE" "$STYLE_RESET" "$INSTRUCTION_TEXT_STYLE" \
+        "$STYLE_RESET"
     read -r
 
     # Clean up and return to prompt
