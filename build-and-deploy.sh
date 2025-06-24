@@ -686,12 +686,519 @@ draw_gradient_title() {
     printf "%b\n" "$STYLE_RESET"
 }
 
-# ============================================================================
-# COMPONENT SELECTION MENU
-# ============================================================================
+# Function to check if a group has items in cart
+has_group_in_cart() {
+    local check_group=$1
+    shift
+    local groups=("$@")
+    shift $((${#groups[@]} / 2))
+    local in_cart=("$@")
+    
+    for j in "${!groups[@]}"; do
+        [[ "${groups[$j]}" == "$check_group" && "${in_cart[$j]}" == true ]] && return 0
+    done
+    return 1
+}
 
-# Function to display component selection menu
-select_components() {
+# Check if requirements are met
+requirements_met() {
+    local item_requires=$1
+    shift
+    local groups=("$@")
+    local half=$((${#groups[@]} / 2))
+    local in_cart=("${groups[@]:$half}")
+    groups=("${groups[@]:0:$half}")
+    
+    [[ -z "$item_requires" ]] && return 0
+    [[ "$item_requires" == "[]" ]] && return 0
+    
+    # Split by space for multiple requirements
+    for req in $item_requires; do
+        has_group_in_cart "$req" "${groups[@]}" "${in_cart[@]}" || return 1
+    done
+    return 0
+}
+
+# Function to get display name for category
+get_category_display_name() {
+    local cat=$1
+    local categories=("${!2}")
+    local category_names=("${!3}")
+    
+    for i in "${!categories[@]}"; do
+        if [[ "${categories[$i]}" == "$cat" ]]; then
+            echo "${category_names[$i]}"
+            return
+        fi
+    done
+    echo "$cat"
+}
+
+# Function to add/remove item from cart (fixed for Bash 3.2+)
+toggle_cart_item() {
+    local index=$1
+    local action=$2
+    local ids_array_name=$3
+    local names_array_name=$4
+    local groups_array_name=$5
+    local requires_array_name=$6
+    local in_cart_array_name=$7
+    local hint_msg_var=$8
+    local hint_timer_var=$9
+    
+    # Get arrays by reference
+    eval "local ids=(\"\${${ids_array_name}[@]}\")"
+    eval "local names=(\"\${${names_array_name}[@]}\")"
+    eval "local groups=(\"\${${groups_array_name}[@]}\")"
+    eval "local requires=(\"\${${requires_array_name}[@]}\")"
+    eval "local in_cart=(\"\${${in_cart_array_name}[@]}\")"
+    
+    # Bounds checking
+    if [[ $index -lt 0 ]] || [[ $index -ge ${#ids[@]} ]]; then
+        return 1
+    fi
+    
+    if [[ "$action" == "add" ]]; then
+        # Check requirements
+        if [[ -n "${requires[$index]}" ]] && [[ "${requires[$index]}" != "[]" ]]; then
+            if ! requirements_met "${requires[$index]}" "${groups[@]}" "${in_cart[@]}"; then
+                eval "${hint_msg_var}='${ICON_WARNING}  Requires: ${requires[$index]}'"
+                eval "${hint_timer_var}=30"
+                return 1
+            fi
+        fi
+        
+        # Handle mutually exclusive groups
+        for j in "${!groups[@]}"; do
+            if [[ "${groups[$j]}" == "${groups[$index]}" ]] && [[ $j -ne $index ]] && [[ "${in_cart[$j]}" == true ]]; then
+                eval "${in_cart_array_name}[$j]=false"
+                eval "${hint_msg_var}='${ICON_INFO}  Replaced ${names[$j]} with ${names[$index]}'"
+                eval "${hint_timer_var}=30"
+            fi
+        done
+        
+        eval "${in_cart_array_name}[$index]=true"
+        local msg=$(eval "echo \$${hint_msg_var}")
+        [[ -z "$msg" ]] && eval "${hint_msg_var}='${ICON_SUCCESS} Added ${names[$index]} to stack'" && eval "${hint_timer_var}=20"
+    else
+        eval "${in_cart_array_name}[$index]=false"
+        
+        # Check for dependent items
+        local removed_group="${groups[$index]}"
+        local dependents=""
+        
+        for j in "${!requires[@]}"; do
+            [[ -z "${requires[$j]}" ]] && continue
+            
+            # Check if this item depends on the removed group
+            if [[ "${requires[$j]}" == *"$removed_group"* ]] && [[ "${in_cart[$j]}" == true ]]; then
+                # Double-check this is the only item providing the requirement
+                local still_has_provider=false
+                for k in "${!groups[@]}"; do
+                    if [[ $k -ne $index ]] && [[ "${groups[$k]}" == "$removed_group" ]] && [[ "${in_cart[$k]}" == true ]]; then
+                        still_has_provider=true
+                        break
+                    fi
+                done
+                
+                if [[ $still_has_provider == false ]]; then
+                    eval "${in_cart_array_name}[$j]=false"
+                    [[ -n "$dependents" ]] && dependents+=", "
+                    dependents+="${names[$j]}"
+                fi
+            fi
+        done
+        
+        if [[ -n "$dependents" ]]; then
+            eval "${hint_msg_var}='${ICON_WARNING}  Also removed dependent items: $dependents'"
+            eval "${hint_timer_var}=40"
+        else
+            eval "${hint_msg_var}='${ICON_SUCCESS} Removed ${names[$index]} from cart'"
+            eval "${hint_timer_var}=20"
+        fi
+    fi
+}
+
+# Calculate pagination boundaries for catalog
+calculate_pagination() {
+    local total_items=$1
+    local content_height=$2
+    local component_categories=("${!3}")
+    local page_boundaries_var=$4
+    
+    eval "$page_boundaries_var=(0)"
+    
+    local current_page_rows=0
+    local last_category=""
+    
+    for idx in $(seq 0 $((total_items - 1))); do
+        local item_category="${component_categories[$idx]}"
+        
+        # Count category header row if this is a new category
+        if [[ "$item_category" != "$last_category" ]]; then
+            ((current_page_rows++))
+            last_category="$item_category"
+        fi
+        
+        # Count the item row
+        ((current_page_rows++))
+        
+        # Check if we've exceeded the page height
+        if [[ $current_page_rows -gt $((content_height - 2)) ]]; then
+            eval "$page_boundaries_var+=($idx)"
+            current_page_rows=1
+            
+            # Also need to count its category header if different
+            if [[ $idx -gt 0 ]]; then
+                local prev_category="${component_categories[$((idx-1))]}"
+                if [[ "$item_category" != "$prev_category" ]]; then
+                    ((current_page_rows++))
+                fi
+            fi
+            last_category="$item_category"
+        fi
+    done
+}
+
+# Function to get screen row for item
+get_screen_row_for_item() {
+    local target_idx=$1
+    local catalog_first_visible=$2
+    local catalog_last_visible=$3
+    local component_categories=("${!4}")
+    
+    local row=5  # Changed from 4 to account for spacing
+    local prev_category=""
+    
+    for ((idx=$catalog_first_visible; idx<=$catalog_last_visible && idx<=$target_idx; idx++)); do
+        local item_category="${component_categories[$idx]}"
+        
+        if [[ "$item_category" != "$prev_category" ]]; then
+            prev_category="$item_category"
+            ((row++))
+        fi
+        
+        if [[ $idx -eq $target_idx ]]; then
+            echo $row
+            return
+        fi
+        ((row++))
+    done
+}
+
+# Function to render catalog items for current page
+render_catalog() {
+    # Parameters passed as positional arguments
+    local catalog_page=$1
+    local page_boundaries_var=$2
+    local total_items=$3
+    local content_height=$4
+    local catalog_width=$5
+    local view=$6
+    local current=$7
+    shift 7
+    
+    # Arrays passed by name
+    local ids_array_name=$1
+    local names_array_name=$2
+    local groups_array_name=$3
+    local requires_array_name=$4
+    local component_categories_array_name=$5
+    local in_cart_array_name=$6
+    local categories_array_name=$7
+    local category_names_array_name=$8
+    local catalog_first_visible_var=$9
+    local catalog_last_visible_var=${10}
+    
+    # Get arrays by reference
+    eval "local ids=(\"\${${ids_array_name}[@]}\")"
+    eval "local names=(\"\${${names_array_name}[@]}\")"
+    eval "local groups=(\"\${${groups_array_name}[@]}\")"
+    eval "local requires=(\"\${${requires_array_name}[@]}\")"
+    eval "local component_categories=(\"\${${component_categories_array_name}[@]}\")"
+    eval "local in_cart=(\"\${${in_cart_array_name}[@]}\")"
+    eval "local categories=(\"\${${categories_array_name}[@]}\")"
+    eval "local category_names=(\"\${${category_names_array_name}[@]}\")"
+    
+    # Get page boundaries array
+    eval "local page_boundaries=(\"\${${page_boundaries_var}[@]}\")"
+    
+    local start_idx=${page_boundaries[$catalog_page]}
+    local end_idx=$total_items
+    
+    if [[ $((catalog_page + 1)) -lt ${#page_boundaries[@]} ]]; then
+        end_idx=${page_boundaries[$((catalog_page + 1))]}
+    fi
+    
+    local display_row=4
+    local last_category=""
+    local first_visible_idx=-1
+    local last_visible_idx=-1
+    
+    # Clear catalog area
+    for ((row=4; row<content_height+4; row++)); do
+        tput cup $row 0
+        printf "%b%s%b" "$CATALOG_BORDER_COLOR" "$BOX_VERTICAL" "$STYLE_RESET"
+        for ((col=1; col<catalog_width-1; col++)); do
+            printf " "
+        done
+        printf "%b%s%b" "$CATALOG_BORDER_COLOR" "$BOX_VERTICAL" "$STYLE_RESET"
+    done
+    
+    display_row=5
+    last_category=""
+    
+    for ((idx=start_idx; idx<end_idx; idx++)); do
+        [[ $display_row -ge $((content_height + 4)) ]] && break
+        
+        local item_category="${component_categories[$idx]}"
+        local display_name=$(get_category_display_name "$item_category" categories[@] category_names[@])
+        
+        # Category headers
+        if [[ "$item_category" != "$last_category" ]]; then
+            tput cup $display_row 2
+            printf "%b%s%b" "$CATALOG_CATEGORY_STYLE" "$display_name" "$STYLE_RESET"
+            last_category="$item_category"
+            ((display_row++))
+            [[ $display_row -ge $((content_height + 4)) ]] && break
+        fi
+        
+        # Render item with proper indentation
+        if [[ $display_row -lt $((content_height + 4)) ]]; then
+            [[ $first_visible_idx -eq -1 ]] && first_visible_idx=$idx
+            last_visible_idx=$idx
+            
+            tput cup $display_row 2
+            
+            # Cursor
+            if [[ $view == "catalog" && $idx -eq $current ]]; then
+                printf "%b%s%b " "$CATALOG_CURSOR_COLOR" "$ICON_CURSOR" "$STYLE_RESET"
+            else
+                printf "  "
+            fi
+            
+            # Check availability
+            local available=true status="" status_color=""
+            
+            if [[ "${in_cart[$idx]}" == true ]]; then
+                printf "%b%s%b " "$CATALOG_ICON_SELECTED_COLOR" "$ICON_SELECTED" "$STYLE_RESET"
+                status="(in stack)"
+                status_color="$CATALOG_STATUS_IN_STACK_STYLE"
+            elif has_group_in_cart "${groups[$idx]}" "${groups[@]}" "${in_cart[@]}"; then
+                printf "%b%s%b " "$CATALOG_ICON_DISABLED_COLOR" "$ICON_DISABLED" "$STYLE_RESET"
+                available=false
+            elif [[ -n "${requires[$idx]}" ]] && [[ "${requires[$idx]}" != "[]" ]] && ! requirements_met "${requires[$idx]}" "${groups[@]}" "${in_cart[@]}"; then
+                printf "%b%s%b " "$CATALOG_ICON_WARNING_COLOR" "$ICON_AVAILABLE" "$STYLE_RESET"
+                status="* ${requires[$idx]} required"
+                status_color="$CATALOG_STATUS_REQUIRED_STYLE"
+            else
+                printf "%b%s%b " "$CATALOG_ICON_AVAILABLE_COLOR" "$ICON_AVAILABLE" "$STYLE_RESET"
+            fi
+            
+            # Item name
+            if [[ $available == true || "${in_cart[$idx]}" == true ]]; then
+                printf "%b%s%b" "$CATALOG_ITEM_AVAILABLE_STYLE" "${names[$idx]}" "$STYLE_RESET"
+            else
+                printf "%b%s%b" "$CATALOG_ITEM_DISABLED_STYLE" "${names[$idx]}" "$STYLE_RESET"
+            fi
+            
+            # Status
+            if [[ -n "$status" ]]; then
+                local name_len=${#names[$idx]}
+                local status_len=${#status}
+                local padding=$((catalog_width - name_len - status_len - 8))
+                if [[ $padding -gt 0 ]]; then
+                    tput cuf $padding
+                    printf "%b%s%b" "$status_color" "$status" "$STYLE_RESET"
+                fi
+            fi
+            
+            ((display_row++))
+        fi
+    done
+    
+    # Update the variables properly
+    eval "${catalog_first_visible_var}=${first_visible_idx}"
+    eval "${catalog_last_visible_var}=${last_visible_idx}"
+    
+    # Page indicator
+    local total_pages=${#page_boundaries[@]}
+    if [[ $total_pages -gt 1 ]]; then
+        local page_text="Page $((catalog_page + 1))/$total_pages"
+        local text_len=${#page_text}
+        local center_pos=$(( (catalog_width - text_len - 4) / 2 ))
+        
+        tput cup $((content_height + 4)) 0
+        printf "%b%s%b" "$CATALOG_BORDER_COLOR" "$BOX_BOTTOM_LEFT" "$STYLE_RESET"
+        
+        for ((i=0; i<center_pos; i++)); do 
+            printf "%b%s%b" "$CATALOG_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
+        done
+        printf " %b%s%b " "$CATALOG_PAGE_INDICATOR_STYLE" "$page_text" "$STYLE_RESET"
+        
+        local remaining=$((catalog_width - center_pos - text_len - 4))
+        for ((i=0; i<remaining; i++)); do 
+            printf "%b%s%b" "$CATALOG_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
+        done
+        
+        printf "%b%s%b" "$CATALOG_BORDER_COLOR" "$BOX_BOTTOM_RIGHT" "$STYLE_RESET"
+    fi
+}
+
+# Function to render cart items
+render_cart() {
+    local cart_start_col=$1
+    local cart_width=$2
+    local content_height=$3
+    local view=$4
+    local cart_cursor=$5
+    shift 5
+    
+    # Get arrays by name and dereference them
+    local in_cart_array_name=$1
+    local ids_array_name=$2
+    local names_array_name=$3
+    local component_categories_array_name=$4
+    local categories_array_name=$5
+    local category_names_array_name=$6
+    
+    # Get arrays by reference
+    eval "local in_cart=(\"\${${in_cart_array_name}[@]}\")"
+    eval "local ids=(\"\${${ids_array_name}[@]}\")"
+    eval "local names=(\"\${${names_array_name}[@]}\")"
+    eval "local component_categories=(\"\${${component_categories_array_name}[@]}\")"
+    eval "local categories=(\"\${${categories_array_name}[@]}\")"
+    eval "local category_names=(\"\${${category_names_array_name}[@]}\")"
+    
+    local display_row=4
+    local cart_items_array=()
+    
+    # Collect cart items
+    for idx in "${!in_cart[@]}"; do
+        [[ "${in_cart[$idx]}" == true ]] && cart_items_array+=($idx)
+    done
+    
+    local cart_count=${#cart_items_array[@]}
+    
+    # Clear cart area
+    for ((row=4; row<content_height+4; row++)); do
+        tput cup $row $((cart_start_col + 1))
+        printf "%-$((cart_width-2))s" " "
+    done
+    
+    # Start content one row down for spacing
+    display_row=5
+    tput cup $display_row $((cart_start_col + 1))
+    
+    # Show base components first
+    tput cup $display_row $((cart_start_col + 2))
+    printf "%b%s%b" "$CART_BASE_CATEGORY_STYLE" "Base Development Tools" "$STYLE_RESET"
+    ((display_row++))
+    
+    # Base components list with checkmarks
+    local base_components=(
+        "Filebrowser (port 8090)"
+        "Git"
+        "GitHub CLI (gh)"
+        "Microsoft TUI Test"
+        "Node.js 20.18.0"
+        "SSH Server (port 2222)"
+    )
+    
+    for base_comp in "${base_components[@]}"; do
+        if [[ $display_row -lt $((content_height + 4)) ]]; then
+            tput cup $display_row $((cart_start_col + 4))
+            printf "%b%s%b %s" "$SUMMARY_CHECKMARK_COLOR" "$ICON_CHECKMARK" "$STYLE_RESET" "$base_comp"
+            ((display_row++))
+        fi
+    done
+    
+    if [[ $cart_count -gt 0 ]]; then
+        # Group items by category
+        local cart_display_count=0
+        local last_category=""
+        
+        for cat_idx in "${!categories[@]}"; do
+            local category="${categories[$cat_idx]}"
+            local category_display="${category_names[$cat_idx]}"
+            local category_has_items=false
+            
+            for idx in "${cart_items_array[@]}"; do
+                if [[ "${component_categories[$idx]}" == "$category" ]]; then
+                    if [[ $category_has_items == false ]]; then
+                        ((display_row++))
+                        if [[ $display_row -lt $((content_height + 4)) ]]; then
+                            tput cup $display_row $((cart_start_col + 2))
+                            printf "%b%s%b" "$CART_CATEGORY_STYLE" "$category_display" "$STYLE_RESET"
+                            ((display_row++))
+                            category_has_items=true
+                        fi
+                    fi
+                    
+                    if [[ $display_row -lt $((content_height + 4)) ]]; then
+                        tput cup $display_row $((cart_start_col + 2))
+                        
+                        # Cursor
+                        if [[ $view == "cart" && $cart_display_count -eq $cart_cursor ]]; then
+                            printf "%b%s%b " "$CART_CURSOR_COLOR" "$ICON_CURSOR" "$STYLE_RESET"
+                        else
+                            printf "  "
+                        fi
+                        
+                        # Checkmark instead of bullet
+                        printf "%b%s%b %b%s%b" "$SUMMARY_CHECKMARK_COLOR" "$ICON_CHECKMARK" "$STYLE_RESET" "$CART_ITEM_STYLE" "${names[$idx]}" "$STYLE_RESET"
+                        
+                        # Remove hint
+                        if [[ $view == "cart" && $cart_display_count -eq $cart_cursor ]]; then
+                            printf " %b[DEL to remove]%b" "$CART_REMOVE_HINT_STYLE" "$STYLE_RESET"
+                        fi
+                        
+                        ((display_row++))
+                    fi
+                    ((cart_display_count++))
+                fi
+            done
+        done
+    fi
+    
+    # Update the Build Stack box to show count in footer
+    local bottom_text=""
+    if [[ $cart_count -gt 0 ]]; then
+        if [[ $cart_count -eq 1 ]]; then
+            bottom_text="1 selected"
+        else
+            bottom_text="$cart_count selected"
+        fi
+    fi
+    
+    # Redraw the Build Stack box bottom border with the count
+    if [[ -n "$bottom_text" ]]; then
+        local x=$cart_start_col
+        local y=$((content_height + 4))
+        local width=$cart_width
+        
+        tput cup $y $x
+        printf "%b%s%b" "$CART_BORDER_COLOR" "$BOX_BOTTOM_LEFT" "$STYLE_RESET"
+        
+        local text_len=${#bottom_text}
+        local center_pos=$(( (width - text_len - 4) / 2 ))
+        
+        for ((i=0; i<center_pos; i++)); do 
+            printf "%b%s%b" "$CART_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
+        done
+        printf " %b%s%b " "$CART_COUNT_STYLE" "$bottom_text" "$STYLE_RESET"
+        
+        local remaining=$((width - center_pos - text_len - 4))
+        for ((i=0; i<remaining; i++)); do 
+            printf "%b%s%b" "$CART_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
+        done
+        
+        printf "%b%s%b" "$CART_BORDER_COLOR" "$BOX_BOTTOM_RIGHT" "$STYLE_RESET"
+    fi
+}
+
+# Main component selection UI function (renamed from select_components)
+run_component_selection_ui() {
     set +e  # Do not exit on error
     
     # Load components data
@@ -756,58 +1263,15 @@ select_components() {
     # Terminal dimensions and pagination
     local term_width=$(tput cols)
     local term_height=$(tput lines)
-
-    # Calculate catalog width (left box)
     local catalog_width=$((term_width / 2 - 2))
-
-    # Calculate starting position of cart box
-    # Catalog starts at column 0, ends at catalog_width + 1 (including borders)
-    # Space between boxes at column catalog_width + 2
-    # Cart starts at column catalog_width + 3
     local cart_start_col=$((catalog_width + 3))
-
-    # Calculate cart width to fill exactly to the right edge
-    # The cart box needs to end at column term_width - 1
-    # So cart_width = (term_width - 1) - cart_start_col + 1
     local cart_width=$((term_width - cart_start_col))
-
     local content_height=$((term_height - 7))
     local catalog_page=0 cart_page=0
 
     # Calculate pagination
     local page_boundaries=()
-    page_boundaries+=(0)
-    
-    local current_page_rows=0
-    local last_category=""
-    
-    for idx in "${!ids[@]}"; do
-        local item_category="${component_categories[$idx]}"
-        
-        # Count category header row if this is a new category
-        if [[ "$item_category" != "$last_category" ]]; then
-            ((current_page_rows++))
-            last_category="$item_category"
-        fi
-        
-        # Count the item row
-        ((current_page_rows++))
-        
-        # Check if we've exceeded the page height
-        if [[ $current_page_rows -gt $((content_height - 2)) ]]; then
-            page_boundaries+=($idx)
-            current_page_rows=1
-            
-            # Also need to count its category header if different
-            if [[ $idx -gt 0 ]]; then
-                local prev_category="${component_categories[$((idx-1))]}"
-                if [[ "$item_category" != "$prev_category" ]]; then
-                    ((current_page_rows++))
-                fi
-            fi
-            last_category="$item_category"
-        fi
-    done
+    calculate_pagination $total_items $content_height component_categories[@] page_boundaries
     
     local total_pages=${#page_boundaries[@]}
     
@@ -822,405 +1286,24 @@ select_components() {
     local force_cart_update=false
     local force_catalog_update=false
     
-    # ========== INTERNAL FUNCTIONS (need access to local state) ==========
-    
-    # Function to check if a group has items in cart
-    has_group_in_cart() {
-        local check_group=$1
-        for j in "${!groups[@]}"; do
-            [[ "${groups[$j]}" == "$check_group" && "${in_cart[$j]}" == true ]] && return 0
-        done
-        return 1
-    }
-    
-    # Check if requirements are met
-    requirements_met() {
-        local item_requires=$1
-        [[ -z "$item_requires" ]] && return 0
-        [[ "$item_requires" == "[]" ]] && return 0
-        
-        # Split by space for multiple requirements
-        for req in $item_requires; do
-            has_group_in_cart "$req" || return 1
-        done
-        return 0
-    }
-    
-    # Function to add/remove item from cart
-    toggle_cart_item() {
-        local index=$1
-        local action=$2
-        
-        # Bounds checking
-        if [[ $index -lt 0 ]] || [[ $index -ge ${#ids[@]} ]]; then
-            return 1
-        fi
-        
-        if [[ "$action" == "add" ]]; then
-            # Check requirements
-            if [[ -n "${requires[$index]}" ]] && [[ "${requires[$index]}" != "[]" ]] && ! requirements_met "${requires[$index]}"; then
-                hint_message="${ICON_WARNING}  Requires: ${requires[$index]}"
-                hint_timer=30
-                return 1
-            fi
-            
-            # Handle mutually exclusive groups
-            for j in "${!groups[@]}"; do
-                if [[ "${groups[$j]}" == "${groups[$index]}" ]] && [[ $j -ne $index ]] && [[ "${in_cart[$j]}" == true ]]; then
-                    in_cart[$j]=false
-                    hint_message="${ICON_INFO}  Replaced ${names[$j]} with ${names[$index]}"
-                    hint_timer=30
-                fi
-            done
-            
-            in_cart[$index]=true
-            [[ -z "$hint_message" ]] && hint_message="${ICON_SUCCESS} Added ${names[$index]} to stack" && hint_timer=20
-        else
-            in_cart[$index]=false
-            
-            # Check for dependent items
-            local removed_group="${groups[$index]}"
-            local dependents=""
-            
-            for j in "${!requires[@]}"; do
-                [[ -z "${requires[$j]}" ]] && continue
-                
-                # Check if this item depends on the removed group
-                if [[ "${requires[$j]}" == *"$removed_group"* ]] && [[ "${in_cart[$j]}" == true ]]; then
-                    # Double-check this is the only item providing the requirement
-                    local still_has_provider=false
-                    for k in "${!groups[@]}"; do
-                        if [[ $k -ne $index ]] && [[ "${groups[$k]}" == "$removed_group" ]] && [[ "${in_cart[$k]}" == true ]]; then
-                            still_has_provider=true
-                            break
-                        fi
-                    done
-                    
-                    if [[ $still_has_provider == false ]]; then
-                        in_cart[$j]=false
-                        [[ -n "$dependents" ]] && dependents+=", "
-                        dependents+="${names[$j]}"
-                    fi
-                fi
-            done
-            
-            if [[ -n "$dependents" ]]; then
-                hint_message="${ICON_WARNING}  Also removed dependent items: $dependents"
-                hint_timer=40
-            else
-                hint_message="${ICON_SUCCESS} Removed ${names[$index]} from cart"
-                hint_timer=20
-            fi
-        fi
-    }
-    
-    # Function to get display name for category
-    get_category_display_name() {
-        local cat=$1
-        for i in "${!categories[@]}"; do
-            if [[ "${categories[$i]}" == "$cat" ]]; then
-                echo "${category_names[$i]}"
-                return
-            fi
-        done
-        echo "$cat"
-    }
-    
-    # Function to get screen row for item
-    get_screen_row_for_item() {
-        local target_idx=$1
-        local row=5  # Changed from 4 to account for spacing
-        local prev_category=""
-        
-        for ((idx=$catalog_first_visible; idx<=$catalog_last_visible && idx<=$target_idx; idx++)); do
-            local item_category="${component_categories[$idx]}"
-            
-            if [[ "$item_category" != "$prev_category" ]]; then
-                prev_category="$item_category"
-                ((row++))
-            fi
-            
-            if [[ $idx -eq $target_idx ]]; then
-                echo $row
-                return
-            fi
-            ((row++))
-        done
-    }
-
-    # Function to render catalog items for current page
-   render_catalog() {
-        local start_idx=${page_boundaries[$catalog_page]}
-        local end_idx=$total_items
-        
-        if [[ $((catalog_page + 1)) -lt ${#page_boundaries[@]} ]]; then
-            end_idx=${page_boundaries[$((catalog_page + 1))]}
-        fi
-        
-        local display_row=4  # Changed from 5
-        local last_category=""
-        local first_visible_idx=-1
-        local last_visible_idx=-1
-        
-        # Clear catalog area
-        for ((row=4; row<content_height+4; row++)); do  # Changed from row=5
-            tput cup $row 0
-            printf "%b%s%b" "$CATALOG_BORDER_COLOR" "$BOX_VERTICAL" "$STYLE_RESET"
-            for ((col=1; col<catalog_width-1; col++)); do
-                printf " "
-            done
-            printf "%b%s%b" "$CATALOG_BORDER_COLOR" "$BOX_VERTICAL" "$STYLE_RESET"
-        done
-        
-        display_row=5  # Start content one row down for spacing
-        last_category=""
-        
-        for ((idx=start_idx; idx<end_idx; idx++)); do
-            [[ $display_row -ge $((content_height + 4)) ]] && break  # Changed from +5
-            
-            local item_category="${component_categories[$idx]}"
-            local display_name=$(get_category_display_name "$item_category")
-            
-            # Category headers
-            if [[ "$item_category" != "$last_category" ]]; then
-                tput cup $display_row 2
-                printf "%b%s%b" "$CATALOG_CATEGORY_STYLE" "$display_name" "$STYLE_RESET"
-                last_category="$item_category"
-                ((display_row++))
-                [[ $display_row -ge $((content_height + 4)) ]] && break  # Changed from +5
-            fi
-            
-            # Render item with proper indentation
-            if [[ $display_row -lt $((content_height + 4)) ]]; then  # Changed from +5
-                [[ $first_visible_idx -eq -1 ]] && first_visible_idx=$idx
-                last_visible_idx=$idx
-                
-                tput cup $display_row 2
-                
-                # Cursor (no indentation for cursor)
-                if [[ $view == "catalog" && $idx -eq $current ]]; then
-                    printf "%b%s%b " "$CATALOG_CURSOR_COLOR" "$ICON_CURSOR" "$STYLE_RESET"
-                else
-                    printf "  "
-                fi
-              
-                # Check availability
-                local available=true status="" status_color=""
-                
-                if [[ "${in_cart[$idx]}" == true ]]; then
-                    printf "%b%s%b " "$CATALOG_ICON_SELECTED_COLOR" "$ICON_SELECTED" "$STYLE_RESET"
-                    status="(in stack)"
-                    status_color="$CATALOG_STATUS_IN_STACK_STYLE"
-                elif has_group_in_cart "${groups[$idx]}"; then
-                    printf "%b%s%b " "$CATALOG_ICON_DISABLED_COLOR" "$ICON_DISABLED" "$STYLE_RESET"
-                    available=false
-                elif [[ -n "${requires[$idx]}" ]] && [[ "${requires[$idx]}" != "[]" ]] && ! requirements_met "${requires[$idx]}"; then
-                    printf "%b%s%b " "$CATALOG_ICON_WARNING_COLOR" "$ICON_AVAILABLE" "$STYLE_RESET"
-                    status="* ${requires[$idx]} required"
-                    status_color="$CATALOG_STATUS_REQUIRED_STYLE"
-                else
-                    printf "%b%s%b " "$CATALOG_ICON_AVAILABLE_COLOR" "$ICON_AVAILABLE" "$STYLE_RESET"
-                fi
-                
-                # Item name
-                if [[ $available == true || "${in_cart[$idx]}" == true ]]; then
-                    printf "%b%s%b" "$CATALOG_ITEM_AVAILABLE_STYLE" "${names[$idx]}" "$STYLE_RESET"
-                else
-                    printf "%b%s%b" "$CATALOG_ITEM_DISABLED_STYLE" "${names[$idx]}" "$STYLE_RESET"
-                fi
-                
-                # Status
-                if [[ -n "$status" ]]; then
-                    local name_len=${#names[$idx]}
-                    local status_len=${#status}
-                    local padding=$((catalog_width - name_len - status_len - 8))
-                    if [[ $padding -gt 0 ]]; then
-                        tput cuf $padding
-                        printf "%b%s%b" "$status_color" "$status" "$STYLE_RESET"
-                    fi
-                fi
-                
-                ((display_row++))
-            fi
-        done
-        
-        catalog_first_visible=$first_visible_idx
-        catalog_last_visible=$last_visible_idx
-        
-        # Page indicator
-        if [[ $total_pages -gt 1 ]]; then
-            local page_text="Page $((catalog_page + 1))/$total_pages"
-            local text_len=${#page_text}
-            local center_pos=$(( (catalog_width - text_len - 4) / 2 ))
-            
-            tput cup $((content_height + 4)) 0  # Changed from +5
-            printf "%b%s%b" "$CATALOG_BORDER_COLOR" "$BOX_BOTTOM_LEFT" "$STYLE_RESET"
-            
-            for ((i=0; i<center_pos; i++)); do 
-                printf "%b%s%b" "$CATALOG_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
-            done
-            printf " %b%s%b " "$CATALOG_PAGE_INDICATOR_STYLE" "$page_text" "$STYLE_RESET"
-            
-            local remaining=$((catalog_width - center_pos - text_len - 4))
-            for ((i=0; i<remaining; i++)); do 
-                printf "%b%s%b" "$CATALOG_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
-            done
-            
-            printf "%b%s%b" "$CATALOG_BORDER_COLOR" "$BOX_BOTTOM_RIGHT" "$STYLE_RESET"
-        fi
-    }
-
-    # Function to render cart items
-    render_cart() {
-        local display_row=4  # Changed from 5
-        local cart_items_array=()
-        
-        # Collect cart items
-        for idx in "${!in_cart[@]}"; do
-            [[ "${in_cart[$idx]}" == true ]] && cart_items_array+=($idx)
-        done
-        
-        local cart_count=${#cart_items_array[@]}
-        
-        # Clear cart area
-        for ((row=4; row<content_height+4; row++)); do  # Changed from row=5
-            tput cup $row $((cart_start_col + 1))
-            printf "%-$((cart_width-2))s" " "
-        done
-        
-        # Start content one row down for spacing
-        display_row=5
-        tput cup $display_row $((cart_start_col + 1))
-        
-        # Show base components first
-        tput cup $display_row $((cart_start_col + 2))  # Indent by 2 like catalog
-        printf "%b%s%b" "$CART_BASE_CATEGORY_STYLE" "Base Development Tools" "$STYLE_RESET"
-        ((display_row++))
-        
-        # Base components list with checkmarks
-        local base_components=(
-            "Filebrowser (port 8090)"
-            "Git"
-            "GitHub CLI (gh)"
-            "Microsoft TUI Test"
-            "Node.js 20.18.0"
-            "SSH Server (port 2222)"
-        )
-        
-        for base_comp in "${base_components[@]}"; do
-            if [[ $display_row -lt $((content_height + 4)) ]]; then  # Changed from +5
-                tput cup $display_row $((cart_start_col + 4))  # Indent by 4 for items
-                printf "%b%s%b %s" "$SUMMARY_CHECKMARK_COLOR" "$ICON_CHECKMARK" "$STYLE_RESET" "$base_comp"
-                ((display_row++))
-            fi
-        done
-        
-        if [[ $cart_count -gt 0 ]]; then
-            # Group items by category
-            local cart_display_count=0
-            local last_category=""
-            
-            for cat_idx in "${!categories[@]}"; do
-                local category="${categories[$cat_idx]}"
-                local category_display="${category_names[$cat_idx]}"
-                local category_has_items=false
-                
-                for idx in "${cart_items_array[@]}"; do
-                    if [[ "${component_categories[$idx]}" == "$category" ]]; then
-                        if [[ $category_has_items == false ]]; then
-                            ((display_row++))
-                            if [[ $display_row -lt $((content_height + 4)) ]]; then  # Changed from +5
-                                tput cup $display_row $((cart_start_col + 2))  # Indent by 2 like catalog
-                                printf "%b%s%b" "$CART_CATEGORY_STYLE" "$category_display" "$STYLE_RESET"
-                                ((display_row++))
-                                category_has_items=true
-                            fi
-                        fi
-                        
-                        if [[ $display_row -lt $((content_height + 4)) ]]; then  # Changed from +5
-                            tput cup $display_row $((cart_start_col + 2))  # Start at same indent as catalog
-                            
-                            # Cursor (no indentation for cursor)
-                            if [[ $view == "cart" && $cart_display_count -eq $cart_cursor ]]; then
-                                printf "%b%s%b " "$CART_CURSOR_COLOR" "$ICON_CURSOR" "$STYLE_RESET"
-                            else
-                                printf "  "
-                            fi
-                            
-                            # Checkmark instead of bullet
-                            printf "%b%s%b %b%s%b" "$SUMMARY_CHECKMARK_COLOR" "$ICON_CHECKMARK" "$STYLE_RESET" "$CART_ITEM_STYLE" "${names[$idx]}" "$STYLE_RESET"
-                            
-                            # Remove hint
-                            if [[ $view == "cart" && $cart_display_count -eq $cart_cursor ]]; then
-                                printf " %b[DEL to remove]%b" "$CART_REMOVE_HINT_STYLE" "$STYLE_RESET"
-                            fi
-                            
-                            ((display_row++))
-                        fi
-                        ((cart_display_count++))
-                    fi
-                done
-            done
-        fi       
-        # Update the Build Stack box to show count in footer
-        local bottom_text=""
-        if [[ $cart_count -gt 0 ]]; then
-            if [[ $cart_count -eq 1 ]]; then
-                bottom_text="1 selected"
-            else
-                bottom_text="$cart_count selected"
-            fi
-        fi
-        
-        # Redraw the Build Stack box bottom border with the count
-        if [[ -n "$bottom_text" ]]; then
-            local x=$cart_start_col  # Changed from $((catalog_width + 2))
-            local y=$((content_height + 4))  # Changed from +5
-            local width=$cart_width
-            
-            tput cup $y $x
-            printf "%b%s%b" "$CART_BORDER_COLOR" "$BOX_BOTTOM_LEFT" "$STYLE_RESET"
-            
-            local text_len=${#bottom_text}
-            local center_pos=$(( (width - text_len - 4) / 2 ))
-            
-            for ((i=0; i<center_pos; i++)); do 
-                printf "%b%s%b" "$CART_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
-            done
-            printf " %b%s%b " "$CART_COUNT_STYLE" "$bottom_text" "$STYLE_RESET"
-            
-            local remaining=$((width - center_pos - text_len - 4))
-            for ((i=0; i<remaining; i++)); do 
-                printf "%b%s%b" "$CART_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
-            done
-            
-            printf "%b%s%b" "$CART_BORDER_COLOR" "$BOX_BOTTOM_RIGHT" "$STYLE_RESET"
-        fi 
-    } 
-    
-    # ========== MAIN DISPLAY LOOP ==========
-    
+    # Main display loop
     while true; do
-        # Only clear screen on first draw
+        # Initialize screen if needed
         if [[ $screen_initialized == false ]]; then
             clear
-            
-            # Draw gradient title
             draw_gradient_title "AI DevKit Pod Configurator" 1 
-
-            # Add some spacing
             echo ""
-            
-            # Draw boxes (now at row 3 instead of row 4)
             draw_box 0 3 $catalog_width $((content_height + 2)) "Available Components" "" "$CATALOG_BORDER_COLOR" "$CATALOG_TITLE_STYLE"
             draw_box $cart_start_col 3 $cart_width $((content_height + 2)) "Build Stack" "" "$CART_BORDER_COLOR" "$CART_TITLE_STYLE" 
             screen_initialized=true
         fi
         
-        # Handle cursor positioning for page changes
+        # Handle catalog rendering
         if [[ -n "$position_cursor_after_render" ]]; then
-            render_catalog
-            
+            render_catalog $catalog_page page_boundaries $total_items $content_height $catalog_width \
+                          $view $current ids names groups requires component_categories \
+                          in_cart categories category_names catalog_first_visible catalog_last_visible
+
             if [[ "$position_cursor_after_render" == "first" ]]; then
                 current=$catalog_first_visible
             elif [[ "$position_cursor_after_render" == "last" ]]; then
@@ -1228,11 +1311,17 @@ select_components() {
             fi
             position_cursor_after_render=""
             
-            render_catalog
+            render_catalog $catalog_page page_boundaries $total_items $content_height $catalog_width \
+                          $view $current ids names groups requires component_categories \
+                          in_cart categories category_names catalog_first_visible catalog_last_visible
+
             last_catalog_page=$catalog_page
             last_current=$current
         elif [[ $last_catalog_page != $catalog_page || $last_view != $view || $force_catalog_update == true ]]; then
-            render_catalog
+            render_catalog $catalog_page page_boundaries $total_items $content_height $catalog_width \
+                          $view $current ids names groups requires component_categories \
+                          in_cart categories category_names catalog_first_visible catalog_last_visible
+
             last_catalog_page=$catalog_page
             force_catalog_update=false
         elif [[ $last_current != $current && $view == "catalog" ]]; then
@@ -1241,8 +1330,8 @@ select_components() {
                   $last_current -ge $catalog_first_visible && $last_current -le $catalog_last_visible ]]; then
                 
                 # Update cursor positions
-                local old_screen_row=$(get_screen_row_for_item $last_current)
-                local new_screen_row=$(get_screen_row_for_item $current)
+                local old_screen_row=$(get_screen_row_for_item $last_current $catalog_first_visible $catalog_last_visible component_categories[@])
+                local new_screen_row=$(get_screen_row_for_item $current $catalog_first_visible $catalog_last_visible component_categories[@])
                 
                 tput cup $old_screen_row 2
                 printf "  "
@@ -1250,79 +1339,51 @@ select_components() {
                 tput cup $new_screen_row 2
                 printf "%b%s%b " "$CATALOG_CURSOR_COLOR" "$ICON_CURSOR" "$STYLE_RESET"
             else
-                render_catalog
+                render_catalog $catalog_page page_boundaries $total_items $content_height $catalog_width \
+                              $view $current ids names groups requires component_categories \
+                              in_cart categories category_names catalog_first_visible catalog_last_visible
             fi
         fi
         
+        # Handle cart rendering
         if [[ $last_cart_page != $cart_page || $last_view != $view || $last_cart_cursor != $cart_cursor || $force_cart_update == true ]]; then
-            render_cart
+            render_cart $cart_start_col $cart_width $content_height $view $cart_cursor \
+                       in_cart ids names component_categories categories category_names
             last_cart_page=$cart_page
             force_cart_update=false
         fi
         
         # Update instructions if view changed
         if [[ $last_view != $view ]]; then
-            tput cup $((term_height - 1)) 0
-            tput el
-            
-            # Build the instruction text based on view
-            local instruction_text=""
-            if [[ $view == "catalog" ]]; then
-                # Create the instruction text with embedded formatting
-                instruction_text="↑↓/jk: Navigate  ←→/hl: Page  SPACE: Add to stack  TAB: Switch to stack  ENTER: Build  q: Cancel"
-            else
-                instruction_text="↑↓/jk: Navigate  DEL/d: Remove  TAB: Switch to catalog  ENTER: Build  q: Cancel"
-            fi
-            
-            # Calculate center position
-            local text_len=${#instruction_text}
-            local start_pos=$(( (term_width - text_len) / 2 ))
-            
-            # Move to center position
-            tput cup $((term_height - 1)) $start_pos
-            
-            # Print with formatting
-            if [[ $view == "catalog" ]]; then
-                printf "%b↑↓/jk:%b Navigate  %b←→/hl:%b Page  %bSPACE:%b Add to stack  %bTAB:%b Switch to stack  %bENTER:%b Build  %bq:%b Cancel" \
-                    "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
-                    "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
-                    "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
-                    "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
-                    "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
-                    "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE"
-            else
-                printf "%b↑↓/jk:%b Navigate  %bDEL/d:%b Remove  %bTAB:%b Switch to catalog  %bENTER:%b Build  %bq:%b Cancel" \
-                    "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
-                    "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
-                    "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
-                    "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
-                    "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE"
-            fi
-        fi 
+            display_ui_instructions $view $term_height $term_width
+        fi
         
         # Display hint message
         if [[ $hint_timer -gt 0 ]]; then
-            tput cup $((content_height + 5)) 0  # Changed from 2 to position below boxes
+            tput cup $((content_height + 5)) 0
             tput el
             local hint_pos=$(( (term_width - ${#hint_message}) / 2 ))
-            tput cup $((content_height + 5)) $hint_pos  # Changed from 2
+            tput cup $((content_height + 5)) $hint_pos
             printf "%b%s%b" "$GLOBAL_HINT_STYLE" "$hint_message" "$STYLE_RESET"
             ((hint_timer--))
         elif [[ $hint_timer -eq 0 && -n "$hint_message" ]]; then
-            tput cup $((content_height + 5)) 0  # Changed from 2
+            tput cup $((content_height + 5)) 0
             tput el
             hint_message=""
-        fi        
-
+        fi
+        
         # Save state
         last_current=$current
         last_cart_cursor=$cart_cursor
         last_view=$view
         
-        # Read key
+        # Read key and handle input
         IFS= read -rsn1 key
         
-        # Handle input
+        # Count cart items for navigation
+        local cart_items_count=0
+        for ic in "${in_cart[@]}"; do [[ $ic == true ]] && ((cart_items_count++)); done
+        
         if [[ $key == "$ESC" ]]; then
             # Read more characters for escape sequences
             read -rsn1 bracket
@@ -1330,81 +1391,11 @@ select_components() {
                 # CSI sequence - read the rest
                 read -rsn1 char1
                 
-                # Check if we need to read more characters
                 case "$char1" in
                     '3') # Possible DELETE key sequence
                         read -rsn1 char2
-                        if [[ $char2 == '~' ]]; then
-                            # DELETE key confirmed
-                            if [[ $view == "cart" ]]; then
-                                local cart_items_array=()
-                                for idx in "${!in_cart[@]}"; do
-                                    [[ "${in_cart[$idx]}" == true ]] && cart_items_array+=($idx)
-                                done
-                                
-                                if [[ ${#cart_items_array[@]} -eq 0 ]]; then
-                                    hint_message="No items in cart to remove"
-                                    hint_timer=30
-                                elif [[ $cart_cursor -lt ${#cart_items_array[@]} ]]; then
-                                    local item_idx=${cart_items_array[$cart_cursor]}
-                                    
-                                    toggle_cart_item $item_idx "remove"
-                                    
-                                    # Rebuild cart items array after removal
-                                    cart_items_array=()
-                                    for idx in "${!in_cart[@]}"; do
-                                        [[ "${in_cart[$idx]}" == true ]] && cart_items_array+=($idx)
-                                    done
-                                    
-                                    local new_count=${#cart_items_array[@]}
-                                    [[ $cart_cursor -ge $new_count && $cart_cursor -gt 0 ]] && ((cart_cursor--))
-                                    
-                                    force_catalog_update=true
-                                    force_cart_update=true
-                                fi
-                            fi
-                        fi
-                        ;;
-                    'A') # Up arrow
-                        if [[ $view == "catalog" ]]; then
-                            if [[ $current -eq $catalog_first_visible ]] && [[ $catalog_page -gt 0 ]]; then
-                                ((catalog_page--))
-                                position_cursor_after_render="last"
-                            elif ((current > 0)); then
-                                ((current--))
-                            fi
-                        else
-                            ((cart_cursor > 0)) && ((cart_cursor--))
-                        fi
-                        ;;
-                    'B') # Down arrow
-                        if [[ $view == "catalog" ]]; then
-                            if [[ $current -eq $catalog_last_visible ]] && [[ $catalog_page -lt $((total_pages - 1)) ]]; then
-                                ((catalog_page++))
-                                position_cursor_after_render="first"
-                            elif ((current < total_items - 1)); then
-                                ((current++))
-                            fi
-                        else
-                            local cart_items_count=0
-                            for ic in "${in_cart[@]}"; do [[ $ic == true ]] && ((cart_items_count++)); done
-                            ((cart_cursor < cart_items_count - 1)) && ((cart_cursor++))
-                        fi
-                        ;;
-                    'C') # Right arrow
-                        if [[ $view == "catalog" && $catalog_page -lt $((total_pages - 1)) ]]; then
-                            ((catalog_page++))
-                            position_cursor_after_render="first"
-                        fi
-                        ;;
-                    'D') # Left arrow
-                        if [[ $view == "catalog" && $catalog_page -gt 0 ]]; then
-                            ((catalog_page--))
-                            position_cursor_after_render="first"
-                        fi
-                        ;;
-                    'P') # Alternative DELETE on some terminals
-                        if [[ $view == "cart" ]]; then
+                        if [[ $char2 == '~' ]] && [[ $view == "cart" ]]; then
+                            # Handle delete in cart
                             local cart_items_array=()
                             for idx in "${!in_cart[@]}"; do
                                 [[ "${in_cart[$idx]}" == true ]] && cart_items_array+=($idx)
@@ -1415,8 +1406,52 @@ select_components() {
                                 hint_timer=30
                             elif [[ $cart_cursor -lt ${#cart_items_array[@]} ]]; then
                                 local item_idx=${cart_items_array[$cart_cursor]}
+                                toggle_cart_item $item_idx "remove" ids names groups requires in_cart hint_message hint_timer
                                 
-                                toggle_cart_item $item_idx "remove"
+                                # Rebuild cart items array after removal
+                                cart_items_array=()
+                                for idx in "${!in_cart[@]}"; do
+                                    [[ "${in_cart[$idx]}" == true ]] && cart_items_array+=($idx)
+                                done
+                                
+                                local new_count=${#cart_items_array[@]}
+                                [[ $cart_cursor -ge $new_count && $cart_cursor -gt 0 ]] && ((cart_cursor--))
+                                
+                                force_catalog_update=true
+                                force_cart_update=true
+                            fi
+                        fi
+                        ;;
+                    'A') # Up arrow
+                        local nav_result=$(handle_up_key "$view" "$current" "$cart_cursor" "$catalog_page" "$catalog_first_visible")
+                        parse_nav_result "$nav_result"
+                        ;;
+                    'B') # Down arrow
+                        local nav_result=$(handle_down_key "$view" "$current" "$cart_cursor" "$catalog_page" "$catalog_last_visible" "$total_pages" "$total_items" "$cart_items_count")
+                        parse_nav_result "$nav_result"
+                        ;;
+                    'C') # Right arrow
+                        local nav_result=$(handle_right_key "$view" "$current" "$cart_cursor" "$catalog_page" "$total_pages")
+                        parse_nav_result "$nav_result"
+                        ;;
+                    'D') # Left arrow
+                        local nav_result=$(handle_left_key "$view" "$current" "$cart_cursor" "$catalog_page")
+                        parse_nav_result "$nav_result"
+                        ;;
+                    'P') # Alternative DELETE on some terminals
+                        if [[ $view == "cart" ]]; then
+                            # Handle delete in cart
+                            local cart_items_array=()
+                            for idx in "${!in_cart[@]}"; do
+                                [[ "${in_cart[$idx]}" == true ]] && cart_items_array+=($idx)
+                            done
+                            
+                            if [[ ${#cart_items_array[@]} -eq 0 ]]; then
+                                hint_message="No items in cart to remove"
+                                hint_timer=30
+                            elif [[ $cart_cursor -lt ${#cart_items_array[@]} ]]; then
+                                local item_idx=${cart_items_array[$cart_cursor]}
+                                toggle_cart_item $item_idx "remove" ids names groups requires in_cart hint_message hint_timer
                                 
                                 # Rebuild cart items array after removal
                                 cart_items_array=()
@@ -1438,42 +1473,20 @@ select_components() {
                 read -rsn1 char1
                 case "$char1" in
                     'A') # Up arrow (alternative)
-                        if [[ $view == "catalog" ]]; then
-                            if [[ $current -eq $catalog_first_visible ]] && [[ $catalog_page -gt 0 ]]; then
-                                ((catalog_page--))
-                                position_cursor_after_render="last"
-                            elif ((current > 0)); then
-                                ((current--))
-                            fi
-                        else
-                            ((cart_cursor > 0)) && ((cart_cursor--))
-                        fi
+                        local nav_result=$(handle_up_key "$view" "$current" "$cart_cursor" "$catalog_page" "$catalog_first_visible")
+                        parse_nav_result "$nav_result"
                         ;;
                     'B') # Down arrow (alternative)
-                        if [[ $view == "catalog" ]]; then
-                            if [[ $current -eq $catalog_last_visible ]] && [[ $catalog_page -lt $((total_pages - 1)) ]]; then
-                                ((catalog_page++))
-                                position_cursor_after_render="first"
-                            elif ((current < total_items - 1)); then
-                                ((current++))
-                            fi
-                        else
-                            local cart_items_count=0
-                            for ic in "${in_cart[@]}"; do [[ $ic == true ]] && ((cart_items_count++)); done
-                            ((cart_cursor < cart_items_count - 1)) && ((cart_cursor++))
-                        fi
+                        local nav_result=$(handle_down_key "$view" "$current" "$cart_cursor" "$catalog_page" "$catalog_last_visible" "$total_pages" "$total_items" "$cart_items_count")
+                        parse_nav_result "$nav_result"
                         ;;
                     'C') # Right arrow (alternative)
-                        if [[ $view == "catalog" && $catalog_page -lt $((total_pages - 1)) ]]; then
-                            ((catalog_page++))
-                            position_cursor_after_render="first"
-                        fi
+                        local nav_result=$(handle_right_key "$view" "$current" "$cart_cursor" "$catalog_page" "$total_pages")
+                        parse_nav_result "$nav_result"
                         ;;
                     'D') # Left arrow (alternative)
-                        if [[ $view == "catalog" && $catalog_page -gt 0 ]]; then
-                            ((catalog_page--))
-                            position_cursor_after_render="first"
-                        fi
+                        local nav_result=$(handle_left_key "$view" "$current" "$cart_cursor" "$catalog_page")
+                        parse_nav_result "$nav_result"
                         ;;
                 esac
             fi
@@ -1485,48 +1498,93 @@ select_components() {
         elif [[ "$key" == " " && $view == "catalog" ]]; then
             if [[ $current -ge 0 ]] && [[ $current -lt ${#ids[@]} ]]; then
                 if [[ "${in_cart[$current]}" == true ]]; then
-                    toggle_cart_item $current "remove"
+                    # Remove from cart
+                    in_cart[$current]=false
+                    
+                    # Check for dependent items
+                    local removed_group="${groups[$current]}"
+                    local dependents=""
+                    
+                    for j in "${!requires[@]}"; do
+                        [[ -z "${requires[$j]}" ]] && continue
+                        
+                        # Check if this item depends on the removed group
+                        if [[ "${requires[$j]}" == *"$removed_group"* ]] && [[ "${in_cart[$j]}" == true ]]; then
+                            # Double-check this is the only item providing the requirement
+                            local still_has_provider=false
+                            for k in "${!groups[@]}"; do
+                                if [[ $k -ne $current ]] && [[ "${groups[$k]}" == "$removed_group" ]] && [[ "${in_cart[$k]}" == true ]]; then
+                                    still_has_provider=true
+                                    break
+                                fi
+                            done
+                            
+                            if [[ $still_has_provider == false ]]; then
+                                in_cart[$j]=false
+                                [[ -n "$dependents" ]] && dependents+=", "
+                                dependents+="${names[$j]}"
+                            fi
+                        fi
+                    done
+                    
+                    if [[ -n "$dependents" ]]; then
+                        hint_message="${ICON_WARNING}  Also removed dependent items: $dependents"
+                        hint_timer=40
+                    else
+                        hint_message="${ICON_SUCCESS} Removed ${names[$current]} from cart"
+                        hint_timer=20
+                    fi
                 else
-                    toggle_cart_item $current "add"
+                    # Add to cart
+                    # Check requirements
+                    if [[ -n "${requires[$current]}" ]] && [[ "${requires[$current]}" != "[]" ]]; then
+                        if ! requirements_met "${requires[$current]}" "${groups[@]}" "${in_cart[@]}"; then
+                            hint_message="${ICON_WARNING}  Requires: ${requires[$current]}"
+                            hint_timer=30
+                        else
+                            # Handle mutually exclusive groups
+                            for j in "${!groups[@]}"; do
+                                if [[ "${groups[$j]}" == "${groups[$current]}" ]] && [[ $j -ne $current ]] && [[ "${in_cart[$j]}" == true ]]; then
+                                    in_cart[$j]=false
+                                    hint_message="${ICON_INFO}  Replaced ${names[$j]} with ${names[$current]}"
+                                    hint_timer=30
+                                fi
+                            done
+                            
+                            in_cart[$current]=true
+                            [[ -z "$hint_message" ]] && hint_message="${ICON_SUCCESS} Added ${names[$current]} to stack" && hint_timer=20
+                        fi
+                    else
+                        # No requirements, just handle mutually exclusive groups
+                        for j in "${!groups[@]}"; do
+                            if [[ "${groups[$j]}" == "${groups[$current]}" ]] && [[ $j -ne $current ]] && [[ "${in_cart[$j]}" == true ]]; then
+                                in_cart[$j]=false
+                                hint_message="${ICON_INFO}  Replaced ${names[$j]} with ${names[$current]}"
+                                hint_timer=30
+                            fi
+                        done
+                        
+                        in_cart[$current]=true
+                        [[ -z "$hint_message" ]] && hint_message="${ICON_SUCCESS} Added ${names[$current]} to stack" && hint_timer=20
+                    fi
                 fi
                 force_catalog_update=true
                 force_cart_update=true
-            fi
+            fi 
         elif [[ "$key" =~ ^[jJ]$ ]]; then
-            if [[ $view == "catalog" ]]; then
-                if [[ $current -eq $catalog_last_visible ]] && [[ $catalog_page -lt $((total_pages - 1)) ]]; then
-                    ((catalog_page++))
-                    position_cursor_after_render="first"
-                elif ((current < total_items - 1)); then
-                    ((current++))
-                fi
-            else
-                local cart_items_count=0
-                for ic in "${in_cart[@]}"; do [[ $ic == true ]] && ((cart_items_count++)); done
-                ((cart_cursor < cart_items_count - 1)) && ((cart_cursor++))
-            fi
+            local nav_result=$(handle_down_key "$view" "$current" "$cart_cursor" "$catalog_page" "$catalog_last_visible" "$total_pages" "$total_items" "$cart_items_count")
+            parse_nav_result "$nav_result"
         elif [[ "$key" =~ ^[kK]$ ]]; then
-            if [[ $view == "catalog" ]]; then
-                if [[ $current -eq $catalog_first_visible ]] && [[ $catalog_page -gt 0 ]]; then
-                    ((catalog_page--))
-                    position_cursor_after_render="last"
-                elif ((current > 0)); then
-                    ((current--))
-                fi
-            else
-                ((cart_cursor > 0)) && ((cart_cursor--))
-            fi
+            local nav_result=$(handle_up_key "$view" "$current" "$cart_cursor" "$catalog_page" "$catalog_first_visible")
+            parse_nav_result "$nav_result"
         elif [[ "$key" =~ ^[hH]$ && $view == "catalog" ]]; then
-            if [[ $catalog_page -gt 0 ]]; then
-                ((catalog_page--))
-                position_cursor_after_render="first"
-            fi
+            local nav_result=$(handle_left_key "$view" "$current" "$cart_cursor" "$catalog_page")
+            parse_nav_result "$nav_result"
         elif [[ "$key" =~ ^[lL]$ && $view == "catalog" ]]; then
-            if [[ $catalog_page -lt $((total_pages - 1)) ]]; then
-                ((catalog_page++))
-                position_cursor_after_render="first"
-            fi
-        elif [[ "$key" =~ ^[dD]$ && $view == "cart" ]]; then  # 'd' key for delete
+            local nav_result=$(handle_right_key "$view" "$current" "$cart_cursor" "$catalog_page" "$total_pages")
+            parse_nav_result "$nav_result"
+        elif [[ "$key" =~ ^[dD]$ && $view == "cart" ]]; then
+            # Handle 'd' key for delete in cart
             local cart_items_array=()
             for idx in "${!in_cart[@]}"; do
                 [[ "${in_cart[$idx]}" == true ]] && cart_items_array+=($idx)
@@ -1537,8 +1595,7 @@ select_components() {
                 hint_timer=30
             elif [[ $cart_cursor -lt ${#cart_items_array[@]} ]]; then
                 local item_idx=${cart_items_array[$cart_cursor]}
-                
-                toggle_cart_item $item_idx "remove"
+                toggle_cart_item $item_idx "remove" ids names groups requires in_cart hint_message hint_timer
                 
                 # Rebuild cart items array after removal
                 cart_items_array=()
@@ -1552,7 +1609,8 @@ select_components() {
                 force_catalog_update=true
                 force_cart_update=true
             fi
-        elif [[ "$key" == "$BACKSPACE" && $view == "cart" ]]; then  # Backspace key (0x7F)
+        elif [[ "$key" == "$BACKSPACE" && $view == "cart" ]]; then
+            # Handle backspace for delete in cart
             local cart_items_array=()
             for idx in "${!in_cart[@]}"; do
                 [[ "${in_cart[$idx]}" == true ]] && cart_items_array+=($idx)
@@ -1563,8 +1621,7 @@ select_components() {
                 hint_timer=30
             elif [[ $cart_cursor -lt ${#cart_items_array[@]} ]]; then
                 local item_idx=${cart_items_array[$cart_cursor]}
-                
-                toggle_cart_item $item_idx "remove"
+                toggle_cart_item $item_idx "remove" ids names groups requires in_cart hint_message hint_timer
                 
                 # Rebuild cart items array after removal
                 cart_items_array=()
@@ -1585,14 +1642,343 @@ select_components() {
             log "Installation cancelled."
             exit 0
         fi
-    done   
-
+        
+        # Check for exit conditions (moved outside of input handling)
+        if [[ "$key" == "$NL" ]] || [[ -z "$key" ]]; then
+            break  # Enter key
+        fi
+    done
+    
     tput cnorm
     stty echo
     clear
     
+    # Display summary and save selections
+    display_selection_summary in_cart ids names groups component_categories \
+                            requires yaml_files categories category_names
+    
+    set -e
+}
+
+# Display UI instructions based on current view
+display_ui_instructions() {
+    local view=$1
+    local term_height=$2
+    local term_width=$3
+    
+    tput cup $((term_height - 1)) 0
+    tput el
+    
+    # Build the instruction text based on view
+    local instruction_text=""
+    if [[ $view == "catalog" ]]; then
+        instruction_text="↑↓/jk: Navigate  ←→/hl: Page  SPACE: Add to stack  TAB: Switch to stack  ENTER: Build  q: Cancel"
+    else
+        instruction_text="↑↓/jk: Navigate  DEL/d: Remove  TAB: Switch to catalog  ENTER: Build  q: Cancel"
+    fi
+    
+    # Calculate center position
+    local text_len=${#instruction_text}
+    local start_pos=$(( (term_width - text_len) / 2 ))
+    
+    # Move to center position
+    tput cup $((term_height - 1)) $start_pos
+    
+    # Print with formatting
+    if [[ $view == "catalog" ]]; then
+        printf "%b↑↓/jk:%b Navigate  %b←→/hl:%b Page  %bSPACE:%b Add to stack  %bTAB:%b Switch to stack  %bENTER:%b Build  %bq:%b Cancel" \
+            "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
+            "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
+            "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
+            "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
+            "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
+            "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE"
+    else
+        printf "%b↑↓/jk:%b Navigate  %bDEL/d:%b Remove  %bTAB:%b Switch to catalog  %bENTER:%b Build  %bq:%b Cancel" \
+            "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
+            "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
+            "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
+            "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
+            "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE"
+    fi
+}
+
+# Handle UI input - Fixed version
+handle_ui_input() {
+    local -n key_ref=$1
+    local -n view_ref=$2
+    local -n current_ref=$3
+    local -n cart_cursor_ref=$4
+    local -n catalog_page_ref=$5
+    local -n cart_page_ref=$6
+    local -n position_cursor_ref=$7
+    local total_pages=$8
+    local total_items=$9
+    local catalog_first_visible=${10}
+    local catalog_last_visible=${11}
+    local -n ids_ref=$12
+    local -n names_ref=$13
+    local -n groups_ref=$14
+    local -n requires_ref=$15
+    local -n in_cart_ref=$16
+    local -n hint_message_ref=$17
+    local -n hint_timer_ref=$18
+    local -n force_catalog_update_ref=$19
+    local -n force_cart_update_ref=$20
+    
+    if [[ $key_ref == "$ESC" ]]; then
+        # Read more characters for escape sequences
+        read -rsn1 bracket
+        if [[ $bracket == '[' ]]; then
+            # CSI sequence - read the rest
+            read -rsn1 char1
+            
+            case "$char1" in
+                '3') # Possible DELETE key sequence
+                    read -rsn1 char2
+                    if [[ $char2 == '~' ]]; then
+                        handle_delete_key view_ref cart_cursor_ref in_cart_ref ids_ref names_ref groups_ref requires_ref \
+                                        hint_message_ref hint_timer_ref force_catalog_update_ref force_cart_update_ref
+                    fi
+                    ;;
+                'A') # Up arrow
+                    handle_up_key view_ref current_ref cart_cursor_ref catalog_page_ref \
+                                 position_cursor_ref $catalog_first_visible in_cart_ref
+                    ;;
+                'B') # Down arrow
+                    handle_down_key view_ref current_ref cart_cursor_ref catalog_page_ref \
+                                   position_cursor_ref $catalog_last_visible $total_pages $total_items in_cart_ref
+                    ;;
+                'C') # Right arrow
+                    handle_right_key view_ref catalog_page_ref position_cursor_ref $total_pages
+                    ;;
+                'D') # Left arrow
+                    handle_left_key view_ref catalog_page_ref position_cursor_ref
+                    ;;
+                'P') # Alternative DELETE on some terminals
+                    handle_delete_key view_ref cart_cursor_ref in_cart_ref ids_ref names_ref groups_ref requires_ref \
+                                    hint_message_ref hint_timer_ref force_catalog_update_ref force_cart_update_ref
+                    ;;
+            esac
+        elif [[ $bracket == 'O' ]]; then
+            # SS3 sequence - read one more
+            read -rsn1 char1
+            case "$char1" in
+                'A') # Up arrow (alternative)
+                    handle_up_key view_ref current_ref cart_cursor_ref catalog_page_ref \
+                                 position_cursor_ref $catalog_first_visible in_cart_ref
+                    ;;
+                'B') # Down arrow (alternative)
+                    handle_down_key view_ref current_ref cart_cursor_ref catalog_page_ref \
+                                   position_cursor_ref $catalog_last_visible $total_pages $total_items in_cart_ref
+                    ;;
+                'C') # Right arrow (alternative)
+                    handle_right_key view_ref catalog_page_ref position_cursor_ref $total_pages
+                    ;;
+                'D') # Left arrow (alternative)
+                    handle_left_key view_ref catalog_page_ref position_cursor_ref
+                    ;;
+            esac
+        fi
+    elif [[ "$key_ref" == "$TAB" ]]; then
+        view_ref=$([[ $view_ref == "catalog" ]] && echo "cart" || echo "catalog")
+        [[ $view_ref == "cart" ]] && cart_cursor_ref=0
+    elif [[ "$key_ref" == " " ]]; then
+        if [[ $view_ref == "catalog" ]]; then
+            if [[ $current_ref -ge 0 ]] && [[ $current_ref -lt ${#ids_ref[@]} ]]; then
+                if [[ "${in_cart_ref[$current_ref]}" == true ]]; then
+                    toggle_cart_item $current_ref "remove" ids_ref names_ref groups_ref requires_ref in_cart_ref hint_message_ref hint_timer_ref
+                else
+                    toggle_cart_item $current_ref "add" ids_ref names_ref groups_ref requires_ref in_cart_ref hint_message_ref hint_timer_ref
+                fi
+                force_catalog_update_ref=true
+                force_cart_update_ref=true
+            fi
+        fi
+    elif [[ "$key_ref" =~ ^[jJ]$ ]]; then
+        handle_down_key view_ref current_ref cart_cursor_ref catalog_page_ref \
+                       position_cursor_ref $catalog_last_visible $total_pages $total_items in_cart_ref
+    elif [[ "$key_ref" =~ ^[kK]$ ]]; then
+        handle_up_key view_ref current_ref cart_cursor_ref catalog_page_ref \
+                     position_cursor_ref $catalog_first_visible in_cart_ref
+    elif [[ "$key_ref" =~ ^[hH]$ && $view_ref == "catalog" ]]; then
+        handle_left_key view_ref catalog_page_ref position_cursor_ref
+    elif [[ "$key_ref" =~ ^[lL]$ && $view_ref == "catalog" ]]; then
+        handle_right_key view_ref catalog_page_ref position_cursor_ref $total_pages
+    elif [[ "$key_ref" =~ ^[dD]$ && $view_ref == "cart" ]]; then
+        handle_delete_key view_ref cart_cursor_ref in_cart_ref ids_ref names_ref groups_ref requires_ref \
+                        hint_message_ref hint_timer_ref force_catalog_update_ref force_cart_update_ref
+    elif [[ "$key_ref" == "$BACKSPACE" && $view_ref == "cart" ]]; then
+        handle_delete_key view_ref cart_cursor_ref in_cart_ref ids_ref names_ref groups_ref requires_ref \
+                        hint_message_ref hint_timer_ref force_catalog_update_ref force_cart_update_ref
+    fi
+}
+
+# Handle navigation keys - Fixed for Bash 3.2+
+handle_up_key() {
+    local view="$1"
+    local current="$2"
+    local cart_cursor="$3"
+    local catalog_page="$4"
+    local catalog_first_visible="$5"
+    local result=""
+    
+    if [[ $view == "catalog" ]]; then
+        if [[ $current -eq $catalog_first_visible ]] && [[ $catalog_page -gt 0 ]]; then
+            ((catalog_page--))
+            echo "view=$view:current=$current:cart_cursor=$cart_cursor:catalog_page=$catalog_page:position_cursor=last"
+        elif ((current > 0)); then
+            ((current--))
+            echo "view=$view:current=$current:cart_cursor=$cart_cursor:catalog_page=$catalog_page:position_cursor="
+        else
+            echo "view=$view:current=$current:cart_cursor=$cart_cursor:catalog_page=$catalog_page:position_cursor="
+        fi
+    else
+        if ((cart_cursor > 0)); then
+            ((cart_cursor--))
+        fi
+        echo "view=$view:current=$current:cart_cursor=$cart_cursor:catalog_page=$catalog_page:position_cursor="
+    fi
+}
+
+handle_down_key() {
+    local view="$1"
+    local current="$2"
+    local cart_cursor="$3"
+    local catalog_page="$4"
+    local catalog_last_visible="$5"
+    local total_pages="$6"
+    local total_items="$7"
+    local cart_items_count="$8"
+    
+    if [[ $view == "catalog" ]]; then
+        if [[ $current -eq $catalog_last_visible ]] && [[ $catalog_page -lt $((total_pages - 1)) ]]; then
+            ((catalog_page++))
+            echo "view=$view:current=$current:cart_cursor=$cart_cursor:catalog_page=$catalog_page:position_cursor=first"
+        elif ((current < total_items - 1)); then
+            ((current++))
+            echo "view=$view:current=$current:cart_cursor=$cart_cursor:catalog_page=$catalog_page:position_cursor="
+        else
+            echo "view=$view:current=$current:cart_cursor=$cart_cursor:catalog_page=$catalog_page:position_cursor="
+        fi
+    else
+        if ((cart_cursor < cart_items_count - 1)); then
+            ((cart_cursor++))
+        fi
+        echo "view=$view:current=$current:cart_cursor=$cart_cursor:catalog_page=$catalog_page:position_cursor="
+    fi
+}
+
+handle_left_key() {
+    local view="$1"
+    local current="$2"
+    local cart_cursor="$3"
+    local catalog_page="$4"
+    
+    if [[ $view == "catalog" && $catalog_page -gt 0 ]]; then
+        ((catalog_page--))
+        echo "view=$view:current=$current:cart_cursor=$cart_cursor:catalog_page=$catalog_page:position_cursor=first"
+    else
+        echo "view=$view:current=$current:cart_cursor=$cart_cursor:catalog_page=$catalog_page:position_cursor="
+    fi
+}
+
+handle_right_key() {
+    local view="$1"
+    local current="$2"
+    local cart_cursor="$3"
+    local catalog_page="$4"
+    local total_pages="$5"
+    
+    if [[ $view == "catalog" && $catalog_page -lt $((total_pages - 1)) ]]; then
+        ((catalog_page++))
+        echo "view=$view:current=$current:cart_cursor=$cart_cursor:catalog_page=$catalog_page:position_cursor=first"
+    else
+        echo "view=$view:current=$current:cart_cursor=$cart_cursor:catalog_page=$catalog_page:position_cursor="
+    fi
+}
+
+# Parse navigation result
+parse_nav_result() {
+    local result="$1"
+    local -a parts
+    IFS=':' read -ra parts <<< "$result"
+    
+    for part in "${parts[@]}"; do
+        if [[ $part =~ ^view=(.*)$ ]]; then
+            view="${BASH_REMATCH[1]}"
+        elif [[ $part =~ ^current=(.*)$ ]]; then
+            current="${BASH_REMATCH[1]}"
+        elif [[ $part =~ ^cart_cursor=(.*)$ ]]; then
+            cart_cursor="${BASH_REMATCH[1]}"
+        elif [[ $part =~ ^catalog_page=(.*)$ ]]; then
+            catalog_page="${BASH_REMATCH[1]}"
+        elif [[ $part =~ ^position_cursor=(.*)$ ]]; then
+            position_cursor_after_render="${BASH_REMATCH[1]}"
+        fi
+    done
+}
+
+handle_delete_key() {
+    local view_var=$1
+    local cart_cursor_var=$2
+    local in_cart=("${!3}")
+    local ids=("${!4}")
+    local names=("${!5}")
+    local groups=("${!6}")
+    local requires=("${!7}")
+    local hint_message_var=$8
+    local hint_timer_var=$9
+    local force_catalog_update_var=${10}
+    local force_cart_update_var=${11}
+    
+    eval "local view=\$$view_var"
+    eval "local cart_cursor=\$$cart_cursor_var"
+    
+    if [[ $view == "cart" ]]; then
+        local cart_items_array=()
+        for idx in "${!in_cart[@]}"; do
+            [[ "${in_cart[$idx]}" == true ]] && cart_items_array+=($idx)
+        done
+        
+        if [[ ${#cart_items_array[@]} -eq 0 ]]; then
+            eval "$hint_message_var=\"No items in cart to remove\""
+            eval "$hint_timer_var=30"
+        elif [[ $cart_cursor -lt ${#cart_items_array[@]} ]]; then
+            local item_idx=${cart_items_array[$cart_cursor]}
+            
+            toggle_cart_item $item_idx "remove" ids[@] names[@] groups[@] requires[@] in_cart[@] "$hint_message_var" "$hint_timer_var"
+            
+            # Rebuild cart items array after removal
+            cart_items_array=()
+            for idx in "${!in_cart[@]}"; do
+                [[ "${in_cart[$idx]}" == true ]] && cart_items_array+=($idx)
+            done
+            
+            local new_count=${#cart_items_array[@]}
+            [[ $cart_cursor -ge $new_count && $cart_cursor -gt 0 ]] && eval "((${cart_cursor_var}--))"
+            
+            eval "$force_catalog_update_var=true"
+            eval "$force_cart_update_var=true"
+        fi
+    fi
+}
+
+# Display selection summary and save selections
+display_selection_summary() {
+    local in_cart=("${!1}")
+    local ids=("${!2}")
+    local names=("${!3}")
+    local groups=("${!4}")
+    local component_categories=("${!5}")
+    local requires=("${!6}")
+    local yaml_files=("${!7}")
+    local categories=("${!8}")
+    local category_names=("${!9}")
+    
     # Build final selections - Summary Screen
     local term_width=$(tput cols)
+    local term_height=$(tput lines)
 
     # Clear screen
     clear
@@ -1608,7 +1994,7 @@ select_components() {
     local box_height=$((term_height - 8)) # Leave room for title, spacing, and prompt
 
     # Draw the summary box
-    draw_box 2 3 $box_width $box_height "Deployment Manifest" "" "$SUMMARY_BORDER_COLOR" "$SUMMARY_TITLE_STYLE"  # Changed box title
+    draw_box 2 3 $box_width $box_height "Deployment Manifest" "" "$SUMMARY_BORDER_COLOR" "$SUMMARY_TITLE_STYLE"
    
     # Start content inside the box
     local content_row=5  # Start 2 rows inside the box for spacing
@@ -1658,7 +2044,7 @@ select_components() {
             for i in "${!ids[@]}"; do
                 if [[ "${in_cart[$i]}" == true ]] && [[ "${component_categories[$i]}" == "$category" ]]; then
                     if [[ $category_has_items == false ]]; then
-                        ((content_row++))  # Single line spacing between categories (like Build Stack)
+                        ((content_row++))  # Single line spacing between categories
                         tput cup $content_row 6
                         style_line "$SUMMARY_CATEGORY_STYLE" "$category_display"
                         ((content_row++))
@@ -1692,10 +2078,7 @@ select_components() {
     read -r CONFIRM 
 
     [[ "$CONFIRM" =~ ^[qQ]$ ]] && log "Build cancelled." && exit 0
-
-    set -e   
-    
- }
+}
 
 # Global variables for selected items
 declare -a SELECTED_YAML_FILES
@@ -2367,7 +2750,7 @@ main() {
     setup_configuration
     
     # Component selection
-    [[ ! "$1" =~ --no-select && ! "$2" =~ --no-select ]] && select_components
+    [[ ! "$1" =~ --no-select && ! "$2" =~ --no-select ]] && run_component_selection_ui
     
     # Clean up previous build
     cleanup_previous_build
