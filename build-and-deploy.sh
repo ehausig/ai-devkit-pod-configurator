@@ -96,7 +96,7 @@ readonly BOLD_SAND='\033[1;38;2;229;192;123m'        # #E5C07B (bold)
 readonly BOLD_SEAFOAM='\033[1;38;2;138;191;183m'     # #8ABFB7 (bold)
 readonly BOLD_LAVENDER='\033[1;38;2;198;120;221m'    # #C678DD
 
-# Icons (unchanged)
+# Icons
 readonly ICON_SELECTED="✓"
 readonly ICON_AVAILABLE="○"
 readonly ICON_DISABLED="○"
@@ -105,8 +105,10 @@ readonly ICON_CHECKMARK="✓"
 readonly ICON_WARNING="⚠️"
 readonly ICON_INFO="ℹ️"
 readonly ICON_SUCCESS="✓"
+readonly ICON_PENDING="⟳"
+readonly ICON_FAILED="✗"
 
-# Box Drawing Characters (unchanged)
+# Box Drawing Characters
 readonly BOX_TOP_LEFT="╭"
 readonly BOX_TOP_RIGHT="╮"
 readonly BOX_BOTTOM_LEFT="╰"
@@ -117,11 +119,13 @@ readonly BOX_TITLE_LEFT="┐"
 readonly BOX_TITLE_RIGHT="┌"
 readonly BOX_SEPARATOR="━"
 
-# NEW GRANULAR THEME VARIABLES
 # Global UI Elements
 GLOBAL_TITLE_STYLE="$BOLD_BRIGHT_WHITE"
 GLOBAL_SEPARATOR_COLOR="$COLOR_RED" # deprecated
 GLOBAL_HINT_STYLE="$COLOR_YELLOW"
+
+# Global variable for deployment status row tracking
+DEPLOYMENT_STATUS_FINAL_ROW=0
 
 # Catalog Box (Available Components)
 CATALOG_BORDER_COLOR="$COLOR_BRIGHT_CHARCOAL"
@@ -160,6 +164,16 @@ SUMMARY_TITLE_STYLE="$BOLD_BRIGHT_WHITE"
 SUMMARY_CHECKMARK_COLOR="$COLOR_BRIGHT_SAGE"
 SUMMARY_CATEGORY_STYLE="$COLOR_BRIGHT_SEAFOAM"
 
+# Deployment Status
+STATUS_BORDER_COLOR="$COLOR_BRIGHT_CHARCOAL"
+STATUS_TITLE_STYLE="$BOLD_BRIGHT_WHITE"
+STATUS_PENDING_STYLE="$COLOR_SAND"
+STATUS_RUNNING_STYLE="$COLOR_BRIGHT_SKY"
+STATUS_SUCCESS_STYLE="$COLOR_BRIGHT_SAGE"
+STATUS_FAILED_STYLE="$COLOR_BRIGHT_CORAL"
+STATUS_STEP_STYLE="$COLOR_SILVER"
+STATUS_INFO_STYLE="$COLOR_BRIGHT_CYAN"
+
 # Logging
 LOG_ERROR_STYLE="$COLOR_RED"
 LOG_SUCCESS_STYLE="$COLOR_GREEN"
@@ -196,6 +210,9 @@ load_theme() {
             
             SUMMARY_BORDER_COLOR="$COLOR_GRAY"
             SUMMARY_CATEGORY_STYLE="$COLOR_MAGENTA"
+
+            STATUS_BORDER_COLOR="$COLOR_GRAY"
+            STATUS_TITLE_STYLE="$BOLD_CYAN"
             ;;
             
         "matrix")
@@ -236,7 +253,14 @@ load_theme() {
             SUMMARY_TITLE_STYLE="$BOLD_GREEN"
             SUMMARY_CATEGORY_STYLE="$COLOR_BRIGHT_GREEN"
             SUMMARY_CHECKMARK_COLOR="$BOLD_GREEN"
-            
+           
+            STATUS_BORDER_COLOR="$COLOR_GREEN"
+            STATUS_TITLE_STYLE="$BOLD_GREEN"
+            STATUS_PENDING_STYLE="$COLOR_GREEN"
+            STATUS_RUNNING_STYLE="$COLOR_BRIGHT_GREEN"
+            STATUS_SUCCESS_STYLE="$BOLD_GREEN"
+            STATUS_FAILED_STYLE="$COLOR_BRIGHT_GREEN"
+
             LOG_SUCCESS_STYLE="$BOLD_GREEN"
             LOG_WARNING_STYLE="$COLOR_BRIGHT_GREEN"
             LOG_INFO_STYLE="$COLOR_GREEN"
@@ -268,6 +292,9 @@ load_theme() {
             SUMMARY_TITLE_STYLE="$BOLD_CYAN"
             SUMMARY_CATEGORY_STYLE="$COLOR_BRIGHT_BLUE"
             
+            STATUS_BORDER_COLOR="$COLOR_CYAN"
+            STATUS_TITLE_STYLE="$BOLD_CYAN"
+
             LOG_INFO_STYLE="$BOLD_BLUE"
             ;;
             
@@ -309,7 +336,10 @@ load_theme() {
             SUMMARY_TITLE_STYLE="$BOLD_WHITE"
             SUMMARY_CATEGORY_STYLE="$COLOR_WHITE"
             SUMMARY_CHECKMARK_COLOR="$BOLD_WHITE"
-            
+           
+            STATUS_BORDER_COLOR="$COLOR_GRAY"
+            STATUS_TITLE_STYLE="$BOLD_WHITE"
+
             LOG_SUCCESS_STYLE="$BOLD_WHITE"
             LOG_WARNING_STYLE="$COLOR_WHITE"
             LOG_INFO_STYLE="$COLOR_GRAY"
@@ -348,6 +378,9 @@ load_theme() {
             SUMMARY_TITLE_STYLE="$BOLD_MAGENTA"
             SUMMARY_CATEGORY_STYLE="$COLOR_BRIGHT_CYAN"
             SUMMARY_CHECKMARK_COLOR="$COLOR_BRIGHT_GREEN"
+
+            STATUS_BORDER_COLOR="$COLOR_BRIGHT_MAGENTA"
+            STATUS_TITLE_STYLE="$BOLD_MAGENTA"
             ;;
             
         *)
@@ -684,6 +717,121 @@ draw_gradient_title() {
         printf "%b%s" "${gradient_colors[$color_idx]}" "$BOX_VERTICAL"
     done
     printf "%b\n" "$STYLE_RESET"
+}
+
+# Function to render all deployment steps
+render_deployment_steps() {
+    local col=$1
+    local width=$2
+    local steps=("${!3}")
+    local statuses=("${!4}")
+    local messages=("${!5}")
+    
+    local row=5
+    
+    # Clear the status area first
+    for ((r=5; r<25; r++)); do
+        tput cup $r $((col + 2))
+        printf "%-$((width-4))s" " "
+    done
+    
+    # Render each step
+    for i in "${!steps[@]}"; do
+        tput cup $row $((col + 2))
+        
+        local icon=""
+        local icon_style=""
+        
+        case "${statuses[$i]}" in
+            "pending")
+                icon="$ICON_PENDING"
+                icon_style="$STATUS_PENDING_STYLE"
+                ;;
+            "running")
+                icon="$ICON_PENDING"
+                icon_style="$STATUS_RUNNING_STYLE"
+                ;;
+            "success")
+                icon="$ICON_SUCCESS"
+                icon_style="$STATUS_SUCCESS_STYLE"
+                ;;
+            "failed")
+                icon="$ICON_FAILED"
+                icon_style="$STATUS_FAILED_STYLE"
+                ;;
+        esac
+        
+        printf "%b%s%b %b%s%b" "$icon_style" "$icon" "$STYLE_RESET" "$STATUS_STEP_STYLE" "${steps[$i]}" "$STYLE_RESET"
+        
+        # Add message if exists
+        if [[ -n "${messages[$i]}" ]]; then
+            ((row++))
+            tput cup $row $((col + 4))
+            printf "%b%s%b" "$STATUS_INFO_STYLE" "${messages[$i]}" "$STYLE_RESET"
+        fi
+        
+        ((row+=2))
+    done
+    
+    # Use a global variable to pass the row value back
+    DEPLOYMENT_STATUS_FINAL_ROW=$row
+}
+
+# Function to update a specific deployment step
+update_deployment_step() {
+    local step_index=$1
+    local status=$2
+    local message="${3:-}"
+    local statuses_var=$4
+    local messages_var=$5
+    
+    # Update the arrays
+    eval "${statuses_var}[$step_index]=\"$status\""
+    eval "${messages_var}[$step_index]=\"$message\""
+}
+
+# Function to show connection details
+show_connection_details() {
+    local row=$1
+    local col=$2
+    local width=$3
+    local pod_name=$4
+    local port_forward_pid=$5
+    local claude_selected=$6
+    
+    ((row+=2))
+    tput cup $row $((col + 2))
+    printf "%b%s%b" "$STATUS_INFO_STYLE" "Connection Details:" "$STYLE_RESET"
+    ((row+=2))
+    
+    tput cup $row $((col + 4))
+    printf "%bSSH:%b devuser@localhost -p 2222" "$BOLD_WHITE" "$STYLE_RESET"
+    ((row++))
+    
+    tput cup $row $((col + 4))
+    printf "%bPassword:%b devuser" "$BOLD_WHITE" "$STYLE_RESET"
+    ((row+=2))
+    
+    tput cup $row $((col + 4))
+    printf "%bFile Manager:%b" "$BOLD_WHITE" "$STYLE_RESET"
+    ((row++))
+    
+    tput cup $row $((col + 4))
+    printf "http://localhost:8090"
+    ((row++))
+    
+    tput cup $row $((col + 4))
+    printf "(admin/admin)"
+    ((row+=2))
+    
+    if [[ $claude_selected == true ]]; then
+        tput cup $row $((col + 4))
+        printf "%bClaude Code:%b claude" "$BOLD_WHITE" "$STYLE_RESET"
+        ((row+=2))
+    fi
+    
+    tput cup $row $((col + 4))
+    printf "%bPort Forward PID:%b $port_forward_pid" "$BOLD_WHITE" "$STYLE_RESET"
 }
 
 # Function to check if a group has items in cart
@@ -1964,7 +2112,7 @@ handle_delete_key() {
     fi
 }
 
-# Display selection summary and save selections
+# Display selection summary with deployment status
 display_selection_summary() {
     local in_cart=("${!1}")
     local ids=("${!2}")
@@ -1989,12 +2137,17 @@ display_selection_summary() {
     # Add spacing
     echo ""
 
-    # Calculate box dimensions
-    local box_width=$((term_width - 4))  # Leave 2 spaces on each side
+    # Calculate box dimensions - now with two panes
+    local manifest_width=$((term_width / 2 - 2))
+    local status_start_col=$((manifest_width + 3))
+    local status_width=$((term_width - status_start_col))
     local box_height=$((term_height - 8)) # Leave room for title, spacing, and prompt
 
-    # Draw the summary box
-    draw_box 2 3 $box_width $box_height "Deployment Manifest" "" "$SUMMARY_BORDER_COLOR" "$SUMMARY_TITLE_STYLE"
+    # Draw the manifest box
+    draw_box 2 3 $manifest_width $box_height "Deployment Manifest" "" "$SUMMARY_BORDER_COLOR" "$SUMMARY_TITLE_STYLE"
+    
+    # Draw the status box
+    draw_box $status_start_col 3 $status_width $box_height "Deployment Status" "" "$STATUS_BORDER_COLOR" "$STATUS_TITLE_STYLE"
    
     # Start content inside the box
     local content_row=5  # Start 2 rows inside the box for spacing
@@ -2015,9 +2168,11 @@ display_selection_summary() {
     )
 
     for item in "${base_items[@]}"; do
-        tput cup $content_row 8
-        echo -e "${SUMMARY_CHECKMARK_COLOR}${ICON_CHECKMARK}${STYLE_RESET} ${item}"
-        ((content_row++))
+        if [[ $content_row -lt $((box_height + 3)) ]]; then
+            tput cup $content_row 8
+            echo -e "${SUMMARY_CHECKMARK_COLOR}${ICON_CHECKMARK}${STYLE_RESET} ${item}"
+            ((content_row++))
+        fi
     done
 
     # Count selections
@@ -2043,7 +2198,7 @@ display_selection_summary() {
             
             for i in "${!ids[@]}"; do
                 if [[ "${in_cart[$i]}" == true ]] && [[ "${component_categories[$i]}" == "$category" ]]; then
-                    if [[ $category_has_items == false ]]; then
+                    if [[ $category_has_items == false ]] && [[ $content_row -lt $((box_height + 3)) ]]; then
                         ((content_row++))  # Single line spacing between categories
                         tput cup $content_row 6
                         style_line "$SUMMARY_CATEGORY_STYLE" "$category_display"
@@ -2051,9 +2206,11 @@ display_selection_summary() {
                         category_has_items=true
                     fi
                     
-                    tput cup $content_row 8
-                    echo -e "${SUMMARY_CHECKMARK_COLOR}${ICON_CHECKMARK}${STYLE_RESET} ${names[$i]}"
-                    ((content_row++))
+                    if [[ $content_row -lt $((box_height + 3)) ]]; then
+                        tput cup $content_row 8
+                        echo -e "${SUMMARY_CHECKMARK_COLOR}${ICON_CHECKMARK}${STYLE_RESET} ${names[$i]}"
+                        ((content_row++))
+                    fi
                     
                     # Store selection details
                     SELECTED_YAML_FILES+=("${yaml_files[$i]}")
@@ -2067,7 +2224,11 @@ display_selection_summary() {
         done
     fi
 
-    # Position prompt below the box
+    # Initial status message
+    tput cup 5 $((status_start_col + 2))
+    printf "%b%s%b %b%s%b" "$STATUS_PENDING_STYLE" "$ICON_PENDING" "$STYLE_RESET" "$STATUS_STEP_STYLE" "Ready to build?" "$STYLE_RESET"
+
+    # Position prompt below the boxes
     local prompt_row=$((box_height + 5))
     tput cup $prompt_row 4
     log "Ready to build with this configuration?"
@@ -2077,7 +2238,13 @@ display_selection_summary() {
         "$LOG_ERROR_STYLE" "$STYLE_RESET"
     read -r CONFIRM 
 
-    [[ "$CONFIRM" =~ ^[qQ]$ ]] && log "Build cancelled." && exit 0
+    if [[ "$CONFIRM" =~ ^[qQ]$ ]]; then
+        tput cnorm
+        stty echo
+        clear
+        log "Build cancelled."
+        exit 0
+    fi
 }
 
 # Global variables for selected items
@@ -2604,48 +2771,44 @@ setup_configuration() {
 cleanup_previous_build() {
     # Clean up only AFTER user confirms they want to build
     if [[ -d "$TEMP_DIR" ]]; then
-        log "Cleaning up previous build directory..."
-        rm -rf "$TEMP_DIR"/*
+        # Suppress output since we're in TUI mode
+        rm -rf "$TEMP_DIR"/* 2>/dev/null
     fi
     
     # Delete the deployment to ensure fresh container
-    log "Removing previous deployment..."
     kubectl delete deployment ai-devkit -n ${NAMESPACE} --ignore-not-found=true >> "$LOG_FILE" 2>&1
     docker rmi ${IMAGE_NAME}:${IMAGE_TAG} >> "$LOG_FILE" 2>&1 || true
 }
 
 # Function to build Docker image
 build_docker_image() {
-    log "Creating custom Dockerfile..."
+    # Create custom Dockerfile silently
     echo -e "\nDockerfile generation output:" >> "$LOG_FILE"
     echo "=================================================================================" >> "$LOG_FILE"
     create_custom_dockerfile >> "$LOG_FILE" 2>&1
     
-    log "Building Docker image..."
     # Always build from TEMP_DIR since we now generate entrypoint.sh
-    cp setup-git.sh "$TEMP_DIR/"
-    cp motd-ai-devkit.sh "$TEMP_DIR/"
-    cp nodejs-base.md "$TEMP_DIR/"
-    cp -r configs "$TEMP_DIR/"
-    cp -r templates "$TEMP_DIR/"
+    cp setup-git.sh "$TEMP_DIR/" 2>/dev/null
+    cp motd-ai-devkit.sh "$TEMP_DIR/" 2>/dev/null
+    cp nodejs-base.md "$TEMP_DIR/" 2>/dev/null
+    cp -r configs "$TEMP_DIR/" 2>/dev/null
+    cp -r templates "$TEMP_DIR/" 2>/dev/null
 
     cd "$TEMP_DIR"
     echo "Docker build output:" >> "../$LOG_FILE"
     echo "=================================================================================" >> "../$LOG_FILE"
     if [[ -n "$NEXUS_BUILD_ARGS" ]]; then
         docker build $NEXUS_BUILD_ARGS -t ${IMAGE_NAME}:${IMAGE_TAG} . >> "../$LOG_FILE" 2>&1 || \
-            (error "Docker build failed - check $LOG_FILE for details" && exit 1)
+            (cd .. && error "Docker build failed - check $LOG_FILE for details")
     else
         docker build -t ${IMAGE_NAME}:${IMAGE_TAG} . >> "../$LOG_FILE" 2>&1 || \
-            (error "Docker build failed - check $LOG_FILE for details" && exit 1)
+            (cd .. && error "Docker build failed - check $LOG_FILE for details")
     fi
     cd ..
-    success "Docker image built (detailed log in $LOG_FILE)"
 }
 
 # Function to deploy to Kubernetes
 deploy_to_kubernetes() {
-    log "Deploying to Kubernetes..."
     echo -e "\nKubernetes deployment output:" >> "$LOG_FILE"
     echo "=================================================================================" >> "$LOG_FILE"
     docker save ${IMAGE_NAME}:${IMAGE_TAG} | colima ssh -- sudo ctr -n k8s.io images import - >> "$LOG_FILE" 2>&1
@@ -2669,7 +2832,7 @@ deploy_to_kubernetes() {
     # Apply deployment
     kubectl apply -f kubernetes/deployment.yaml >> "$LOG_FILE" 2>&1
     
-    log "Waiting for deployment..."
+    # Wait for deployment
     kubectl wait --for=condition=available --timeout=120s deployment/ai-devkit -n ${NAMESPACE} >> "$LOG_FILE" 2>&1
     
     POD_NAME=$(kubectl get pods -n ${NAMESPACE} -l app=ai-devkit -o jsonpath="{.items[0].metadata.name}")
@@ -2677,7 +2840,6 @@ deploy_to_kubernetes() {
 
 # Function to setup port forwarding
 setup_port_forwarding() {
-    log "Setting up port forwarding..."
     pkill -f 'kubectl.*port-forward.*ai-devkit' 2>/dev/null || true
     sleep 1
     kubectl port-forward -n ${NAMESPACE} service/ai-devkit 2222:22 8090:8090 >> "$LOG_FILE" 2>&1 &
@@ -2686,55 +2848,19 @@ setup_port_forwarding() {
     
     # Check if port forwarding is running
     if ! ps -p $PORT_FORWARD_PID > /dev/null 2>&1; then
-        error "Port forwarding failed to start - check $LOG_FILE for details"
+        # Update status in TUI context
+        return 1
     fi
+    return 0
 }
 
-# Function to display connection instructions
-display_connection_instructions() {
-    success "=== Deployment Complete ==="
-    echo ""
-    
-    [[ "$NEXUS_AVAILABLE" = true ]] && success "Using Nexus proxy for package downloads"
-    
-    # Simple connection instructions
-    style_line "$LOG_SUCCESS_STYLE" "Ready to connect! Port forwarding is active (PID: $PORT_FORWARD_PID)"
-    echo ""
-    style_line "$LOG_WARNING_STYLE" "1. SSH to your environment:"
-    style_line "$LOG_INFO_STYLE" "   ssh devuser@localhost -p 2222"
-    printf "   Password: %bdevuser%b (change with 'passwd')\n" "$LOG_WARNING_STYLE" "$STYLE_RESET"
-    echo ""
-    printf "%b2. Access file manager:%b %bhttp://localhost:8090%b (admin/admin)\n" \
-        "$LOG_WARNING_STYLE" "$STYLE_RESET" "$LOG_INFO_STYLE" "$STYLE_RESET"
-    echo ""
-    
-    # Check if Claude Code was selected
-    local claude_selected=false
-    for id in "${SELECTED_IDS[@]}"; do
-        if [[ "$id" == "CLAUDE_CODE" ]]; then
-            claude_selected=true
-            break
-        fi
-    done
-    
-    if [[ $claude_selected == true ]]; then
-        printf "%bStart Claude Code:%b %bclaude%b\n" \
-            "$LOG_SUCCESS_STYLE" "$STYLE_RESET" "$LOG_WARNING_STYLE" "$STYLE_RESET"
-    fi
-    
-    echo ""
-    style_line "$COLOR_GRAY" "Alternative: kubectl exec -it -n ${NAMESPACE} ${POD_NAME} -c ai-devkit -- su - devuser"
-    style_line "$COLOR_GRAY" "Stop port forwarding: kill $PORT_FORWARD_PID"
-    echo ""
-    style_line "$COLOR_GRAY" "Build log saved to: $LOG_FILE"
-}
-
-# Refactored main function
+# Refactored main function with deployment status updates
 main() {
     # Initialize log file
     echo "Build started at $(date)" > "$LOG_FILE"
     echo "=================================================================================" >> "$LOG_FILE"
     
+    # Initial startup message before TUI
     log "=== Starting AI DevKit Pod Configurator ==="
     
     # Validate environment
@@ -2752,20 +2878,144 @@ main() {
     # Component selection
     [[ ! "$1" =~ --no-select && ! "$2" =~ --no-select ]] && run_component_selection_ui
     
-    # Clean up previous build
+    # If we reach here, user has confirmed to build
+    # Store terminal dimensions for deployment status
+    local term_width=$(tput cols)
+    local term_height=$(tput lines)
+    local manifest_width=$((term_width / 2 - 2))
+    local status_start_col=$((manifest_width + 3))
+    local status_width=$((term_width - status_start_col))
+    local box_height=$((term_height - 8))
+    
+    # Define deployment steps
+    local deployment_steps=(
+        "Clean previous build"
+        "Build Docker image"
+        "Deploy to Kubernetes"
+        "Setup port forwarding"
+    )
+    
+    local step_statuses=("pending" "pending" "pending" "pending")
+    local step_messages=("" "" "" "")
+    
+    # Hide cursor during deployment
+    tput civis
+    
+    # Initial render of all steps
+    render_deployment_steps $status_start_col $status_width deployment_steps[@] step_statuses[@] step_messages[@]
+    
+    # Step 1: Clean up previous build
+    update_deployment_step 0 "running" "" step_statuses step_messages
+    render_deployment_steps $status_start_col $status_width deployment_steps[@] step_statuses[@] step_messages[@]
+    
     cleanup_previous_build
     
-    # Build Docker image
-    build_docker_image
+    update_deployment_step 0 "success" "" step_statuses step_messages
+    render_deployment_steps $status_start_col $status_width deployment_steps[@] step_statuses[@] step_messages[@]
     
-    # Deploy to Kubernetes
+    # Step 2: Build Docker image
+    update_deployment_step 1 "running" "This may take several minutes..." step_statuses step_messages
+    render_deployment_steps $status_start_col $status_width deployment_steps[@] step_statuses[@] step_messages[@]
+    
+    if build_docker_image; then
+        update_deployment_step 1 "success" "" step_statuses step_messages
+    else
+        update_deployment_step 1 "failed" "Check $LOG_FILE for details" step_statuses step_messages
+        render_deployment_steps $status_start_col $status_width deployment_steps[@] step_statuses[@] step_messages[@]
+        
+        tput cup $((box_height + 5)) 4
+        printf "Press %bENTER%b to exit: " "$LOG_ERROR_STYLE" "$STYLE_RESET"
+        read -r
+        tput cnorm
+        stty echo
+        clear
+        error "Build failed - check $LOG_FILE for details"
+    fi
+    render_deployment_steps $status_start_col $status_width deployment_steps[@] step_statuses[@] step_messages[@]
+    
+    # Step 3: Deploy to Kubernetes
+    update_deployment_step 2 "running" "" step_statuses step_messages
+    render_deployment_steps $status_start_col $status_width deployment_steps[@] step_statuses[@] step_messages[@]
+    
     deploy_to_kubernetes
     
-    # Setup port forwarding
-    setup_port_forwarding
+    update_deployment_step 2 "success" "Pod: $POD_NAME" step_statuses step_messages
+    render_deployment_steps $status_start_col $status_width deployment_steps[@] step_statuses[@] step_messages[@]
     
-    # Display connection instructions
-    display_connection_instructions
+    # Step 4: Setup port forwarding
+    update_deployment_step 3 "running" "" step_statuses step_messages
+    render_deployment_steps $status_start_col $status_width deployment_steps[@] step_statuses[@] step_messages[@]
+    
+    if setup_port_forwarding; then
+        update_deployment_step 3 "success" "PID: $PORT_FORWARD_PID" step_statuses step_messages
+    else
+        update_deployment_step 3 "failed" "Check $LOG_FILE" step_statuses step_messages
+    fi
+    
+    # Final render with all statuses
+    render_deployment_steps $status_start_col $status_width deployment_steps[@] step_statuses[@] step_messages[@]
+    local final_row=$DEPLOYMENT_STATUS_FINAL_ROW
+    
+    # Check if Claude Code was selected
+    local claude_selected=false
+    for id in "${SELECTED_IDS[@]}"; do
+        if [[ "$id" == "CLAUDE_CODE" ]]; then
+            claude_selected=true
+            break
+        fi
+    done
+    
+    # Show connection details if all succeeded
+    local all_success=true
+    for status in "${step_statuses[@]}"; do
+        if [[ "$status" == "failed" ]]; then
+            all_success=false
+            break
+        fi
+    done
+    
+    if [[ $all_success == true ]]; then
+        show_connection_details $final_row $status_start_col $status_width "$POD_NAME" "$PORT_FORWARD_PID" $claude_selected
+    fi
+    
+    # Wait for user
+    local prompt_row=$((box_height + 5))
+    
+    # Clear the entire prompt area (both lines)
+    for ((r=prompt_row; r<=prompt_row+1; r++)); do
+        tput cup $r 0
+        tput el
+    done
+    
+    # Show the final prompt
+    tput cup $prompt_row 4
+    printf "Press %bENTER%b to return to terminal: " "$LOG_SUCCESS_STYLE" "$STYLE_RESET"
+    read -r
+
+    # Clean up and return to prompt
+    tput cnorm
+    stty echo
+    clear
+    
+    # Display simplified connection instructions at terminal
+    if [[ $all_success == true ]]; then
+        success "=== AI DevKit Deployment Complete ==="
+        echo ""
+        style_line "$LOG_SUCCESS_STYLE" "Port forwarding is active (PID: $PORT_FORWARD_PID)"
+        echo ""
+        style_line "$LOG_INFO_STYLE" "SSH: ssh devuser@localhost -p 2222 (password: devuser)"
+        style_line "$LOG_INFO_STYLE" "File Manager: http://localhost:8090 (admin/admin)"
+        
+        if [[ $claude_selected == true ]]; then
+            style_line "$LOG_INFO_STYLE" "Claude Code: Run 'claude' after SSH login"
+        fi
+        
+        echo ""
+        style_line "$COLOR_GRAY" "To stop port forwarding: kill $PORT_FORWARD_PID"
+        style_line "$COLOR_GRAY" "Build log: $LOG_FILE"
+    else
+        error "Deployment failed - check $LOG_FILE for details"
+    fi
 }
 
 # Run main
