@@ -596,10 +596,13 @@ load_components() {
     
     # Load components from each category
     for category in "${categories[@]}"; do
+        echo "DEBUG: Loading components from category: $category" >&2
         for yaml_file in "$COMPONENTS_DIR/$category"/*.yaml; do
             [[ ! -f "$yaml_file" ]] && continue
             [[ "$yaml_file" == *"/.category.yaml" ]] && continue
-            
+           
+            echo "DEBUG: Processing YAML file: $yaml_file" >&2
+
             # Parse the YAML file
             eval $(parse_yaml "$yaml_file" "comp_")
             
@@ -1486,6 +1489,12 @@ run_component_selection_ui() {
         in_cart+=(false)
     done <<< "$components_data"
     
+    # DEBUG: Check what was parsed
+    echo "DEBUG: Parsed ${#ids[@]} components from component_data" >> "$LOG_FILE"
+    for i in "${!ids[@]}"; do
+        echo "DEBUG: Component $i: id=${ids[$i]}, name=${names[$i]}, category=${component_categories[$i]}, yaml=${yaml_files[$i]}" >> "$LOG_FILE"
+    done
+    
     local current=0 view="catalog" cart_cursor=0
     local total_items=${#ids[@]}
     local hint_message="" hint_timer=0
@@ -1733,6 +1742,9 @@ run_component_selection_ui() {
                     # Remove from cart
                     in_cart[$current]=false
                     
+                    # DEBUG
+                    echo "DEBUG: Removed ${names[$current]} from cart (index $current)" >> "$LOG_FILE"
+                    
                     # Check for dependent items
                     local removed_group="${groups[$current]}"
                     local dependents=""
@@ -1784,6 +1796,16 @@ run_component_selection_ui() {
                             done
                             
                             in_cart[$current]=true
+                            
+                            # DEBUG
+                            echo "DEBUG: Added ${names[$current]} to cart (index $current)" >> "$LOG_FILE"
+                            echo "DEBUG: Current cart contents:" >> "$LOG_FILE"
+                            for idx in "${!in_cart[@]}"; do
+                                if [[ "${in_cart[$idx]}" == true ]]; then
+                                    echo "DEBUG:   - ${names[$idx]} (index $idx)" >> "$LOG_FILE"
+                                fi
+                            done
+                            
                             [[ -z "$hint_message" ]] && hint_message="${ICON_SUCCESS} Added ${names[$current]} to stack" && hint_timer=20
                         fi
                     else
@@ -1797,6 +1819,16 @@ run_component_selection_ui() {
                         done
                         
                         in_cart[$current]=true
+                        
+                        # DEBUG
+                        echo "DEBUG: Added ${names[$current]} to cart (index $current)" >> "$LOG_FILE"
+                        echo "DEBUG: Current cart contents:" >> "$LOG_FILE"
+                        for idx in "${!in_cart[@]}"; do
+                            if [[ "${in_cart[$idx]}" == true ]]; then
+                                echo "DEBUG:   - ${names[$idx]} (index $idx)" >> "$LOG_FILE"
+                            fi
+                        done
+                        
                         [[ -z "$hint_message" ]] && hint_message="${ICON_SUCCESS} Added ${names[$current]} to stack" && hint_timer=20
                     fi
                 fi
@@ -1881,13 +1913,23 @@ run_component_selection_ui() {
         fi
     done
     
+    # DEBUG: Before calling display_selection_summary
+    echo "DEBUG: About to call display_selection_summary" >> "$LOG_FILE"
+    echo "DEBUG: Final cart contents before summary:" >> "$LOG_FILE"
+    for idx in "${!in_cart[@]}"; do
+        if [[ "${in_cart[$idx]}" == true ]]; then
+            echo "DEBUG:   - ${names[$idx]} (index $idx)" >> "$LOG_FILE"
+        fi
+    done
+    echo "DEBUG: Total items in arrays: ids=${#ids[@]}, names=${#names[@]}, in_cart=${#in_cart[@]}" >> "$LOG_FILE"
+    
     tput cnorm
     stty echo
     clear
-    
+
     # Display summary and save selections
-    display_selection_summary in_cart ids names groups component_categories \
-                            requires yaml_files categories category_names
+    display_selection_summary in_cart[@] ids[@] names[@] groups[@] component_categories[@] \
+                        requires[@] yaml_files[@] categories[@] category_names[@]
     
     set -e
 }
@@ -2208,6 +2250,22 @@ display_selection_summary() {
     local categories=("${!8}")
     local category_names=("${!9}")
     
+    # DEBUG: Check if yaml_files array is populated
+    echo "DEBUG: yaml_files array has ${#yaml_files[@]} items" >> "$LOG_FILE"
+    for i in "${!yaml_files[@]}"; do
+        echo "DEBUG: yaml_files[$i] = ${yaml_files[$i]}" >> "$LOG_FILE"
+    done
+    
+    # DEBUG: Check in_cart status
+    echo "DEBUG: Total categories: ${#categories[@]}" >> "$LOG_FILE"
+    echo "DEBUG: Total items: ${#ids[@]}" >> "$LOG_FILE"
+    echo "DEBUG: Checking in_cart status:" >> "$LOG_FILE"
+    for i in "${!ids[@]}"; do
+        if [[ "${in_cart[$i]}" == true ]]; then
+            echo "DEBUG: Item $i (${names[$i]}) is in cart" >> "$LOG_FILE"
+        fi
+    done
+    
     # Build final selections - Summary Screen
     local term_width=$(tput cols)
     local term_height=$(tput lines)
@@ -2280,8 +2338,13 @@ display_selection_summary() {
             local category_display="${category_names[$cat_idx]}"
             local category_has_items=false
             
+            echo "DEBUG: Processing category: $category" >> "$LOG_FILE"
+            
             for i in "${!ids[@]}"; do
                 if [[ "${in_cart[$i]}" == true ]] && [[ "${component_categories[$i]}" == "$category" ]]; then
+                    echo "DEBUG: Found item in category $category: ${names[$i]}" >> "$LOG_FILE"
+                    echo "DEBUG: Will store yaml_file: ${yaml_files[$i]}" >> "$LOG_FILE"
+                    
                     if [[ $category_has_items == false ]] && [[ $content_row -lt $((box_height + 3)) ]]; then
                         ((content_row++))  # Single line spacing between categories
                         tput cup $content_row 6
@@ -2305,6 +2368,12 @@ display_selection_summary() {
                     SELECTED_REQUIRES+=("${requires[$i]}")
                 fi
             done
+        done
+        
+        # DEBUG: Final selected arrays
+        echo "DEBUG: Final SELECTED_YAML_FILES has ${#SELECTED_YAML_FILES[@]} items:" >> "$LOG_FILE"
+        for i in "${!SELECTED_YAML_FILES[@]}"; do
+            echo "DEBUG: SELECTED_YAML_FILES[$i] = ${SELECTED_YAML_FILES[$i]}" >> "$LOG_FILE"
         done
     fi
 
@@ -2373,6 +2442,23 @@ execute_pre_build_scripts() {
     local selected_names="${SELECTED_NAMES[*]}"
     local selected_yaml_files="${SELECTED_YAML_FILES[*]}"
     
+    # First, copy ALL component markdown files to the build directory
+    log "Copying component documentation files..."
+    for i in "${!SELECTED_YAML_FILES[@]}"; do
+        local yaml_file="${SELECTED_YAML_FILES[$i]}"
+        local component_name="${SELECTED_NAMES[$i]}"
+        local yaml_basename=$(basename "$yaml_file" .yaml)
+        local md_source="$(dirname "$yaml_file")/${yaml_basename}.md"
+        
+        if [[ -f "$md_source" ]]; then
+            cp "$md_source" "$TEMP_DIR/"
+            success "Copied ${yaml_basename}.md for ${component_name}"
+        else
+            log "No documentation file ${yaml_basename}.md found for ${component_name}"
+        fi
+    done
+    
+    # Then execute pre-build scripts for components that have them
     for i in "${!SELECTED_YAML_FILES[@]}"; do
         local yaml_file="${SELECTED_YAML_FILES[$i]}"
         local component_name="${SELECTED_NAMES[$i]}"
@@ -2397,10 +2483,85 @@ execute_pre_build_scripts() {
                     error "Pre-build script failed for $component_name"
                 fi
             else
-                warning "Pre-build script $script_name not found for $component_name"
+                log "Warning: Pre-build script $script_name not found for $component_name"
             fi
         fi
     done
+}
+
+# Function to generate component imports if no pre-build script exists
+generate_component_imports() {
+    log "Generating component imports..."
+    
+    # Only generate if component-imports.txt doesn't exist (i.e., no pre-build script created it)
+    if [[ ! -f "$TEMP_DIR/component-imports.txt" ]]; then
+        local imports_file="$TEMP_DIR/component-imports.txt"
+        
+        cat > "$imports_file" << 'EOF'
+
+---
+
+# Installed Components
+
+This environment includes the following components:
+
+EOF
+        
+        # Group components by category
+        declare -A category_components
+        declare -A category_display_names
+        
+        for i in "${!SELECTED_YAML_FILES[@]}"; do
+            local category="${SELECTED_CATEGORIES[$i]}"
+            local name="${SELECTED_NAMES[$i]}"
+            local yaml_file="${SELECTED_YAML_FILES[$i]}"
+            local yaml_basename=$(basename "$yaml_file" .yaml)
+            local md_file="${yaml_basename}.md"
+            
+            # Check if markdown file exists in TEMP_DIR
+            if [[ -f "$TEMP_DIR/$md_file" ]]; then
+                if [[ -z "${category_components[$category]}" ]]; then
+                    category_components[$category]="$name:$md_file"
+                    
+                    # Get category display name
+                    local cat_dir="$(dirname "$yaml_file")"
+                    local display_name="$category"
+                    if [[ -f "$cat_dir/.category.yaml" ]]; then
+                        # Try to extract display_name
+                        while IFS= read -r line; do
+                            if [[ "$line" =~ ^display_name:[[:space:]]*(.+)$ ]]; then
+                                display_name="${BASH_REMATCH[1]}"
+                                display_name="${display_name#[\"\']}"
+                                display_name="${display_name%[\"\']}"
+                                break
+                            fi
+                        done < "$cat_dir/.category.yaml"
+                    fi
+                    category_display_names[$category]="$display_name"
+                else
+                    category_components[$category]="${category_components[$category]}|$name:$md_file"
+                fi
+            fi
+        done
+        
+        # Write categories and components
+        for category in "${!category_components[@]}"; do
+            echo "## ${category_display_names[$category]}" >> "$imports_file"
+            echo "" >> "$imports_file"
+            
+            # Split components and write them
+            IFS='|' read -ra components <<< "${category_components[$category]}"
+            for component in "${components[@]}"; do
+                IFS=':' read -r name md_file <<< "$component"
+                echo "- $name @~/.claude/$md_file" >> "$imports_file"
+            done
+            echo "" >> "$imports_file"
+        done
+        
+        success "Generated component imports"
+    else
+        log "Component imports already generated by pre-build script"
+    fi
 }
 
 # Function to extract inject_files from YAML
@@ -2649,8 +2810,11 @@ create_custom_dockerfile() {
     log "Copying Dockerfile.base to $TEMP_DIR/Dockerfile"
     cp Dockerfile.base "$TEMP_DIR/Dockerfile"
     
-    # Execute pre-build scripts
+    # Execute pre-build scripts (this now also copies markdown files)
     execute_pre_build_scripts
+    
+    # Generate component imports if not already done by a pre-build script
+    generate_component_imports
     
     # Create placeholder files if they don't exist (for when no components are selected)
     touch "$TEMP_DIR/user-CLAUDE.md" 2>/dev/null || true
