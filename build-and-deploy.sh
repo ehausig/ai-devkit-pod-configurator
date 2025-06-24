@@ -889,7 +889,7 @@ show_connection_details() {
     ((row+=2))
     
     tput cup $row $((col + 4))
-    printf "%bSSH:%b devuser@localhost -p 2222" "$BOLD_WHITE" "$STYLE_RESET"
+    printf "%bShell:%b ssh devuser@localhost -p 2222" "$BOLD_WHITE" "$STYLE_RESET"
     ((row++))
     
     tput cup $row $((col + 4))
@@ -3097,7 +3097,7 @@ main() {
         echo ""
         style_line "$LOG_SUCCESS_STYLE" "Port forwarding is active (PID: $PORT_FORWARD_PID)"
         echo ""
-        style_line "$LOG_INFO_STYLE" "SSH: ssh devuser@localhost -p 2222 (password: devuser)"
+        style_line "$LOG_INFO_STYLE" "Shell: ssh devuser@localhost -p 2222 (password: devuser)"
         style_line "$LOG_INFO_STYLE" "File Manager: http://localhost:8090 (admin/admin)"
         
         if [[ $claude_selected == true ]]; then
