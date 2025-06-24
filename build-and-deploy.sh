@@ -12,6 +12,18 @@ SSH_KEYS_DIR="$HOME/.ai-devkit-k8s/ssh-keys"
 LOG_FILE="build-and-deploy.log"
 
 # ============================================================================
+# SPECIAL CHARACTERS AND KEYCODES
+# ============================================================================
+
+# Special characters
+readonly NL=$'\n'
+readonly TAB=$'\t'
+readonly CR=$'\r'
+readonly ESC=$'\e'
+readonly BACKSPACE=$'\x7f'
+readonly NULL=$'\0'
+
+# ============================================================================
 # THEME SYSTEM - ENHANCED GRANULARITY
 # ============================================================================
 
@@ -714,7 +726,7 @@ select_components() {
         if [[ $reading_names == true ]]; then
             category_names+=("$line")
         elif [[ $reading_components == true ]]; then
-            components_data+="$line"$'\n'
+            components_data+="$line"$NL
         fi
     done <<< "$component_data"
     
@@ -1311,7 +1323,7 @@ select_components() {
         IFS= read -rsn1 key
         
         # Handle input
-        if [[ $key == $'\e' ]]; then
+        if [[ $key == "$ESC" ]]; then
             # Read more characters for escape sequences
             read -rsn1 bracket
             if [[ $bracket == '[' ]]; then
@@ -1467,7 +1479,7 @@ select_components() {
             fi
         elif [[ -z "$key" ]]; then
             break  # Enter key
-        elif [[ "$key" == $'\t' ]]; then
+        elif [[ "$key" == "$TAB" ]]; then
             view=$([[ $view == "catalog" ]] && echo "cart" || echo "catalog")
             [[ $view == "cart" ]] && cart_cursor=0
         elif [[ "$key" == " " && $view == "catalog" ]]; then
@@ -1540,7 +1552,7 @@ select_components() {
                 force_catalog_update=true
                 force_cart_update=true
             fi
-        elif [[ "$key" == $'\x7f' && $view == "cart" ]]; then  # Backspace key (0x7F)
+        elif [[ "$key" == "$BACKSPACE" && $view == "cart" ]]; then  # Backspace key (0x7F)
             local cart_items_array=()
             for idx in "${!in_cart[@]}"; do
                 [[ "${in_cart[$idx]}" == true ]] && cart_items_array+=($idx)
@@ -1596,7 +1608,7 @@ select_components() {
     local box_height=$((term_height - 8)) # Leave room for title, spacing, and prompt
 
     # Draw the summary box
-    draw_box 2 3 $box_width $box_height "Pod Deployment Manifest" "" "$SUMMARY_BORDER_COLOR" "$SUMMARY_TITLE_STYLE"  # Changed box title
+    draw_box 2 3 $box_width $box_height "Deployment Manifest" "" "$SUMMARY_BORDER_COLOR" "$SUMMARY_TITLE_STYLE"  # Changed box title
    
     # Start content inside the box
     local content_row=5  # Start 2 rows inside the box for spacing
@@ -1781,9 +1793,9 @@ extract_inject_files_from_yaml() {
             if [[ "$line" =~ ^[[:space:]]*-[[:space:]]+source:[[:space:]]*(.+)$ ]]; then
                 # Process previous item if exists
                 if [[ -n "$source" ]] && [[ -n "$destination" ]]; then
-                    inject_commands+="COPY $source $destination"$'\n'
+                    inject_commands+="COPY $source $destination"$NL
                     if [[ -n "$permissions" ]]; then
-                        inject_commands+="RUN chmod $permissions $destination"$'\n'
+                        inject_commands+="RUN chmod $permissions $destination"$NL
                     fi
                 fi
                 
@@ -1804,9 +1816,9 @@ extract_inject_files_from_yaml() {
     
     # Process last item
     if [[ -n "$source" ]] && [[ -n "$destination" ]]; then
-        inject_commands+="COPY $source $destination"$'\n'
+        inject_commands+="COPY $source $destination"$NL
         if [[ -n "$permissions" ]]; then
-            inject_commands+="RUN chmod $permissions $destination"$'\n'
+            inject_commands+="RUN chmod $permissions $destination"$NL
         fi
     fi
     
@@ -1836,18 +1848,18 @@ extract_entrypoint_setup() {
         if [[ $in_entrypoint_setup == true ]]; then
             # Remove the first 2 spaces of YAML indentation
             if [[ "$line" =~ ^"  " ]]; then
-                entrypoint_content+="${line:2}"$'\n'
+                entrypoint_content+="${line:2}"$NL
             elif [[ -z "$line" ]]; then
                 # Preserve empty lines
-                entrypoint_content+=$'\n'
+                entrypoint_content+=$NL
             fi
         fi
     done < "$yaml_file"
     
     # Trim trailing newlines but keep the content intact
     # Don't use complex sed operations that might corrupt the content
-    while [[ "$entrypoint_content" =~ $'\n'$ ]]; do
-        entrypoint_content="${entrypoint_content%$'\n'}"
+    while [[ "$entrypoint_content" =~ ${NL}$ ]]; do
+        entrypoint_content="${entrypoint_content%$NL}"
     done
     
     echo "$entrypoint_content"
@@ -1887,15 +1899,15 @@ extract_installation_from_yaml() {
             # For dockerfile content, we need to preserve the exact formatting
             # Only remove the first 4 spaces that are YAML indentation
             if [[ "$line" =~ ^"    " ]]; then
-                dockerfile_content+="${line:4}"\n'
+                dockerfile_content+="${line:4}"$NL
             else
                 # Handle empty lines or lines with different indentation
-                dockerfile_content+="$line"\n'
+                dockerfile_content+="$line"$NL
             fi
         elif [[ $in_nexus == true ]]; then
             # For nexus content, preserve it as-is after removing YAML indent
             if [[ "$line" =~ ^"    " ]]; then
-                nexus_content+="${line:4}"$'\n'
+                nexus_content+="${line:4}"$NL
             fi
         fi
     done < "$yaml_file"
@@ -1906,9 +1918,9 @@ extract_installation_from_yaml() {
         # The nexus_config should already be properly formatted in the YAML
         # Just wrap it in RUN - but be careful with the newline
         if [[ -n "$full_content" ]]; then
-            full_content+=$'\n'
+            full_content+=$NL
         fi
-        full_content+="# Nexus configuration"$'\n'
+        full_content+="# Nexus configuration"$NL
         full_content+="RUN ${nexus_content}"
     fi
     
@@ -2027,9 +2039,9 @@ create_custom_dockerfile() {
         local install_cmds=$(extract_installation_from_yaml "$yaml_file")
         if [[ -n "$install_cmds" ]]; then
             if [[ -n "$installation_content" ]]; then
-                installation_content+=\n'
+                installation_content+=$NL
             fi
-            installation_content+="# From $yaml_file"$'\n'
+            installation_content+="# From $yaml_file"$NL
             installation_content+="$install_cmds"
         fi
         
@@ -2037,9 +2049,9 @@ create_custom_dockerfile() {
         local inject_cmds=$(extract_inject_files_from_yaml "$yaml_file")
         if [[ -n "$inject_cmds" ]]; then
             if [[ -n "$inject_files_content" ]]; then
-                inject_files_content+=\n'
+                inject_files_content+=$NL
             fi
-            inject_files_content+="# Files injected by $component_name"$'\n'
+            inject_files_content+="# Files injected by $component_name"$NL
             inject_files_content+="$inject_cmds"
         fi
         
@@ -2047,9 +2059,9 @@ create_custom_dockerfile() {
         local entrypoint_cmds=$(extract_entrypoint_setup "$yaml_file")
         if [[ -n "$entrypoint_cmds" ]]; then
             if [[ -n "$entrypoint_setup_content" ]]; then
-                entrypoint_setup_content+=$'\n'
+                entrypoint_setup_content+=$NL
             fi
-            entrypoint_setup_content+="# Setup for $component_name"$'\n'
+            entrypoint_setup_content+="# Setup for $component_name"$NL
             entrypoint_setup_content+="$entrypoint_cmds"
         fi
     done
