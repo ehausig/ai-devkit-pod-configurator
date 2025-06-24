@@ -742,11 +742,22 @@ render_deployment_steps() {
     
     local row=5
     
-    # Clear the status area first
-    for ((r=5; r<25; r++)); do
-        tput cup $r $((col + 2))
-        printf "%-$((width-4))s" " "
+    # Only clear on first render (when all statuses are "pending")
+    local all_pending=true
+    for status in "${statuses[@]}"; do
+        if [[ "$status" != "pending" ]]; then
+            all_pending=false
+            break
+        fi
     done
+    
+    if [[ $all_pending == true ]]; then
+        # Clear the status area first time only
+        for ((r=5; r<25; r++)); do
+            tput cup $r $((col + 2))
+            printf "%-$((width-4))s" " "
+        done
+    fi
     
     # Render each step
     for i in "${!steps[@]}"; do
@@ -774,11 +785,18 @@ render_deployment_steps() {
                 ;;
         esac
         
+        # Clear just this line before redrawing
+        printf "%-$((width-4))s" " "
+        tput cup $row $((col + 2))
+        
         printf "%b%s%b %b%s%b" "$icon_style" "$icon" "$STYLE_RESET" "$STATUS_STEP_STYLE" "${steps[$i]}" "$STYLE_RESET"
         
         # Add message if exists
         if [[ -n "${messages[$i]}" ]]; then
             ((row++))
+            tput cup $row $((col + 4))
+            # Clear the message line before writing
+            printf "%-$((width-6))s" " "
             tput cup $row $((col + 4))
             printf "%b%s%b" "$STATUS_INFO_STYLE" "${messages[$i]}" "$STYLE_RESET"
         fi
@@ -788,6 +806,59 @@ render_deployment_steps() {
     
     # Use a global variable to pass the row value back
     DEPLOYMENT_STATUS_FINAL_ROW=$row
+}
+
+# Function to update a single deployment step (more efficient)
+update_single_deployment_step() {
+    local step_index=$1
+    local status=$2
+    local message="${3:-}"
+    local col=$4
+    local width=$5
+    local step_name=$6
+    
+    # Calculate the row for this step (5 + (step_index * 2) for spacing)
+    local row=$((5 + (step_index * 2)))
+    
+    # Determine icon and style
+    local icon=""
+    local icon_style=""
+    
+    case "$status" in
+        "pending")
+            icon="$ICON_NOT_STARTED"
+            icon_style="$STATUS_PENDING_STYLE"
+            ;;
+        "running")
+            icon="$ICON_PENDING"
+            icon_style="$STATUS_RUNNING_STYLE"
+            ;;
+        "success")
+            icon="$ICON_SUCCESS"
+            icon_style="$STATUS_SUCCESS_STYLE"
+            ;;
+        "failed")
+            icon="$ICON_FAILED"
+            icon_style="$STATUS_FAILED_STYLE"
+            ;;
+    esac
+    
+    # Update just the step line
+    tput cup $row $((col + 2))
+    printf "%-$((width-4))s" " "  # Clear the line
+    tput cup $row $((col + 2))
+    printf "%b%s%b %b%s%b" "$icon_style" "$icon" "$STYLE_RESET" "$STATUS_STEP_STYLE" "$step_name" "$STYLE_RESET"
+    
+    # Update message line if needed
+    local message_row=$((row + 1))
+    tput cup $message_row $((col + 4))
+    if [[ -n "$message" ]]; then
+        printf "%-$((width-6))s" " "  # Clear the line
+        tput cup $message_row $((col + 4))
+        printf "%b%s%b" "$STATUS_INFO_STYLE" "$message" "$STYLE_RESET"
+    else
+        printf "%-$((width-6))s" " "  # Clear the message line
+    fi
 }
 
 # Function to update a specific deployment step
@@ -2916,28 +2987,29 @@ main() {
     # Hide cursor during deployment
     tput civis
     
-    # Initial render of all steps
+    # Initial render of all steps (only time we do full render)
     render_deployment_steps $status_start_col $status_width deployment_steps[@] step_statuses[@] step_messages[@]
     
     # Step 1: Clean up previous build
     update_deployment_step 0 "running" "" step_statuses step_messages
-    render_deployment_steps $status_start_col $status_width deployment_steps[@] step_statuses[@] step_messages[@]
+    update_single_deployment_step 0 "running" "" $status_start_col $status_width "${deployment_steps[0]}"
     
     cleanup_previous_build
     
     update_deployment_step 0 "success" "" step_statuses step_messages
-    render_deployment_steps $status_start_col $status_width deployment_steps[@] step_statuses[@] step_messages[@]
+    update_single_deployment_step 0 "success" "" $status_start_col $status_width "${deployment_steps[0]}"
     
     # Step 2: Build Docker image
     update_deployment_step 1 "running" "This may take several minutes..." step_statuses step_messages
-    render_deployment_steps $status_start_col $status_width deployment_steps[@] step_statuses[@] step_messages[@]
+    update_single_deployment_step 1 "running" "This may take several minutes..." $status_start_col $status_width "${deployment_steps[1]}"
     
     if build_docker_image; then
         update_deployment_step 1 "success" "" step_statuses step_messages
+        update_single_deployment_step 1 "success" "" $status_start_col $status_width "${deployment_steps[1]}"
     else
         update_deployment_step 1 "failed" "Check $LOG_FILE for details" step_statuses step_messages
-        render_deployment_steps $status_start_col $status_width deployment_steps[@] step_statuses[@] step_messages[@]
-
+        update_single_deployment_step 1 "failed" "Check $LOG_FILE for details" $status_start_col $status_width "${deployment_steps[1]}"
+        
         tput cup $((box_height + 5)) 4
         printf "%bPress %b%bENTER%b%b to exit: %b" \
             "$INSTRUCTION_TEXT_STYLE" \
@@ -2949,30 +3021,31 @@ main() {
         clear
         error "Build failed - check $LOG_FILE for details"
     fi
-    render_deployment_steps $status_start_col $status_width deployment_steps[@] step_statuses[@] step_messages[@]
     
     # Step 3: Deploy to Kubernetes
     update_deployment_step 2 "running" "" step_statuses step_messages
-    render_deployment_steps $status_start_col $status_width deployment_steps[@] step_statuses[@] step_messages[@]
+    update_single_deployment_step 2 "running" "" $status_start_col $status_width "${deployment_steps[2]}"
     
     deploy_to_kubernetes
     
     update_deployment_step 2 "success" "Pod: $POD_NAME" step_statuses step_messages
-    render_deployment_steps $status_start_col $status_width deployment_steps[@] step_statuses[@] step_messages[@]
+    update_single_deployment_step 2 "success" "Pod: $POD_NAME" $status_start_col $status_width "${deployment_steps[2]}"
     
     # Step 4: Setup port forwarding
     update_deployment_step 3 "running" "" step_statuses step_messages
-    render_deployment_steps $status_start_col $status_width deployment_steps[@] step_statuses[@] step_messages[@]
+    update_single_deployment_step 3 "running" "" $status_start_col $status_width "${deployment_steps[3]}"
     
     if setup_port_forwarding; then
         update_deployment_step 3 "success" "PID: $PORT_FORWARD_PID" step_statuses step_messages
+        update_single_deployment_step 3 "success" "PID: $PORT_FORWARD_PID" $status_start_col $status_width "${deployment_steps[3]}"
     else
         update_deployment_step 3 "failed" "Check $LOG_FILE" step_statuses step_messages
+        update_single_deployment_step 3 "failed" "Check $LOG_FILE" $status_start_col $status_width "${deployment_steps[3]}"
     fi
     
-    # Final render with all statuses
-    render_deployment_steps $status_start_col $status_width deployment_steps[@] step_statuses[@] step_messages[@]
-    local final_row=$DEPLOYMENT_STATUS_FINAL_ROW
+    # Calculate final row for connection details
+    local final_row=$((5 + (${#deployment_steps[@]} * 2)))
+    DEPLOYMENT_STATUS_FINAL_ROW=$final_row
     
     # Check if Claude Code was selected
     local claude_selected=false
@@ -2993,7 +3066,7 @@ main() {
     done
     
     if [[ $all_success == true ]]; then
-        show_connection_details $final_row $status_start_col $status_width "$POD_NAME" "$PORT_FORWARD_PID" $claude_selected
+        show_connection_details $DEPLOYMENT_STATUS_FINAL_ROW $status_start_col $status_width "$POD_NAME" "$PORT_FORWARD_PID" $claude_selected
     fi
     
     # Wait for user
@@ -3012,7 +3085,7 @@ main() {
         "$STYLE_RESET" "$INSTRUCTION_KEY_STYLE" "$STYLE_RESET" "$INSTRUCTION_TEXT_STYLE" \
         "$STYLE_RESET"
     read -r
-
+    
     # Clean up and return to prompt
     tput cnorm
     stty echo
