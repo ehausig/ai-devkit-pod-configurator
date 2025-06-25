@@ -283,42 +283,49 @@ Releases happen when:
 ### 2. Release Steps (for Maintainers)
 
 ```bash
-# 1. Ensure on updated develop
-git checkout develop
-git pull upstream develop
+# Create a release (interactive mode)
+./scripts/create-release.sh
 
-# 2. Decide version bump
-# patch (0.1.0 → 0.1.1): Bug fixes only
-# minor (0.1.0 → 0.2.0): New features (backward compatible)
-# major (0.1.0 → 1.0.0): Breaking changes
+# Or specify the bump type directly
+./scripts/create-release.sh patch  # Bug fixes
+./scripts/create-release.sh minor  # New features
+./scripts/create-release.sh major  # Breaking changes
 
-# 3. Bump version
-./scripts/bump-version.sh minor  # or patch/major
-
-# 4. Generate changelog
-./generate-changelog.sh
-
-# 5. Commit version bump
-git add VERSION CHANGELOG.md
-git commit -m "chore: prepare release v0.2.0"
-git push upstream develop
-
-# 6. Create release PR
-gh pr create --base main --head develop \
-  --title "chore: release v0.2.0" \
-  --body "Release v0.2.0 - See CHANGELOG.md for details"
-
-# 7. After PR merge, tag and release
-git checkout main
-git pull upstream main
-git tag -a v0.2.0 -m "Release v0.2.0"
-git push upstream v0.2.0
-
-# 8. Create GitHub release
-gh release create v0.2.0 \
-  --title "v0.2.0" \
-  --notes-file CHANGELOG.md
+# The script will:
+# 1. Verify you're on develop branch
+# 2. Calculate the new version automatically
+# 3. Update VERSION file
+# 4. Generate CHANGELOG
+# 5. Create commits and PR
+# 6. Generate a post-merge script for final steps
 ```
+
+After the PR is merged, run the generated post-merge script:
+
+```bash
+# The script will be named: release-vX.Y.Z-post-merge.sh
+./release-vX.Y.Z-post-merge.sh
+
+# This will:
+# 1. Tag the release
+# 2. Push the tag
+# 3. Create GitHub release
+# 4. Merge main back to develop
+# 5. Self-delete when complete
+```
+
+### 3. Version Numbering
+
+We follow [Semantic Versioning](https://semver.org/):
+
+- **MAJOR** version for incompatible API changes
+- **MINOR** version for backwards-compatible functionality additions
+- **PATCH** version for backwards-compatible bug fixes
+
+Examples:
+- `0.1.0` → `0.1.1` (patch): Fixed a bug in component loading
+- `0.1.1` → `0.2.0` (minor): Added new Python component
+- `0.2.0` → `1.0.0` (major): Changed component YAML schema
 
 ## Common Scenarios
 
