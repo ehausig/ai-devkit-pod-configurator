@@ -1996,9 +1996,9 @@ display_ui_instructions() {
     # Build the instruction text based on view
     local instruction_text=""
     if [[ $view == "catalog" ]]; then
-        instruction_text="↑↓/jk: Navigate  ←→/hl: Page  SPACE: Add to stack  TAB: Switch to stack  ENTER: Build  q: Cancel"
+        instruction_text="↑↓/jk: Navigate  ←→/hl: Page  SPACE: Add to stack  TAB: Switch to stack  ENTER: Done  q: Cancel"
     else
-        instruction_text="↑↓/jk: Navigate  DEL/d: Remove  TAB: Switch to catalog  ENTER: Build  q: Cancel"
+        instruction_text="↑↓/jk: Navigate  DEL/d: Remove  TAB: Switch to catalog  ENTER: Done  q: Cancel"
     fi
     
     # Calculate center position
@@ -2010,7 +2010,7 @@ display_ui_instructions() {
     
     # Print with formatting
     if [[ $view == "catalog" ]]; then
-        printf "%b↑↓/jk:%b Navigate  %b←→/hl:%b Page  %bSPACE:%b Add to stack  %bTAB:%b Switch to stack  %bENTER:%b Build  %bq:%b Cancel" \
+        printf "%b↑↓/jk:%b Navigate  %b←→/hl:%b Page  %bSPACE:%b Add to stack  %bTAB:%b Switch to stack  %bENTER:%b Done  %bq:%b Cancel" \
             "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
             "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
             "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
@@ -2018,7 +2018,7 @@ display_ui_instructions() {
             "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
             "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE"
     else
-        printf "%b↑↓/jk:%b Navigate  %bDEL/d:%b Remove  %bTAB:%b Switch to catalog  %bENTER:%b Build  %bq:%b Cancel" \
+        printf "%b↑↓/jk:%b Navigate  %bDEL/d:%b Remove  %bTAB:%b Switch to catalog  %bENTER:%b Done  %bq:%b Cancel" \
             "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
             "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
             "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
@@ -2446,26 +2446,39 @@ display_selection_summary() {
     tput cup $prompt_row 0
     tput el  # Clear the line
     
-    # Center the prompt text
-    local prompt_text="Press ENTER to continue or 'q' to quit: "
+    # Center the prompt text - remove the colon since we're not showing cursor
+    local prompt_text="Press ENTER to start build & deploy or 'q' to cancel"
     local prompt_len=${#prompt_text}
     local prompt_pos=$(( (term_width - prompt_len) / 2 ))
     
     tput cup $prompt_row $prompt_pos
-    printf "%bPress %b%bENTER%b%b to continue or %b%b'q'%b%b to quit: %b" \
+    printf "%bPress %b%bENTER%b%b to start build & deploy or %b%b'q'%b%b to cancel%b" \
         "$INSTRUCTION_TEXT_STYLE" \
         "$STYLE_RESET" "$INSTRUCTION_KEY_STYLE" "$STYLE_RESET" "$INSTRUCTION_TEXT_STYLE" \
         "$STYLE_RESET" "$INSTRUCTION_ABORT_STYLE" "$STYLE_RESET" "$INSTRUCTION_TEXT_STYLE" \
         "$STYLE_RESET"
-    read -r CONFIRM   
-
-    if [[ "$CONFIRM" =~ ^[qQ]$ ]]; then
-        tput cnorm
-        stty echo
-        clear
-        log "Build cancelled."
-        exit 0
-    fi
+    
+    # Hide cursor before reading input
+    tput civis
+    
+    # Read single character without echo
+    while true; do
+        IFS= read -rsn1 CONFIRM
+        
+        if [[ "$CONFIRM" =~ ^[qQ]$ ]]; then
+            tput cnorm
+            stty echo
+            clear
+            log "Build cancelled."
+            exit 0
+        elif [[ -z "$CONFIRM" ]]; then  # Enter key pressed
+            break
+        fi
+        # Ignore other keys
+    done
+    
+    # Show cursor again after reading
+    tput cnorm
 }
 
 # Global variables for selected items
@@ -3251,6 +3264,11 @@ main() {
     # Hide cursor during deployment
     tput civis
     
+    # Clear the instruction/prompt line since build is starting
+    local prompt_row=$((box_height + 4))
+    tput cup $prompt_row 0
+    tput el
+    
     # Initial render of all steps (only time we do full render)
     render_deployment_steps $status_start_col $status_width deployment_steps[@] step_statuses[@] step_messages[@]
     
@@ -3304,7 +3322,7 @@ main() {
         update_single_deployment_step 1 "failed" "Check $LOG_FILE for details" $status_start_col $status_width "${deployment_steps[1]}"
         
         tput cup $((box_height + 4)) 4
-        printf "%bPress %b%bENTER%b%b to exit: %b" \
+        printf "%bPress %b%bENTER%b%b to exit%b" \
             "$INSTRUCTION_TEXT_STYLE" \
             "$STYLE_RESET" "$INSTRUCTION_KEY_STYLE" "$STYLE_RESET" "$INSTRUCTION_TEXT_STYLE" \
             "$STYLE_RESET"
@@ -3398,12 +3416,12 @@ main() {
     local final_prompt_pos=$(( (term_width - final_prompt_len) / 2 ))
     
     tput cup $prompt_row $final_prompt_pos
-    printf "%bPress %b%bENTER%b%b to return to terminal: %b" \
+    printf "%bPress %b%bENTER%b%b to return to terminal%b" \
         "$INSTRUCTION_TEXT_STYLE" \
         "$STYLE_RESET" "$INSTRUCTION_KEY_STYLE" "$STYLE_RESET" "$INSTRUCTION_TEXT_STYLE" \
         "$STYLE_RESET"
     read -r
-    
+
     # Clean up and return to prompt
     tput cnorm
     stty echo
