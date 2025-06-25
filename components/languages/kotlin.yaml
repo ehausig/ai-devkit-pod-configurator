@@ -1,0 +1,29 @@
+id: KOTLIN
+name: Kotlin
+version: "1.9.22"
+group: kotlin
+requires: java
+description: Modern programming language for JVM and Android development
+installation:
+  dockerfile: |
+    RUN export DEBIAN_FRONTEND=noninteractive && \
+        apt-get update && \
+        apt-get install -y zip unzip && \
+        rm -rf /var/lib/apt/lists/* && \
+        cd /tmp && \
+        wget https://github.com/JetBrains/kotlin/releases/download/v1.9.22/kotlin-compiler-1.9.22.zip && \
+        unzip kotlin-compiler-1.9.22.zip && \
+        mv kotlinc /opt/kotlin && \
+        rm kotlin-compiler-1.9.22.zip && \
+        echo 'export PATH=/opt/kotlin/bin:$PATH' >> /etc/profile.d/kotlin.sh
+  test_command: kotlinc -version
+entrypoint_setup: |
+  # Kotlin specific setup
+  echo "Setting up Kotlin environment..."
+  
+  # Add Kotlin to PATH if not already present
+  if ! grep -q "/opt/kotlin/bin" "$BASHRC" 2>/dev/null; then
+      echo '' >> "$BASHRC"
+      echo '# Kotlin environment' >> "$BASHRC"
+      echo 'export PATH="/opt/kotlin/bin:$PATH"' >> "$BASHRC"
+  fi

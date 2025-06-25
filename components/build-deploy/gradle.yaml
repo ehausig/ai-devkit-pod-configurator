@@ -1,0 +1,53 @@
+id: GRADLE
+name: Gradle (Java build tool)
+version: "8.5"
+group: build-tools
+requires: java
+description: Build automation tool for Java, Kotlin, and Groovy projects
+installation:
+  dockerfile: |
+    RUN export DEBIAN_FRONTEND=noninteractive && \
+        apt-get update && \
+        apt-get install -y unzip && \
+        rm -rf /var/lib/apt/lists/* && \
+        ARCH=$(dpkg --print-architecture) && \
+        GRADLE_VERSION="8.5" && \
+        wget -q https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip -O /tmp/gradle.zip && \
+        unzip -q /tmp/gradle.zip -d /opt && \
+        rm /tmp/gradle.zip && \
+        mv /opt/gradle-${GRADLE_VERSION} /opt/gradle && \
+        echo 'export PATH=/opt/gradle/bin:$PATH' >> /etc/profile.d/gradle.sh
+  nexus_config: |
+    if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
+        mkdir -p /etc/skel/.gradle && \
+        echo 'allprojects {' > /etc/skel/.gradle/init.gradle && \
+        echo '    repositories {' >> /etc/skel/.gradle/init.gradle && \
+        echo '        maven {' >> /etc/skel/.gradle/init.gradle && \
+        echo "            url \"${NEXUS_APT_URL}/repository/maven-public/\"" >> /etc/skel/.gradle/init.gradle && \
+        echo '            allowInsecureProtocol = true' >> /etc/skel/.gradle/init.gradle && \
+        echo '        }' >> /etc/skel/.gradle/init.gradle && \
+        echo '    }' >> /etc/skel/.gradle/init.gradle && \
+        echo '}' >> /etc/skel/.gradle/init.gradle && \
+        echo 'settingsEvaluated { settings ->' >> /etc/skel/.gradle/init.gradle && \
+        echo '    settings.pluginManagement {' >> /etc/skel/.gradle/init.gradle && \
+        echo '        repositories {' >> /etc/skel/.gradle/init.gradle && \
+        echo '            maven {' >> /etc/skel/.gradle/init.gradle && \
+        echo "                url \"${NEXUS_APT_URL}/repository/maven-public/\"" >> /etc/skel/.gradle/init.gradle && \
+        echo '                allowInsecureProtocol = true' >> /etc/skel/.gradle/init.gradle && \
+        echo '            }' >> /etc/skel/.gradle/init.gradle && \
+        echo '        }' >> /etc/skel/.gradle/init.gradle && \
+        echo '    }' >> /etc/skel/.gradle/init.gradle && \
+        echo '}' >> /etc/skel/.gradle/init.gradle; \
+    fi
+  test_command: gradle --version
+entrypoint_setup: |
+  # Gradle specific setup
+  echo "Setting up Gradle environment..."
+  
+  # Create .gradle directory
+  mkdir -p /home/devuser/.gradle
+  
+  # Ensure proper ownership (skip if gradle.properties is mounted from ConfigMap)
+  if [ ! -f /home/devuser/.gradle/gradle.properties ]; then
+      chown -R devuser:devuser /home/devuser/.gradle 2>/dev/null || true
+  fi

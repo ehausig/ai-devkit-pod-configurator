@@ -1,0 +1,55 @@
+id: RUST_NIGHTLY
+name: Rust (Nightly Channel)
+version: "nightly"
+group: rust-version
+requires: []
+description: Rust programming language - nightly channel with latest features
+installation:
+  dockerfile: |
+    RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
+        RUSTUP_HOME=/opt/rust CARGO_HOME=/opt/rust sh -s -- -y --no-modify-path --default-toolchain nightly && \
+        chmod -R 755 /opt/rust && \
+        echo 'export PATH=/opt/rust/bin:$PATH' >> /etc/profile.d/rust.sh && \
+        echo 'export RUSTUP_HOME=/opt/rust' >> /etc/profile.d/rust.sh && \
+        echo 'export CARGO_HOME=$HOME/.cargo' >> /etc/profile.d/rust.sh && \
+        ln -s /opt/rust/bin/* /usr/local/bin/ && \
+        /opt/rust/bin/rustup default nightly && \
+        # Install commonly used cargo tools
+        /opt/rust/bin/cargo install cargo-watch
+  nexus_config: |
+    if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
+        mkdir -p /etc/skel/.cargo && \
+        echo '[source.crates-io]' > /etc/skel/.cargo/config.toml && \
+        echo 'replace-with = "nexus"' >> /etc/skel/.cargo/config.toml && \
+        echo '' >> /etc/skel/.cargo/config.toml && \
+        echo '[source.nexus]' >> /etc/skel/.cargo/config.toml && \
+        echo "registry = \"sparse+${NEXUS_APT_URL}/repository/cargo-proxy/\"" >> /etc/skel/.cargo/config.toml; \
+    fi
+  test_command: rustc --version && cargo watch --version
+entrypoint_setup: |
+  # Rust specific setup
+  echo "Setting up Rust environment..."
+  
+  # Create .cargo directory for Rust/Cargo
+  mkdir -p /home/devuser/.cargo
+  
+  # Check if cargo config is properly mounted
+  if [ -f /home/devuser/.cargo/config.toml ]; then
+      echo "Cargo config detected at /home/devuser/.cargo/config.toml"
+  fi
+  
+  # Add Rust/Cargo specific paths if installed
+  if [ -d /opt/rust ] && ! grep -q "Rust/Cargo paths" "$BASHRC" 2>/dev/null; then
+      cat >> "$BASHRC" << 'EOF'
+  
+  # Rust/Cargo paths
+  export PATH="/opt/rust/bin:$PATH"
+  export RUSTUP_HOME="/opt/rust"
+  export CARGO_HOME="$HOME/.cargo"
+  EOF
+  fi
+  
+  # Ensure proper ownership (skip if config is mounted)
+  if [ ! -f /home/devuser/.cargo/config.toml ]; then
+      chown -R devuser:devuser /home/devuser/.cargo 2>/dev/null || true
+  fi

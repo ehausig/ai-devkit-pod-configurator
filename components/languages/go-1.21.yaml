@@ -1,0 +1,52 @@
+id: GO_1_21
+name: Go 1.21
+version: "1.21.6"
+group: go-version
+requires: []
+description: Go programming language version 1.21
+installation:
+  dockerfile: |
+    RUN ARCH=$(dpkg --print-architecture) && \
+        GO_ARCH=${ARCH} && \
+        if [ "${ARCH}" = "arm64" ]; then \
+            GO_ARCH="arm64"; \
+        elif [ "${ARCH}" = "amd64" ]; then \
+            GO_ARCH="amd64"; \
+        fi && \
+        wget -q https://go.dev/dl/go1.21.6.linux-${GO_ARCH}.tar.gz && \
+        tar -C /usr/local -xzf go1.21.6.linux-${GO_ARCH}.tar.gz && \
+        rm go1.21.6.linux-${GO_ARCH}.tar.gz && \
+        echo 'export PATH=/usr/local/go/bin:$PATH' >> /etc/profile.d/go.sh
+  env:
+    - GOPATH=/home/claude/go
+    - PATH=/usr/local/go/bin:$PATH
+  nexus_config: |
+    if [ -n "$GOPROXY" ]; then \
+        echo "export GOPROXY=$GOPROXY" >> /etc/profile.d/go.sh && \
+        echo "export GOPRIVATE=" >> /etc/profile.d/go.sh && \
+        echo "export GONOSUMDB=" >> /etc/profile.d/go.sh; \
+    fi
+  test_command: go version
+entrypoint_setup: |
+  # Go 1.21 specific setup
+  echo "Setting up Go 1.21 environment..."
+  
+  # Create Go workspace directory
+  mkdir -p /home/devuser/go/{bin,src,pkg}
+  
+  # Add Go environment to bashrc
+  if ! grep -q "Go environment" "$BASHRC" 2>/dev/null; then
+      echo '' >> "$BASHRC"
+      echo '# Go environment' >> "$BASHRC"
+      echo 'export GOPATH="$HOME/go"' >> "$BASHRC"
+      echo 'export PATH="/usr/local/go/bin:$GOPATH/bin:$PATH"' >> "$BASHRC"
+      # Add proxy settings if configured
+      if [ -n "$GOPROXY" ]; then
+          echo "export GOPROXY=\"$GOPROXY\"" >> "$BASHRC"
+          echo 'export GOPRIVATE=""' >> "$BASHRC"
+          echo 'export GONOSUMDB=""' >> "$BASHRC"
+      fi
+  fi
+  
+  # Ensure proper ownership
+  chown -R devuser:devuser /home/devuser/go 2>/dev/null || true

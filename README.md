@@ -1,208 +1,323 @@
-# Claude Code in Kubernetes
+# AI DevKit Pod Configurator
 
-This project provides a containerized version of Claude Code running in Kubernetes, allowing you to use Anthropic's AI coding assistant in an isolated environment rather than directly on your host OS.
+A powerful, modular system for creating containerized development environments in Kubernetes with support for multiple programming languages, build tools, and AI coding assistants.
 
-## Project Structure
+![AI DevKit](https://img.shields.io/badge/AI%20DevKit-Pod%20Configurator-blue)
+![Ubuntu](https://img.shields.io/badge/Ubuntu-22.04%20LTS-orange)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-Compatible-326ce5)
 
-```
-claude-code-k8s/
-├── Dockerfile              # Container definition for Claude Code
-├── entrypoint.sh           # Container startup script
-├── build-and-deploy.sh     # Helper script for building and deploying
-├── kubernetes/
-│   ├── namespace.yaml      # Kubernetes namespace definition
-│   ├── pvc.yaml            # Persistent volume claims for configuration and workspace
-│   └── deployment.yaml     # Deployment configuration
-└── README.md               # This documentation
-```
+## 📸 Screenshots
 
-## Quickstart
+### Component Selection Interface
+![Component Selection Interface](docs/images/component-selection.png)
+*Interactive TUI for selecting development tools and languages*
 
-If you're using Colima for local Kubernetes development on macOS:
+### Deployment Status Dashboard
+![Deployment Status Dashboard](docs/images/deployment-status.png)
+*Real-time deployment progress with animated status indicators*
+
+### Development Environment
+![Development Environment](docs/images/dev-environment.png)
+*Inside the configured container with your selected tools ready to use*
+
+## 🚀 Quick Start
 
 ```bash
 # Clone the repository
-git clone https://github.com/ehausig/claude-code-k8s.git
-cd claude-code-k8s
+git clone https://github.com/ehausig/ai-devkit-pod-configurator.git
+cd ai-devkit-pod-configurator
 
-# Make the script executable
-chmod +x build-and-deploy.sh
+# Make scripts executable
+chmod +x *.sh
 
-# Build and deploy
+# (Optional) Configure git credentials for automatic injection
+./configure-git-host.sh
+
+# Build and deploy with interactive component selection
 ./build-and-deploy.sh
 
-# Connect to the container
-kubectl exec -it -n claude-code <pod-name> -- bash
-
-# Inside the container, run Claude Code
-cd /home/claude/workspace
-claude
+# Access your development environment
+ssh devuser@localhost -p 2222
+# Password: devuser
 ```
 
-On first run, follow the authentication prompts to connect your Anthropic account.
+## 🎯 Overview
 
-## Prerequisites
+AI DevKit Pod Configurator provides a beautiful TUI (Terminal User Interface) for selecting and deploying customized development environments in Kubernetes. Each environment is built from a minimal Ubuntu base with only the components you need.
 
-- Kubernetes cluster (k3s, minikube, colima, or any other Kubernetes distribution)
+### Key Features
+
+- 🎨 **Beautiful TUI** - Interactive component selection with theme support
+- 🧩 **Modular Architecture** - Add only what you need: languages, tools, AI assistants
+- 🤖 **AI Assistant Support** - Optional Claude Code integration
+- 🔧 **Language Support** - Python, Java, Go, Rust, Ruby, Scala, Kotlin, and more
+- 📦 **Build Tools** - Maven, Gradle, SBT with optional Nexus proxy support
+- 🧪 **TUI Testing** - Microsoft TUI Test pre-installed for testing terminal apps
+- 💾 **Persistent Storage** - Your code and configuration persist across restarts
+- 🌐 **Web File Manager** - Built-in Filebrowser for easy file management
+- 🔒 **Secure** - Runs as non-root user with proper isolation
+
+## 📋 Prerequisites
+
+- Kubernetes cluster (k3s, minikube, Colima, or any Kubernetes distribution)
 - kubectl configured to access your cluster
-- Docker or other container build tool
-- An Anthropic account with one of the following:
-  - Claude.ai account with Max subscription
-  - Anthropic Console account with Claude API access
+- Docker or compatible container runtime
+- For macOS users: [Colima](https://github.com/abiosoft/colima) is recommended
 
-## Detailed Setup Instructions
-
-### 1. Building the Container
-
-The repository includes a build script that automates the process, but you can also build manually:
+### macOS Quick Setup with Colima
 
 ```bash
-# Using the script (for Colima)
-./build-and-deploy.sh
+# Install Colima
+brew install colima kubectl
 
-# Building manually
-docker build -t claude-code:latest .
+# Start Colima with Kubernetes
+colima start --kubernetes --cpu 4 --memory 8
+
+# Verify setup
+kubectl get nodes
 ```
 
-For other container systems:
-- **Docker Desktop**: No additional steps needed
-- **Minikube**: Use `minikube image load claude-code:latest` after building
-- **k3d**: Use `k3d image import claude-code:latest` after building
-- **Custom registry**: Tag and push to your registry
+## 🏗️ Architecture
+
+The project uses a plugin-style architecture where each component is self-contained:
+
+```
+ai-devkit-pod-configurator/
+├── components/          # Available components
+│   ├── agents/         # AI assistants (Claude Code)
+│   ├── languages/      # Programming languages
+│   └── build-tools/    # Build and dependency tools
+├── docker/             # Base container files
+├── kubernetes/         # K8s manifests
+├── scripts/            # Helper scripts
+└── docs/              # Documentation
+```
+
+## 🎮 Using the Component Selector
+
+When you run `./build-and-deploy.sh`, an interactive TUI appears:
+
+- **↑/↓** or **j/k** - Navigate components
+- **←/→** or **h/l** - Switch pages
+- **SPACE** - Select/deselect component
+- **TAB** - Switch between catalog and selected items
+- **ENTER** - Build with selected components
+- **q** - Quit
+
+The selector shows:
+- ✓ Selected components
+- ○ Available components
+- Dependencies and conflicts
+- Real-time build status with animations
+
+## 🔐 Git Configuration
+
+Configure git credentials once on your host machine:
 
 ```bash
-# Example with custom registry
-docker tag claude-code:latest your-registry.com/claude-code:latest
-docker push your-registry.com/claude-code:latest
+./configure-git-host.sh
 ```
 
-### 2. Deploying to Kubernetes
+This creates an isolated git configuration that's automatically injected into your containers, including:
+- Git user name and email
+- GitHub Personal Access Token
+- GitHub CLI authentication
 
-The deployment can be done using the script or manually:
+## 📁 File Management
+
+Access the web-based file manager:
 
 ```bash
-# Using the script (creates namespace, pvcs, and deployment)
-./build-and-deploy.sh
-
-# Manual deployment
-kubectl apply -f kubernetes/namespace.yaml
-kubectl apply -f kubernetes/pvc.yaml
-kubectl apply -f kubernetes/deployment.yaml
+./access-filebrowser.sh
+# Or manually:
+kubectl port-forward -n ai-devkit service/ai-devkit 8090:8090
 ```
 
-If using a custom registry, update `kubernetes/deployment.yaml` to point to your image location.
+Navigate to [http://localhost:8090](http://localhost:8090)
+- Default credentials: admin/admin (change after first login!)
 
-### 3. Connecting to the Container
+## 🧹 Maintenance
 
-Find your pod and connect:
+### Disk Cleanup (Colima users)
 
 ```bash
-# List pods in the claude-code namespace
-kubectl get pods -n claude-code
+# Clean up disk space in Colima
+./cleanup-colima.sh
 
-# Connect to the pod
-kubectl exec -it -n claude-code <pod-name> -- bash
+# Check what can be cleaned
+./cleanup-colima.sh --check
+
+# Force cleanup without prompts
+./cleanup-colima.sh --force
 ```
 
-### 4. Authentication
+## 📚 Documentation
 
-When you start Claude Code for the first time, you'll be prompted to authenticate:
+- [Creating Custom Components](docs/components.md) - Build your own components
+- [Theme Customization](docs/themes.md) - Customize the TUI appearance
+- [Troubleshooting](docs/troubleshooting.md) - Common issues and solutions
+- [Architecture Details](docs/architecture.md) - Deep dive into the system design
 
-1. **OAuth Flow** (Recommended):
-   - Claude Code will provide a URL to open in your browser
-   - Sign in with your Anthropic account
-   - The browser will provide an authentication code to enter back in the terminal
+## 🛠️ Available Components
 
-2. **API Key**:
-   - Alternatively, you can use an Anthropic API key
-   - This is obtained from your Anthropic Console account
+### Programming Languages
+- **Python**: System (3.10), Official 3.11, Miniconda
+- **Java**: OpenJDK 11/17/21, Eclipse Adoptium 11/17/21
+- **Go**: 1.21, 1.22
+- **Rust**: Stable, Nightly channels
+- **Ruby**: System package, 3.3 via rbenv
+- **Scala**: 2.13, 3.x
+- **Kotlin**: Latest version
 
-## Working with Files
+### Build Tools
+- **Maven** - Java build automation
+- **Gradle** - Modern build tool for JVM
+- **SBT** - Scala build tool
 
-### Copying Files to/from the Container
+### AI Assistants
+- **Claude Code** - Anthropic's AI coding assistant (requires subscription)
 
-Use `kubectl cp` to transfer files between your host and the container:
+## 🤝 Contributing
 
-```bash
-# Copy from local to container
-kubectl cp /local/path/to/file claude-code/<pod-name>:/home/claude/workspace/file -n claude-code
+Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) for details.
 
-# Copy from container to local
-kubectl cp claude-code/<pod-name>:/home/claude/workspace/file /local/destination/path -n claude-code
+## 🚀 Roadmap
 
-# Copy entire directories
-kubectl cp /local/directory claude-code/<pod-name>:/home/claude/workspace/directory -n claude-code
-```
+### Version 1.0 (Coming Soon)
+- [ ] Semantic versioning implementation
+- [ ] Stable API for component definitions
+- [ ] Comprehensive test suite
 
-### Alternative File Access Methods
+### Future Enhancements
 
-1. **Git**: Clone repositories directly in the container
-   ```bash
-   cd /home/claude/workspace
-   git clone https://github.com/username/repo.git
-   ```
+**Language & Tool Support**
+- [ ] Additional programming languages (C/C++, Zig, Elixir, etc.)
+- [ ] More AI agents (GitHub Copilot, Amazon CodeWhisperer, etc.)
+- [ ] Database tools and clients
+- [ ] Cloud provider CLIs (AWS, GCP, Azure)
 
-2. **Volume mounts**: If you need more direct access, modify the deployment to mount additional host paths (for supported Kubernetes setups)
+**Component System Improvements**
+- [ ] Advanced mutual exclusion rules (conflicts, dependencies)
+- [ ] Component versioning and compatibility matrix
+- [ ] Component marketplace/registry
+- [ ] Custom component repositories
 
-## Customization Options
+**Kubernetes Platform Support**
+- [ ] Minikube support and testing
+- [ ] Kind (Kubernetes in Docker) support
+- [ ] k3d support
+- [ ] Cloud Kubernetes services (EKS, GKE, AKS)
 
-### Modifying Resource Limits
+**Enterprise Features**
+- [ ] Team deployments to remote clusters
+- [ ] Multi-user workspace management
+- [ ] Resource limits and quotas configuration
+- [ ] RBAC and security policies
+- [ ] Centralized configuration management
 
-Edit `kubernetes/deployment.yaml` to adjust CPU and memory limits:
+**Developer Experience**
+- [ ] Web-based component selector UI
+- [ ] VS Code extension
+- [ ] Workspace templates
+- [ ] Backup and restore functionality
 
-```yaml
-resources:
-  requests:
-    memory: "256Mi"
-    cpu: "100m"
-  limits:
-    memory: "1Gi"
-    cpu: "500m"
-```
+## ⚠️ Known Issues
 
-### Persistence and Data Storage
+### Disk Management
 
-The deployment uses persistent volume claims for:
-- Config storage: `/home/claude/.config/claude-code`
-- Workspace: `/home/claude/workspace`
+**Overlay2 Cleanup (CRITICAL)**
+- The `--overlay2` option in `cleanup-colima.sh` is **currently broken** and will corrupt Docker
+- **DO NOT USE** the overlay2 cleanup feature
+- The standard cleanup options work correctly
 
-If your cluster doesn't support dynamic provisioning, you may need to create persistent volumes manually.
+**Disk Space Workaround**
+- If you encounter disk pressure errors in Colima:
+  ```bash
+  # Nuclear option but effective
+  colima delete
+  colima start --kubernetes --cpu 4 --memory 8 --disk 100
+  ```
+- This will delete all containers and images but resolve space issues
 
-## Troubleshooting
+### Testing Limitations
 
-### Common Issues
+**Nexus Repository Manager**
+- Only tested with local Nexus instances
+- Remote Nexus instances not yet validated
+- No testing without Nexus proxy (should work but unverified)
 
-1. **Claude command not found**:
-   - Check if Node.js and npm were installed correctly
-   - Verify PATH includes npm global bin directory
+**Platform Testing**
+- Primary testing on macOS with Colima
+- Limited testing on other Kubernetes distributions
+- Windows WSL2 support theoretical but untested
 
-2. **Authentication failures**:
-   - Ensure you have an active Anthropic account
-   - Check network connectivity from the container
+### Component Limitations
 
-3. **Permission errors**:
-   - The container runs as a non-root user for security
-   - Check if volume mounts have correct permissions
+**Mutual Exclusions**
+- Currently only supports simple group-based exclusions
+- Complex dependency rules not yet implemented
+- No version conflict resolution
 
-### Viewing Logs
+### Other Known Issues
 
-```bash
-# Container logs
-kubectl logs -n claude-code <pod-name>
+- Repeated deployments may leave orphaned PVCs
+- Some component combinations untested
+- TUI may have rendering issues in some terminal emulators
+- Git configuration may need manual setup in some environments
 
-# Claude Code logs (from inside the container)
-cat /home/claude/.config/claude-code/logs/*
-```
+Please check the [Issues](https://github.com/ehausig/ai-devkit-pod-configurator/issues) page for the latest known issues and workarounds.
 
-## Security Considerations
+## 💖 Support This Project
 
-This containerized approach provides several security advantages:
-- Isolates Claude Code from your host system
-- Runs as a non-root user inside the container
-- Uses Kubernetes abstractions for security boundaries
+If you find AI DevKit Pod Configurator useful, please consider supporting its development:
 
-## License
+☕ **[Buy me a coffee](https://buymeacoffee.com/ehausig)**
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+Your support helps maintain and improve this project. Thank you! 🙏
 
-Claude Code itself is a product of Anthropic and subject to Anthropic's terms of service. This project provides containerization and deployment scripts only, and does not modify or redistribute Claude Code itself.
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+This project builds upon excellent work from these organizations and projects:
+
+### Core Technologies
+
+- **[Claude Code](https://www.anthropic.com/claude-code)** by [Anthropic](https://www.anthropic.com) - AI coding assistant that lives in your terminal
+  - Claude is a trademark of Anthropic PBC
+  - [Documentation](https://docs.anthropic.com/en/docs/claude-code/overview) | [GitHub](https://github.com/anthropics/claude-code) | [npm](https://www.npmjs.com/package/@anthropic-ai/claude-code)
+  
+- **[Microsoft TUI Test](https://github.com/microsoft/tui-test)** - End-to-end terminal testing framework
+  - Built and maintained by Microsoft
+  - Provides rich API for testing terminal applications across platforms
+  
+- **[Ubuntu](https://ubuntu.com)** - The base operating system (22.04 LTS)
+  - Copyright © Canonical Ltd.
+  
+- **[Kubernetes](https://kubernetes.io)** - Container orchestration platform
+  - Originally designed by Google, now maintained by the Cloud Native Computing Foundation
+
+### Development Tools
+
+- **[Docker](https://www.docker.com)** - Container platform
+- **[Colima](https://github.com/abiosoft/colima)** - Container runtime for macOS
+- **[Git](https://git-scm.com)** - Version control system
+- **[GitHub CLI](https://cli.github.com)** - GitHub's official command line tool
+- **[Filebrowser](https://filebrowser.org)** - Web-based file management
+
+### Languages and Runtimes
+
+All programming language implementations retain their respective copyrights and licenses:
+- Python, Node.js, Java (OpenJDK), Go, Rust, Ruby, and others
+
+### Special Thanks
+
+- The open source community for continuous improvements and contributions
+- All beta testers who provided valuable feedback
+- Contributors who help improve this project
+
+---
+
+Created with ❤️ by [Eric Hausig](https://github.com/ehausig)

@@ -1,0 +1,29 @@
+id: SCALA_3
+name: Scala 3
+version: "3.3.1"
+group: scala-version
+requires: java
+description: Scala 3 (Dotty) - Next generation of Scala
+installation:
+  dockerfile: |
+    RUN export DEBIAN_FRONTEND=noninteractive && \
+        apt-get update && \
+        apt-get install -y wget unzip && \
+        rm -rf /var/lib/apt/lists/* && \
+        cd /tmp && \
+        wget https://github.com/lampepfl/dotty/releases/download/3.3.1/scala3-3.3.1.zip && \
+        unzip scala3-3.3.1.zip && \
+        mv scala3-3.3.1 /opt/scala3 && \
+        rm scala3-3.3.1.zip && \
+        echo 'export PATH=/opt/scala3/bin:$PATH' >> /etc/profile.d/scala3.sh
+  test_command: scala -version
+entrypoint_setup: |
+  # Scala 3 specific setup
+  echo "Setting up Scala 3 environment..."
+  
+  # Add Scala 3 to PATH if not already present
+  if ! grep -q "/opt/scala3/bin" "$BASHRC" 2>/dev/null; then
+      echo '' >> "$BASHRC"
+      echo '# Scala 3 environment' >> "$BASHRC"
+      echo 'export PATH="/opt/scala3/bin:$PATH"' >> "$BASHRC"
+  fi

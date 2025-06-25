@@ -1,0 +1,62 @@
+# components/agents/claude-code.yaml
+id: CLAUDE_CODE
+name: Claude Code (AI Assistant)
+group: ai-agents
+requires: []
+description: Anthropic's AI coding assistant for development
+pre_build_script: claude-code-setup.sh
+installation:
+  dockerfile: |
+    # Claude Code requires Node.js to be installed first
+    # The build system should ensure nodejs-version components are installed before this
+    
+    # Install Claude Code globally as root first
+    RUN export NPM_CONFIG_PREFIX=/home/devuser/.npm-global && \
+        export PATH="/home/devuser/.npm-global/bin:/usr/local/bin:${PATH}" && \
+        mkdir -p /home/devuser/.npm-global && \
+        chown -R devuser:devuser /home/devuser/.npm-global && \
+        /usr/local/bin/npm install -g @anthropic-ai/claude-code && \
+        ls -la /home/devuser/.npm-global/bin/ && \
+        /home/devuser/.npm-global/bin/claude --version || (echo "Claude Code installation failed" && exit 1) && \
+        chown -R devuser:devuser /home/devuser/.npm-global
+  inject_files:
+    - source: user-CLAUDE.md
+      destination: /tmp/user-CLAUDE.md
+      permissions: 644
+    - source: claude-settings.json.template
+      destination: /tmp/claude-settings.json.template
+      permissions: 644
+entrypoint_setup: |
+  # Claude Code specific setup
+  echo "Setting up Claude Code environment..."
+  
+  # Create .claude directory for global Claude configuration
+  if command -v claude &> /dev/null 2>&1 || [ -f /tmp/user-CLAUDE.md ]; then
+      mkdir -p /home/devuser/.claude
+  fi
+  
+  # Copy settings.json from template if it exists
+  echo "Checking for settings.json..."
+  if [ -f /tmp/claude-settings.json.template ]; then
+      echo "Found /tmp/claude-settings.json.template"
+      if [ ! -f /home/devuser/.claude/settings.json ]; then
+          echo "Copying settings.json to .claude folder..."
+          cp /tmp/claude-settings.json.template /home/devuser/.claude/settings.json
+          echo "settings.json copied successfully to /home/devuser/.claude/"
+      else
+          echo "settings.json already exists in .claude folder"
+      fi
+  else
+      echo "No /tmp/claude-settings.json.template found in image"
+  fi
+  
+  # Note: user-CLAUDE.md is handled in the main entrypoint.sh script
+  # along with appending component imports
+  
+  # Ensure proper ownership
+  chown -R devuser:devuser /home/devuser/.claude 2>/dev/null || true
+  
+  # Verify installed components (only if expected)
+  if command -v claude &> /dev/null 2>&1; then
+      echo "Claude Code is available at: $(which claude)"
+  fi

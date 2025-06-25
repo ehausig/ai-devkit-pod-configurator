@@ -1,0 +1,74 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nexus-proxy-config
+  namespace: ai-devkit
+data:
+  pip.conf: |
+    [global]
+    index-url = http://host.lima.internal:8081/repository/pypi-proxy/simple
+    trusted-host = host.lima.internal
+  
+  npmrc: |
+    registry=http://host.lima.internal:8081/repository/npm-proxy/
+  
+  cargo-config.toml: |
+    [source.crates-io]
+    replace-with = "nexus"
+    
+    [source.nexus]
+    registry = "sparse+http://host.lima.internal:8081/repository/cargo-proxy/"
+  
+  settings.xml: |
+    <?xml version="1.0" encoding="UTF-8"?>
+    <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0
+                                  http://maven.apache.org/xsd/settings-1.0.0.xsd">
+      <mirrors>
+        <mirror>
+          <id>nexus</id>
+          <mirrorOf>*</mirrorOf>
+          <url>http://host.lima.internal:8081/repository/maven-public/</url>
+        </mirror>
+      </mirrors>
+    </settings>
+  
+  repositories: |
+    [repositories]
+    local
+    nexus: http://host.lima.internal:8081/repository/maven-public/, allowInsecureProtocol
+  
+  condarc: |
+    channels:
+      - http://host.lima.internal:8081/repository/conda-forge-proxy/
+      - http://host.lima.internal:8081/repository/conda-proxy/
+    ssl_verify: false
+    channel_priority: strict
+    show_channel_urls: true
+    default_channels: []
+  
+  gradle.properties: |
+    systemProp.nexus.url=http://host.lima.internal:8081/repository/maven-public/
+  
+  gemrc: |
+    ---
+    :sources:
+    - http://host.lima.internal:8081/repository/rubygems-proxy/
+---
+# Environment variables for Nexus configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nexus-env-config
+  namespace: ai-devkit
+data:
+  PIP_INDEX_URL: "http://host.lima.internal:8081/repository/pypi-proxy/simple"
+  PIP_TRUSTED_HOST: "host.lima.internal"
+  NPM_CONFIG_REGISTRY: "http://host.lima.internal:8081/repository/npm-proxy/"
+  GOPROXY: "http://host.lima.internal:8081/repository/go-proxy/,direct"
+  CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+  CARGO_HTTP_CHECK_REVOKE: "false"
+  CARGO_HTTP_TIMEOUT: "60"
+  NO_PROXY: "localhost,127.0.0.1,.svc,.cluster.local"
+  no_proxy: "localhost,127.0.0.1,.svc,.cluster.local"

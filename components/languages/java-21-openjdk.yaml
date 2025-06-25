@@ -1,0 +1,26 @@
+id: JAVA_21_OPENJDK
+name: Java 21 (OpenJDK)
+version: "21"
+group: java
+requires: []
+description: OpenJDK 21 - Open source Java implementation
+installation:
+  dockerfile: |
+    RUN export DEBIAN_FRONTEND=noninteractive && \
+        apt-get update && \
+        apt-get install -y openjdk-21-jdk && \
+        rm -rf /var/lib/apt/lists/*
+  env:
+    - JAVA_HOME=/usr/lib/jvm/java-21-openjdk-${TARGETARCH}
+  test_command: java -version
+entrypoint_setup: |
+  # Java 21 OpenJDK specific setup
+  echo "Setting up Java 21 environment..."
+  
+  # Set JAVA_HOME for the user
+  if ! grep -q "JAVA_HOME" "$BASHRC" 2>/dev/null; then
+      echo '' >> "$BASHRC"
+      echo '# Java environment' >> "$BASHRC"
+      echo 'export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-'$(dpkg --print-architecture) >> "$BASHRC"
+      echo 'export PATH="$JAVA_HOME/bin:$PATH"' >> "$BASHRC"
+  fi

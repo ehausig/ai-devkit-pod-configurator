@@ -1,41 +1,356 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: claude-code
-  namespace: claude-code
+  name: ai-devkit
+  namespace: ai-devkit
   labels:
-    app: claude-code
+    app: ai-devkit
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: claude-code
+      app: ai-devkit
   template:
     metadata:
       labels:
-        app: claude-code
+        app: ai-devkit
+      annotations:
+        kubectl.kubernetes.io/default-container: ai-devkit
     spec:
       containers:
-      - name: claude-code
-        image: claude-code:latest
+      # Main Claude Code container
+      - name: ai-devkit
+        image: ai-devkit:latest
         imagePullPolicy: IfNotPresent
-        command: ["sleep", "infinity"]
+        ports:
+        - containerPort: 22
+          name: ssh
+        # Remove the command override so entrypoint.sh runs
+        # The entrypoint will handle setup and then run sleep infinity
         volumeMounts:
         - name: config-volume
-          mountPath: /home/claude/.config/claude-code
+          mountPath: /home/devuser/.config/claude-code
         - name: workspace-volume
-          mountPath: /home/claude/workspace
+          mountPath: /home/devuser/workspace
+        # SSH host keys mount
+        - name: ssh-host-keys
+          mountPath: /etc/ssh/mounted_keys
+          readOnly: true
+        # Git configuration mounts (optional - from secret)
+        - name: git-config
+          mountPath: /tmp/git-mounted/.gitconfig
+          subPath: gitconfig
+          readOnly: true
+        - name: git-credentials
+          mountPath: /tmp/git-mounted/.git-credentials
+          subPath: git-credentials
+          readOnly: true
+        - name: gh-hosts
+          mountPath: /tmp/git-mounted/gh-hosts.yml
+          subPath: gh-hosts
+          readOnly: true
+        # Nexus-specific mounts (will fail gracefully if ConfigMap doesn't exist)
+        - name: cargo-dir
+          mountPath: /home/devuser/.cargo
+        - name: cargo-config
+          mountPath: /home/devuser/.cargo/config.toml
+          subPath: cargo-config.toml
+        - name: pip-config
+          mountPath: /home/devuser/.config/pip/pip.conf
+          subPath: pip.conf
+        - name: npm-config
+          mountPath: /home/devuser/.npmrc
+          subPath: npmrc
+        - name: maven-settings
+          mountPath: /home/devuser/.m2/settings.xml
+          subPath: settings.xml
+        - name: sbt-repositories
+          mountPath: /home/devuser/.sbt/repositories
+          subPath: repositories
+        - name: conda-config
+          mountPath: /home/devuser/.condarc
+          subPath: condarc
+        - name: gradle-config
+          mountPath: /home/devuser/.gradle/gradle.properties
+          subPath: gradle.properties
+        - name: gem-config
+          mountPath: /home/devuser/.gemrc
+          subPath: gemrc
+        env:
+        # These environment variables will be populated from ConfigMap if it exists
+        - name: PIP_INDEX_URL
+          valueFrom:
+            configMapKeyRef:
+              name: nexus-env-config
+              key: PIP_INDEX_URL
+              optional: true
+        - name: PIP_TRUSTED_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: nexus-env-config
+              key: PIP_TRUSTED_HOST
+              optional: true
+        - name: NPM_CONFIG_REGISTRY
+          valueFrom:
+            configMapKeyRef:
+              name: nexus-env-config
+              key: NPM_CONFIG_REGISTRY
+              optional: true
+        - name: GOPROXY
+          valueFrom:
+            configMapKeyRef:
+              name: nexus-env-config
+              key: GOPROXY
+              optional: true
+        - name: CARGO_HOME
+          value: "/home/devuser/.cargo"
+        - name: CARGO_NET_GIT_FETCH_WITH_CLI
+          valueFrom:
+            configMapKeyRef:
+              name: nexus-env-config
+              key: CARGO_NET_GIT_FETCH_WITH_CLI
+              optional: true
+        - name: CARGO_HTTP_CHECK_REVOKE
+          valueFrom:
+            configMapKeyRef:
+              name: nexus-env-config
+              key: CARGO_HTTP_CHECK_REVOKE
+              optional: true
+        - name: CARGO_HTTP_TIMEOUT
+          valueFrom:
+            configMapKeyRef:
+              name: nexus-env-config
+              key: CARGO_HTTP_TIMEOUT
+              optional: true
+        - name: HTTP_PROXY
+          valueFrom:
+            configMapKeyRef:
+              name: nexus-env-config
+              key: HTTP_PROXY
+              optional: true
+        - name: HTTPS_PROXY
+          valueFrom:
+            configMapKeyRef:
+              name: nexus-env-config
+              key: HTTPS_PROXY
+              optional: true
+        - name: NO_PROXY
+          valueFrom:
+            configMapKeyRef:
+              name: nexus-env-config
+              key: NO_PROXY
+              optional: true
+        - name: no_proxy
+          valueFrom:
+            configMapKeyRef:
+              name: nexus-env-config
+              key: no_proxy
+              optional: true
+        - name: SBT_OPTS
+          value: "-Dsbt.override.build.repos=true -Dsbt.repository.config=/home/devuser/.sbt/repositories -Dsbt.coursier=true"
+        - name: NODE_OPTIONS
+          value: "--max-old-space-size=3072" # 3GB
         resources:
           requests:
-            memory: "256Mi"
-            cpu: "100m"
-          limits:
-            memory: "1Gi"
+            memory: "512Mi"
             cpu: "500m"
+          limits:
+            memory: "5Gi"
+            cpu: "4000m"
+      
+      # Filebrowser sidecar for easy file management
+      - name: filebrowser
+        image: filebrowser/filebrowser:latest
+        ports:
+        - containerPort: 8090
+          name: filebrowser
+        volumeMounts:
+        - name: workspace-volume
+          mountPath: /srv
+        - name: filebrowser-config
+          mountPath: /config
+        - name: filebrowser-db
+          mountPath: /database
+        env:
+        - name: FB_DATABASE
+          value: /database/filebrowser.db
+        - name: FB_CONFIG
+          value: /config/settings.json
+        - name: FB_ROOT
+          value: /srv
+        - name: FB_LOG
+          value: stdout
+        - name: FB_PORT
+          value: "8090"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      
       volumes:
       - name: config-volume
         persistentVolumeClaim:
-          claimName: claude-code-config-pvc
+          claimName: ai-devkit-config-pvc
       - name: workspace-volume
         persistentVolumeClaim:
-          claimName: claude-code-workspace-pvc
+          claimName: ai-devkit-workspace-pvc
+      - name: cargo-dir
+        emptyDir: {}
+      - name: filebrowser-config
+        configMap:
+          name: filebrowser-config
+      - name: filebrowser-db
+        emptyDir: {}
+      # SSH host keys volume
+      - name: ssh-host-keys
+        secret:
+          secretName: ssh-host-keys
+          defaultMode: 0600
+          optional: false
+      # Git configuration volumes (from secret - all optional)
+      - name: git-config
+        secret:
+          secretName: git-config
+          items:
+          - key: gitconfig
+            path: gitconfig
+          defaultMode: 0600
+          optional: true
+      - name: git-credentials
+        secret:
+          secretName: git-config
+          items:
+          - key: git-credentials
+            path: git-credentials
+          defaultMode: 0600
+          optional: true
+      - name: gh-hosts
+        secret:
+          secretName: git-config
+          items:
+          - key: gh-hosts
+            path: gh-hosts
+          defaultMode: 0600
+          optional: true
+      # Nexus-specific config volumes (optional: true means they won't fail if ConfigMap doesn't exist)
+      - name: pip-config
+        configMap:
+          name: nexus-proxy-config
+          items:
+          - key: pip.conf
+            path: pip.conf
+          defaultMode: 0644
+          optional: true
+      - name: npm-config
+        configMap:
+          name: nexus-proxy-config
+          items:
+          - key: npmrc
+            path: npmrc
+          defaultMode: 0644
+          optional: true
+      - name: cargo-config
+        configMap:
+          name: nexus-proxy-config
+          items:
+          - key: cargo-config.toml
+            path: cargo-config.toml
+          defaultMode: 0644
+          optional: true
+      - name: maven-settings
+        configMap:
+          name: nexus-proxy-config
+          items:
+          - key: settings.xml
+            path: settings.xml
+          defaultMode: 0644
+          optional: true
+      - name: sbt-repositories
+        configMap:
+          name: nexus-proxy-config
+          items:
+          - key: repositories
+            path: repositories
+          defaultMode: 0644
+          optional: true
+      - name: conda-config
+        configMap:
+          name: nexus-proxy-config
+          items:
+          - key: condarc
+            path: condarc
+          defaultMode: 0644
+          optional: true
+      - name: gradle-config
+        configMap:
+          name: nexus-proxy-config
+          items:
+          - key: gradle.properties
+            path: gradle.properties
+          defaultMode: 0644
+          optional: true
+      - name: gem-config
+        configMap:
+          name: nexus-proxy-config
+          items:
+          - key: gemrc
+            path: gemrc
+          defaultMode: 0644
+          optional: true
+---
+# Service to expose Filebrowser and SSH
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-devkit
+  namespace: ai-devkit
+spec:
+  selector:
+    app: ai-devkit
+  ports:
+  - name: ssh
+    port: 22
+    targetPort: 22
+  - name: filebrowser
+    port: 8090
+    targetPort: 8090
+  type: ClusterIP
+---
+# ConfigMap for Filebrowser settings
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: filebrowser-config
+  namespace: ai-devkit
+data:
+  settings.json: |
+    {
+      "port": 8090,
+      "baseURL": "",
+      "address": "0.0.0.0",
+      "log": "stdout",
+      "database": "/database/filebrowser.db",
+      "root": "/srv",
+      "username": "admin",
+      "password": "admin",
+      "branding": {
+        "name": "AI DevKit Workspace",
+        "disableExternal": false,
+        "color": "#2979ff"
+      },
+      "authMethod": "password",
+      "commands": {
+        "after_save": [],
+        "before_save": []
+      },
+      "shell": ["/bin/bash", "-c"],
+      "allowEdit": true,
+      "allowNew": true,
+      "disablePreviewResize": false,
+      "disableExec": false,
+      "disableUsedPercentage": false,
+      "hideDotfiles": false
+    }
