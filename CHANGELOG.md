@@ -8,8 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🐛 Bug Fixes
+- always use latest tag for Docker images while preserving version display ([0c87311](https://github.com/ehausig/ai-devkit-pod-configurator/commit/0c87311f5670e3c9ac77f3b1d0be77fa9258a351))
+
 ### 📚 Documentation
 - add community files for open source readiness ([0eb0f60](https://github.com/ehausig/ai-devkit-pod-configurator/commit/0eb0f6020f9c6ca05d3824aa3d64e81ad52fd511))
+
+### 🔧 Other Changes
+- prepare release v0.1.1 ([2cf6111](https://github.com/ehausig/ai-devkit-pod-configurator/commit/2cf61114c7e6485dc66e9851ab5b1ae557131452))
 
 ## [v0.1.0] - 2025-06-25
 

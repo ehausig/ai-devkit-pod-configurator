@@ -14,11 +14,10 @@ LOG_FILE="build-and-deploy.log"
 VERSION_FILE="VERSION"
 if [[ -f "$VERSION_FILE" ]]; then
     VERSION=$(cat "$VERSION_FILE")
-    IMAGE_TAG="v${VERSION}"
 else
     VERSION="dev"
-    IMAGE_TAG="latest"
 fi
+IMAGE_TAG="latest"  # Always use latest tag
 
 # ============================================================================
 # SPECIAL CHARACTERS AND KEYCODES
@@ -3126,6 +3125,15 @@ build_docker_image() {
     cp docker/nodejs-base.md "$TEMP_DIR/docker/" 2>/dev/null
     cp -r config "$TEMP_DIR/" 2>/dev/null
     cp -r templates "$TEMP_DIR/" 2>/dev/null
+
+     # Ensure VERSION file exists in TEMP_DIR
+    if [[ -f "VERSION" ]]; then
+        cp VERSION "$TEMP_DIR/VERSION"
+        echo "Copied VERSION file: $(cat $TEMP_DIR/VERSION)" >> "$LOG_FILE"
+    else
+        echo "0.1.0" > "$TEMP_DIR/VERSION"
+        echo "Created default VERSION file" >> "$LOG_FILE"
+    fi  
 
     cd "$TEMP_DIR"
     echo "Docker build output:" >> "../$LOG_FILE"
