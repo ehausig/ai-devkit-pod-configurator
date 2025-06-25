@@ -2898,14 +2898,13 @@ create_custom_dockerfile() {
     # First, generate the base entrypoint.sh in TEMP_DIR
     log "Generating custom entrypoint.sh..."
     
-    # Check if entrypoint.base.sh exists
-    if [[ ! -f "entrypoint.base.sh" ]]; then
-        error "entrypoint.base.sh not found in current directory: $(pwd)"
+    if [[ ! -f "docker/entrypoint.base.sh" ]]; then
+        error "docker/entrypoint.base.sh not found in current directory: $(pwd)"
     fi
-    
-    log "Copying entrypoint.base.sh to $TEMP_DIR/entrypoint.sh"
-    cp -v entrypoint.base.sh "$TEMP_DIR/entrypoint.sh"
-    
+
+    log "Copying docker/entrypoint.base.sh to $TEMP_DIR/entrypoint.sh"
+    cp -v docker/entrypoint.base.sh "$TEMP_DIR/entrypoint.sh"
+
     if [[ ! -f "$TEMP_DIR/entrypoint.sh" ]]; then
         error "Failed to create entrypoint.sh in $TEMP_DIR"
     fi
@@ -2914,8 +2913,8 @@ create_custom_dockerfile() {
     success "Successfully created entrypoint.sh in $TEMP_DIR"
     
     # Copy Dockerfile.base
-    log "Copying Dockerfile.base to $TEMP_DIR/Dockerfile"
-    cp Dockerfile.base "$TEMP_DIR/Dockerfile"
+    log "Copying docker/Dockerfile.base to $TEMP_DIR/Dockerfile"
+    cp docker/Dockerfile.base "$TEMP_DIR/Dockerfile"
     
     # Execute pre-build scripts (this now also copies markdown files)
     execute_pre_build_scripts
@@ -3065,8 +3064,8 @@ validate_environment() {
     
     # Check if MOTD file exists
     printf "."
-    if [[ ! -f "motd-ai-devkit.sh" ]]; then
-        error "motd-ai-devkit.sh not found in current directory. Please create this file first."
+    if [[ ! -f "scripts/motd-ai-devkit.sh" ]]; then
+        error "motd-ai-devkit.sh not found in scripts directory. Please create this file first."
     fi
     
     # Check Colima status
@@ -3160,10 +3159,12 @@ build_docker_image() {
     create_custom_dockerfile >> "$LOG_FILE" 2>&1
     
     # Always build from TEMP_DIR since we now generate entrypoint.sh
-    cp setup-git.sh "$TEMP_DIR/" 2>/dev/null
-    cp motd-ai-devkit.sh "$TEMP_DIR/" 2>/dev/null
-    cp nodejs-base.md "$TEMP_DIR/" 2>/dev/null
-    cp -r configs "$TEMP_DIR/" 2>/dev/null
+    mkdir -p "$TEMP_DIR/scripts"
+    mkdir -p "$TEMP_DIR/docker"
+    cp scripts/setup-git.sh "$TEMP_DIR/scripts/" 2>/dev/null
+    cp scripts/motd-ai-devkit.sh "$TEMP_DIR/scripts/" 2>/dev/null
+    cp docker/nodejs-base.md "$TEMP_DIR/docker/" 2>/dev/null
+    cp -r config "$TEMP_DIR/" 2>/dev/null
     cp -r templates "$TEMP_DIR/" 2>/dev/null
 
     cd "$TEMP_DIR"
