@@ -824,7 +824,12 @@ render_deployment_steps() {
     
     if [[ $all_initial == true ]]; then
         # Clear the status area first time only
-        for ((r=5; r<30; r++)); do
+        # Make sure we don't clear beyond the box boundaries
+        local term_height=$(tput lines)
+        local box_height=$((term_height - 8))
+        local max_row=$((box_height + 2))  # Stop before the bottom border
+        
+        for ((r=5; r<max_row; r++)); do
             tput cup $r $((col + 2))
             printf "%-$((width-4))s" " "
         done
@@ -962,60 +967,6 @@ update_deployment_step() {
     # Update the arrays
     eval "${statuses_var}[$step_index]=\"$status\""
     eval "${messages_var}[$step_index]=\"$message\""
-}
-
-# Function to show connection details
-show_connection_details() {
-    local row=$1
-    local col=$2
-    local width=$3
-    local pod_name=$4
-    local port_forward_pid=$5
-    local claude_selected=$6
-    
-    ((row+=1))
-    
-    # Shell Connection section
-    tput cup $row $((col + 6))  # Indent to match steps
-    printf "%b%s%b" "$STATUS_INFO_COLOR" "Shell Connection:" "$STYLE_RESET"
-    ((row+=1))
-    
-    tput cup $row $((col + 8))  # Indent details
-    printf "ssh devuser@localhost -p 2222"
-    ((row++))
-    
-    tput cup $row $((col + 8))
-    printf "Password: devuser"
-    ((row+=2))  # Blank row
-    
-    # File Manager Connection section
-    tput cup $row $((col + 6))
-    printf "%b%s%b" "$STATUS_INFO_COLOR" "File Manager Connection:" "$STYLE_RESET"
-    ((row+=1))
-    
-    tput cup $row $((col + 8))
-    printf "http://localhost:8090"
-    ((row++))
-    
-    tput cup $row $((col + 8))
-    printf "User: admin"
-    ((row++))
-    
-    tput cup $row $((col + 8))
-    printf "Password: admin"
-    ((row+=2))  # Blank row
-    
-    # Port Forward section
-    tput cup $row $((col + 6))
-    printf "%b%s%b" "$STATUS_INFO_COLOR" "Port Forward:" "$STYLE_RESET"
-    ((row+=1))
-    
-    tput cup $row $((col + 8))
-    printf "PID: %s" "$port_forward_pid"
-    ((row++))
-    
-    tput cup $row $((col + 8))
-    printf "Ports: 2222 (SSH), 8090 (Filebrowser)"
 }
 
 # Function to check if a group has items in cart
@@ -3406,20 +3357,7 @@ main() {
     # Clean up any remaining animation files
     rm -f "$anim_flag"
     
-    # Calculate final row for connection details (adjusted for 2-row spacing)
-    local final_row=$((5 + (${#deployment_steps[@]} * 2)))
-    DEPLOYMENT_STATUS_FINAL_ROW=$final_row
-    
-    # Check if Claude Code was selected
-    local claude_selected=false
-    for id in "${SELECTED_IDS[@]}"; do
-        if [[ "$id" == "CLAUDE_CODE" ]]; then
-            claude_selected=true
-            break
-        fi
-    done
-    
-    # Show connection details if all succeeded
+    # Check if all steps succeeded
     local all_success=true
     for status in "${step_statuses[@]}"; do
         if [[ "$status" == "failed" ]]; then
@@ -3427,10 +3365,6 @@ main() {
             break
         fi
     done
-    
-    if [[ $all_success == true ]]; then
-        show_connection_details $DEPLOYMENT_STATUS_FINAL_ROW $status_start_col $status_width "$POD_NAME" "$PORT_FORWARD_PID" $claude_selected
-    fi
     
     # Wait for user
     local prompt_row=$((box_height + 4))
