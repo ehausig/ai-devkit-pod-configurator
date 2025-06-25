@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 📚 Documentation
+- add community files for open source readiness ([0eb0f60](https://github.com/ehausig/ai-devkit-pod-configurator/commit/0eb0f6020f9c6ca05d3824aa3d64e81ad52fd511))
+
+## [v0.1.0] - 2025-06-25
+
 ### ⚠️ BREAKING CHANGES
 - reorganize project structure for better maintainability ([2f61fb3](https://github.com/ehausig/ai-devkit-pod-configurator/commit/2f61fb373b2cc18f7cbf0794f1f4039beeddae76))
 - decompose select_components into smaller maintainable functions ([8f2a5ac](https://github.com/ehausig/ai-devkit-pod-configurator/commit/8f2a5ac53b4b5a6acbfed7561b381c3186589a5d))
@@ -19,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add Filebrowser as built-in sidecar for web-based file management ([1e3134b](https://github.com/ehausig/ai-devkit-pod-configurator/commit/1e3134b663b72cfe3bd45c80e88e6258abbf10ee))
 
 ### 🚀 Features
+- merge all development work from develop branch ([9e92750](https://github.com/ehausig/ai-devkit-pod-configurator/commit/9e92750673d4f75fc2a9f37ab80b0075f7358d0f))
 - add cleanup script for orphaned build animations ([2de2dd6](https://github.com/ehausig/ai-devkit-pod-configurator/commit/2de2dd60e5ef17a29c30efa834b5a69714852571))
 - add animated spinner for deployment steps and improve status display ([9fa53f6](https://github.com/ehausig/ai-devkit-pod-configurator/commit/9fa53f656f1381ee38b4d590c76b0e50e9ff567b))
 - enhance deployment status display with improved spacing and styling ([9f35439](https://github.com/ehausig/ai-devkit-pod-configurator/commit/9f35439547ff1b2a02dabff875977daa21176607))
@@ -157,6 +163,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - clarify dual license status in README ([cf73a9e](https://github.com/ehausig/ai-devkit-pod-configurator/commit/cf73a9e6f9471aec808e4c6fbd702605e63f6403))
 
 ### 🔧 Other Changes
+- add initial CHANGELOG.md ([717f726](https://github.com/ehausig/ai-devkit-pod-configurator/commit/717f7260ba216343fc7293e6409dd1974967b024))
 - implement semantic versioning system ([2988ae0](https://github.com/ehausig/ai-devkit-pod-configurator/commit/2988ae06074eb9098ecde25a48d7104ee348e209))
 - add scripts for versioning ([ed61659](https://github.com/ehausig/ai-devkit-pod-configurator/commit/ed616598e20e9938093c77378a9bcd042c16de40))
 - update changelog ([af275b6](https://github.com/ehausig/ai-devkit-pod-configurator/commit/af275b6c93862313f631f3bbf35e81953e7df73c))
