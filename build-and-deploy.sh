@@ -96,6 +96,17 @@ readonly BOLD_SAND='\033[1;38;2;229;192;123m'        # #E5C07B (bold)
 readonly BOLD_SEAFOAM='\033[1;38;2;138;191;183m'     # #8ABFB7 (bold)
 readonly BOLD_LAVENDER='\033[1;38;2;198;120;221m'    # #C678DD
 
+# Additional status colors
+readonly STATUS_INITIAL_BULLET_COLOR="$COLOR_SILVER"
+readonly STATUS_INITIAL_TEXT_COLOR="$COLOR_BRIGHT_SILVER"
+readonly STATUS_PENDING_BULLET_COLOR="$COLOR_SAND"
+readonly STATUS_PENDING_TEXT_COLOR="$COLOR_BRIGHT_SAND"
+readonly STATUS_SUCCESS_BULLET_COLOR="$COLOR_SAGE"
+readonly STATUS_SUCCESS_TEXT_COLOR="$COLOR_BRIGHT_SAGE"
+readonly STATUS_FAILED_BULLET_COLOR="$COLOR_CORAL"
+readonly STATUS_FAILED_TEXT_COLOR="$COLOR_BRIGHT_CORAL"
+readonly STATUS_INFO_COLOR="$COLOR_BRIGHT_SEAFOAM"
+
 # Icons
 readonly ICON_SELECTED="✓"
 readonly ICON_AVAILABLE="○"
@@ -108,6 +119,7 @@ readonly ICON_SUCCESS="✓"
 readonly ICON_PENDING="⟳"
 readonly ICON_FAILED="✗"
 readonly ICON_NOT_STARTED="○"
+readonly ICON_INITIAL="-"
 
 # Box Drawing Characters
 readonly BOX_TOP_LEFT="╭"
@@ -745,16 +757,16 @@ render_deployment_steps() {
     
     local row=5
     
-    # Only clear on first render (when all statuses are "pending")
-    local all_pending=true
+    # Only clear on first render (when all statuses are "initial")
+    local all_initial=true
     for status in "${statuses[@]}"; do
-        if [[ "$status" != "pending" ]]; then
-            all_pending=false
+        if [[ "$status" != "initial" ]]; then
+            all_initial=false
             break
         fi
     done
     
-    if [[ $all_pending == true ]]; then
+    if [[ $all_initial == true ]]; then
         # Clear the status area first time only
         for ((r=5; r<25; r++)); do
             tput cup $r $((col + 2))
@@ -764,47 +776,48 @@ render_deployment_steps() {
     
     # Render each step
     for i in "${!steps[@]}"; do
-        tput cup $row $((col + 2))
+        tput cup $row $((col + 6))  # 4-char indent
         
         local icon=""
         local icon_style=""
+        local text_style=""
         
         case "${statuses[$i]}" in
+            "initial")
+                icon="$ICON_INITIAL"
+                icon_style="$STATUS_INITIAL_BULLET_COLOR"
+                text_style="$STATUS_INITIAL_TEXT_COLOR"
+                ;;
             "pending")
-                icon="$ICON_NOT_STARTED"  # Use hollow circle for not started
-                icon_style="$STATUS_PENDING_STYLE"
+                icon="$ICON_NOT_STARTED"
+                icon_style="$STATUS_INITIAL_BULLET_COLOR"
+                text_style="$STATUS_INITIAL_TEXT_COLOR"
                 ;;
             "running")
                 icon="$ICON_PENDING"
-                icon_style="$STATUS_RUNNING_STYLE"
+                icon_style="$STATUS_PENDING_BULLET_COLOR"
+                text_style="$STATUS_PENDING_TEXT_COLOR"
                 ;;
             "success")
                 icon="$ICON_SUCCESS"
-                icon_style="$STATUS_SUCCESS_STYLE"
+                icon_style="$STATUS_SUCCESS_BULLET_COLOR"
+                text_style="$STATUS_SUCCESS_TEXT_COLOR"
                 ;;
             "failed")
                 icon="$ICON_FAILED"
-                icon_style="$STATUS_FAILED_STYLE"
+                icon_style="$STATUS_FAILED_BULLET_COLOR"
+                text_style="$STATUS_FAILED_TEXT_COLOR"
                 ;;
         esac
         
         # Clear just this line before redrawing
-        printf "%-$((width-4))s" " "
-        tput cup $row $((col + 2))
+        printf "%-$((width-8))s" " "  # Adjusted for indent
+        tput cup $row $((col + 6))
         
-        printf "%b%s%b %b%s%b" "$icon_style" "$icon" "$STYLE_RESET" "$STATUS_STEP_STYLE" "${steps[$i]}" "$STYLE_RESET"
+        printf "%b%s%b %b%s%b" "$icon_style" "$icon" "$STYLE_RESET" "$text_style" "${steps[$i]}" "$STYLE_RESET"
         
-        # Add message if exists
-        if [[ -n "${messages[$i]}" ]]; then
-            ((row++))
-            tput cup $row $((col + 4))
-            # Clear the message line before writing
-            printf "%-$((width-6))s" " "
-            tput cup $row $((col + 4))
-            printf "%b%s%b" "$STATUS_INFO_STYLE" "${messages[$i]}" "$STYLE_RESET"
-        fi
-        
-        ((row+=2))
+        # Always skip to next step position (3 rows total between step lines)
+        ((row+=3))
     done
     
     # Use a global variable to pass the row value back
@@ -820,47 +833,60 @@ update_single_deployment_step() {
     local width=$5
     local step_name=$6
     
-    # Calculate the row for this step (5 + (step_index * 2) for spacing)
-    local row=$((5 + (step_index * 2)))
+    # Calculate the row for this step (5 + (step_index * 3) for 2 blank rows between steps)
+    local row=$((5 + (step_index * 3)))
     
     # Determine icon and style
     local icon=""
     local icon_style=""
+    local text_style=""
     
     case "$status" in
+        "initial")
+            icon="$ICON_INITIAL"
+            icon_style="$STATUS_INITIAL_BULLET_COLOR"
+            text_style="$STATUS_INITIAL_TEXT_COLOR"
+            ;;
         "pending")
             icon="$ICON_NOT_STARTED"
-            icon_style="$STATUS_PENDING_STYLE"
+            icon_style="$STATUS_INITIAL_BULLET_COLOR"
+            text_style="$STATUS_INITIAL_TEXT_COLOR"
             ;;
         "running")
             icon="$ICON_PENDING"
-            icon_style="$STATUS_RUNNING_STYLE"
+            icon_style="$STATUS_PENDING_BULLET_COLOR"
+            text_style="$STATUS_PENDING_TEXT_COLOR"
             ;;
         "success")
             icon="$ICON_SUCCESS"
-            icon_style="$STATUS_SUCCESS_STYLE"
+            icon_style="$STATUS_SUCCESS_BULLET_COLOR"
+            text_style="$STATUS_SUCCESS_TEXT_COLOR"
             ;;
         "failed")
             icon="$ICON_FAILED"
-            icon_style="$STATUS_FAILED_STYLE"
+            icon_style="$STATUS_FAILED_BULLET_COLOR"
+            text_style="$STATUS_FAILED_TEXT_COLOR"
             ;;
     esac
     
-    # Update just the step line
-    tput cup $row $((col + 2))
-    printf "%-$((width-4))s" " "  # Clear the line
-    tput cup $row $((col + 2))
-    printf "%b%s%b %b%s%b" "$icon_style" "$icon" "$STYLE_RESET" "$STATUS_STEP_STYLE" "$step_name" "$STYLE_RESET"
+    # Update just the step line with 4-char indent
+    tput cup $row $((col + 6))
+    printf "%-$((width-8))s" " "  # Clear the line
+    tput cup $row $((col + 6))
+    printf "%b%s%b %b%s%b" "$icon_style" "$icon" "$STYLE_RESET" "$text_style" "$step_name" "$STYLE_RESET"
     
-    # Update message line if needed
-    local message_row=$((row + 1))
-    tput cup $message_row $((col + 4))
+    # Update message line if needed (1 row below the step)
     if [[ -n "$message" ]]; then
-        printf "%-$((width-6))s" " "  # Clear the line
-        tput cup $message_row $((col + 4))
-        printf "%b%s%b" "$STATUS_INFO_STYLE" "$message" "$STYLE_RESET"
+        local message_row=$((row + 1))
+        tput cup $message_row $((col + 8))  # Indent message 2 more chars
+        printf "%-$((width-10))s" " "  # Clear the line
+        tput cup $message_row $((col + 8))
+        printf "%b%s%b" "$STATUS_INFO_COLOR" "$message" "$STYLE_RESET"
     else
-        printf "%-$((width-6))s" " "  # Clear the message line
+        # Clear the message line if no message
+        local message_row=$((row + 1))
+        tput cup $message_row $((col + 8))
+        printf "%-$((width-10))s" " "
     fi
 }
 
@@ -886,38 +912,38 @@ show_connection_details() {
     local port_forward_pid=$5
     local claude_selected=$6
     
-    ((row+=2))
-    tput cup $row $((col + 2))
-    printf "%b%s%b" "$STATUS_INFO_STYLE" "Connection Details:" "$STYLE_RESET"
+    ((row+=1))
+    tput cup $row $((col + 6))  # Indent to match steps
+    printf "%b%s%b" "$STATUS_INFO_COLOR" "Connection Details:" "$STYLE_RESET"
     ((row+=2))
     
-    tput cup $row $((col + 4))
+    tput cup $row $((col + 8))  # Indent details a bit more
     printf "%bShell:%b ssh devuser@localhost -p 2222" "$BOLD_WHITE" "$STYLE_RESET"
     ((row++))
     
-    tput cup $row $((col + 4))
+    tput cup $row $((col + 8))
     printf "%bPassword:%b devuser" "$BOLD_WHITE" "$STYLE_RESET"
     ((row+=2))
     
-    tput cup $row $((col + 4))
+    tput cup $row $((col + 8))
     printf "%bFile Manager:%b" "$BOLD_WHITE" "$STYLE_RESET"
     ((row++))
     
-    tput cup $row $((col + 4))
+    tput cup $row $((col + 8))
     printf "http://localhost:8090"
     ((row++))
     
-    tput cup $row $((col + 4))
+    tput cup $row $((col + 8))
     printf "(admin/admin)"
     ((row+=2))
     
     if [[ $claude_selected == true ]]; then
-        tput cup $row $((col + 4))
+        tput cup $row $((col + 8))
         printf "%bClaude Code:%b claude" "$BOLD_WHITE" "$STYLE_RESET"
         ((row+=2))
     fi
     
-    tput cup $row $((col + 4))
+    tput cup $row $((col + 8))
     printf "%bPort Forward PID:%b $port_forward_pid" "$BOLD_WHITE" "$STYLE_RESET"
 }
 
@@ -2377,15 +2403,31 @@ display_selection_summary() {
         done
     fi
 
-    # Initial status message
-    tput cup 5 $((status_start_col + 2))
-    printf "%b%s%b %b%s%b" "$STATUS_PENDING_STYLE" "$ICON_PENDING" "$STYLE_RESET" "$STATUS_STEP_STYLE" "Ready to build?" "$STYLE_RESET"
+    # Initial deployment steps - now showing all steps as initial
+    local deployment_steps=(
+        "Clean previous build"
+        "Build Docker image"
+        "Deploy to Kubernetes"
+        "Setup port forwarding"
+    )
+    
+    local step_statuses=("initial" "initial" "initial" "initial")
+    local step_messages=("" "" "" "")
+    
+    # Render all steps initially
+    render_deployment_steps $status_start_col $status_width deployment_steps[@] step_statuses[@] step_messages[@]
 
-    # Position prompt below the boxes
-    local prompt_row=$((box_height + 5))
-    tput cup $prompt_row 4
-    printf "%bReady to build with this configuration?%b" "$INSTRUCTION_TEXT_STYLE" "$STYLE_RESET"
-    tput cup $((prompt_row + 1)) 4
+    # Position prompt below the boxes with proper spacing
+    local prompt_row=$((box_height + 4))
+    tput cup $prompt_row 0
+    tput el  # Clear the line
+    
+    # Center the prompt text
+    local prompt_text="Press ENTER to continue or 'q' to quit: "
+    local prompt_len=${#prompt_text}
+    local prompt_pos=$(( (term_width - prompt_len) / 2 ))
+    
+    tput cup $prompt_row $prompt_pos
     printf "%bPress %b%bENTER%b%b to continue or %b%b'q'%b%b to quit: %b" \
         "$INSTRUCTION_TEXT_STYLE" \
         "$STYLE_RESET" "$INSTRUCTION_KEY_STYLE" "$STYLE_RESET" "$INSTRUCTION_TEXT_STYLE" \
@@ -3145,7 +3187,8 @@ main() {
         "Setup port forwarding"
     )
     
-    local step_statuses=("pending" "pending" "pending" "pending")
+    # Start with initial status
+    local step_statuses=("initial" "initial" "initial" "initial")
     local step_messages=("" "" "" "")
     
     # Hide cursor during deployment
@@ -3153,6 +3196,12 @@ main() {
     
     # Initial render of all steps (only time we do full render)
     render_deployment_steps $status_start_col $status_width deployment_steps[@] step_statuses[@] step_messages[@]
+    
+    # Before starting the build, update all steps to "pending"
+    for i in "${!step_statuses[@]}"; do
+        step_statuses[$i]="pending"
+        update_single_deployment_step $i "pending" "" $status_start_col $status_width "${deployment_steps[$i]}"
+    done
     
     # Step 1: Clean up previous build
     update_deployment_step 0 "running" "" step_statuses step_messages
@@ -3207,8 +3256,8 @@ main() {
         update_single_deployment_step 3 "failed" "Check $LOG_FILE" $status_start_col $status_width "${deployment_steps[3]}"
     fi
     
-    # Calculate final row for connection details
-    local final_row=$((5 + (${#deployment_steps[@]} * 2)))
+    # Calculate final row for connection details (adjusted for 3-row spacing)
+    local final_row=$((5 + (${#deployment_steps[@]} * 3)))
     DEPLOYMENT_STATUS_FINAL_ROW=$final_row
     
     # Check if Claude Code was selected
@@ -3234,7 +3283,7 @@ main() {
     fi
     
     # Wait for user
-    local prompt_row=$((box_height + 5))
+    local prompt_row=$((box_height + 4))
     
     # Clear the entire prompt area (both lines)
     for ((r=prompt_row; r<=prompt_row+1; r++)); do
@@ -3242,8 +3291,12 @@ main() {
         tput el
     done
     
-    # Show the final prompt
-    tput cup $prompt_row 4
+    # Center the final prompt
+    local final_prompt_text="Press ENTER to return to terminal: "
+    local final_prompt_len=${#final_prompt_text}
+    local final_prompt_pos=$(( (term_width - final_prompt_len) / 2 ))
+    
+    tput cup $prompt_row $final_prompt_pos
     printf "%bPress %b%bENTER%b%b to return to terminal: %b" \
         "$INSTRUCTION_TEXT_STYLE" \
         "$STYLE_RESET" "$INSTRUCTION_KEY_STYLE" "$STYLE_RESET" "$INSTRUCTION_TEXT_STYLE" \
