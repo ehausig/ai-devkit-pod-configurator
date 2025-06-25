@@ -1,9 +1,9 @@
 id: GO_1_22
 name: Go 1.22
+version: "1.22.0"
 group: go-version
 requires: []
 description: Go programming language version 1.22
-version: "1.22.0"
 installation:
   dockerfile: |
     RUN ARCH=$(dpkg --print-architecture) && \
@@ -50,51 +50,3 @@ entrypoint_setup: |
   
   # Ensure proper ownership
   chown -R devuser:devuser /home/devuser/go 2>/dev/null || true
-memory_content: |
-  #### Go 1.22
-  
-  **What's New**:
-  - Range over integers: `for i := range 10 { }`
-  - Enhanced routing patterns in `net/http`
-  - Improved performance (2-4% faster)
-  
-  **Project Management**:
-  - Create module: `go mod init example.com/myapp`
-  - Work with local module: `go mod edit -replace example.com/lib=../lib`
-  - Vendor deps: `go mod vendor`
-  - Build with vendor: `go build -mod=vendor`
-  
-  **Testing & Benchmarks**:
-  - Run tests: `go test ./...`
-  - Coverage: `go test -cover ./...`
-  - Benchmarks: `go test -bench=.`
-  - Race detector: `go test -race ./...`
-  - Verbose output: `go test -v ./...`
-  
-  **Build Options**:
-  - Static binary: `CGO_ENABLED=0 go build`
-  - Cross-compile: `GOOS=windows GOARCH=amd64 go build`
-  - Optimize size: `go build -ldflags="-s -w"`
-  
-  **API Development Pattern**:
-  ```go
-  // Quick HTTP server with Go 1.22 enhanced routing
-  http.HandleFunc("GET /api/users/{id}", getUserHandler)
-  http.HandleFunc("POST /api/users", createUserHandler)
-  http.ListenAndServe(":8080", nil)
-  ```
-  
-  **Development Workflow**:
-  - Hot reload: `go install github.com/cosmtrek/air@latest && air`
-  - Format code: `go fmt ./...` or `gofmt -w .`
-  - Lint: `golangci-lint run` (install separately)
-  
-  **Common Issues**:
-  - Module not found: Run `go mod tidy` to sync dependencies
-  - Version conflicts: Check with `go mod graph`
-  - Clear cache: `go clean -modcache`
-  
-  **Testing TUI Apps**:
-  - Use expect scripts to automate testing
-  - Mock interfaces for better testability
-  - Use `testing.T.TempDir()` for file operations

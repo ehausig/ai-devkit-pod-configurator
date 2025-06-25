@@ -2,7 +2,7 @@
 id: CLAUDE_CODE
 name: Claude Code (AI Assistant)
 group: ai-agents
-requires: nodejs-version
+requires: []
 description: Anthropic's AI coding assistant for development
 pre_build_script: claude-code-setup.sh
 installation:
@@ -20,8 +20,8 @@ installation:
         /home/devuser/.npm-global/bin/claude --version || (echo "Claude Code installation failed" && exit 1) && \
         chown -R devuser:devuser /home/devuser/.npm-global
   inject_files:
-    - source: CLAUDE.md
-      destination: /tmp/CLAUDE.md
+    - source: user-CLAUDE.md
+      destination: /tmp/user-CLAUDE.md
       permissions: 644
     - source: claude-settings.json.template
       destination: /tmp/claude-settings.json.template
@@ -31,7 +31,7 @@ entrypoint_setup: |
   echo "Setting up Claude Code environment..."
   
   # Create .claude directory for global Claude configuration
-  if command -v claude &> /dev/null 2>&1 || [ -f /tmp/CLAUDE.md ]; then
+  if command -v claude &> /dev/null 2>&1 || [ -f /tmp/user-CLAUDE.md ]; then
       mkdir -p /home/devuser/.claude
   fi
   
@@ -50,20 +50,8 @@ entrypoint_setup: |
       echo "No /tmp/claude-settings.json.template found in image"
   fi
   
-  # Copy CLAUDE.md to .claude folder if it exists
-  echo "Checking for CLAUDE.md..."
-  if [ -f /tmp/CLAUDE.md ]; then
-      echo "Found /tmp/CLAUDE.md"
-      if [ ! -f /home/devuser/.claude/CLAUDE.md ]; then
-          echo "Copying CLAUDE.md to .claude folder..."
-          cp /tmp/CLAUDE.md /home/devuser/.claude/CLAUDE.md
-          echo "CLAUDE.md copied successfully to /home/devuser/.claude/"
-      else
-          echo "CLAUDE.md already exists in .claude folder"
-      fi
-  else
-      echo "No /tmp/CLAUDE.md found in image"
-  fi
+  # Note: user-CLAUDE.md is handled in the main entrypoint.sh script
+  # along with appending component imports
   
   # Ensure proper ownership
   chown -R devuser:devuser /home/devuser/.claude 2>/dev/null || true
@@ -72,48 +60,3 @@ entrypoint_setup: |
   if command -v claude &> /dev/null 2>&1; then
       echo "Claude Code is available at: $(which claude)"
   fi
-memory_content: |
-  #### Claude Code (AI Assistant)
-  
-  **Getting Started**:
-  - Start Claude Code: `claude`
-  - Open with file: `claude myfile.py`
-  - Show help: `claude --help`
-  
-  **Features**:
-  - AI-powered code completion and generation
-  - Multi-file context awareness
-  - Natural language to code translation
-  - Code explanation and debugging help
-  - Refactoring suggestions
-  
-  **Configuration**:
-  - Settings stored in `~/.claude/`
-  - Global settings in `~/.claude/settings.json`
-  - See `~/.claude/CLAUDE.md` for environment-specific guidelines
-  
-  **Development Workflow Best Practices**:
-  1. **Test as you build**: Run tests immediately after creating them
-  2. **Use relative paths**: Navigate with `cd ../` instead of absolute paths
-  3. **Verify dependencies**: Check compatibility before adding to projects
-  4. **Document blockers**: Keep notes on issues for future reference
-  
-  **Common Workflow Pattern**:
-  ```bash
-  # 1. Create feature branch
-  git checkout -b feat/new-feature
-  
-  # 2. Develop and test iteratively
-  # Write code -> Test immediately -> Fix issues
-  
-  # 3. Create PR with auto-merge
-  gh pr create --title "feat: description" --body "Details"
-  gh pr merge --auto --squash --delete-branch
-  ```
-  
-  **Tips**:
-  - Claude Code understands your installed tools
-  - Ask for help with any language/framework in your environment
-  - Use for learning new technologies
-  - Great for writing tests and documentation
-  - Leverage expect scripts for testing interactive programs

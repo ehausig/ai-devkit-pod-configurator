@@ -1,6 +1,7 @@
 id: JAVA_11_OPENJDK
 name: Java 11 (OpenJDK)
-group: java-version
+version: "11"
+group: java
 requires: []
 description: OpenJDK 11 - Open source Java implementation
 installation:
@@ -23,50 +24,3 @@ entrypoint_setup: |
       echo 'export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-'$(dpkg --print-architecture) >> "$BASHRC"
       echo 'export PATH="$JAVA_HOME/bin:$PATH"' >> "$BASHRC"
   fi
-memory_content: |
-  #### Java 11 (OpenJDK)
-  
-  **Environment**:
-  - Java version: `java -version`
-  - Compiler version: `javac -version`
-  - JAVA_HOME: Pre-configured at `/usr/lib/jvm/java-11-openjdk-${TARGETARCH}`
-  
-  **Compilation & Execution**:
-  - Compile: `javac MyClass.java`
-  - Run: `java MyClass`
-  - Compile with classpath: `javac -cp lib/*:. MyClass.java`
-  - Run with classpath: `java -cp lib/*:. MyClass`
-  
-  **Java 11 Features**:
-  - Local variable type inference: `var list = new ArrayList<String>();`
-  - HTTP Client API: Built-in `java.net.http`
-  - Single-file execution: `java HelloWorld.java`
-  - String methods: `isBlank()`, `lines()`, `repeat(n)`
-  
-  **Simple HTTP Client Example**:
-  ```java
-  var client = HttpClient.newHttpClient();
-  var request = HttpRequest.newBuilder()
-      .uri(URI.create("https://api.example.com"))
-      .build();
-  var response = client.send(request, HttpResponse.BodyHandlers.ofString());
-  System.out.println(response.body());
-  ```
-  
-  **Legacy Project Considerations**:
-  - Many enterprise projects still use Java 11
-  - Excellent library ecosystem support
-  - Consider upgrading to 17 or 21 for new projects
-  - Java 11 LTS support ends in 2026
-  
-  **Build Tools**:
-  - Maven 3.5+ works well
-  - Gradle 5.0+ for Java 11
-  - Most tools have mature Java 11 support
-  
-  **Testing**:
-  - JUnit 4 or 5 both work well
-  - Run tests frequently: `mvn test` or `gradle test`
-  - Use `java -ea` to enable assertions in development
-  
-  **Note**: Java 11 is LTS but older. Consider Java 17 or 21 for new projects.

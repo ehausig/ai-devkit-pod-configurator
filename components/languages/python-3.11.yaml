@@ -1,5 +1,6 @@
 id: PYTHON_3_11
 name: Python 3.11 (Official)
+version: "3.11"
 group: python-version
 requires: []
 description: Official Python 3.11 release
@@ -28,44 +29,3 @@ entrypoint_setup: |
           echo "✓ Configured pip for devuser"
       fi
   fi
-memory_content: |
-  #### Python 3.11
-  
-  **What's New**:
-  - Faster: 10-60% speedup vs 3.10
-  - Better error messages with exact error locations
-  - Exception groups: `except* ExceptionGroup`
-  - Type hint improvements: `Self` type, `TypedDict` enhancements
-  
-  **Environment Setup**:
-  - Create venv: `python -m venv .venv`
-  - Activate: `source .venv/bin/activate`
-  - Upgrade pip: `python -m pip install --upgrade pip`
-  
-  **Common TUI Development Stack**:
-  ```bash
-  # For Textual-based TUIs
-  pip install textual textual-dev
-  
-  # For API integration
-  pip install gql[aiohttp] aiohttp pydantic
-  
-  # Development tools
-  pip install black ruff mypy pytest pytest-asyncio
-  ```
-  
-  **Testing TUI Applications**:
-  - Use expect scripts for automated testing
-  - Create test fixtures for consistent state
-  - Mock API calls during development
-  
-  **Virtual Environment Best Practices**:
-  - Always use venv for projects: `python -m venv .venv`
-  - Activate before installing: `source .venv/bin/activate`
-  - Create requirements.txt: `pip freeze > requirements.txt`
-  - Install from requirements: `pip install -r requirements.txt`
-  
-  **Development Tools**:
-  - Type checking: `pip install mypy && mypy script.py`
-  - Formatting: `pip install black && black .`
-  - Linting: `pip install ruff && ruff check .`

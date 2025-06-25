@@ -1,9 +1,9 @@
 id: GRADLE
 name: Gradle (Java build tool)
-group: build-tools
-requires: java-version
-description: Build automation tool for Java, Kotlin, and Groovy projects
 version: "8.5"
+group: build-tools
+requires: java
+description: Build automation tool for Java, Kotlin, and Groovy projects
 installation:
   dockerfile: |
     RUN export DEBIAN_FRONTEND=noninteractive && \
@@ -51,54 +51,3 @@ entrypoint_setup: |
   if [ ! -f /home/devuser/.gradle/gradle.properties ]; then
       chown -R devuser:devuser /home/devuser/.gradle 2>/dev/null || true
   fi
-memory_content: |
-  #### Gradle 8.5
-  
-  **Project Init**:
-  - Interactive: `gradle init`
-  - Java app: `gradle init --type java-application`
-  - Kotlin app: `gradle init --type kotlin-application`
-  - Library: `gradle init --type java-library`
-  
-  **Common Tasks**:
-  - Build: `gradle build` or `./gradlew build`
-  - Run: `gradle run` or `./gradlew run`
-  - Test: `gradle test`
-  - Clean: `gradle clean`
-  - Tasks list: `gradle tasks`
-  
-  **Useful Options**:
-  - Daemon: `gradle --daemon` (speeds up builds)
-  - Parallel: `gradle build --parallel`
-  - Continue: `gradle build --continue` (don't stop on failure)
-  - Refresh deps: `gradle build --refresh-dependencies`
-  
-  **Dependency Management**:
-  - Show deps: `gradle dependencies`
-  - Specific config: `gradle dependencies --configuration compileClasspath`
-  - Check for updates: `gradle dependencyUpdates` (needs plugin)
-  
-  **Kotlin DSL** (build.gradle.kts):
-  ```kotlin
-  plugins {
-      kotlin("jvm") version "1.9.22"
-      application
-  }
-  
-  dependencies {
-      implementation("org.jetbrains.kotlin:kotlin-stdlib")
-      // Add dependencies incrementally and test
-  }
-  ```
-  
-  **Debugging Tips**:
-  - Verbose output: `gradle build --info` or `--debug`
-  - Stack traces: `gradle build --stacktrace`
-  - Dependency conflicts: Check with `gradle dependencies`
-  
-  **Testing Best Practices**:
-  - Run tests continuously: `gradle test --continuous`
-  - Specific test: `gradle test --tests "com.example.TestClass"`
-  - Test reports: Generated in `build/reports/tests/`
-  
-  **Wrapper**: Always use `./gradlew` in projects for version consistency

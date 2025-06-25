@@ -1,5 +1,6 @@
 id: RUBY_SYSTEM
 name: Ruby (Ubuntu Package)
+version: "latest"
 group: ruby-version
 requires: []
 description: Ruby installed from Ubuntu package repositories
@@ -56,23 +57,3 @@ entrypoint_setup: |
   EOF
       fi
   fi
-memory_content: |
-  #### Ruby (System Package)
-  
-  **Environment**:
-  - Ruby version: `ruby --version`
-  - Gem path: `~/.bundle` (user-specific)
-  - Bundler pre-installed
-  
-  **Project Setup**:
-  - Initialize: `bundle init`
-  - Add gem: `bundle add rails` or edit Gemfile
-  - Install deps: `bundle install`
-  - Execute: `bundle exec rake` (or any command)
-  
-  **Gem Management**:
-  - Install gem: `gem install sinatra`
-  - List gems: `gem list`
-  - Update bundler: `gem update bundler`
-  
-  **Note**: Gems install to `~/.bundle` and executables to `~/.local/bin` (both in PATH)

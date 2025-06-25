@@ -1,7 +1,8 @@
 id: MAVEN
 name: Maven (Java build tool)
+version: "latest"
 group: build-tools
-requires: java-version
+requires: java
 description: Apache Maven - Build automation and dependency management for Java
 installation:
   dockerfile: |
@@ -30,48 +31,3 @@ entrypoint_setup: |
   if [ ! -f /home/devuser/.m2/settings.xml ]; then
       chown -R devuser:devuser /home/devuser/.m2 2>/dev/null || true
   fi
-memory_content: |
-  #### Maven
-  
-  **Project Creation**:
-  - Quick start: `mvn archetype:generate -DgroupId=com.example -DartifactId=myapp -DarchetypeArtifactId=maven-archetype-quickstart -DinteractiveMode=false`
-  - Web app: Use `-DarchetypeArtifactId=maven-archetype-webapp`
-  
-  **Common Commands**:
-  - Compile: `mvn compile`
-  - Test: `mvn test`
-  - Package: `mvn package`
-  - Install: `mvn install` (to local repo)
-  - Clean: `mvn clean`
-  - Full build: `mvn clean package`
-  
-  **Useful Options**:
-  - Skip tests: `mvn package -DskipTests`
-  - Offline mode: `mvn -o package`
-  - Debug output: `mvn -X compile`
-  - Specific test: `mvn test -Dtest=MyTest`
-  - Parallel builds: `mvn -T 4 clean package` (4 threads)
-  
-  **Dependency Management**:
-  - Show tree: `mvn dependency:tree`
-  - Check updates: `mvn versions:display-dependency-updates`
-  - Download sources: `mvn dependency:sources`
-  - Analyze deps: `mvn dependency:analyze`
-  
-  **Common Dependency Issues**:
-  - Version conflicts: Use `mvn dependency:tree -Dverbose` to see all versions
-  - Force update: `mvn clean install -U`
-  - Clear local cache: `rm -rf ~/.m2/repository/com/example/problematic-artifact`
-  
-  **Testing Best Practices**:
-  - Run single test: `mvn test -Dtest=TestClass#testMethod`
-  - Test in watch mode: Use `mvn-watch` plugin or IDE
-  - Generate reports: `mvn surefire-report:report`
-  
-  **Performance Tips**:
-  - Use daemon: `mvnd` (Maven Daemon) for faster builds
-  - Skip unnecessary plugins: `-Dmaven.javadoc.skip=true`
-  - Incremental compilation with `-Dmaven.compiler.useIncrementalCompilation=true`
-  
-  **Local repo**: `~/.m2/repository`
-  **Settings**: `~/.m2/settings.xml` (create if needed)

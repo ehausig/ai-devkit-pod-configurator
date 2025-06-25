@@ -1,8 +1,9 @@
 id: JAVA_21_ADOPTIUM
 name: Java 21 (Eclipse Adoptium)
-group: java-version
+version: "21"
+group: java
 requires: []
-description: Eclipse Adoptium (formerly AdoptOpenJDK) Temurin 21
+description: Eclipse Adoptium Temurin 21 JDK
 installation:
   dockerfile: |
     # Pass Nexus configuration to this build stage
@@ -35,71 +36,3 @@ entrypoint_setup: |
       echo 'export JAVA_HOME=/usr/lib/jvm/temurin-21-jdk-'$(dpkg --print-architecture) >> "$BASHRC"
       echo 'export PATH="$JAVA_HOME/bin:$PATH"' >> "$BASHRC"
   fi
-memory_content: |
-  #### Java 21 (Eclipse Adoptium Temurin) - Latest LTS
-  
-  **Environment**:
-  - Java version: `java -version`
-  - JAVA_HOME: Pre-configured at `/usr/lib/jvm/temurin-21-jdk-${TARGETARCH}`
-  
-  **Java 21 Highlights**:
-  - Virtual threads: `Thread.ofVirtual().start(() -> {})` for massive concurrency
-  - Pattern matching: Complete with record patterns in switch
-  - Sequenced collections: `List.reversed()`, `Map.firstEntry()`
-  - String templates (preview): Better string interpolation
-  
-  **Performance Tips**:
-  - Use G1GC (default): Balanced for most workloads
-  - For low latency: `java -XX:+UseZGC MyApp`
-  - For throughput: `java -XX:+UseParallelGC MyApp`
-  
-  **Virtual Threads Example**:
-  ```java
-  // Handle thousands of concurrent requests efficiently
-  try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-      IntStream.range(0, 10_000).forEach(i -> 
-          executor.submit(() -> {
-              // Each runs in a virtual thread
-              processRequest(i);
-          })
-      );
-  }
-  ```
-  
-  **Modern API Development**:
-  ```java
-  // Using virtual threads with HTTP server
-  var server = HttpServer.create(new InetSocketAddress(8080), 0);
-  server.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
-  server.createContext("/api", exchange -> {
-      // Runs in virtual thread
-      handleRequest(exchange);
-  });
-  server.start();
-  ```
-  
-  **Build Tool Requirements**:
-  - Maven 3.8.0+ for Java 21
-  - Gradle 8.3+ for Java 21
-  - Ensure all plugins support Java 21
-  
-  **Testing with Virtual Threads**:
-  ```java
-  @Test
-  void testConcurrentRequests() throws Exception {
-      try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-          var futures = IntStream.range(0, 1000)
-              .mapToObj(i -> executor.submit(() -> makeRequest()))
-              .toList();
-          
-          // Wait for all to complete
-          futures.forEach(f -> assertDoesNotThrow(f::get));
-      }
-  }
-  ```
-  
-  **Migration Tips**:
-  - Virtual threads are drop-in replacements for platform threads
-  - No pooling needed - create as many as you want
-  - Ideal for I/O-bound workloads
-  - Test with thousands of concurrent operations

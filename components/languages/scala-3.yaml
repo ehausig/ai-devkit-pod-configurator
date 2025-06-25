@@ -1,9 +1,9 @@
 id: SCALA_3
 name: Scala 3
-group: scala-version
-requires: java-version
-description: Scala 3 (Dotty) - Next generation of Scala
 version: "3.3.1"
+group: scala-version
+requires: java
+description: Scala 3 (Dotty) - Next generation of Scala
 installation:
   dockerfile: |
     RUN export DEBIAN_FRONTEND=noninteractive && \
@@ -27,49 +27,3 @@ entrypoint_setup: |
       echo '# Scala 3 environment' >> "$BASHRC"
       echo 'export PATH="/opt/scala3/bin:$PATH"' >> "$BASHRC"
   fi
-memory_content: |
-  #### Scala 3 (Dotty)
-  
-  **What's New**:
-  - Cleaner syntax: Optional braces, `then` keyword
-  - Union types: `String | Int`
-  - Intersection types: `A & B`
-  - Extension methods: `extension (x: Int) def twice = x * 2`
-  - Enums: `enum Color { case Red, Green, Blue }`
-  
-  **REPL & Running**:
-  - Start REPL: `scala` or `scala3`
-  - Run file: `scala MyApp.scala`
-  - Compile: `scalac MyApp.scala`
-  
-  **Migration from Scala 2**:
-  - Use `-source:3.0-migration` flag
-  - Mix Scala 2/3 code with cross-compilation
-  - Most Scala 2 libraries work with Scala 3
-  
-  **Quick Examples**:
-  ```scala
-  // Top-level definitions
-  def hello() = println("Hello Scala 3!")
-  
-  // Given instances (replacing implicits)
-  given Int = 42
-  
-  // Export clauses
-  export math.*
-  ```
-  
-  **API Development with Scala 3**:
-  - Consider using http4s or Akka HTTP
-  - Pattern matching is enhanced for request routing
-  - Union types great for error handling
-  
-  **Testing**:
-  - ScalaTest works with Scala 3
-  - Use expect scripts for CLI/TUI applications
-  - Property-based testing with ScalaCheck
-  
-  **Build Tools**:
-  - SBT is recommended (see SBT section)
-  - Mill also supports Scala 3
-  - Check dependency compatibility before adding

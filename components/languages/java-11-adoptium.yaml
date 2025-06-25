@@ -1,8 +1,9 @@
 id: JAVA_11_ADOPTIUM
 name: Java 11 (Eclipse Adoptium)
-group: java-version
+version: "11"
+group: java
 requires: []
-description: Eclipse Adoptium (formerly AdoptOpenJDK) Temurin 11
+description: Eclipse Adoptium Temurin 11 JDK
 installation:
   dockerfile: |
     # Pass Nexus configuration to this build stage
@@ -35,65 +36,3 @@ entrypoint_setup: |
       echo 'export JAVA_HOME=/usr/lib/jvm/temurin-11-jdk-'$(dpkg --print-architecture) >> "$BASHRC"
       echo 'export PATH="$JAVA_HOME/bin:$PATH"' >> "$BASHRC"
   fi
-memory_content: |
-  #### Java 11 (Eclipse Adoptium Temurin)
-  
-  **Environment**:
-  - Java version: `java -version`
-  - JAVA_HOME: Pre-configured at `/usr/lib/jvm/temurin-11-jdk-${TARGETARCH}`
-  - Vendor: Eclipse Adoptium (high-quality, TCK-tested OpenJDK build)
-  
-  **Why Adoptium?**:
-  - Long-term support with regular security updates
-  - Drop-in replacement for Oracle JDK
-  - Optimized for production use
-  
-  **Compilation & Execution**:
-  - Compile: `javac -d out src/**/*.java`
-  - Run: `java -cp out com.example.Main`
-  - JAR creation: `jar cf myapp.jar -C out .`
-  
-  **Enterprise Framework Compatibility**:
-  - Spring Boot 2.x works perfectly
-  - Older enterprise apps often require Java 11
-  - Most libraries have excellent Java 11 support
-  
-  **HTTP Client Example (Java 11 feature)**:
-  ```java
-  var client = HttpClient.newBuilder()
-      .connectTimeout(Duration.ofSeconds(10))
-      .build();
-      
-  var request = HttpRequest.newBuilder()
-      .uri(URI.create("https://api.example.com/data"))
-      .header("Accept", "application/json")
-      .timeout(Duration.ofSeconds(30))
-      .build();
-      
-  client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-      .thenApply(HttpResponse::body)
-      .thenAccept(System.out::println)
-      .join();
-  ```
-  
-  **Legacy Considerations**:
-  - Many enterprise systems still on Java 11
-  - Stable and mature ecosystem
-  - Consider upgrading path to Java 17/21
-  - Extended support until 2026+
-  
-  **Build Tools**:
-  - Maven 3.5+ compatible
-  - Gradle 5.0+ works well
-  - Ant still supported if needed
-  
-  **Testing Patterns**:
-  - JUnit 4/5 both supported
-  - Mockito 3.x for mocking
-  - AssertJ for fluent assertions
-  - Run tests immediately during development
-  
-  **Performance Notes**:
-  - G1GC is default and works well
-  - Use `-XX:+UseStringDeduplication` for memory savings
-  - Profile with JDK Mission Control

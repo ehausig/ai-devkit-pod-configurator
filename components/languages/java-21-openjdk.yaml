@@ -1,6 +1,7 @@
 id: JAVA_21_OPENJDK
 name: Java 21 (OpenJDK)
-group: java-version
+version: "21"
+group: java
 requires: []
 description: OpenJDK 21 - Open source Java implementation
 installation:
@@ -23,52 +24,3 @@ entrypoint_setup: |
       echo 'export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-'$(dpkg --print-architecture) >> "$BASHRC"
       echo 'export PATH="$JAVA_HOME/bin:$PATH"' >> "$BASHRC"
   fi
-memory_content: |
-  #### Java 21 (OpenJDK) - Latest LTS
-  
-  **Environment**:
-  - Java version: `java -version`
-  - JAVA_HOME: Pre-configured at `/usr/lib/jvm/java-21-openjdk-${TARGETARCH}`
-  
-  **Java 21 Features**:
-  - Virtual threads: `Thread.ofVirtual().start(() -> {...})`
-  - Pattern matching for switch: Enhanced with record patterns
-  - Sequenced collections: New interfaces like `SequencedSet`
-  - String templates (preview): `STR."Hello \{name}"`
-  
-  **Quick Start**:
-  - Run single file: `java MyProgram.java`
-  - With preview features: `java --enable-preview --source 21 MyProgram.java`
-  - REPL: `jshell` for interactive Java
-  
-  **API Development Pattern**:
-  ```java
-  // Simple HTTP server with Java 21
-  import com.sun.net.httpserver.*;
-  
-  var server = HttpServer.create(new InetSocketAddress(8080), 0);
-  server.createContext("/api", exchange -> {
-      var response = "{\"status\":\"ok\"}";
-      exchange.getResponseHeaders().set("Content-Type", "application/json");
-      exchange.sendResponseHeaders(200, response.length());
-      try (var os = exchange.getResponseBody()) {
-          os.write(response.getBytes());
-      }
-  });
-  server.start();
-  ```
-  
-  **Build Tool Compatibility**:
-  - Maven: Requires 3.8.0+ for Java 21
-  - Gradle: Requires 8.3+ for Java 21
-  - Ensure build tools support your Java version
-  
-  **Testing Best Practices**:
-  - JUnit 5 works great with Java 21
-  - Use virtual threads for concurrent testing
-  - Test immediately: `mvn test` or `gradle test`
-  
-  **Common Issues**:
-  - Module conflicts: Use `--add-opens` if needed
-  - Build tool versions: Update to latest for Java 21 support
-  - Library compatibility: Check if dependencies support Java 21

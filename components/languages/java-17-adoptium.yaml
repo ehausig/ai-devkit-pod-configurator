@@ -1,8 +1,9 @@
 id: JAVA_17_ADOPTIUM
 name: Java 17 (Eclipse Adoptium)
-group: java-version
+version: "17"
+group: java
 requires: []
-description: Eclipse Adoptium (formerly AdoptOpenJDK) Temurin 17
+description: Eclipse Adoptium Temurin 17 JDK
 installation:
   dockerfile: |
     # Pass Nexus configuration to this build stage
@@ -35,61 +36,3 @@ entrypoint_setup: |
       echo 'export JAVA_HOME=/usr/lib/jvm/temurin-17-jdk-'$(dpkg --print-architecture) >> "$BASHRC"
       echo 'export PATH="$JAVA_HOME/bin:$PATH"' >> "$BASHRC"
   fi
-memory_content: |
-  #### Java 17 (Eclipse Adoptium Temurin) - LTS
-  
-  **Environment**:
-  - Java version: `java -version`
-  - JAVA_HOME: Pre-configured at `/usr/lib/jvm/temurin-17-jdk-${TARGETARCH}`
-  
-  **Key Java 17 Features**:
-  - Records: `record Person(String name, int age) {}`
-  - Sealed classes: `sealed class Shape permits Circle, Rectangle {}`
-  - Pattern matching: `if (obj instanceof String s) { use s directly }`
-  - Text blocks: Multi-line strings with `"""`
-  
-  **Quick Commands**:
-  - Run single file: `java MyProgram.java`
-  - Memory settings: `java -Xmx2g -Xms512m MyApp`
-  - Enable GC logging: `java -Xlog:gc* MyApp`
-  
-  **Why Adoptium/Temurin?**:
-  - TCK tested for compatibility
-  - Regular security updates
-  - Production-ready JVM
-  - Drop-in replacement for Oracle JDK
-  
-  **Microservices with Spring Boot**:
-  ```java
-  @SpringBootApplication
-  @RestController
-  public class MicroserviceApp {
-      public static void main(String[] args) {
-          SpringApplication.run(MicroserviceApp.class, args);
-      }
-      
-      @GetMapping("/health")
-      public record Health(String status, long timestamp) {}
-      
-      @GetMapping("/api/health")
-      public Health health() {
-          return new Health("UP", System.currentTimeMillis());
-      }
-  }
-  ```
-  
-  **Build Tool Compatibility**:
-  - Maven 3.6.3+ recommended
-  - Gradle 7.3+ for full Java 17 support
-  - SBT works well with Adoptium builds
-  
-  **Testing Framework Stack**:
-  - JUnit 5.9+ for modern testing
-  - Testcontainers for integration tests
-  - RestAssured for API testing
-  - Run tests continuously: `mvn test` or `gradle test --continuous`
-  
-  **Performance Tuning**:
-  - Use ZGC for low latency: `-XX:+UseZGC`
-  - G1GC is default and balanced
-  - Profile with JFR: `-XX:StartFlightRecording`

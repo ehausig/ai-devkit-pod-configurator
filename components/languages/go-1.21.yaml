@@ -1,9 +1,9 @@
 id: GO_1_21
 name: Go 1.21
+version: "1.21.6"
 group: go-version
 requires: []
 description: Go programming language version 1.21
-version: "1.21.6"
 installation:
   dockerfile: |
     RUN ARCH=$(dpkg --print-architecture) && \
@@ -50,56 +50,3 @@ entrypoint_setup: |
   
   # Ensure proper ownership
   chown -R devuser:devuser /home/devuser/go 2>/dev/null || true
-memory_content: |
-  #### Go 1.21
-  
-  **Project Setup**:
-  - Initialize module: `go mod init github.com/user/project`
-  - Get dependencies: `go get ./...`
-  - Tidy modules: `go mod tidy`
-  - Download deps: `go mod download`
-  
-  **Development**:
-  - Run: `go run .` or `go run main.go`
-  - Build: `go build -o myapp`
-  - Test: `go test ./...` or `go test -v ./...`
-  - Format: `go fmt ./...`
-  - Lint: `go vet ./...`
-  
-  **Go 1.21 Features**:
-  - Built-in functions: `min()`, `max()`, `clear()`
-  - Improved type inference
-  - Profile-guided optimization: `go build -pgo=profile.pprof`
-  
-  **API Development**:
-  ```go
-  // Standard library HTTP server
-  mux := http.NewServeMux()
-  mux.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
-      w.Header().Set("Content-Type", "application/json")
-      w.Write([]byte(`{"status":"ok"}`))
-  })
-  http.ListenAndServe(":8080", mux)
-  ```
-  
-  **Testing Best Practices**:
-  - Table-driven tests for comprehensive coverage
-  - Use `testify` for assertions: `go get github.com/stretchr/testify`
-  - Run with race detector: `go test -race ./...`
-  - Mock interfaces, not implementations
-  - Test immediately after writing code
-  
-  **Common Patterns**:
-  - Error wrapping: Use `fmt.Errorf("context: %w", err)`
-  - Context usage: Pass context.Context as first parameter
-  - Graceful shutdown with signal handling
-  
-  **Dependency Tips**:
-  - Use `go mod why` to understand why a dependency exists
-  - Replace directive for local development: `go mod edit -replace`
-  - Vendor for reproducible builds: `go mod vendor`
-  
-  **Tools**:
-  - Install tools: `go install github.com/user/tool@latest`
-  - Tools are installed to `~/go/bin` (in PATH)
-  - Hot reload: `air` or `reflex` for development

@@ -1,9 +1,9 @@
 id: KOTLIN
 name: Kotlin
-group: kotlin-version
-requires: java-version
-description: Modern programming language for JVM and Android development
 version: "1.9.22"
+group: kotlin
+requires: java
+description: Modern programming language for JVM and Android development
 installation:
   dockerfile: |
     RUN export DEBIAN_FRONTEND=noninteractive && \
@@ -27,63 +27,3 @@ entrypoint_setup: |
       echo '# Kotlin environment' >> "$BASHRC"
       echo 'export PATH="/opt/kotlin/bin:$PATH"' >> "$BASHRC"
   fi
-memory_content: |
-  #### Kotlin
-  
-  **REPL & Scripts**:
-  - Start REPL: `kotlinc`
-  - Run script: `kotlin script.kts`
-  - Compile & run: `kotlinc Hello.kt -include-runtime -d hello.jar && java -jar hello.jar`
-  
-  **Compilation**:
-  - Compile to JAR: `kotlinc MyApp.kt -include-runtime -d myapp.jar`
-  - Compile to class: `kotlinc MyApp.kt -d classes/`
-  - With Java: `kotlinc MyApp.kt Java.java -d output/`
-  
-  **Kotlin Features**:
-  - Null safety: `var name: String? = null`
-  - Data classes: `data class Person(val name: String, val age: Int)`
-  - Extension functions: `fun String.lastChar() = this[length - 1]`
-  - Coroutines: Add kotlinx-coroutines for async
-  
-  **Quick Start**:
-  ```kotlin
-  // Hello.kt
-  fun main() {
-      println("Hello, Kotlin!")
-  }
-  ```
-  
-  **API Development with Ktor**:
-  ```kotlin
-  // Quick API setup
-  fun main() {
-      embeddedServer(Netty, port = 8080) {
-          routing {
-              get("/") { call.respondText("Hello") }
-          }
-      }.start(wait = true)
-  }
-  ```
-  
-  **Testing Best Practices**:
-  - Use JUnit 5 with Kotlin: Works seamlessly
-  - MockK for mocking: `testImplementation("io.mockk:mockk:1.13.8")`
-  - Run tests immediately: `gradle test` or `mvn test`
-  
-  **Common Gradle Setup**:
-  ```kotlin
-  // build.gradle.kts
-  dependencies {
-      implementation("io.ktor:ktor-server-netty:2.3.7")
-      implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
-      testImplementation(kotlin("test"))
-  }
-  ```
-  
-  **Development Tips**:
-  - Use Gradle or Maven for dependency management
-  - Enable null safety checks in IDE
-  - Test coroutines with `runBlocking` in tests
-  
-  **Note**: For Android or complex projects, use Gradle (see Gradle section)

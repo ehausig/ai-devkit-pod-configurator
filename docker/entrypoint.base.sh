@@ -14,10 +14,28 @@ if [ -d /etc/profile.d ]; then
 fi
 
 # Create essential directories that are always needed
+# TODO: incoporate Claude Code specific configurations in components/agents/* files
 CONFIG_DIR="/home/devuser/.config/claude-code"
 mkdir -p "$CONFIG_DIR"
 mkdir -p /home/devuser/workspace
+mkdir -p /home/devuser/.claude
 mkdir -p /home/devuser/.local/bin
+
+# Start SSH daemon if host keys are mounted
+echo "Checking for SSH host keys..."
+if [ -d /etc/ssh/mounted_keys ] && [ -f /etc/ssh/mounted_keys/ssh_host_rsa_key ]; then
+    echo "Found mounted SSH host keys, starting SSH daemon..."
+    # Ensure proper permissions on mounted keys
+    chmod 600 /etc/ssh/mounted_keys/ssh_host_*_key 2>/dev/null || true
+    chmod 644 /etc/ssh/mounted_keys/ssh_host_*_key.pub 2>/dev/null || true
+    
+    # Start SSH daemon
+    /usr/sbin/sshd -D &
+    echo "SSH daemon started on port 22"
+else
+    echo "No mounted SSH host keys found, SSH daemon not started"
+    echo "To enable SSH access, mount host keys to /etc/ssh/mounted_keys/"
+fi
 
 # Handle git configuration from mounted secrets
 echo "Checking for pre-configured git settings..."
@@ -51,6 +69,34 @@ if [ -f /tmp/git-mounted/gh-hosts.yml ]; then
     chmod 600 /home/devuser/.config/gh/hosts.yml
 fi
 
+# Copy user-CLAUDE.md to ~/.claude/CLAUDE.md if it exists
+# TODO: incorporate Claude Code specific configuration in components/agents files
+if [ -f /tmp/user-CLAUDE.md ]; then
+    echo "Found user CLAUDE.md, copying to ~/.claude..."
+    cp /tmp/user-CLAUDE.md /home/devuser/.claude/CLAUDE.md
+    echo "User CLAUDE.md copied successfully"
+    
+    # Append component imports to the CLAUDE.md file
+    if [ -f /tmp/component-imports.txt ]; then
+        echo "Appending component imports to CLAUDE.md..."
+        cat /tmp/component-imports.txt >> /home/devuser/.claude/CLAUDE.md
+        echo "Component imports appended successfully"
+    fi
+fi
+
+# Copy all component markdown files to ~/.claude
+# TODO: maybe put in generic ~/.prompts directory, then use symlink for .claude?
+echo "Copying component documentation files..."
+for md_file in /tmp/*.md; do
+    if [ -f "$md_file" ] && [ "$md_file" != "/tmp/user-CLAUDE.md" ]; then
+        basename_file=$(basename "$md_file")
+        if [ ! -f "/home/devuser/.claude/$basename_file" ]; then
+            cp "$md_file" "/home/devuser/.claude/$basename_file"
+            echo "Copied $basename_file to ~/.claude"
+        fi
+    fi
+done
+
 # Function to add line to file if not already present
 add_if_not_exists() {
     local line="$1"
@@ -60,14 +106,15 @@ add_if_not_exists() {
 
 # Configure .bashrc for devuser - only essential setup
 BASHRC="/home/devuser/.bashrc"
-touch "$BASHRC"
 
 # COMPONENT_SETUP_PLACEHOLDER
 
 # Ensure proper ownership of essential directories
 chown -R devuser:devuser /home/devuser/workspace 2>/dev/null || true
+chown -R devuser:devuser /home/devuser/.claude 2>/dev/null || true
 chown -R devuser:devuser /home/devuser/.config/claude-code 2>/dev/null || true
 chown -R devuser:devuser /home/devuser/.local 2>/dev/null || true
+chown -R devuser:devuser /home/devuser/.tui-test-templates 2>/dev/null || true
 
 # Add user's local bin to PATH
 add_if_not_exists 'export PATH="$HOME/.local/bin:$PATH"' "$BASHRC"
@@ -101,60 +148,12 @@ fi
 # Ensure proper ownership of .bashrc
 chown devuser:devuser "$BASHRC"
 
-# Add welcome message to .bashrc
-if ! grep -q "AI Development Kit Welcome" "$BASHRC" 2>/dev/null; then
-    cat >> "$BASHRC" << 'EOF'
+# Remove the old welcome message from .bashrc since we now use MOTD
+# (No need to add welcome message to .bashrc anymore)
 
-# AI Development Kit Welcome Message
-if [ -n "$PS1" ] && [ -z "$DEVKIT_WELCOME_SHOWN" ]; then
-    export DEVKIT_WELCOME_SHOWN=1
-    echo ""
-    echo "Welcome to AI Development Kit! 🚀"
-    echo ""
-    echo "Quick Start:"
-    # Check if Claude Code is installed
-    if command -v claude &> /dev/null 2>&1; then
-        echo "  • claude           - Start Claude Code"
-        echo "  • claude --help    - Show available commands"
-    fi
-    echo "  • tree             - View directory structure"
-    echo ""
-    # Check if git is configured
-    GIT_NAME=$(git config --global user.name 2>/dev/null || echo "")
-    if [ -z "$GIT_NAME" ]; then
-        echo "  ⚠️  Git not configured - run 'setup-git.sh' to configure"
-        echo ""
-    else
-        echo "  ✓ Git configured as: $GIT_NAME"
-        echo ""
-    fi
-    if [ -f ~/.claude/CLAUDE.md ]; then
-        # Count installed tools only in the "Installed Development Environment" section
-        TOOL_COUNT=$(sed -n '/## Installed Development Environment/,/^##[^#]/p' ~/.claude/CLAUDE.md 2>/dev/null | grep -E "^- " | wc -l)
-        if [ $TOOL_COUNT -gt 0 ]; then
-            echo "Environment: $TOOL_COUNT development tools installed"
-            echo "  • cat ~/.claude/CLAUDE.md - View full configuration & guidelines"
-            echo ""
-        fi
-    else
-        # Count installed tools by checking common commands
-        TOOL_COUNT=0
-        for cmd in node python3 java rustc go ruby php; do
-            command -v $cmd &> /dev/null && ((TOOL_COUNT++))
-        done
-        if [ $TOOL_COUNT -gt 0 ]; then
-            echo "Environment: $TOOL_COUNT+ development tools installed"
-            echo ""
-        fi
-    fi
-fi
-
-# Clear any input buffer to prevent command execution
-if [ -n "$PS1" ]; then
-    # Clear the input buffer
-    read -t 0.1 -n 10000 discard 2>/dev/null || true
-fi
-EOF
+# Create shadow backup for password change detection
+if [ ! -f /etc/shadow.backup ]; then
+    cp /etc/shadow /etc/shadow.backup
 fi
 
 # Switch to devuser and execute the command

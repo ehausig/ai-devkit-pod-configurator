@@ -1,5 +1,6 @@
 id: RUST_NIGHTLY
 name: Rust (Nightly Channel)
+version: "nightly"
 group: rust-version
 requires: []
 description: Rust programming language - nightly channel with latest features
@@ -52,48 +53,3 @@ entrypoint_setup: |
   if [ ! -f /home/devuser/.cargo/config.toml ]; then
       chown -R devuser:devuser /home/devuser/.cargo 2>/dev/null || true
   fi
-memory_content: |
-  #### Rust (Nightly)
-  
-  **Nightly Features**:
-  - Unstable features: Add `#![feature(name)]` to use
-  - Check available: `rustc +nightly --print target-features`
-  - Async traits, const generics experiments, and more
-  
-  **Development**:
-  - Build: `cargo +nightly build`
-  - Run: `cargo +nightly run`
-  - Test unstable: `cargo +nightly test`
-  - **Watch mode**: `cargo watch -x "run +nightly"`
-  - Watch tests: `cargo watch -x "test +nightly"`
-  - Watch with features: `cargo watch -x "run +nightly --features unstable"`
-  
-  **Common Dependency Gotchas** (apply to nightly too):
-  - **async-graphql + axum**: Use compatible versions
-    ```toml
-    # These versions work together:
-    async-graphql = { version = "5.0", features = ["chrono"] }
-    async-graphql-axum = "5.0"
-    axum = "0.6"
-    tokio = { version = "1", features = ["full"] }
-    async-trait = "0.1"  # Often needed but forgotten
-    ```
-  - **Always check compatibility**: Run `cargo tree -d` to spot version conflicts
-  - **Feature flags**: Many crates need features enabled (e.g., ["chrono"] for DateTime support)
-  
-  **Advanced Tools**:
-  - Miri (interpreter): `rustup +nightly component add miri`
-  - Expand macros: `cargo +nightly expand`
-  - Build std: `cargo +nightly build -Z build-std`
-  
-  **Switching Toolchains**:
-  - Use stable: `cargo +stable build`
-  - Update nightly: `rustup update nightly`
-  - Override for project: `rustup override set nightly`
-  
-  **Testing Best Practices**:
-  - Run tests immediately: `cargo test` after each feature
-  - Use `cargo test -- --nocapture` to see println! output
-  - Run `cargo check` frequently during development
-  
-  **Warning**: Nightly may have breaking changes. Pin versions in CI.

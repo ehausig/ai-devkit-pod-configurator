@@ -3,41 +3,567 @@
 set -e
 
 # Configuration
-IMAGE_NAME="claude-code"
+IMAGE_NAME="ai-devkit"
 IMAGE_TAG="latest"
-NAMESPACE="claude-code"
+NAMESPACE="ai-devkit"
 TEMP_DIR=".build-temp"
 COMPONENTS_DIR="components"
+SSH_KEYS_DIR="$HOME/.ai-devkit-k8s/ssh-keys"
+LOG_FILE="build-and-deploy.log"
 
-# Colors for output
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-BLUE='\033[0;34m'
-GRAY='\033[0;90m'
-NC='\033[0m' # No Color
+# ============================================================================
+# SPECIAL CHARACTERS AND KEYCODES
+# ============================================================================
 
-# Utility functions
-log() { echo -e "${2:-$YELLOW}$1${NC}"; }
-error() { log "Error: $1" "$RED"; exit 1; }
-success() { log "$1" "$GREEN"; }
-info() { log "$1" "$BLUE"; }
+# Special characters
+readonly NL=$'\n'
+readonly TAB=$'\t'
+readonly CR=$'\r'
+readonly ESC=$'\e'
+readonly BACKSPACE=$'\x7f'
+readonly NULL=$'\0'
+
+# ============================================================================
+# THEME SYSTEM - ENHANCED GRANULARITY
+# ============================================================================
+
+# Base colors
+readonly COLOR_BLACK='\033[0;30m'                    # #000000
+readonly COLOR_RED='\033[0;31m'                      # #800000
+readonly COLOR_GREEN='\033[0;32m'                    # #008000
+readonly COLOR_YELLOW='\033[0;33m'                   # #808000
+readonly COLOR_BLUE='\033[0;34m'                     # #000080
+readonly COLOR_MAGENTA='\033[0;35m'                  # #800080
+readonly COLOR_CYAN='\033[0;36m'                     # #008080
+readonly COLOR_WHITE='\033[0;37m'                    # #C0C0C0
+readonly COLOR_GRAY='\033[0;90m'                     # #555555
+
+# Custom base colors (from hex codes)
+readonly COLOR_SILVER='\033[38;2;171;178;191m'       # #ABB2BF
+readonly COLOR_CHARCOAL='\033[38;2;92;99;112m'       # #5C6370
+readonly COLOR_SKY='\033[38;2;97;175;239m'           # #61AFEF
+readonly COLOR_SAGE='\033[38;2;178;193;121m'         # #B2C179
+readonly COLOR_CORAL='\033[38;2;224;108;117m'        # #E06C75
+readonly COLOR_SAND='\033[38;2;229;192;123m'         # #E5C07B
+readonly COLOR_SEAFOAM='\033[38;2;138;191;183m'      # #8ABFB7
+readonly COLOR_LAVENDER='\033[38;2;198;120;221m'     # #C678DD
+
+# Bright colors
+readonly COLOR_BRIGHT_RED='\033[0;91m'                # #FF0000
+readonly COLOR_BRIGHT_GREEN='\033[0;92m'              # #00FF00
+readonly COLOR_BRIGHT_YELLOW='\033[0;93m'             # #FFFF00
+readonly COLOR_BRIGHT_BLUE='\033[0;94m'               # #0000FF
+readonly COLOR_BRIGHT_MAGENTA='\033[0;95m'            # #FF00FF
+readonly COLOR_BRIGHT_CYAN='\033[0;96m'               # #00FFFF
+readonly COLOR_BRIGHT_WHITE='\033[0;97m'              # #FFFFFF
+readonly COLOR_BRIGHT_LAVENDER='\033[38;2;218;140;241m'   # #DA8CF1
+
+# Custom bright colors (from hex codes - slightly brightened)
+readonly COLOR_BRIGHT_SILVER='\033[38;2;193;200;213m'     # #C1C8D5
+readonly COLOR_BRIGHT_CHARCOAL='\033[38;2;112;119;132m'   # #707784
+readonly COLOR_BRIGHT_SKY='\033[38;2;127;195;255m'        # #7FC3FF
+readonly COLOR_BRIGHT_SAGE='\033[38;2;198;213;141m'       # #C6D58D
+readonly COLOR_BRIGHT_CORAL='\033[38;2;244;128;137m'      # #F48089
+readonly COLOR_BRIGHT_SAND='\033[38;2;249;212;143m'       # #F9D48F
+readonly COLOR_BRIGHT_SEAFOAM='\033[38;2;158;211;203m'    # #9ED3CB
+readonly BOLD_BRIGHT_WHITE='\033[1;97m'               # #FFFFFF (bold)
+
+# Styles
+readonly STYLE_BOLD='\033[1m'
+readonly STYLE_DIM='\033[2m'
+readonly STYLE_ITALIC='\033[3m'
+readonly STYLE_UNDERLINE='\033[4m'
+readonly STYLE_BLINK='\033[5m'
+readonly STYLE_REVERSE='\033[7m'
+readonly STYLE_RESET='\033[0m'
+
+# Compound styles
+readonly BOLD_RED='\033[1;31m'                       # #800000 (bold)
+readonly BOLD_GREEN='\033[1;32m'                     # #008000 (bold)
+readonly BOLD_YELLOW='\033[1;33m'                    # #808000 (bold)
+readonly BOLD_BLUE='\033[1;34m'                      # #000080 (bold)
+readonly BOLD_MAGENTA='\033[1;35m'                   # #800080 (bold)
+readonly BOLD_CYAN='\033[1;36m'                      # #008080 (bold)
+readonly BOLD_WHITE='\033[1;37m'                     # #C0C0C0 (bold)
+
+# Custom bold colors (from hex codes)
+readonly BOLD_SILVER='\033[1;38;2;171;178;191m'      # #ABB2BF (bold)
+readonly BOLD_CHARCOAL='\033[1;38;2;92;99;112m'      # #5C6370 (bold)
+readonly BOLD_SKY='\033[1;38;2;97;175;239m'          # #61AFEF (bold)
+readonly BOLD_SAGE='\033[1;38;2;178;193;121m'        # #B2C179 (bold)
+readonly BOLD_CORAL='\033[1;38;2;224;108;117m'       # #E06C75 (bold)
+readonly BOLD_SAND='\033[1;38;2;229;192;123m'        # #E5C07B (bold)
+readonly BOLD_SEAFOAM='\033[1;38;2;138;191;183m'     # #8ABFB7 (bold)
+readonly BOLD_LAVENDER='\033[1;38;2;198;120;221m'    # #C678DD
+
+# Additional status colors
+readonly STATUS_INITIAL_BULLET_COLOR="$COLOR_SILVER"
+readonly STATUS_INITIAL_TEXT_COLOR="$COLOR_BRIGHT_SILVER"
+readonly STATUS_PENDING_BULLET_COLOR="$COLOR_SAND"
+readonly STATUS_PENDING_TEXT_COLOR="$COLOR_BRIGHT_SAND"
+readonly STATUS_SUCCESS_BULLET_COLOR="$COLOR_SAGE"
+readonly STATUS_SUCCESS_TEXT_COLOR="$COLOR_BRIGHT_SAGE"
+readonly STATUS_FAILED_BULLET_COLOR="$COLOR_CORAL"
+readonly STATUS_FAILED_TEXT_COLOR="$COLOR_BRIGHT_CORAL"
+readonly STATUS_INFO_COLOR="$COLOR_BRIGHT_SEAFOAM"
+
+# Icons
+readonly ICON_SELECTED="✓"
+readonly ICON_AVAILABLE="○"
+readonly ICON_DISABLED="○"
+readonly ICON_CURSOR="▸"
+readonly ICON_CHECKMARK="✓"
+readonly ICON_WARNING="⚠️"
+readonly ICON_INFO="ℹ️"
+readonly ICON_SUCCESS="✓"
+readonly ICON_PENDING="⟳"
+readonly ICON_FAILED="✗"
+readonly ICON_NOT_STARTED="○"
+readonly ICON_INITIAL="-"
+
+# Animation frames for running status
+readonly ANIM_FRAMES=("⠋" "⠙" "⠹" "⠸" "⠼" "⠴" "⠦" "⠧" "⠇" "⠏")
+CURRENT_ANIM_FRAME=0
+
+# Box Drawing Characters
+readonly BOX_TOP_LEFT="╭"
+readonly BOX_TOP_RIGHT="╮"
+readonly BOX_BOTTOM_LEFT="╰"
+readonly BOX_BOTTOM_RIGHT="╯"
+readonly BOX_HORIZONTAL="─"
+readonly BOX_VERTICAL="│"
+readonly BOX_TITLE_LEFT="┐"
+readonly BOX_TITLE_RIGHT="┌"
+readonly BOX_SEPARATOR="━"
+
+# Global UI Elements
+GLOBAL_TITLE_STYLE="$BOLD_BRIGHT_WHITE"
+GLOBAL_SEPARATOR_COLOR="$COLOR_RED" # deprecated
+GLOBAL_HINT_STYLE="$COLOR_YELLOW"
+
+# Global variable for deployment status row tracking
+DEPLOYMENT_STATUS_FINAL_ROW=0
+
+# Catalog Box (Available Components)
+CATALOG_BORDER_COLOR="$COLOR_BRIGHT_CHARCOAL"
+CATALOG_TITLE_STYLE="$BOLD_BRIGHT_WHITE"
+CATALOG_CATEGORY_STYLE="$COLOR_SEAFOAM"
+CATALOG_CURSOR_COLOR="$COLOR_BRIGHT_BLUE"
+CATALOG_ITEM_SELECTED_STYLE="$COLOR_BRIGHT_SAGE"
+CATALOG_ITEM_AVAILABLE_STYLE="$COLOR_BRIGHT_WHITE"
+CATALOG_ITEM_DISABLED_STYLE="$COLOR_GRAY"
+CATALOG_STATUS_IN_STACK_STYLE="$COLOR_BRIGHT_SAGE"
+CATALOG_STATUS_REQUIRED_STYLE="$COLOR_SAND"
+CATALOG_PAGE_INDICATOR_STYLE="$COLOR_SAND"
+CATALOG_ICON_SELECTED_COLOR="$COLOR_BRIGHT_SAGE"
+CATALOG_ICON_AVAILABLE_COLOR="$STYLE_RESET"
+CATALOG_ICON_DISABLED_COLOR="$COLOR_GRAY"
+CATALOG_ICON_WARNING_COLOR="$COLOR_MAGENTA"
+
+# Cart Box (Build Stack)
+CART_BORDER_COLOR="$COLOR_BRIGHT_CHARCOAL"
+CART_TITLE_STYLE="$BOLD_BRIGHT_WHITE"
+CART_CATEGORY_STYLE="$COLOR_BRIGHT_SEAFOAM"
+CART_CURSOR_COLOR="$COLOR_BRIGHT_BLUE"
+CART_ITEM_STYLE="$COLOR_BRIGHT_SAGE"
+CART_BASE_CATEGORY_STYLE="$COLOR_SEAFOAM"
+CART_BASE_ITEM_STYLE="$COLOR_SILVER"
+CART_REMOVE_HINT_STYLE="$COLOR_WHITE"
+CART_COUNT_STYLE="$COLOR_SAND"
+
+# Instructions Bar
+INSTRUCTION_KEY_STYLE="$COLOR_BRIGHT_SKY"
+INSTRUCTION_TEXT_STYLE="$COLOR_SILVER"
+INSTRUCTION_ABORT_STYLE="$COLOR_BRIGHT_CORAL"
+
+# Summary Screen
+SUMMARY_BORDER_COLOR="$COLOR_SAGE"
+SUMMARY_TITLE_STYLE="$BOLD_BRIGHT_WHITE"
+SUMMARY_CHECKMARK_COLOR="$COLOR_BRIGHT_SAGE"
+SUMMARY_CATEGORY_STYLE="$COLOR_BRIGHT_SEAFOAM"
+
+# Deployment Status
+STATUS_BORDER_COLOR="$COLOR_BRIGHT_CHARCOAL"
+STATUS_TITLE_STYLE="$BOLD_BRIGHT_WHITE"
+STATUS_PENDING_STYLE="$COLOR_SAND"
+STATUS_RUNNING_STYLE="$COLOR_BRIGHT_SKY"
+STATUS_SUCCESS_STYLE="$COLOR_BRIGHT_SAGE"
+STATUS_FAILED_STYLE="$COLOR_BRIGHT_CORAL"
+STATUS_STEP_STYLE="$COLOR_SILVER"
+STATUS_INFO_STYLE="$COLOR_BRIGHT_CYAN"
+
+# Logging
+LOG_ERROR_STYLE="$COLOR_RED"
+LOG_SUCCESS_STYLE="$COLOR_GREEN"
+LOG_WARNING_STYLE="$BOLD_YELLOW"
+LOG_INFO_STYLE="$COLOR_BLUE"
+LOG_DEFAULT_STYLE="$COLOR_YELLOW"
+
+# Global variable for animation PID
+ANIMATION_PID=""
+
+# Function to animate running steps
+animate_running_steps() {
+    local status_start_col=$1
+    local status_width=$2
+    local deployment_steps=("${!3}")
+    local step_statuses=("${!4}")
+    local step_messages=("${!5}")
+    
+    # Increment animation frame
+    CURRENT_ANIM_FRAME=$(( (CURRENT_ANIM_FRAME + 1) % ${#ANIM_FRAMES[@]} ))
+    
+    # Update any running steps with new animation frame
+    for i in "${!step_statuses[@]}"; do
+        if [[ "${step_statuses[$i]}" == "running" ]]; then
+            update_single_deployment_step $i "running" "${step_messages[$i]}" $status_start_col $status_width "${deployment_steps[$i]}"
+        fi
+    done
+}
+
+# Function to start animation in background
+start_animation() {
+    local status_start_col=$1
+    local status_width=$2
+    
+    # Create a file to communicate animation state
+    ANIMATION_STATE_FILE="/tmp/ai-devkit-anim-$$"
+    echo "running" > "$ANIMATION_STATE_FILE"
+    
+    {
+        while [[ -f "$ANIMATION_STATE_FILE" ]] && [[ "$(cat "$ANIMATION_STATE_FILE")" == "running" ]]; do
+            # Increment animation frame
+            CURRENT_ANIM_FRAME=$(( (CURRENT_ANIM_FRAME + 1) % ${#ANIM_FRAMES[@]} ))
+            
+            # Export the frame so parent can see it
+            echo "$CURRENT_ANIM_FRAME" > "/tmp/ai-devkit-frame-$$"
+            
+            sleep 0.1
+        done
+    } &
+    ANIMATION_PID=$!
+}
+
+# Function to stop animation
+stop_animation() {
+    if [[ -n "$ANIMATION_PID" ]]; then
+        echo "stop" > "$ANIMATION_STATE_FILE" 2>/dev/null
+        kill $ANIMATION_PID 2>/dev/null
+        wait $ANIMATION_PID 2>/dev/null
+        rm -f "$ANIMATION_STATE_FILE" "/tmp/ai-devkit-frame-$$" 2>/dev/null
+        ANIMATION_PID=""
+    fi
+}
+
+# Theme selection
+THEME="${AI_DEVKIT_THEME:-default}"
+
+# Load theme
+load_theme() {
+    case "$THEME" in
+        "dark")
+            # Dark theme - softer colors for dark terminals
+            GLOBAL_SEPARATOR_COLOR="$COLOR_GRAY"
+            GLOBAL_TITLE_STYLE="$BOLD_CYAN"
+
+            INSTRUCTION_KEY_STYLE="$BOLD_WHITE"
+            INSTRUCTION_TEXT_STYLE="$COLOR_GRAY"
+            INSTRUCTION_ABORT_STYLE="$COLOR_BRIGHT_RED"
+
+            CATALOG_BORDER_COLOR="$COLOR_GRAY"
+            CATALOG_TITLE_STYLE="$BOLD_CYAN"
+            CATALOG_CATEGORY_STYLE="$COLOR_MAGENTA"
+            CATALOG_CURSOR_COLOR="$COLOR_CYAN"
+            CATALOG_ITEM_SELECTED_STYLE="$COLOR_BRIGHT_CYAN"
+            CATALOG_STATUS_IN_STACK_STYLE="$COLOR_BRIGHT_CYAN"
+            CATALOG_ICON_SELECTED_COLOR="$COLOR_BRIGHT_CYAN"
+            
+            CART_BORDER_COLOR="$COLOR_GRAY"
+            CART_TITLE_STYLE="$BOLD_CYAN"
+            CART_CATEGORY_STYLE="$COLOR_MAGENTA"
+            CART_CURSOR_COLOR="$COLOR_BRIGHT_MAGENTA"
+            CART_ITEM_STYLE="$COLOR_BRIGHT_WHITE"
+            
+            GLOBAL_HINT_STYLE="$COLOR_BRIGHT_YELLOW"
+            
+            SUMMARY_BORDER_COLOR="$COLOR_GRAY"
+            SUMMARY_CATEGORY_STYLE="$COLOR_MAGENTA"
+
+            STATUS_BORDER_COLOR="$COLOR_GRAY"
+            STATUS_TITLE_STYLE="$BOLD_CYAN"
+            ;;
+            
+        "matrix")
+            # Matrix theme - green on black
+            GLOBAL_SEPARATOR_COLOR="$COLOR_GREEN"
+            GLOBAL_TITLE_STYLE="$BOLD_GREEN"
+            GLOBAL_HINT_STYLE="$BOLD_GREEN"
+           
+            INSTRUCTION_KEY_STYLE="$BOLD_GREEN"
+            INSTRUCTION_TEXT_STYLE="$COLOR_GREEN"
+            INSTRUCTION_ABORT_STYLE="$COLOR_BRIGHT_GREEN"
+
+            CATALOG_BORDER_COLOR="$COLOR_GREEN"
+            CATALOG_TITLE_STYLE="$BOLD_GREEN"
+            CATALOG_CATEGORY_STYLE="$COLOR_BRIGHT_GREEN"
+            CATALOG_CURSOR_COLOR="$BOLD_GREEN"
+            CATALOG_ITEM_SELECTED_STYLE="$BOLD_GREEN"
+            CATALOG_ITEM_AVAILABLE_STYLE="$COLOR_GREEN"
+            CATALOG_ITEM_DISABLED_STYLE="$COLOR_GREEN"
+            CATALOG_STATUS_IN_STACK_STYLE="$BOLD_GREEN"
+            CATALOG_STATUS_REQUIRED_STYLE="$COLOR_BRIGHT_GREEN"
+            CATALOG_PAGE_INDICATOR_STYLE="$COLOR_BRIGHT_GREEN"
+            CATALOG_ICON_SELECTED_COLOR="$BOLD_GREEN"
+            CATALOG_ICON_AVAILABLE_COLOR="$COLOR_GREEN"
+            CATALOG_ICON_DISABLED_COLOR="$COLOR_GREEN"
+            CATALOG_ICON_WARNING_COLOR="$COLOR_BRIGHT_GREEN"
+            
+            CART_BORDER_COLOR="$COLOR_GREEN"
+            CART_TITLE_STYLE="$BOLD_GREEN"
+            CART_CATEGORY_STYLE="$COLOR_BRIGHT_GREEN"
+            CART_CURSOR_COLOR="$BOLD_GREEN"
+            CART_ITEM_STYLE="$COLOR_GREEN"
+            CART_BASE_CATEGORY_STYLE="$COLOR_BRIGHT_GREEN"
+            CART_BASE_ITEM_STYLE="$COLOR_GREEN"
+            CART_REMOVE_HINT_STYLE="$COLOR_BRIGHT_GREEN"
+            CART_COUNT_STYLE="$COLOR_BRIGHT_GREEN"
+            
+            SUMMARY_BORDER_COLOR="$COLOR_GREEN"
+            SUMMARY_TITLE_STYLE="$BOLD_GREEN"
+            SUMMARY_CATEGORY_STYLE="$COLOR_BRIGHT_GREEN"
+            SUMMARY_CHECKMARK_COLOR="$BOLD_GREEN"
+           
+            STATUS_BORDER_COLOR="$COLOR_GREEN"
+            STATUS_TITLE_STYLE="$BOLD_GREEN"
+            STATUS_PENDING_STYLE="$COLOR_GREEN"
+            STATUS_RUNNING_STYLE="$COLOR_BRIGHT_GREEN"
+            STATUS_SUCCESS_STYLE="$BOLD_GREEN"
+            STATUS_FAILED_STYLE="$COLOR_BRIGHT_GREEN"
+
+            LOG_SUCCESS_STYLE="$BOLD_GREEN"
+            LOG_WARNING_STYLE="$COLOR_BRIGHT_GREEN"
+            LOG_INFO_STYLE="$COLOR_GREEN"
+            ;;
+            
+        "ocean")
+            # Ocean theme - blues and cyans
+            GLOBAL_SEPARATOR_COLOR="$COLOR_CYAN"
+            GLOBAL_TITLE_STYLE="$BOLD_CYAN"
+           
+            INSTRUCTION_KEY_STYLE="$COLOR_BRIGHT_CYAN"
+            INSTRUCTION_TEXT_STYLE="$COLOR_CYAN"
+            INSTRUCTION_ABORT_STYLE="$COLOR_BRIGHT_RED"
+
+            CATALOG_BORDER_COLOR="$COLOR_CYAN"
+            CATALOG_TITLE_STYLE="$BOLD_CYAN"
+            CATALOG_CATEGORY_STYLE="$COLOR_BRIGHT_BLUE"
+            CATALOG_CURSOR_COLOR="$COLOR_BRIGHT_CYAN"
+            CATALOG_ITEM_SELECTED_STYLE="$BOLD_CYAN"
+            CATALOG_STATUS_IN_STACK_STYLE="$BOLD_CYAN"
+            CATALOG_ICON_SELECTED_COLOR="$BOLD_CYAN"
+            
+            CART_BORDER_COLOR="$COLOR_BLUE"
+            CART_TITLE_STYLE="$BOLD_BLUE"
+            CART_CATEGORY_STYLE="$COLOR_BRIGHT_CYAN"
+            CART_CURSOR_COLOR="$COLOR_BRIGHT_BLUE"
+            CART_ITEM_STYLE="$COLOR_CYAN"
+            CART_BASE_CATEGORY_STYLE="$COLOR_BRIGHT_CYAN"
+            
+            GLOBAL_HINT_STYLE="$COLOR_BRIGHT_CYAN"
+            
+            SUMMARY_BORDER_COLOR="$COLOR_CYAN"
+            SUMMARY_TITLE_STYLE="$BOLD_CYAN"
+            SUMMARY_CATEGORY_STYLE="$COLOR_BRIGHT_BLUE"
+            
+            STATUS_BORDER_COLOR="$COLOR_CYAN"
+            STATUS_TITLE_STYLE="$BOLD_CYAN"
+
+            LOG_INFO_STYLE="$BOLD_BLUE"
+            ;;
+            
+        "minimal")
+            # Minimal theme - mostly white/gray
+            GLOBAL_SEPARATOR_COLOR="$COLOR_GRAY"
+            GLOBAL_TITLE_STYLE="$BOLD_WHITE"
+            GLOBAL_HINT_STYLE="$COLOR_WHITE"
+
+            INSTRUCTION_KEY_STYLE="$BOLD_WHITE"
+            INSTRUCTION_TEXT_STYLE="$COLOR_GRAY"
+            INSTRUCTION_ABORT_STYLE="$COLOR_RED"
+
+            CATALOG_BORDER_COLOR="$COLOR_GRAY"
+            CATALOG_TITLE_STYLE="$BOLD_WHITE"
+            CATALOG_CATEGORY_STYLE="$COLOR_WHITE"
+            CATALOG_CURSOR_COLOR="$BOLD_WHITE"
+            CATALOG_ITEM_SELECTED_STYLE="$BOLD_WHITE"
+            CATALOG_ITEM_AVAILABLE_STYLE="$COLOR_WHITE"
+            CATALOG_ITEM_DISABLED_STYLE="$COLOR_GRAY"
+            CATALOG_STATUS_IN_STACK_STYLE="$BOLD_WHITE"
+            CATALOG_STATUS_REQUIRED_STYLE="$COLOR_WHITE"
+            CATALOG_PAGE_INDICATOR_STYLE="$COLOR_WHITE"
+            CATALOG_ICON_SELECTED_COLOR="$BOLD_WHITE"
+            CATALOG_ICON_AVAILABLE_COLOR="$COLOR_WHITE"
+            CATALOG_ICON_DISABLED_COLOR="$COLOR_GRAY"
+            CATALOG_ICON_WARNING_COLOR="$COLOR_WHITE"
+            
+            CART_BORDER_COLOR="$COLOR_GRAY"
+            CART_TITLE_STYLE="$BOLD_WHITE"
+            CART_CATEGORY_STYLE="$COLOR_WHITE"
+            CART_CURSOR_COLOR="$BOLD_WHITE"
+            CART_ITEM_STYLE="$COLOR_GRAY"
+            CART_BASE_CATEGORY_STYLE="$COLOR_WHITE"
+            CART_BASE_ITEM_STYLE="$COLOR_GRAY"
+            CART_REMOVE_HINT_STYLE="$COLOR_WHITE"
+            CART_COUNT_STYLE="$COLOR_WHITE"
+            
+            SUMMARY_BORDER_COLOR="$COLOR_GRAY"
+            SUMMARY_TITLE_STYLE="$BOLD_WHITE"
+            SUMMARY_CATEGORY_STYLE="$COLOR_WHITE"
+            SUMMARY_CHECKMARK_COLOR="$BOLD_WHITE"
+           
+            STATUS_BORDER_COLOR="$COLOR_GRAY"
+            STATUS_TITLE_STYLE="$BOLD_WHITE"
+
+            LOG_SUCCESS_STYLE="$BOLD_WHITE"
+            LOG_WARNING_STYLE="$COLOR_WHITE"
+            LOG_INFO_STYLE="$COLOR_GRAY"
+            ;;
+            
+        "neon")
+            # New neon theme - high contrast with bright colors
+            GLOBAL_SEPARATOR_COLOR="$COLOR_BRIGHT_MAGENTA"
+            GLOBAL_TITLE_STYLE="$BOLD_MAGENTA"
+            GLOBAL_HINT_STYLE="$COLOR_BRIGHT_YELLOW"
+
+            INSTRUCTION_KEY_STYLE="$COLOR_BRIGHT_YELLOW"
+            INSTRUCTION_TEXT_STYLE="$COLOR_BRIGHT_WHITE"
+            INSTRUCTION_ABORT_STYLE="$COLOR_BRIGHT_RED"
+
+            CATALOG_BORDER_COLOR="$COLOR_BRIGHT_CYAN"
+            CATALOG_TITLE_STYLE="$BOLD_CYAN"
+            CATALOG_CATEGORY_STYLE="$COLOR_BRIGHT_MAGENTA"
+            CATALOG_CURSOR_COLOR="$COLOR_BRIGHT_YELLOW"
+            CATALOG_ITEM_SELECTED_STYLE="$COLOR_BRIGHT_GREEN"
+            CATALOG_ITEM_AVAILABLE_STYLE="$COLOR_BRIGHT_WHITE"
+            CATALOG_ITEM_DISABLED_STYLE="$COLOR_GRAY"
+            CATALOG_STATUS_IN_STACK_STYLE="$COLOR_BRIGHT_GREEN"
+            CATALOG_STATUS_REQUIRED_STYLE="$COLOR_BRIGHT_YELLOW"
+            CATALOG_ICON_SELECTED_COLOR="$COLOR_BRIGHT_GREEN"
+            CATALOG_ICON_WARNING_COLOR="$COLOR_BRIGHT_YELLOW"
+            
+            CART_BORDER_COLOR="$COLOR_BRIGHT_MAGENTA"
+            CART_TITLE_STYLE="$BOLD_MAGENTA"
+            CART_CATEGORY_STYLE="$COLOR_BRIGHT_CYAN"
+            CART_CURSOR_COLOR="$COLOR_BRIGHT_YELLOW"
+            CART_ITEM_STYLE="$COLOR_BRIGHT_WHITE"
+            CART_REMOVE_HINT_STYLE="$COLOR_BRIGHT_RED"
+            CART_COUNT_STYLE="$COLOR_BRIGHT_YELLOW"
+            
+            SUMMARY_BORDER_COLOR="$COLOR_BRIGHT_MAGENTA"
+            SUMMARY_TITLE_STYLE="$BOLD_MAGENTA"
+            SUMMARY_CATEGORY_STYLE="$COLOR_BRIGHT_CYAN"
+            SUMMARY_CHECKMARK_COLOR="$COLOR_BRIGHT_GREEN"
+
+            STATUS_BORDER_COLOR="$COLOR_BRIGHT_MAGENTA"
+            STATUS_TITLE_STYLE="$BOLD_MAGENTA"
+            ;;
+            
+        *)
+            # Default theme - already set above
+            ;;
+    esac
+}
+
+# Load the selected theme
+load_theme
+
+# ============================================================================
+# STYLING HELPER FUNCTIONS
+# ============================================================================
+
+# Style text with automatic reset
+style_text() {
+    local style="$1"
+    local text="$2"
+    printf "%b%s%b" "$style" "$text" "$STYLE_RESET"
+}
+
+# Print styled line with newline
+style_line() {
+    local style="$1"
+    local text="$2"
+    echo -e "${style}${text}${STYLE_RESET}"
+}
+
+# ============================================================================
+# UTILITY FUNCTIONS
+# ============================================================================
+
+# Logging functions with themed output
+log() { 
+    local message="$1"
+    local style="${2:-$LOG_DEFAULT_STYLE}"
+    echo -e "${style}${message}${STYLE_RESET}"
+}
+
+error() { 
+    log "Error: $1" "$LOG_ERROR_STYLE"
+    exit 1
+}
+
+success() { 
+    log "$1" "$LOG_SUCCESS_STYLE"
+}
+
+info() { 
+    log "$1" "$LOG_INFO_STYLE"
+}
+
+warning() {
+    log "$1" "$LOG_WARNING_STYLE"
+}
 
 # Check prerequisites
 check_deps() {
     local deps=("docker" "kubectl" "colima")
     for dep in "${deps[@]}"; do
+        printf "."
         command -v "$dep" &> /dev/null || error "$dep is not installed or not in PATH"
     done
+    echo " ✓"
 }
 
-# Check if Nexus is available
-check_nexus() {
-    if curl -s http://localhost:8081 > /dev/null 2>&1; then
-        success "✓ Nexus detected at http://localhost:8081"
-        return 0
+# Generate SSH host keys if they don't exist
+generate_ssh_host_keys() {
+    mkdir -p "$SSH_KEYS_DIR"
+    
+    # Generate keys if they don't exist
+    if [ ! -f "$SSH_KEYS_DIR/ssh_host_rsa_key" ]; then
+        printf "."
+        ssh-keygen -q -t rsa -b 4096 -f "$SSH_KEYS_DIR/ssh_host_rsa_key" -N "" -C "ai-devkit-rsa" >/dev/null 2>&1
+        printf "."
+        ssh-keygen -q -t ecdsa -b 521 -f "$SSH_KEYS_DIR/ssh_host_ecdsa_key" -N "" -C "ai-devkit-ecdsa" >/dev/null 2>&1
+        printf "."
+        ssh-keygen -q -t ed25519 -f "$SSH_KEYS_DIR/ssh_host_ed25519_key" -N "" -C "ai-devkit-ed25519" >/dev/null 2>&1
+        echo " ✓"
+    else
+        echo "... ✓"
     fi
-    return 1
+}
+
+# Create SSH host keys secret
+create_ssh_host_keys_secret() {
+    # Delete existing secret if it exists
+    kubectl delete secret ssh-host-keys -n ${NAMESPACE} --ignore-not-found=true >/dev/null 2>&1
+    
+    # Create secret from files
+    kubectl create secret generic ssh-host-keys -n ${NAMESPACE} \
+        --from-file=ssh_host_rsa_key="$SSH_KEYS_DIR/ssh_host_rsa_key" \
+        --from-file=ssh_host_rsa_key.pub="$SSH_KEYS_DIR/ssh_host_rsa_key.pub" \
+        --from-file=ssh_host_ecdsa_key="$SSH_KEYS_DIR/ssh_host_ecdsa_key" \
+        --from-file=ssh_host_ecdsa_key.pub="$SSH_KEYS_DIR/ssh_host_ecdsa_key.pub" \
+        --from-file=ssh_host_ed25519_key="$SSH_KEYS_DIR/ssh_host_ed25519_key" \
+        --from-file=ssh_host_ed25519_key.pub="$SSH_KEYS_DIR/ssh_host_ed25519_key.pub" >/dev/null 2>&1
 }
 
 # Parse YAML file (simple parser using sed/awk)
@@ -134,13 +660,15 @@ load_components() {
         echo "$cat_name"
     done
     echo "---SEPARATOR---"
-    
+   
     # Load components from each category
     for category in "${categories[@]}"; do
+        # Show progress dots to stderr
+        printf "." >&2
         for yaml_file in "$COMPONENTS_DIR/$category"/*.yaml; do
             [[ ! -f "$yaml_file" ]] && continue
             [[ "$yaml_file" == *"/.category.yaml" ]] && continue
-            
+
             # Parse the YAML file
             eval $(parse_yaml "$yaml_file" "comp_")
             
@@ -151,11 +679,810 @@ load_components() {
             unset comp_id comp_name comp_group comp_requires
         done
     done
+
+    printf "\n" >&2
 }
 
-# Function to display component selection menu
-select_components() {
-    set +e  # Don't exit on error
+# ============================================================================
+# UI DRAWING FUNCTIONS
+# ============================================================================
+
+# Function to draw a box with optional title and bottom text
+draw_box() {
+    local x=$1 y=$2 width=$3 height=$4 title=$5 bottom_text=$6 
+    local border_color="${7:-$CATALOG_BORDER_COLOR}"  # Allow custom border color
+    local title_style="${8:-$CATALOG_TITLE_STYLE}"    # Allow custom title style
+    
+    tput cup $y $x
+    printf "%b%s%b" "$border_color" "$BOX_TOP_LEFT" "$STYLE_RESET"
+    for ((i=0; i<width-2; i++)); do 
+        printf "%b%s%b" "$border_color" "$BOX_HORIZONTAL" "$STYLE_RESET"
+    done
+    printf "%b%s%b" "$border_color" "$BOX_TOP_RIGHT" "$STYLE_RESET"
+    
+    if [[ -n "$title" ]]; then
+        local title_len=${#title}
+        local title_pos=$(( (width - title_len - 2) / 2 ))
+        tput cup $y $((x + title_pos))
+        printf "%b%s%b %b%s%b %b%s%b" \
+            "$border_color" "$BOX_TITLE_LEFT" "$STYLE_RESET" \
+            "$title_style" "$title" "$STYLE_RESET" \
+            "$border_color" "$BOX_TITLE_RIGHT" "$STYLE_RESET"
+    fi
+    
+    for ((i=1; i<height-1; i++)); do
+        tput cup $((y + i)) $x
+        printf "%b%s%b" "$border_color" "$BOX_VERTICAL" "$STYLE_RESET"
+        tput cup $((y + i)) $((x + width - 1))
+        printf "%b%s%b" "$border_color" "$BOX_VERTICAL" "$STYLE_RESET"
+    done
+    
+    tput cup $((y + height - 1)) $x
+    printf "%b%s%b" "$border_color" "$BOX_BOTTOM_LEFT" "$STYLE_RESET"
+    
+    if [[ -n "$bottom_text" ]]; then
+        local text_len=${#bottom_text}
+        local center_pos=$(( (width - text_len - 4) / 2 ))
+        local page_style="${9:-$CATALOG_PAGE_INDICATOR_STYLE}"
+        
+        for ((i=0; i<center_pos; i++)); do 
+            printf "%b%s%b" "$border_color" "$BOX_HORIZONTAL" "$STYLE_RESET"
+        done
+        printf " %b%s%b " "$page_style" "$bottom_text" "$STYLE_RESET"
+        for ((i=0; i<width-center_pos-text_len-6; i++)); do 
+            printf "%b%s%b" "$border_color" "$BOX_HORIZONTAL" "$STYLE_RESET"
+        done
+    else
+        for ((i=0; i<width-2; i++)); do 
+            printf "%b%s%b" "$border_color" "$BOX_HORIZONTAL" "$STYLE_RESET"
+        done
+    fi
+    
+    printf "%b%s%b" "$border_color" "$BOX_BOTTOM_RIGHT" "$STYLE_RESET"
+}
+
+# Function to draw a horizontal separator line
+draw_separator() {
+    local width=$1
+    local y=$2
+    local color="${3:-$GLOBAL_SEPARATOR_COLOR}"
+    
+    tput cup $y 0
+    for ((i=0; i<width; i++)); do 
+        printf "%b%s%b" "$color" "$BOX_SEPARATOR" "$STYLE_RESET"
+    done
+}
+
+# Function to center text on a line
+print_centered() {
+    local text=$1
+    local width=$2
+    local y=$3
+    local style=$4
+    
+    local text_len=${#text}
+    local x=$(( (width - text_len) / 2 ))
+    
+    tput cup $y $x
+    printf "%b%s%b" "$style" "$text" "$STYLE_RESET"
+}
+
+# Function to draw the gradient title bar
+draw_gradient_title() {
+    local title="${1:-AI DevKit Pod Configurator}"  # Default title if none provided
+    local row="${2:-1}"  # Default to row 1
+    
+    local term_width=$(tput cols)
+    local title_len=${#title}
+    local padding_each_side=$(( (term_width - title_len - 2) / 2 ))
+    local extra_padding=$(( (term_width - title_len - 2) % 2 ))
+    
+    # Create gradient array
+    local gradient_colors=("$COLOR_CYAN" "$COLOR_BLUE" "$COLOR_LAVENDER" "$COLOR_MAGENTA")
+    local gradient_len=${#gradient_colors[@]}
+    
+    # Move cursor to specified row
+    tput cup $row 0
+    
+    # Left side with gradient using vertical bars
+    for ((i=0; i<padding_each_side; i++)); do
+        local color_idx=$((i * gradient_len / padding_each_side))
+        [[ $color_idx -ge $gradient_len ]] && color_idx=$((gradient_len - 1))
+        printf "%b%s" "${gradient_colors[$color_idx]}" "$BOX_VERTICAL"
+    done
+    
+    # Title
+    printf " %b%s%b " "$BOLD_WHITE" "$title" "$STYLE_RESET"
+    
+    # Right side with reverse gradient using vertical bars
+    for ((i=padding_each_side+extra_padding; i>0; i--)); do
+        local color_idx=$((i * gradient_len / (padding_each_side + extra_padding)))
+        [[ $color_idx -ge $gradient_len ]] && color_idx=$((gradient_len - 1))
+        printf "%b%s" "${gradient_colors[$color_idx]}" "$BOX_VERTICAL"
+    done
+    printf "%b\n" "$STYLE_RESET"
+}
+
+# Function to render all deployment steps
+render_deployment_steps() {
+    local col=$1
+    local width=$2
+    local steps=("${!3}")
+    local statuses=("${!4}")
+    local messages=("${!5}")
+    
+    local row=5
+    
+    # Only clear on first render (when all statuses are "initial")
+    local all_initial=true
+    for status in "${statuses[@]}"; do
+        if [[ "$status" != "initial" ]]; then
+            all_initial=false
+            break
+        fi
+    done
+    
+    if [[ $all_initial == true ]]; then
+        # Clear the status area first time only
+        # Make sure we don't clear beyond the box boundaries
+        local term_height=$(tput lines)
+        local box_height=$((term_height - 8))
+        local max_row=$((box_height + 2))  # Stop before the bottom border
+        
+        for ((r=5; r<max_row; r++)); do
+            tput cup $r $((col + 2))
+            printf "%-$((width-4))s" " "
+        done
+    fi
+    
+    # Render each step
+    for i in "${!steps[@]}"; do
+        tput cup $row $((col + 6))  # 4-char indent
+        
+        local icon=""
+        local icon_style=""
+        local text_style=""
+        
+        case "${statuses[$i]}" in
+            "initial")
+                icon="$ICON_INITIAL"
+                icon_style="$STATUS_INITIAL_BULLET_COLOR"
+                text_style="$STATUS_INITIAL_TEXT_COLOR"
+                ;;
+            "pending")
+                icon="$ICON_NOT_STARTED"
+                icon_style="$STATUS_INITIAL_BULLET_COLOR"
+                text_style="$STATUS_INITIAL_TEXT_COLOR"
+                ;;
+            "running")
+                # Use animation frame
+                icon="${ANIM_FRAMES[$CURRENT_ANIM_FRAME]}"
+                icon_style="$STATUS_PENDING_BULLET_COLOR"
+                text_style="$STATUS_PENDING_TEXT_COLOR"
+                ;;
+            "success")
+                icon="$ICON_SUCCESS"
+                icon_style="$STATUS_SUCCESS_BULLET_COLOR"
+                text_style="$STATUS_SUCCESS_TEXT_COLOR"
+                ;;
+            "failed")
+                icon="$ICON_FAILED"
+                icon_style="$STATUS_FAILED_BULLET_COLOR"
+                text_style="$STATUS_FAILED_TEXT_COLOR"
+                ;;
+        esac
+        
+        # Clear just this line before redrawing
+        printf "%-$((width-8))s" " "  # Adjusted for indent
+        tput cup $row $((col + 6))
+        
+        printf "%b%s%b %b%s%b" "$icon_style" "$icon" "$STYLE_RESET" "$text_style" "${steps[$i]}" "$STYLE_RESET"
+        
+        # Add inline message if exists
+        if [[ -n "${messages[$i]}" ]]; then
+            printf " %b→ %s%b" "$STATUS_INFO_COLOR" "${messages[$i]}" "$STYLE_RESET"
+        fi
+        
+        # Skip to next step position (2 rows total = 1 blank row between)
+        ((row+=2))
+    done
+    
+    # Use a global variable to pass the row value back
+    DEPLOYMENT_STATUS_FINAL_ROW=$row
+}
+
+# Function to update a single deployment step (more efficient)
+update_single_deployment_step() {
+    local step_index=$1
+    local status=$2
+    local message="${3:-}"
+    local col=$4
+    local width=$5
+    local step_name=$6
+    local animation_only="${7:-false}"  # New parameter for animation-only updates
+    
+    # Calculate the row for this step (5 + (step_index * 2) for 1 blank row between steps)
+    local row=$((5 + (step_index * 2)))
+    
+    # Determine icon and style
+    local icon=""
+    local icon_style=""
+    local text_style=""
+    
+    case "$status" in
+        "initial")
+            icon="$ICON_INITIAL"
+            icon_style="$STATUS_INITIAL_BULLET_COLOR"
+            text_style="$STATUS_INITIAL_TEXT_COLOR"
+            ;;
+        "pending")
+            icon="$ICON_NOT_STARTED"
+            icon_style="$STATUS_INITIAL_BULLET_COLOR"
+            text_style="$STATUS_INITIAL_TEXT_COLOR"
+            ;;
+        "running")
+            # Use animation frame
+            icon="${ANIM_FRAMES[$CURRENT_ANIM_FRAME]}"
+            icon_style="$STATUS_PENDING_BULLET_COLOR"
+            text_style="$STATUS_PENDING_TEXT_COLOR"
+            ;;
+        "success")
+            icon="$ICON_SUCCESS"
+            icon_style="$STATUS_SUCCESS_BULLET_COLOR"
+            text_style="$STATUS_SUCCESS_TEXT_COLOR"
+            ;;
+        "failed")
+            icon="$ICON_FAILED"
+            icon_style="$STATUS_FAILED_BULLET_COLOR"
+            text_style="$STATUS_FAILED_TEXT_COLOR"
+            ;;
+    esac
+    
+    if [[ "$animation_only" == "true" && "$status" == "running" ]]; then
+        # Only update the spinner character
+        tput cup $row $((col + 6))
+        printf "%b%s%b" "$icon_style" "$icon" "$STYLE_RESET"
+    else
+        # Update the entire line with 4-char indent
+        tput cup $row $((col + 6))
+        printf "%-$((width-8))s" " "  # Clear the entire line
+        tput cup $row $((col + 6))
+        printf "%b%s%b %b%s%b" "$icon_style" "$icon" "$STYLE_RESET" "$text_style" "$step_name" "$STYLE_RESET"
+        
+        # Add inline message if exists
+        if [[ -n "$message" ]]; then
+            printf " %b→ %s%b" "$STATUS_INFO_COLOR" "$message" "$STYLE_RESET"
+        fi
+    fi
+}
+
+# Function to update a specific deployment step
+update_deployment_step() {
+    local step_index=$1
+    local status=$2
+    local message="${3:-}"
+    local statuses_var=$4
+    local messages_var=$5
+    
+    # Update the arrays
+    eval "${statuses_var}[$step_index]=\"$status\""
+    eval "${messages_var}[$step_index]=\"$message\""
+}
+
+# Function to check if a group has items in cart
+has_group_in_cart() {
+    local check_group=$1
+    shift
+    local groups=("$@")
+    shift $((${#groups[@]} / 2))
+    local in_cart=("$@")
+    
+    for j in "${!groups[@]}"; do
+        [[ "${groups[$j]}" == "$check_group" && "${in_cart[$j]}" == true ]] && return 0
+    done
+    return 1
+}
+
+# Check if requirements are met
+requirements_met() {
+    local item_requires=$1
+    shift
+    local groups=("$@")
+    local half=$((${#groups[@]} / 2))
+    local in_cart=("${groups[@]:$half}")
+    groups=("${groups[@]:0:$half}")
+    
+    [[ -z "$item_requires" ]] && return 0
+    [[ "$item_requires" == "[]" ]] && return 0
+    
+    # Split by space for multiple requirements
+    for req in $item_requires; do
+        has_group_in_cart "$req" "${groups[@]}" "${in_cart[@]}" || return 1
+    done
+    return 0
+}
+
+# Function to get display name for category
+get_category_display_name() {
+    local cat=$1
+    local categories=("${!2}")
+    local category_names=("${!3}")
+    
+    for i in "${!categories[@]}"; do
+        if [[ "${categories[$i]}" == "$cat" ]]; then
+            echo "${category_names[$i]}"
+            return
+        fi
+    done
+    echo "$cat"
+}
+
+# Function to add/remove item from cart (fixed for Bash 3.2+)
+toggle_cart_item() {
+    local index=$1
+    local action=$2
+    local ids_array_name=$3
+    local names_array_name=$4
+    local groups_array_name=$5
+    local requires_array_name=$6
+    local in_cart_array_name=$7
+    local hint_msg_var=$8
+    local hint_timer_var=$9
+    
+    # Get arrays by reference
+    eval "local ids=(\"\${${ids_array_name}[@]}\")"
+    eval "local names=(\"\${${names_array_name}[@]}\")"
+    eval "local groups=(\"\${${groups_array_name}[@]}\")"
+    eval "local requires=(\"\${${requires_array_name}[@]}\")"
+    eval "local in_cart=(\"\${${in_cart_array_name}[@]}\")"
+    
+    # Bounds checking
+    if [[ $index -lt 0 ]] || [[ $index -ge ${#ids[@]} ]]; then
+        return 1
+    fi
+    
+    if [[ "$action" == "add" ]]; then
+        # Check requirements
+        if [[ -n "${requires[$index]}" ]] && [[ "${requires[$index]}" != "[]" ]]; then
+            if ! requirements_met "${requires[$index]}" "${groups[@]}" "${in_cart[@]}"; then
+                eval "${hint_msg_var}='${ICON_WARNING}  Requires: ${requires[$index]}'"
+                eval "${hint_timer_var}=30"
+                return 1
+            fi
+        fi
+        
+        # Handle mutually exclusive groups
+        for j in "${!groups[@]}"; do
+            if [[ "${groups[$j]}" == "${groups[$index]}" ]] && [[ $j -ne $index ]] && [[ "${in_cart[$j]}" == true ]]; then
+                eval "${in_cart_array_name}[$j]=false"
+                eval "${hint_msg_var}='${ICON_INFO}  Replaced ${names[$j]} with ${names[$index]}'"
+                eval "${hint_timer_var}=30"
+            fi
+        done
+        
+        eval "${in_cart_array_name}[$index]=true"
+        local msg=$(eval "echo \$${hint_msg_var}")
+        [[ -z "$msg" ]] && eval "${hint_msg_var}='${ICON_SUCCESS} Added ${names[$index]} to stack'" && eval "${hint_timer_var}=20"
+    else
+        eval "${in_cart_array_name}[$index]=false"
+        
+        # Check for dependent items
+        local removed_group="${groups[$index]}"
+        local dependents=""
+        
+        for j in "${!requires[@]}"; do
+            [[ -z "${requires[$j]}" ]] && continue
+            
+            # Check if this item depends on the removed group
+            if [[ "${requires[$j]}" == *"$removed_group"* ]] && [[ "${in_cart[$j]}" == true ]]; then
+                # Double-check this is the only item providing the requirement
+                local still_has_provider=false
+                for k in "${!groups[@]}"; do
+                    if [[ $k -ne $index ]] && [[ "${groups[$k]}" == "$removed_group" ]] && [[ "${in_cart[$k]}" == true ]]; then
+                        still_has_provider=true
+                        break
+                    fi
+                done
+                
+                if [[ $still_has_provider == false ]]; then
+                    eval "${in_cart_array_name}[$j]=false"
+                    [[ -n "$dependents" ]] && dependents+=", "
+                    dependents+="${names[$j]}"
+                fi
+            fi
+        done
+        
+        if [[ -n "$dependents" ]]; then
+            eval "${hint_msg_var}='${ICON_WARNING}  Also removed dependent items: $dependents'"
+            eval "${hint_timer_var}=40"
+        else
+            eval "${hint_msg_var}='${ICON_SUCCESS} Removed ${names[$index]} from cart'"
+            eval "${hint_timer_var}=20"
+        fi
+    fi
+}
+
+# Calculate pagination boundaries for catalog
+calculate_pagination() {
+    local total_items=$1
+    local content_height=$2
+    local component_categories=("${!3}")
+    local page_boundaries_var=$4
+    
+    eval "$page_boundaries_var=(0)"
+    
+    local current_page_rows=0
+    local last_category=""
+    
+    for idx in $(seq 0 $((total_items - 1))); do
+        local item_category="${component_categories[$idx]}"
+        
+        # Count category header row if this is a new category
+        if [[ "$item_category" != "$last_category" ]]; then
+            ((current_page_rows++))
+            last_category="$item_category"
+        fi
+        
+        # Count the item row
+        ((current_page_rows++))
+        
+        # Check if we've exceeded the page height
+        if [[ $current_page_rows -gt $((content_height - 2)) ]]; then
+            eval "$page_boundaries_var+=($idx)"
+            current_page_rows=1
+            
+            # Also need to count its category header if different
+            if [[ $idx -gt 0 ]]; then
+                local prev_category="${component_categories[$((idx-1))]}"
+                if [[ "$item_category" != "$prev_category" ]]; then
+                    ((current_page_rows++))
+                fi
+            fi
+            last_category="$item_category"
+        fi
+    done
+}
+
+# Function to get screen row for item
+get_screen_row_for_item() {
+    local target_idx=$1
+    local catalog_first_visible=$2
+    local catalog_last_visible=$3
+    local component_categories=("${!4}")
+    
+    local row=5  # Changed from 4 to account for spacing
+    local prev_category=""
+    
+    for ((idx=$catalog_first_visible; idx<=$catalog_last_visible && idx<=$target_idx; idx++)); do
+        local item_category="${component_categories[$idx]}"
+        
+        if [[ "$item_category" != "$prev_category" ]]; then
+            prev_category="$item_category"
+            ((row++))
+        fi
+        
+        if [[ $idx -eq $target_idx ]]; then
+            echo $row
+            return
+        fi
+        ((row++))
+    done
+}
+
+# Function to render catalog items for current page
+render_catalog() {
+    # Parameters passed as positional arguments
+    local catalog_page=$1
+    local page_boundaries_var=$2
+    local total_items=$3
+    local content_height=$4
+    local catalog_width=$5
+    local view=$6
+    local current=$7
+    shift 7
+    
+    # Arrays passed by name
+    local ids_array_name=$1
+    local names_array_name=$2
+    local groups_array_name=$3
+    local requires_array_name=$4
+    local component_categories_array_name=$5
+    local in_cart_array_name=$6
+    local categories_array_name=$7
+    local category_names_array_name=$8
+    local catalog_first_visible_var=$9
+    local catalog_last_visible_var=${10}
+    
+    # Get arrays by reference
+    eval "local ids=(\"\${${ids_array_name}[@]}\")"
+    eval "local names=(\"\${${names_array_name}[@]}\")"
+    eval "local groups=(\"\${${groups_array_name}[@]}\")"
+    eval "local requires=(\"\${${requires_array_name}[@]}\")"
+    eval "local component_categories=(\"\${${component_categories_array_name}[@]}\")"
+    eval "local in_cart=(\"\${${in_cart_array_name}[@]}\")"
+    eval "local categories=(\"\${${categories_array_name}[@]}\")"
+    eval "local category_names=(\"\${${category_names_array_name}[@]}\")"
+    
+    # Get page boundaries array
+    eval "local page_boundaries=(\"\${${page_boundaries_var}[@]}\")"
+    
+    local start_idx=${page_boundaries[$catalog_page]}
+    local end_idx=$total_items
+    
+    if [[ $((catalog_page + 1)) -lt ${#page_boundaries[@]} ]]; then
+        end_idx=${page_boundaries[$((catalog_page + 1))]}
+    fi
+    
+    local display_row=4
+    local last_category=""
+    local first_visible_idx=-1
+    local last_visible_idx=-1
+    
+    # Clear catalog area
+    for ((row=4; row<content_height+4; row++)); do
+        tput cup $row 0
+        printf "%b%s%b" "$CATALOG_BORDER_COLOR" "$BOX_VERTICAL" "$STYLE_RESET"
+        for ((col=1; col<catalog_width-1; col++)); do
+            printf " "
+        done
+        printf "%b%s%b" "$CATALOG_BORDER_COLOR" "$BOX_VERTICAL" "$STYLE_RESET"
+    done
+    
+    display_row=5
+    last_category=""
+    
+    for ((idx=start_idx; idx<end_idx; idx++)); do
+        [[ $display_row -ge $((content_height + 4)) ]] && break
+        
+        local item_category="${component_categories[$idx]}"
+        local display_name=$(get_category_display_name "$item_category" categories[@] category_names[@])
+        
+        # Category headers
+        if [[ "$item_category" != "$last_category" ]]; then
+            tput cup $display_row 2
+            printf "%b%s%b" "$CATALOG_CATEGORY_STYLE" "$display_name" "$STYLE_RESET"
+            last_category="$item_category"
+            ((display_row++))
+            [[ $display_row -ge $((content_height + 4)) ]] && break
+        fi
+        
+        # Render item with proper indentation
+        if [[ $display_row -lt $((content_height + 4)) ]]; then
+            [[ $first_visible_idx -eq -1 ]] && first_visible_idx=$idx
+            last_visible_idx=$idx
+            
+            tput cup $display_row 2
+            
+            # Cursor
+            if [[ $view == "catalog" && $idx -eq $current ]]; then
+                printf "%b%s%b " "$CATALOG_CURSOR_COLOR" "$ICON_CURSOR" "$STYLE_RESET"
+            else
+                printf "  "
+            fi
+            
+            # Check availability
+            local available=true status="" status_color=""
+            
+            if [[ "${in_cart[$idx]}" == true ]]; then
+                printf "%b%s%b " "$CATALOG_ICON_SELECTED_COLOR" "$ICON_SELECTED" "$STYLE_RESET"
+                status="(in stack)"
+                status_color="$CATALOG_STATUS_IN_STACK_STYLE"
+            elif has_group_in_cart "${groups[$idx]}" "${groups[@]}" "${in_cart[@]}"; then
+                printf "%b%s%b " "$CATALOG_ICON_DISABLED_COLOR" "$ICON_DISABLED" "$STYLE_RESET"
+                available=false
+            elif [[ -n "${requires[$idx]}" ]] && [[ "${requires[$idx]}" != "[]" ]] && ! requirements_met "${requires[$idx]}" "${groups[@]}" "${in_cart[@]}"; then
+                printf "%b%s%b " "$CATALOG_ICON_WARNING_COLOR" "$ICON_AVAILABLE" "$STYLE_RESET"
+                status="* ${requires[$idx]} required"
+                status_color="$CATALOG_STATUS_REQUIRED_STYLE"
+            else
+                printf "%b%s%b " "$CATALOG_ICON_AVAILABLE_COLOR" "$ICON_AVAILABLE" "$STYLE_RESET"
+            fi
+            
+            # Item name
+            if [[ $available == true || "${in_cart[$idx]}" == true ]]; then
+                printf "%b%s%b" "$CATALOG_ITEM_AVAILABLE_STYLE" "${names[$idx]}" "$STYLE_RESET"
+            else
+                printf "%b%s%b" "$CATALOG_ITEM_DISABLED_STYLE" "${names[$idx]}" "$STYLE_RESET"
+            fi
+            
+            # Status
+            if [[ -n "$status" ]]; then
+                local name_len=${#names[$idx]}
+                local status_len=${#status}
+                local padding=$((catalog_width - name_len - status_len - 8))
+                if [[ $padding -gt 0 ]]; then
+                    tput cuf $padding
+                    printf "%b%s%b" "$status_color" "$status" "$STYLE_RESET"
+                fi
+            fi
+            
+            ((display_row++))
+        fi
+    done
+    
+    # Update the variables properly
+    eval "${catalog_first_visible_var}=${first_visible_idx}"
+    eval "${catalog_last_visible_var}=${last_visible_idx}"
+    
+    # Page indicator
+    local total_pages=${#page_boundaries[@]}
+    if [[ $total_pages -gt 1 ]]; then
+        local page_text="Page $((catalog_page + 1))/$total_pages"
+        local text_len=${#page_text}
+        local center_pos=$(( (catalog_width - text_len - 4) / 2 ))
+        
+        tput cup $((content_height + 4)) 0
+        printf "%b%s%b" "$CATALOG_BORDER_COLOR" "$BOX_BOTTOM_LEFT" "$STYLE_RESET"
+        
+        for ((i=0; i<center_pos; i++)); do 
+            printf "%b%s%b" "$CATALOG_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
+        done
+        printf " %b%s%b " "$CATALOG_PAGE_INDICATOR_STYLE" "$page_text" "$STYLE_RESET"
+        
+        local remaining=$((catalog_width - center_pos - text_len - 4))
+        for ((i=0; i<remaining; i++)); do 
+            printf "%b%s%b" "$CATALOG_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
+        done
+        
+        printf "%b%s%b" "$CATALOG_BORDER_COLOR" "$BOX_BOTTOM_RIGHT" "$STYLE_RESET"
+    fi
+}
+
+# Function to render cart items
+render_cart() {
+    local cart_start_col=$1
+    local cart_width=$2
+    local content_height=$3
+    local view=$4
+    local cart_cursor=$5
+    shift 5
+    
+    # Get arrays by name and dereference them
+    local in_cart_array_name=$1
+    local ids_array_name=$2
+    local names_array_name=$3
+    local component_categories_array_name=$4
+    local categories_array_name=$5
+    local category_names_array_name=$6
+    
+    # Get arrays by reference
+    eval "local in_cart=(\"\${${in_cart_array_name}[@]}\")"
+    eval "local ids=(\"\${${ids_array_name}[@]}\")"
+    eval "local names=(\"\${${names_array_name}[@]}\")"
+    eval "local component_categories=(\"\${${component_categories_array_name}[@]}\")"
+    eval "local categories=(\"\${${categories_array_name}[@]}\")"
+    eval "local category_names=(\"\${${category_names_array_name}[@]}\")"
+    
+    local display_row=4
+    local cart_items_array=()
+    
+    # Collect cart items
+    for idx in "${!in_cart[@]}"; do
+        [[ "${in_cart[$idx]}" == true ]] && cart_items_array+=($idx)
+    done
+    
+    local cart_count=${#cart_items_array[@]}
+    
+    # Clear cart area
+    for ((row=4; row<content_height+4; row++)); do
+        tput cup $row $((cart_start_col + 1))
+        printf "%-$((cart_width-2))s" " "
+    done
+    
+    # Start content one row down for spacing
+    display_row=5
+    tput cup $display_row $((cart_start_col + 1))
+    
+    # Show base components first
+    tput cup $display_row $((cart_start_col + 2))
+    printf "%b%s%b" "$CART_BASE_CATEGORY_STYLE" "Base Development Tools" "$STYLE_RESET"
+    ((display_row++))
+    
+    # Base components list with checkmarks
+    local base_components=(
+        "Filebrowser (port 8090)"
+        "Git"
+        "GitHub CLI (gh)"
+        "Microsoft TUI Test"
+        "Node.js 20.18.0"
+        "SSH Server (port 2222)"
+    )
+    
+    for base_comp in "${base_components[@]}"; do
+        if [[ $display_row -lt $((content_height + 4)) ]]; then
+            tput cup $display_row $((cart_start_col + 4))
+            printf "%b%s%b %s" "$SUMMARY_CHECKMARK_COLOR" "$ICON_CHECKMARK" "$STYLE_RESET" "$base_comp"
+            ((display_row++))
+        fi
+    done
+    
+    if [[ $cart_count -gt 0 ]]; then
+        # Group items by category
+        local cart_display_count=0
+        local last_category=""
+        
+        for cat_idx in "${!categories[@]}"; do
+            local category="${categories[$cat_idx]}"
+            local category_display="${category_names[$cat_idx]}"
+            local category_has_items=false
+            
+            for idx in "${cart_items_array[@]}"; do
+                if [[ "${component_categories[$idx]}" == "$category" ]]; then
+                    if [[ $category_has_items == false ]]; then
+                        ((display_row++))
+                        if [[ $display_row -lt $((content_height + 4)) ]]; then
+                            tput cup $display_row $((cart_start_col + 2))
+                            printf "%b%s%b" "$CART_CATEGORY_STYLE" "$category_display" "$STYLE_RESET"
+                            ((display_row++))
+                            category_has_items=true
+                        fi
+                    fi
+                    
+                    if [[ $display_row -lt $((content_height + 4)) ]]; then
+                        tput cup $display_row $((cart_start_col + 2))
+                        
+                        # Cursor
+                        if [[ $view == "cart" && $cart_display_count -eq $cart_cursor ]]; then
+                            printf "%b%s%b " "$CART_CURSOR_COLOR" "$ICON_CURSOR" "$STYLE_RESET"
+                        else
+                            printf "  "
+                        fi
+                        
+                        # Checkmark instead of bullet
+                        printf "%b%s%b %b%s%b" "$SUMMARY_CHECKMARK_COLOR" "$ICON_CHECKMARK" "$STYLE_RESET" "$CART_ITEM_STYLE" "${names[$idx]}" "$STYLE_RESET"
+                        
+                        # Remove hint
+                        if [[ $view == "cart" && $cart_display_count -eq $cart_cursor ]]; then
+                            printf " %b[DEL to remove]%b" "$CART_REMOVE_HINT_STYLE" "$STYLE_RESET"
+                        fi
+                        
+                        ((display_row++))
+                    fi
+                    ((cart_display_count++))
+                fi
+            done
+        done
+    fi
+    
+    # Update the Build Stack box to show count in footer
+    local bottom_text=""
+    if [[ $cart_count -gt 0 ]]; then
+        if [[ $cart_count -eq 1 ]]; then
+            bottom_text="1 selected"
+        else
+            bottom_text="$cart_count selected"
+        fi
+    fi
+    
+    # Redraw the Build Stack box bottom border with the count
+    if [[ -n "$bottom_text" ]]; then
+        local x=$cart_start_col
+        local y=$((content_height + 4))
+        local width=$cart_width
+        
+        tput cup $y $x
+        printf "%b%s%b" "$CART_BORDER_COLOR" "$BOX_BOTTOM_LEFT" "$STYLE_RESET"
+        
+        local text_len=${#bottom_text}
+        local center_pos=$(( (width - text_len - 4) / 2 ))
+        
+        for ((i=0; i<center_pos; i++)); do 
+            printf "%b%s%b" "$CART_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
+        done
+        printf " %b%s%b " "$CART_COUNT_STYLE" "$bottom_text" "$STYLE_RESET"
+        
+        local remaining=$((width - center_pos - text_len - 4))
+        for ((i=0; i<remaining; i++)); do 
+            printf "%b%s%b" "$CART_BORDER_COLOR" "$BOX_HORIZONTAL" "$STYLE_RESET"
+        done
+        
+        printf "%b%s%b" "$CART_BORDER_COLOR" "$BOX_BOTTOM_RIGHT" "$STYLE_RESET"
+    fi
+}
+
+# Main component selection UI function (renamed from select_components)
+run_component_selection_ui() {
+    set +e  # Do not exit on error
     
     # Load components data
     local component_data=$(load_components)
@@ -189,7 +1516,7 @@ select_components() {
         if [[ $reading_names == true ]]; then
             category_names+=("$line")
         elif [[ $reading_components == true ]]; then
-            components_data+="$line"$'\n'
+            components_data+="$line"$NL
         fi
     done <<< "$component_data"
     
@@ -220,51 +1547,21 @@ select_components() {
     local term_width=$(tput cols)
     local term_height=$(tput lines)
     local catalog_width=$((term_width / 2 - 2))
-    local cart_width=$((term_width / 2 - 2))
-    local content_height=$((term_height - 10))
+    local cart_start_col=$((catalog_width + 3))
+    local cart_width=$((term_width - cart_start_col))
+    local content_height=$((term_height - 7))
     local catalog_page=0 cart_page=0
-    
+
     # Calculate pagination
     local page_boundaries=()
-    page_boundaries+=(0)
-    
-    local current_page_rows=0
-    local last_category=""
-    
-    for idx in "${!ids[@]}"; do
-        local item_category="${component_categories[$idx]}"
-        
-        # Count category header row if this is a new category
-        if [[ "$item_category" != "$last_category" ]]; then
-            ((current_page_rows++))
-            last_category="$item_category"
-        fi
-        
-        # Count the item row
-        ((current_page_rows++))
-        
-        # Check if we've exceeded the page height
-        if [[ $current_page_rows -gt $((content_height - 2)) ]]; then
-            page_boundaries+=($idx)
-            current_page_rows=1
-            
-            # Also need to count its category header if different
-            if [[ $idx -gt 0 ]]; then
-                local prev_category="${component_categories[$((idx-1))]}"
-                if [[ "$item_category" != "$prev_category" ]]; then
-                    ((current_page_rows++))
-                fi
-            fi
-            last_category="$item_category"
-        fi
-    done
+    calculate_pagination $total_items $content_height component_categories[@] page_boundaries
     
     local total_pages=${#page_boundaries[@]}
     
     # Hide cursor and disable echo
     tput civis
     stty -echo
-    trap 'tput cnorm; stty echo' EXIT
+    trap 'tput cnorm; stty echo; stop_animation' EXIT
     
     # Saved screen state
     local last_current=-1 last_cart_cursor=-1 last_view="" last_catalog_page=-1 last_cart_page=-1
@@ -272,407 +1569,24 @@ select_components() {
     local force_cart_update=false
     local force_catalog_update=false
     
-    # Function to check if a group has items in cart
-    has_group_in_cart() {
-        local check_group=$1
-        for j in "${!groups[@]}"; do
-            [[ "${groups[$j]}" == "$check_group" && "${in_cart[$j]}" == true ]] && return 0
-        done
-        return 1
-    }
-    
-    # Function to get cart item name from group
-    get_group_cart_item() {
-        local check_group=$1
-        for j in "${!groups[@]}"; do
-            if [[ "${groups[$j]}" == "$check_group" && "${in_cart[$j]}" == true ]]; then
-                echo "${names[$j]}"
-                return
-            fi
-        done
-    }
-    
-    # Check if requirements are met
-    requirements_met() {
-        local item_requires=$1
-        [[ -z "$item_requires" ]] && return 0
-        [[ "$item_requires" == "[]" ]] && return 0
-        
-        # Split by space for multiple requirements
-        for req in $item_requires; do
-            has_group_in_cart "$req" || return 1
-        done
-        return 0
-    }
-    
-    # Function to add/remove item from cart
-    toggle_cart_item() {
-        local index=$1
-        local action=$2
-        
-        # Bounds checking
-        if [[ $index -lt 0 ]] || [[ $index -ge ${#ids[@]} ]]; then
-            return 1
-        fi
-        
-        if [[ "$action" == "add" ]]; then
-            # Check requirements
-            if [[ -n "${requires[$index]}" ]] && [[ "${requires[$index]}" != "[]" ]] && ! requirements_met "${requires[$index]}"; then
-                hint_message="⚠️  Requires: ${requires[$index]}"
-                hint_timer=30
-                return 1
-            fi
-            
-            # Handle mutually exclusive groups
-            if [[ "${groups[$index]}" == *"-version" ]]; then
-                for j in "${!groups[@]}"; do
-                    if [[ "${groups[$j]}" == "${groups[$index]}" ]] && [[ $j -ne $index ]] && [[ "${in_cart[$j]}" == true ]]; then
-                        in_cart[$j]=false
-                        hint_message="ℹ️  Replaced ${names[$j]} with ${names[$index]}"
-                        hint_timer=30
-                    fi
-                done
-            fi
-            
-            in_cart[$index]=true
-            [[ -z "$hint_message" ]] && hint_message="✓ Added ${names[$index]} to stack" && hint_timer=20
-        else
-            in_cart[$index]=false
-            
-            # Check for dependent items
-            local removed_group="${groups[$index]}"
-            local dependents=""
-            
-            for j in "${!requires[@]}"; do
-                [[ -z "${requires[$j]}" ]] && continue
-                
-                # Check if this item depends on the removed group
-                if [[ "${requires[$j]}" == *"$removed_group"* ]] && [[ "${in_cart[$j]}" == true ]]; then
-                    # Double-check this is the only item providing the requirement
-                    local still_has_provider=false
-                    for k in "${!groups[@]}"; do
-                        if [[ $k -ne $index ]] && [[ "${groups[$k]}" == "$removed_group" ]] && [[ "${in_cart[$k]}" == true ]]; then
-                            still_has_provider=true
-                            break
-                        fi
-                    done
-                    
-                    if [[ $still_has_provider == false ]]; then
-                        in_cart[$j]=false
-                        [[ -n "$dependents" ]] && dependents+=", "
-                        dependents+="${names[$j]}"
-                    fi
-                fi
-            done
-            
-            if [[ -n "$dependents" ]]; then
-                hint_message="⚠️  Also removed dependent items: $dependents"
-                hint_timer=40
-            else
-                hint_message="✓ Removed ${names[$index]} from cart"
-                hint_timer=20
-            fi
-        fi
-    }
-    
-    # Function to draw a box
-    draw_box() {
-        local x=$1 y=$2 width=$3 height=$4 title=$5 bottom_text=$6
-        
-        tput cup $y $x
-        echo -ne "┌"
-        for ((i=0; i<width-2; i++)); do echo -ne "─"; done
-        echo -ne "┐"
-        
-        if [[ -n "$title" ]]; then
-            local title_len=${#title}
-            local title_pos=$(( (width - title_len - 2) / 2 ))
-            tput cup $y $((x + title_pos))
-            echo -ne "┤ $title ├"
-        fi
-        
-        for ((i=1; i<height-1; i++)); do
-            tput cup $((y + i)) $x; echo -ne "│"
-            tput cup $((y + i)) $((x + width - 1)); echo -ne "│"
-        done
-        
-        tput cup $((y + height - 1)) $x
-        echo -ne "└"
-        
-        if [[ -n "$bottom_text" ]]; then
-            local text_len=${#bottom_text}
-            local center_pos=$(( (width - text_len - 4) / 2 ))
-            
-            for ((i=0; i<center_pos; i++)); do echo -ne "─"; done
-            echo -ne " ${YELLOW}${bottom_text}${NC} "
-            for ((i=0; i<width-center_pos-text_len-6; i++)); do echo -ne "─"; done
-        else
-            for ((i=0; i<width-2; i++)); do echo -ne "─"; done
-        fi
-        
-        echo -ne "┘"
-    }
-    
-    # Function to get display name for category
-    get_category_display_name() {
-        local cat=$1
-        for i in "${!categories[@]}"; do
-            if [[ "${categories[$i]}" == "$cat" ]]; then
-                echo "${category_names[$i]}"
-                return
-            fi
-        done
-        echo "$cat"
-    }
-    
-    # Function to render catalog items for current page
-    render_catalog() {
-        local start_idx=${page_boundaries[$catalog_page]}
-        local end_idx=$total_items
-        
-        if [[ $((catalog_page + 1)) -lt ${#page_boundaries[@]} ]]; then
-            end_idx=${page_boundaries[$((catalog_page + 1))]}
-        fi
-        
-        local display_row=5
-        local last_category=""
-        local first_visible_idx=-1
-        local last_visible_idx=-1
-        
-        # Clear catalog area
-        for ((row=5; row<content_height+5; row++)); do
-            tput cup $row 0
-            printf "│"
-            for ((col=1; col<catalog_width-1; col++)); do
-                printf " "
-            done
-            printf "│"
-        done
-        
-        display_row=5
-        last_category=""
-        
-        for ((idx=start_idx; idx<end_idx; idx++)); do
-            [[ $display_row -ge $((content_height + 5)) ]] && break
-            
-            local item_category="${component_categories[$idx]}"
-            local display_name=$(get_category_display_name "$item_category")
-            
-            # Category headers
-            if [[ "$item_category" != "$last_category" ]]; then
-                tput cup $display_row 2
-                printf "%b%s%b" "${GREEN}" "$display_name" "${NC}"
-                last_category="$item_category"
-                ((display_row++))
-                [[ $display_row -ge $((content_height + 5)) ]] && break
-            fi
-            
-            # Render item
-            if [[ $display_row -lt $((content_height + 5)) ]]; then
-                [[ $first_visible_idx -eq -1 ]] && first_visible_idx=$idx
-                last_visible_idx=$idx
-                
-                tput cup $display_row 2
-                
-                # Cursor
-                if [[ $view == "catalog" && $idx -eq $current ]]; then
-                    printf "\033[0;34m▸\033[0m "
-                else
-                    printf "  "
-                fi
-                
-                # Check availability
-                local available=true status="" status_color=""
-                
-                if [[ "${in_cart[$idx]}" == true ]]; then
-                    printf "\033[0;32m✓\033[0m "
-                    status="(in stack)"
-                    status_color="\033[0;32m"
-                elif [[ "${groups[$idx]}" == *"-version" ]] && has_group_in_cart "${groups[$idx]}"; then
-                    printf "\033[0;90m○\033[0m "
-                    available=false
-                elif [[ -n "${requires[$idx]}" ]] && [[ "${requires[$idx]}" != "[]" ]] && ! requirements_met "${requires[$idx]}"; then
-                    printf "\033[1;33m○\033[0m "
-                    status="(needs ${requires[$idx]})"
-                    status_color="\033[1;33m"
-                else
-                    printf "○ "
-                fi
-                
-                # Item name
-                if [[ $available == true || "${in_cart[$idx]}" == true ]]; then
-                    printf "%s" "${names[$idx]}"
-                else
-                    printf "\033[0;90m%s\033[0m" "${names[$idx]}"
-                fi
-                
-                # Status
-                if [[ -n "$status" ]]; then
-                    local name_len=${#names[$idx]}
-                    local status_len=${#status}
-                    local padding=$((catalog_width - name_len - status_len - 8))
-                    if [[ $padding -gt 0 ]]; then
-                        tput cuf $padding
-                        printf "%b%s\033[0m" "$status_color" "$status"
-                    fi
-                fi
-                
-                ((display_row++))
-            fi
-        done
-        
-        catalog_first_visible=$first_visible_idx
-        catalog_last_visible=$last_visible_idx
-        
-        # Page indicator
-        if [[ $total_pages -gt 1 ]]; then
-            local page_text="Page $((catalog_page + 1))/$total_pages"
-            local text_len=${#page_text}
-            local center_pos=$(( (catalog_width - text_len - 4) / 2 ))
-            
-            tput cup $((content_height + 5)) 0
-            printf "└"
-            
-            for ((i=0; i<center_pos; i++)); do printf "─"; done
-            printf " \033[1;33m%s\033[0m " "${page_text}"
-            
-            local remaining=$((catalog_width - center_pos - text_len - 4))
-            for ((i=0; i<remaining; i++)); do printf "─"; done
-            
-            printf "┘"
-        fi
-    }
-
-    # Function to render cart items
-    render_cart() {
-        local display_row=5
-        local cart_items_array=()
-        
-        # Collect cart items
-        for idx in "${!in_cart[@]}"; do
-            [[ "${in_cart[$idx]}" == true ]] && cart_items_array+=($idx)
-        done
-        
-        local cart_count=${#cart_items_array[@]}
-        
-        # Clear cart area
-        for ((row=5; row<content_height+5; row++)); do
-            tput cup $row $((catalog_width + 4))
-            printf "%-$((cart_width-4))s" " "
-        done
-        
-        tput cup $display_row $((catalog_width + 4))
-        
-        # Always show base components
-        printf "%b%d selected + base components:%b" "${GREEN}" "$cart_count" "${NC}"
-        ((display_row++))
-        
-        # Show base components first
-        ((display_row++))
-        if [[ $display_row -lt $((content_height + 5)) ]]; then
-            tput cup $display_row $((catalog_width + 4))
-            printf "%b━ Base Development Tools ━%b" "${BLUE}" "${NC}"
-            ((display_row++))
-        fi
-        
-        # Base components list (updated - no Node.js or npm)
-        local base_components=(
-            "• Git"
-            "• GitHub CLI (gh)"
-        )
-        
-        for base_comp in "${base_components[@]}"; do
-            if [[ $display_row -lt $((content_height + 5)) ]]; then
-                tput cup $display_row $((catalog_width + 4))
-                printf "  %s" "$base_comp"
-                ((display_row++))
-            fi
-        done
-        
-        if [[ $cart_count -gt 0 ]]; then
-            # Group items by category
-            local cart_display_count=0
-            local last_category=""
-            
-            for cat_idx in "${!categories[@]}"; do
-                local category="${categories[$cat_idx]}"
-                local category_display="${category_names[$cat_idx]}"
-                local category_has_items=false
-                
-                for idx in "${cart_items_array[@]}"; do
-                    if [[ "${component_categories[$idx]}" == "$category" ]]; then
-                        if [[ $category_has_items == false ]]; then
-                            ((display_row++))
-                            if [[ $display_row -lt $((content_height + 5)) ]]; then
-                                tput cup $display_row $((catalog_width + 4))
-                                printf "%b━ %s ━%b" "${BLUE}" "$category_display" "${NC}"
-                                ((display_row++))
-                                category_has_items=true
-                            fi
-                        fi
-                        
-                        if [[ $display_row -lt $((content_height + 5)) ]]; then
-                            tput cup $display_row $((catalog_width + 4))
-                            
-                            # Cursor
-                            [[ $view == "cart" && $cart_display_count -eq $cart_cursor ]] && printf "%b▸%b " "${BLUE}" "${NC}" || printf "  "
-                            
-                            printf "• %s" "${names[$idx]}"
-                            
-                            # Remove hint
-                            [[ $view == "cart" && $cart_display_count -eq $cart_cursor ]] && printf " %b[DEL to remove]%b" "${RED}" "${NC}"
-                            
-                            ((display_row++))
-                        fi
-                        ((cart_display_count++))
-                    fi
-                done
-            done
-        else
-            # Show message when no additional components selected
-            ((display_row++))
-            if [[ $display_row -lt $((content_height + 5)) ]]; then
-                tput cup $display_row $((catalog_width + 4))
-                printf "%b(No additional components selected)%b" "${YELLOW}" "${NC}"
-            fi
-        fi
-    }
-    
     # Main display loop
     while true; do
-        # Only clear screen on first draw
+        # Initialize screen if needed
         if [[ $screen_initialized == false ]]; then
             clear
-            
-            # Title
-            local title="Container Component Configurator"
-            local title_len=${#title}
-            local title_pos=$(( (term_width - title_len) / 2 ))
-            
-            tput cup 0 0
-            for ((i=0; i<term_width; i++)); do echo -ne "${BLUE}━${NC}"; done
-            
-            tput cup 1 $title_pos
-            echo -ne "${YELLOW}${title}${NC}"
-            
-            tput cup 2 0
-            for ((i=0; i<term_width; i++)); do echo -ne "${BLUE}━${NC}"; done
-            
+            draw_gradient_title "AI DevKit Pod Configurator" 1 
             echo ""
-            draw_box 0 4 $catalog_width $((content_height + 2)) "Available Components"
-            draw_box $((catalog_width + 2)) 4 $cart_width $((content_height + 2)) "Build Stack"
-            
-            # Instructions
-            tput cup $((term_height - 2)) 0
-            for ((i=0; i<term_width; i++)); do echo -ne "${BLUE}─${NC}"; done
-            
+            draw_box 0 3 $catalog_width $((content_height + 2)) "Available Components" "" "$CATALOG_BORDER_COLOR" "$CATALOG_TITLE_STYLE"
+            draw_box $cart_start_col 3 $cart_width $((content_height + 2)) "Build Stack" "" "$CART_BORDER_COLOR" "$CART_TITLE_STYLE" 
             screen_initialized=true
         fi
         
-        # Handle cursor positioning for page changes
+        # Handle catalog rendering
         if [[ -n "$position_cursor_after_render" ]]; then
-            render_catalog
-            
+            render_catalog $catalog_page page_boundaries $total_items $content_height $catalog_width \
+                          $view $current ids names groups requires component_categories \
+                          in_cart categories category_names catalog_first_visible catalog_last_visible
+
             if [[ "$position_cursor_after_render" == "first" ]]; then
                 current=$catalog_first_visible
             elif [[ "$position_cursor_after_render" == "last" ]]; then
@@ -680,11 +1594,17 @@ select_components() {
             fi
             position_cursor_after_render=""
             
-            render_catalog
+            render_catalog $catalog_page page_boundaries $total_items $content_height $catalog_width \
+                          $view $current ids names groups requires component_categories \
+                          in_cart categories category_names catalog_first_visible catalog_last_visible
+
             last_catalog_page=$catalog_page
             last_current=$current
         elif [[ $last_catalog_page != $catalog_page || $last_view != $view || $force_catalog_update == true ]]; then
-            render_catalog
+            render_catalog $catalog_page page_boundaries $total_items $content_height $catalog_width \
+                          $view $current ids names groups requires component_categories \
+                          in_cart categories category_names catalog_first_visible catalog_last_visible
+
             last_catalog_page=$catalog_page
             force_catalog_update=false
         elif [[ $last_current != $current && $view == "catalog" ]]; then
@@ -692,69 +1612,45 @@ select_components() {
             if [[ $current -ge $catalog_first_visible && $current -le $catalog_last_visible && 
                   $last_current -ge $catalog_first_visible && $last_current -le $catalog_last_visible ]]; then
                 
-                # Function to calculate screen row for item
-                get_screen_row_for_item() {
-                    local target_idx=$1
-                    local row=5
-                    local prev_category=""
-                    
-                    for ((idx=$catalog_first_visible; idx<=$catalog_last_visible && idx<=$target_idx; idx++)); do
-                        local item_category="${component_categories[$idx]}"
-                        
-                        if [[ "$item_category" != "$prev_category" ]]; then
-                            prev_category="$item_category"
-                            ((row++))
-                        fi
-                        
-                        if [[ $idx -eq $target_idx ]]; then
-                            echo $row
-                            return
-                        fi
-                        ((row++))
-                    done
-                }
-                
                 # Update cursor positions
-                local old_screen_row=$(get_screen_row_for_item $last_current)
-                local new_screen_row=$(get_screen_row_for_item $current)
+                local old_screen_row=$(get_screen_row_for_item $last_current $catalog_first_visible $catalog_last_visible component_categories[@])
+                local new_screen_row=$(get_screen_row_for_item $current $catalog_first_visible $catalog_last_visible component_categories[@])
                 
                 tput cup $old_screen_row 2
                 printf "  "
                 
                 tput cup $new_screen_row 2
-                printf "\033[0;34m▸\033[0m "
+                printf "%b%s%b " "$CATALOG_CURSOR_COLOR" "$ICON_CURSOR" "$STYLE_RESET"
             else
-                render_catalog
+                render_catalog $catalog_page page_boundaries $total_items $content_height $catalog_width \
+                              $view $current ids names groups requires component_categories \
+                              in_cart categories category_names catalog_first_visible catalog_last_visible
             fi
         fi
         
+        # Handle cart rendering
         if [[ $last_cart_page != $cart_page || $last_view != $view || $last_cart_cursor != $cart_cursor || $force_cart_update == true ]]; then
-            render_cart
+            render_cart $cart_start_col $cart_width $content_height $view $cart_cursor \
+                       in_cart ids names component_categories categories category_names
             last_cart_page=$cart_page
             force_cart_update=false
         fi
         
         # Update instructions if view changed
         if [[ $last_view != $view ]]; then
-            tput cup $((term_height - 1)) 0
-            tput el
-            if [[ $view == "catalog" ]]; then
-                echo -ne "${YELLOW}↑↓/jk:${NC} Navigate  ${YELLOW}←→/hl:${NC} Page  ${YELLOW}SPACE:${NC} Add to stack  ${YELLOW}TAB:${NC} Switch to stack  ${YELLOW}ENTER:${NC} Build  ${YELLOW}q:${NC} Cancel"
-            else
-                echo -ne "${YELLOW}↑↓/jk:${NC} Navigate  ${YELLOW}DEL/d:${NC} Remove  ${YELLOW}TAB:${NC} Switch to catalog  ${YELLOW}ENTER:${NC} Build  ${YELLOW}q:${NC} Cancel"
-            fi
+            display_ui_instructions $view $term_height $term_width
         fi
         
         # Display hint message
         if [[ $hint_timer -gt 0 ]]; then
-            tput cup 3 0
+            tput cup $((content_height + 5)) 0
             tput el
             local hint_pos=$(( (term_width - ${#hint_message}) / 2 ))
-            tput cup 3 $hint_pos
-            echo -ne "${YELLOW}$hint_message${NC}"
+            tput cup $((content_height + 5)) $hint_pos
+            printf "%b%s%b" "$GLOBAL_HINT_STYLE" "$hint_message" "$STYLE_RESET"
             ((hint_timer--))
         elif [[ $hint_timer -eq 0 && -n "$hint_message" ]]; then
-            tput cup 3 0
+            tput cup $((content_height + 5)) 0
             tput el
             hint_message=""
         fi
@@ -764,98 +1660,25 @@ select_components() {
         last_cart_cursor=$cart_cursor
         last_view=$view
         
-        # Read key
+        # Read key and handle input
         IFS= read -rsn1 key
         
-        # Debug: Uncomment to see raw key codes
-        # if [[ -n "$key" ]]; then
-        #     hint_message="DEBUG: Key pressed: $(printf %q "$key") ($(printf '%02x' "'$key"))"
-        #     hint_timer=30
-        # fi
+        # Count cart items for navigation
+        local cart_items_count=0
+        for ic in "${in_cart[@]}"; do [[ $ic == true ]] && ((cart_items_count++)); done
         
-        # Handle input
-        if [[ $key == $'\e' ]]; then
+        if [[ $key == "$ESC" ]]; then
             # Read more characters for escape sequences
             read -rsn1 bracket
             if [[ $bracket == '[' ]]; then
                 # CSI sequence - read the rest
                 read -rsn1 char1
                 
-                # Check if we need to read more characters
                 case "$char1" in
                     '3') # Possible DELETE key sequence
                         read -rsn1 char2
-                        if [[ $char2 == '~' ]]; then
-                            # DELETE key confirmed
-                            if [[ $view == "cart" ]]; then
-                                local cart_items_array=()
-                                for idx in "${!in_cart[@]}"; do
-                                    [[ "${in_cart[$idx]}" == true ]] && cart_items_array+=($idx)
-                                done
-                                
-                                if [[ ${#cart_items_array[@]} -eq 0 ]]; then
-                                    hint_message="No items in cart to remove"
-                                    hint_timer=30
-                                elif [[ $cart_cursor -lt ${#cart_items_array[@]} ]]; then
-                                    local item_idx=${cart_items_array[$cart_cursor]}
-                                    
-                                    toggle_cart_item $item_idx "remove"
-                                    
-                                    # Rebuild cart items array after removal
-                                    cart_items_array=()
-                                    for idx in "${!in_cart[@]}"; do
-                                        [[ "${in_cart[$idx]}" == true ]] && cart_items_array+=($idx)
-                                    done
-                                    
-                                    local new_count=${#cart_items_array[@]}
-                                    [[ $cart_cursor -ge $new_count && $cart_cursor -gt 0 ]] && ((cart_cursor--))
-                                    
-                                    force_catalog_update=true
-                                    force_cart_update=true
-                                fi
-                            fi
-                        fi
-                        ;;
-                    'A') # Up arrow
-                        if [[ $view == "catalog" ]]; then
-                            if [[ $current -eq $catalog_first_visible ]] && [[ $catalog_page -gt 0 ]]; then
-                                ((catalog_page--))
-                                position_cursor_after_render="last"
-                            elif ((current > 0)); then
-                                ((current--))
-                            fi
-                        else
-                            ((cart_cursor > 0)) && ((cart_cursor--))
-                        fi
-                        ;;
-                    'B') # Down arrow
-                        if [[ $view == "catalog" ]]; then
-                            if [[ $current -eq $catalog_last_visible ]] && [[ $catalog_page -lt $((total_pages - 1)) ]]; then
-                                ((catalog_page++))
-                                position_cursor_after_render="first"
-                            elif ((current < total_items - 1)); then
-                                ((current++))
-                            fi
-                        else
-                            local cart_items_count=0
-                            for ic in "${in_cart[@]}"; do [[ $ic == true ]] && ((cart_items_count++)); done
-                            ((cart_cursor < cart_items_count - 1)) && ((cart_cursor++))
-                        fi
-                        ;;
-                    'C') # Right arrow
-                        if [[ $view == "catalog" && $catalog_page -lt $((total_pages - 1)) ]]; then
-                            ((catalog_page++))
-                            position_cursor_after_render="first"
-                        fi
-                        ;;
-                    'D') # Left arrow
-                        if [[ $view == "catalog" && $catalog_page -gt 0 ]]; then
-                            ((catalog_page--))
-                            position_cursor_after_render="first"
-                        fi
-                        ;;
-                    'P') # Alternative DELETE on some terminals
-                        if [[ $view == "cart" ]]; then
+                        if [[ $char2 == '~' ]] && [[ $view == "cart" ]]; then
+                            # Handle delete in cart
                             local cart_items_array=()
                             for idx in "${!in_cart[@]}"; do
                                 [[ "${in_cart[$idx]}" == true ]] && cart_items_array+=($idx)
@@ -866,8 +1689,52 @@ select_components() {
                                 hint_timer=30
                             elif [[ $cart_cursor -lt ${#cart_items_array[@]} ]]; then
                                 local item_idx=${cart_items_array[$cart_cursor]}
+                                toggle_cart_item $item_idx "remove" ids names groups requires in_cart hint_message hint_timer
                                 
-                                toggle_cart_item $item_idx "remove"
+                                # Rebuild cart items array after removal
+                                cart_items_array=()
+                                for idx in "${!in_cart[@]}"; do
+                                    [[ "${in_cart[$idx]}" == true ]] && cart_items_array+=($idx)
+                                done
+                                
+                                local new_count=${#cart_items_array[@]}
+                                [[ $cart_cursor -ge $new_count && $cart_cursor -gt 0 ]] && ((cart_cursor--))
+                                
+                                force_catalog_update=true
+                                force_cart_update=true
+                            fi
+                        fi
+                        ;;
+                    'A') # Up arrow
+                        local nav_result=$(handle_up_key "$view" "$current" "$cart_cursor" "$catalog_page" "$catalog_first_visible")
+                        parse_nav_result "$nav_result"
+                        ;;
+                    'B') # Down arrow
+                        local nav_result=$(handle_down_key "$view" "$current" "$cart_cursor" "$catalog_page" "$catalog_last_visible" "$total_pages" "$total_items" "$cart_items_count")
+                        parse_nav_result "$nav_result"
+                        ;;
+                    'C') # Right arrow
+                        local nav_result=$(handle_right_key "$view" "$current" "$cart_cursor" "$catalog_page" "$total_pages")
+                        parse_nav_result "$nav_result"
+                        ;;
+                    'D') # Left arrow
+                        local nav_result=$(handle_left_key "$view" "$current" "$cart_cursor" "$catalog_page")
+                        parse_nav_result "$nav_result"
+                        ;;
+                    'P') # Alternative DELETE on some terminals
+                        if [[ $view == "cart" ]]; then
+                            # Handle delete in cart
+                            local cart_items_array=()
+                            for idx in "${!in_cart[@]}"; do
+                                [[ "${in_cart[$idx]}" == true ]] && cart_items_array+=($idx)
+                            done
+                            
+                            if [[ ${#cart_items_array[@]} -eq 0 ]]; then
+                                hint_message="No items in cart to remove"
+                                hint_timer=30
+                            elif [[ $cart_cursor -lt ${#cart_items_array[@]} ]]; then
+                                local item_idx=${cart_items_array[$cart_cursor]}
+                                toggle_cart_item $item_idx "remove" ids names groups requires in_cart hint_message hint_timer
                                 
                                 # Rebuild cart items array after removal
                                 cart_items_array=()
@@ -889,95 +1756,141 @@ select_components() {
                 read -rsn1 char1
                 case "$char1" in
                     'A') # Up arrow (alternative)
-                        if [[ $view == "catalog" ]]; then
-                            if [[ $current -eq $catalog_first_visible ]] && [[ $catalog_page -gt 0 ]]; then
-                                ((catalog_page--))
-                                position_cursor_after_render="last"
-                            elif ((current > 0)); then
-                                ((current--))
-                            fi
-                        else
-                            ((cart_cursor > 0)) && ((cart_cursor--))
-                        fi
+                        local nav_result=$(handle_up_key "$view" "$current" "$cart_cursor" "$catalog_page" "$catalog_first_visible")
+                        parse_nav_result "$nav_result"
                         ;;
                     'B') # Down arrow (alternative)
-                        if [[ $view == "catalog" ]]; then
-                            if [[ $current -eq $catalog_last_visible ]] && [[ $catalog_page -lt $((total_pages - 1)) ]]; then
-                                ((catalog_page++))
-                                position_cursor_after_render="first"
-                            elif ((current < total_items - 1)); then
-                                ((current++))
-                            fi
-                        else
-                            local cart_items_count=0
-                            for ic in "${in_cart[@]}"; do [[ $ic == true ]] && ((cart_items_count++)); done
-                            ((cart_cursor < cart_items_count - 1)) && ((cart_cursor++))
-                        fi
+                        local nav_result=$(handle_down_key "$view" "$current" "$cart_cursor" "$catalog_page" "$catalog_last_visible" "$total_pages" "$total_items" "$cart_items_count")
+                        parse_nav_result "$nav_result"
                         ;;
                     'C') # Right arrow (alternative)
-                        if [[ $view == "catalog" && $catalog_page -lt $((total_pages - 1)) ]]; then
-                            ((catalog_page++))
-                            position_cursor_after_render="first"
-                        fi
+                        local nav_result=$(handle_right_key "$view" "$current" "$cart_cursor" "$catalog_page" "$total_pages")
+                        parse_nav_result "$nav_result"
                         ;;
                     'D') # Left arrow (alternative)
-                        if [[ $view == "catalog" && $catalog_page -gt 0 ]]; then
-                            ((catalog_page--))
-                            position_cursor_after_render="first"
-                        fi
+                        local nav_result=$(handle_left_key "$view" "$current" "$cart_cursor" "$catalog_page")
+                        parse_nav_result "$nav_result"
                         ;;
                 esac
             fi
         elif [[ -z "$key" ]]; then
             break  # Enter key
-        elif [[ "$key" == $'\t' ]]; then
+        elif [[ "$key" == "$TAB" ]]; then
             view=$([[ $view == "catalog" ]] && echo "cart" || echo "catalog")
             [[ $view == "cart" ]] && cart_cursor=0
         elif [[ "$key" == " " && $view == "catalog" ]]; then
             if [[ $current -ge 0 ]] && [[ $current -lt ${#ids[@]} ]]; then
                 if [[ "${in_cart[$current]}" == true ]]; then
-                    toggle_cart_item $current "remove"
+                    # Remove from cart
+                    in_cart[$current]=false
+                    
+                    # DEBUG
+                    echo "DEBUG: Removed ${names[$current]} from cart (index $current)" >> "$LOG_FILE"
+                    
+                    # Check for dependent items
+                    local removed_group="${groups[$current]}"
+                    local dependents=""
+                    
+                    for j in "${!requires[@]}"; do
+                        [[ -z "${requires[$j]}" ]] && continue
+                        
+                        # Check if this item depends on the removed group
+                        if [[ "${requires[$j]}" == *"$removed_group"* ]] && [[ "${in_cart[$j]}" == true ]]; then
+                            # Double-check this is the only item providing the requirement
+                            local still_has_provider=false
+                            for k in "${!groups[@]}"; do
+                                if [[ $k -ne $current ]] && [[ "${groups[$k]}" == "$removed_group" ]] && [[ "${in_cart[$k]}" == true ]]; then
+                                    still_has_provider=true
+                                    break
+                                fi
+                            done
+                            
+                            if [[ $still_has_provider == false ]]; then
+                                in_cart[$j]=false
+                                [[ -n "$dependents" ]] && dependents+=", "
+                                dependents+="${names[$j]}"
+                            fi
+                        fi
+                    done
+                    
+                    if [[ -n "$dependents" ]]; then
+                        hint_message="${ICON_WARNING}  Also removed dependent items: $dependents"
+                        hint_timer=40
+                    else
+                        hint_message="${ICON_SUCCESS} Removed ${names[$current]} from cart"
+                        hint_timer=20
+                    fi
                 else
-                    toggle_cart_item $current "add"
+                    # Add to cart
+                    # Check requirements
+                    if [[ -n "${requires[$current]}" ]] && [[ "${requires[$current]}" != "[]" ]]; then
+                        if ! requirements_met "${requires[$current]}" "${groups[@]}" "${in_cart[@]}"; then
+                            hint_message="${ICON_WARNING}  Requires: ${requires[$current]}"
+                            hint_timer=30
+                        else
+                            # Handle mutually exclusive groups
+                            for j in "${!groups[@]}"; do
+                                if [[ "${groups[$j]}" == "${groups[$current]}" ]] && [[ $j -ne $current ]] && [[ "${in_cart[$j]}" == true ]]; then
+                                    in_cart[$j]=false
+                                    hint_message="${ICON_INFO}  Replaced ${names[$j]} with ${names[$current]}"
+                                    hint_timer=30
+                                fi
+                            done
+                            
+                            in_cart[$current]=true
+                            
+                            # DEBUG
+                            echo "DEBUG: Added ${names[$current]} to cart (index $current)" >> "$LOG_FILE"
+                            echo "DEBUG: Current cart contents:" >> "$LOG_FILE"
+                            for idx in "${!in_cart[@]}"; do
+                                if [[ "${in_cart[$idx]}" == true ]]; then
+                                    echo "DEBUG:   - ${names[$idx]} (index $idx)" >> "$LOG_FILE"
+                                fi
+                            done
+                            
+                            [[ -z "$hint_message" ]] && hint_message="${ICON_SUCCESS} Added ${names[$current]} to stack" && hint_timer=20
+                        fi
+                    else
+                        # No requirements, just handle mutually exclusive groups
+                        for j in "${!groups[@]}"; do
+                            if [[ "${groups[$j]}" == "${groups[$current]}" ]] && [[ $j -ne $current ]] && [[ "${in_cart[$j]}" == true ]]; then
+                                in_cart[$j]=false
+                                hint_message="${ICON_INFO}  Replaced ${names[$j]} with ${names[$current]}"
+                                hint_timer=30
+                            fi
+                        done
+                        
+                        in_cart[$current]=true
+                        
+                        # DEBUG
+                        echo "DEBUG: Added ${names[$current]} to cart (index $current)" >> "$LOG_FILE"
+                        echo "DEBUG: Current cart contents:" >> "$LOG_FILE"
+                        for idx in "${!in_cart[@]}"; do
+                            if [[ "${in_cart[$idx]}" == true ]]; then
+                                echo "DEBUG:   - ${names[$idx]} (index $idx)" >> "$LOG_FILE"
+                            fi
+                        done
+                        
+                        [[ -z "$hint_message" ]] && hint_message="${ICON_SUCCESS} Added ${names[$current]} to stack" && hint_timer=20
+                    fi
                 fi
                 force_catalog_update=true
                 force_cart_update=true
-            fi
+            fi 
         elif [[ "$key" =~ ^[jJ]$ ]]; then
-            if [[ $view == "catalog" ]]; then
-                if [[ $current -eq $catalog_last_visible ]] && [[ $catalog_page -lt $((total_pages - 1)) ]]; then
-                    ((catalog_page++))
-                    position_cursor_after_render="first"
-                elif ((current < total_items - 1)); then
-                    ((current++))
-                fi
-            else
-                local cart_items_count=0
-                for ic in "${in_cart[@]}"; do [[ $ic == true ]] && ((cart_items_count++)); done
-                ((cart_cursor < cart_items_count - 1)) && ((cart_cursor++))
-            fi
+            local nav_result=$(handle_down_key "$view" "$current" "$cart_cursor" "$catalog_page" "$catalog_last_visible" "$total_pages" "$total_items" "$cart_items_count")
+            parse_nav_result "$nav_result"
         elif [[ "$key" =~ ^[kK]$ ]]; then
-            if [[ $view == "catalog" ]]; then
-                if [[ $current -eq $catalog_first_visible ]] && [[ $catalog_page -gt 0 ]]; then
-                    ((catalog_page--))
-                    position_cursor_after_render="last"
-                elif ((current > 0)); then
-                    ((current--))
-                fi
-            else
-                ((cart_cursor > 0)) && ((cart_cursor--))
-            fi
+            local nav_result=$(handle_up_key "$view" "$current" "$cart_cursor" "$catalog_page" "$catalog_first_visible")
+            parse_nav_result "$nav_result"
         elif [[ "$key" =~ ^[hH]$ && $view == "catalog" ]]; then
-            if [[ $catalog_page -gt 0 ]]; then
-                ((catalog_page--))
-                position_cursor_after_render="first"
-            fi
+            local nav_result=$(handle_left_key "$view" "$current" "$cart_cursor" "$catalog_page")
+            parse_nav_result "$nav_result"
         elif [[ "$key" =~ ^[lL]$ && $view == "catalog" ]]; then
-            if [[ $catalog_page -lt $((total_pages - 1)) ]]; then
-                ((catalog_page++))
-                position_cursor_after_render="first"
-            fi
-        elif [[ "$key" =~ ^[dD]$ && $view == "cart" ]]; then  # 'd' key for delete
+            local nav_result=$(handle_right_key "$view" "$current" "$cart_cursor" "$catalog_page" "$total_pages")
+            parse_nav_result "$nav_result"
+        elif [[ "$key" =~ ^[dD]$ && $view == "cart" ]]; then
+            # Handle 'd' key for delete in cart
             local cart_items_array=()
             for idx in "${!in_cart[@]}"; do
                 [[ "${in_cart[$idx]}" == true ]] && cart_items_array+=($idx)
@@ -988,8 +1901,7 @@ select_components() {
                 hint_timer=30
             elif [[ $cart_cursor -lt ${#cart_items_array[@]} ]]; then
                 local item_idx=${cart_items_array[$cart_cursor]}
-                
-                toggle_cart_item $item_idx "remove"
+                toggle_cart_item $item_idx "remove" ids names groups requires in_cart hint_message hint_timer
                 
                 # Rebuild cart items array after removal
                 cart_items_array=()
@@ -1003,7 +1915,8 @@ select_components() {
                 force_catalog_update=true
                 force_cart_update=true
             fi
-        elif [[ "$key" == $'\x7f' && $view == "cart" ]]; then  # Backspace key (0x7F)
+        elif [[ "$key" == "$BACKSPACE" && $view == "cart" ]]; then
+            # Handle backspace for delete in cart
             local cart_items_array=()
             for idx in "${!in_cart[@]}"; do
                 [[ "${in_cart[$idx]}" == true ]] && cart_items_array+=($idx)
@@ -1014,8 +1927,7 @@ select_components() {
                 hint_timer=30
             elif [[ $cart_cursor -lt ${#cart_items_array[@]} ]]; then
                 local item_idx=${cart_items_array[$cart_cursor]}
-                
-                toggle_cart_item $item_idx "remove"
+                toggle_cart_item $item_idx "remove" ids names groups requires in_cart hint_message hint_timer
                 
                 # Rebuild cart items array after removal
                 cart_items_array=()
@@ -1036,51 +1948,424 @@ select_components() {
             log "Installation cancelled."
             exit 0
         fi
-    done   
-
+        
+        # Check for exit conditions (moved outside of input handling)
+        if [[ "$key" == "$NL" ]] || [[ -z "$key" ]]; then
+            break  # Enter key
+        fi
+    done
+    
+    # DEBUG: Before calling display_selection_summary
+    echo "DEBUG: About to call display_selection_summary" >> "$LOG_FILE"
+    echo "DEBUG: Final cart contents before summary:" >> "$LOG_FILE"
+    for idx in "${!in_cart[@]}"; do
+        if [[ "${in_cart[$idx]}" == true ]]; then
+            echo "DEBUG:   - ${names[$idx]} (index $idx)" >> "$LOG_FILE"
+        fi
+    done
+    echo "DEBUG: Total items in arrays: ids=${#ids[@]}, names=${#names[@]}, in_cart=${#in_cart[@]}" >> "$LOG_FILE"
+    
     tput cnorm
     stty echo
     clear
+
+    # Display summary and save selections
+    display_selection_summary in_cart[@] ids[@] names[@] groups[@] component_categories[@] \
+                        requires[@] yaml_files[@] categories[@] category_names[@]
     
-    # Build final selections
+    set -e
+}
+
+# Display UI instructions based on current view
+display_ui_instructions() {
+    local view=$1
+    local term_height=$2
+    local term_width=$3
+    
+    tput cup $((term_height - 1)) 0
+    tput el
+    
+    # Build the instruction text based on view
+    local instruction_text=""
+    if [[ $view == "catalog" ]]; then
+        instruction_text="↑↓/jk: Navigate  ←→/hl: Page  SPACE: Add to stack  TAB: Switch to stack  ENTER: Build  q: Cancel"
+    else
+        instruction_text="↑↓/jk: Navigate  DEL/d: Remove  TAB: Switch to catalog  ENTER: Build  q: Cancel"
+    fi
+    
+    # Calculate center position
+    local text_len=${#instruction_text}
+    local start_pos=$(( (term_width - text_len) / 2 ))
+    
+    # Move to center position
+    tput cup $((term_height - 1)) $start_pos
+    
+    # Print with formatting
+    if [[ $view == "catalog" ]]; then
+        printf "%b↑↓/jk:%b Navigate  %b←→/hl:%b Page  %bSPACE:%b Add to stack  %bTAB:%b Switch to stack  %bENTER:%b Build  %bq:%b Cancel" \
+            "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
+            "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
+            "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
+            "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
+            "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
+            "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE"
+    else
+        printf "%b↑↓/jk:%b Navigate  %bDEL/d:%b Remove  %bTAB:%b Switch to catalog  %bENTER:%b Build  %bq:%b Cancel" \
+            "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
+            "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
+            "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
+            "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE" \
+            "$INSTRUCTION_KEY_STYLE" "$INSTRUCTION_TEXT_STYLE"
+    fi
+}
+
+# Handle UI input - Fixed version
+handle_ui_input() {
+    local -n key_ref=$1
+    local -n view_ref=$2
+    local -n current_ref=$3
+    local -n cart_cursor_ref=$4
+    local -n catalog_page_ref=$5
+    local -n cart_page_ref=$6
+    local -n position_cursor_ref=$7
+    local total_pages=$8
+    local total_items=$9
+    local catalog_first_visible=${10}
+    local catalog_last_visible=${11}
+    local -n ids_ref=$12
+    local -n names_ref=$13
+    local -n groups_ref=$14
+    local -n requires_ref=$15
+    local -n in_cart_ref=$16
+    local -n hint_message_ref=$17
+    local -n hint_timer_ref=$18
+    local -n force_catalog_update_ref=$19
+    local -n force_cart_update_ref=$20
+    
+    if [[ $key_ref == "$ESC" ]]; then
+        # Read more characters for escape sequences
+        read -rsn1 bracket
+        if [[ $bracket == '[' ]]; then
+            # CSI sequence - read the rest
+            read -rsn1 char1
+            
+            case "$char1" in
+                '3') # Possible DELETE key sequence
+                    read -rsn1 char2
+                    if [[ $char2 == '~' ]]; then
+                        handle_delete_key view_ref cart_cursor_ref in_cart_ref ids_ref names_ref groups_ref requires_ref \
+                                        hint_message_ref hint_timer_ref force_catalog_update_ref force_cart_update_ref
+                    fi
+                    ;;
+                'A') # Up arrow
+                    handle_up_key view_ref current_ref cart_cursor_ref catalog_page_ref \
+                                 position_cursor_ref $catalog_first_visible in_cart_ref
+                    ;;
+                'B') # Down arrow
+                    handle_down_key view_ref current_ref cart_cursor_ref catalog_page_ref \
+                                   position_cursor_ref $catalog_last_visible $total_pages $total_items in_cart_ref
+                    ;;
+                'C') # Right arrow
+                    handle_right_key view_ref catalog_page_ref position_cursor_ref $total_pages
+                    ;;
+                'D') # Left arrow
+                    handle_left_key view_ref catalog_page_ref position_cursor_ref
+                    ;;
+                'P') # Alternative DELETE on some terminals
+                    handle_delete_key view_ref cart_cursor_ref in_cart_ref ids_ref names_ref groups_ref requires_ref \
+                                    hint_message_ref hint_timer_ref force_catalog_update_ref force_cart_update_ref
+                    ;;
+            esac
+        elif [[ $bracket == 'O' ]]; then
+            # SS3 sequence - read one more
+            read -rsn1 char1
+            case "$char1" in
+                'A') # Up arrow (alternative)
+                    handle_up_key view_ref current_ref cart_cursor_ref catalog_page_ref \
+                                 position_cursor_ref $catalog_first_visible in_cart_ref
+                    ;;
+                'B') # Down arrow (alternative)
+                    handle_down_key view_ref current_ref cart_cursor_ref catalog_page_ref \
+                                   position_cursor_ref $catalog_last_visible $total_pages $total_items in_cart_ref
+                    ;;
+                'C') # Right arrow (alternative)
+                    handle_right_key view_ref catalog_page_ref position_cursor_ref $total_pages
+                    ;;
+                'D') # Left arrow (alternative)
+                    handle_left_key view_ref catalog_page_ref position_cursor_ref
+                    ;;
+            esac
+        fi
+    elif [[ "$key_ref" == "$TAB" ]]; then
+        view_ref=$([[ $view_ref == "catalog" ]] && echo "cart" || echo "catalog")
+        [[ $view_ref == "cart" ]] && cart_cursor_ref=0
+    elif [[ "$key_ref" == " " ]]; then
+        if [[ $view_ref == "catalog" ]]; then
+            if [[ $current_ref -ge 0 ]] && [[ $current_ref -lt ${#ids_ref[@]} ]]; then
+                if [[ "${in_cart_ref[$current_ref]}" == true ]]; then
+                    toggle_cart_item $current_ref "remove" ids_ref names_ref groups_ref requires_ref in_cart_ref hint_message_ref hint_timer_ref
+                else
+                    toggle_cart_item $current_ref "add" ids_ref names_ref groups_ref requires_ref in_cart_ref hint_message_ref hint_timer_ref
+                fi
+                force_catalog_update_ref=true
+                force_cart_update_ref=true
+            fi
+        fi
+    elif [[ "$key_ref" =~ ^[jJ]$ ]]; then
+        handle_down_key view_ref current_ref cart_cursor_ref catalog_page_ref \
+                       position_cursor_ref $catalog_last_visible $total_pages $total_items in_cart_ref
+    elif [[ "$key_ref" =~ ^[kK]$ ]]; then
+        handle_up_key view_ref current_ref cart_cursor_ref catalog_page_ref \
+                     position_cursor_ref $catalog_first_visible in_cart_ref
+    elif [[ "$key_ref" =~ ^[hH]$ && $view_ref == "catalog" ]]; then
+        handle_left_key view_ref catalog_page_ref position_cursor_ref
+    elif [[ "$key_ref" =~ ^[lL]$ && $view_ref == "catalog" ]]; then
+        handle_right_key view_ref catalog_page_ref position_cursor_ref $total_pages
+    elif [[ "$key_ref" =~ ^[dD]$ && $view_ref == "cart" ]]; then
+        handle_delete_key view_ref cart_cursor_ref in_cart_ref ids_ref names_ref groups_ref requires_ref \
+                        hint_message_ref hint_timer_ref force_catalog_update_ref force_cart_update_ref
+    elif [[ "$key_ref" == "$BACKSPACE" && $view_ref == "cart" ]]; then
+        handle_delete_key view_ref cart_cursor_ref in_cart_ref ids_ref names_ref groups_ref requires_ref \
+                        hint_message_ref hint_timer_ref force_catalog_update_ref force_cart_update_ref
+    fi
+}
+
+# Handle navigation keys - Fixed for Bash 3.2+
+handle_up_key() {
+    local view="$1"
+    local current="$2"
+    local cart_cursor="$3"
+    local catalog_page="$4"
+    local catalog_first_visible="$5"
+    local result=""
+    
+    if [[ $view == "catalog" ]]; then
+        if [[ $current -eq $catalog_first_visible ]] && [[ $catalog_page -gt 0 ]]; then
+            ((catalog_page--))
+            echo "view=$view:current=$current:cart_cursor=$cart_cursor:catalog_page=$catalog_page:position_cursor=last"
+        elif ((current > 0)); then
+            ((current--))
+            echo "view=$view:current=$current:cart_cursor=$cart_cursor:catalog_page=$catalog_page:position_cursor="
+        else
+            echo "view=$view:current=$current:cart_cursor=$cart_cursor:catalog_page=$catalog_page:position_cursor="
+        fi
+    else
+        if ((cart_cursor > 0)); then
+            ((cart_cursor--))
+        fi
+        echo "view=$view:current=$current:cart_cursor=$cart_cursor:catalog_page=$catalog_page:position_cursor="
+    fi
+}
+
+handle_down_key() {
+    local view="$1"
+    local current="$2"
+    local cart_cursor="$3"
+    local catalog_page="$4"
+    local catalog_last_visible="$5"
+    local total_pages="$6"
+    local total_items="$7"
+    local cart_items_count="$8"
+    
+    if [[ $view == "catalog" ]]; then
+        if [[ $current -eq $catalog_last_visible ]] && [[ $catalog_page -lt $((total_pages - 1)) ]]; then
+            ((catalog_page++))
+            echo "view=$view:current=$current:cart_cursor=$cart_cursor:catalog_page=$catalog_page:position_cursor=first"
+        elif ((current < total_items - 1)); then
+            ((current++))
+            echo "view=$view:current=$current:cart_cursor=$cart_cursor:catalog_page=$catalog_page:position_cursor="
+        else
+            echo "view=$view:current=$current:cart_cursor=$cart_cursor:catalog_page=$catalog_page:position_cursor="
+        fi
+    else
+        if ((cart_cursor < cart_items_count - 1)); then
+            ((cart_cursor++))
+        fi
+        echo "view=$view:current=$current:cart_cursor=$cart_cursor:catalog_page=$catalog_page:position_cursor="
+    fi
+}
+
+handle_left_key() {
+    local view="$1"
+    local current="$2"
+    local cart_cursor="$3"
+    local catalog_page="$4"
+    
+    if [[ $view == "catalog" && $catalog_page -gt 0 ]]; then
+        ((catalog_page--))
+        echo "view=$view:current=$current:cart_cursor=$cart_cursor:catalog_page=$catalog_page:position_cursor=first"
+    else
+        echo "view=$view:current=$current:cart_cursor=$cart_cursor:catalog_page=$catalog_page:position_cursor="
+    fi
+}
+
+handle_right_key() {
+    local view="$1"
+    local current="$2"
+    local cart_cursor="$3"
+    local catalog_page="$4"
+    local total_pages="$5"
+    
+    if [[ $view == "catalog" && $catalog_page -lt $((total_pages - 1)) ]]; then
+        ((catalog_page++))
+        echo "view=$view:current=$current:cart_cursor=$cart_cursor:catalog_page=$catalog_page:position_cursor=first"
+    else
+        echo "view=$view:current=$current:cart_cursor=$cart_cursor:catalog_page=$catalog_page:position_cursor="
+    fi
+}
+
+# Parse navigation result
+parse_nav_result() {
+    local result="$1"
+    local -a parts
+    IFS=':' read -ra parts <<< "$result"
+    
+    for part in "${parts[@]}"; do
+        if [[ $part =~ ^view=(.*)$ ]]; then
+            view="${BASH_REMATCH[1]}"
+        elif [[ $part =~ ^current=(.*)$ ]]; then
+            current="${BASH_REMATCH[1]}"
+        elif [[ $part =~ ^cart_cursor=(.*)$ ]]; then
+            cart_cursor="${BASH_REMATCH[1]}"
+        elif [[ $part =~ ^catalog_page=(.*)$ ]]; then
+            catalog_page="${BASH_REMATCH[1]}"
+        elif [[ $part =~ ^position_cursor=(.*)$ ]]; then
+            position_cursor_after_render="${BASH_REMATCH[1]}"
+        fi
+    done
+}
+
+handle_delete_key() {
+    local view_var=$1
+    local cart_cursor_var=$2
+    local in_cart=("${!3}")
+    local ids=("${!4}")
+    local names=("${!5}")
+    local groups=("${!6}")
+    local requires=("${!7}")
+    local hint_message_var=$8
+    local hint_timer_var=$9
+    local force_catalog_update_var=${10}
+    local force_cart_update_var=${11}
+    
+    eval "local view=\$$view_var"
+    eval "local cart_cursor=\$$cart_cursor_var"
+    
+    if [[ $view == "cart" ]]; then
+        local cart_items_array=()
+        for idx in "${!in_cart[@]}"; do
+            [[ "${in_cart[$idx]}" == true ]] && cart_items_array+=($idx)
+        done
+        
+        if [[ ${#cart_items_array[@]} -eq 0 ]]; then
+            eval "$hint_message_var=\"No items in cart to remove\""
+            eval "$hint_timer_var=30"
+        elif [[ $cart_cursor -lt ${#cart_items_array[@]} ]]; then
+            local item_idx=${cart_items_array[$cart_cursor]}
+            
+            toggle_cart_item $item_idx "remove" ids[@] names[@] groups[@] requires[@] in_cart[@] "$hint_message_var" "$hint_timer_var"
+            
+            # Rebuild cart items array after removal
+            cart_items_array=()
+            for idx in "${!in_cart[@]}"; do
+                [[ "${in_cart[$idx]}" == true ]] && cart_items_array+=($idx)
+            done
+            
+            local new_count=${#cart_items_array[@]}
+            [[ $cart_cursor -ge $new_count && $cart_cursor -gt 0 ]] && eval "((${cart_cursor_var}--))"
+            
+            eval "$force_catalog_update_var=true"
+            eval "$force_cart_update_var=true"
+        fi
+    fi
+}
+
+# Display selection summary with deployment status
+display_selection_summary() {
+    local in_cart=("${!1}")
+    local ids=("${!2}")
+    local names=("${!3}")
+    local groups=("${!4}")
+    local component_categories=("${!5}")
+    local requires=("${!6}")
+    local yaml_files=("${!7}")
+    local categories=("${!8}")
+    local category_names=("${!9}")
+    
+    # DEBUG: Check if yaml_files array is populated
+    echo "DEBUG: yaml_files array has ${#yaml_files[@]} items" >> "$LOG_FILE"
+    for i in "${!yaml_files[@]}"; do
+        echo "DEBUG: yaml_files[$i] = ${yaml_files[$i]}" >> "$LOG_FILE"
+    done
+    
+    # DEBUG: Check in_cart status
+    echo "DEBUG: Total categories: ${#categories[@]}" >> "$LOG_FILE"
+    echo "DEBUG: Total items: ${#ids[@]}" >> "$LOG_FILE"
+    echo "DEBUG: Checking in_cart status:" >> "$LOG_FILE"
+    for i in "${!ids[@]}"; do
+        if [[ "${in_cart[$i]}" == true ]]; then
+            echo "DEBUG: Item $i (${names[$i]}) is in cart" >> "$LOG_FILE"
+        fi
+    done
+    
+    # Build final selections - Summary Screen
     local term_width=$(tput cols)
-    
-    # Header
-    tput cup 0 0
-    for ((i=0; i<term_width; i++)); do echo -ne "${BLUE}━${NC}"; done
-    
-    local title="Build Configuration Summary"
-    local title_len=${#title}
-    local title_pos=$(( (term_width - title_len) / 2 ))
-    tput cup 1 $title_pos
-    echo -ne "${YELLOW}${title}${NC}"
-    
-    tput cup 2 0
-    for ((i=0; i<term_width; i++)); do echo -ne "${BLUE}━${NC}"; done
-    
+    local term_height=$(tput lines)
+
+    # Clear screen
+    clear
+
+    # Draw gradient title
+    draw_gradient_title "AI DevKit Pod Configurator" 1   
+
+    # Add spacing
     echo ""
-    echo ""
+
+    # Calculate box dimensions - now with two panes
+    local manifest_width=$((term_width / 2 - 2))
+    local status_start_col=$((manifest_width + 3))
+    local status_width=$((term_width - status_start_col))
+    local box_height=$((term_height - 8)) # Leave room for title, spacing, and prompt
+
+    # Draw the manifest box
+    draw_box 2 3 $manifest_width $box_height "Deployment Manifest" "" "$SUMMARY_BORDER_COLOR" "$SUMMARY_TITLE_STYLE"
     
-    # Always show base components first
-    echo -e "${GREEN}Base Development Tools (included in all builds):${NC}"
-    echo ""
-    echo -e "  ${BLUE}━ Base Development Tools ━${NC}"
-    echo -e "    ${GREEN}✓${NC} Git"
-    echo -e "    ${GREEN}✓${NC} GitHub CLI (gh)"
-    
+    # Draw the status box
+    draw_box $status_start_col 3 $status_width $box_height "Deployment Status" "" "$STATUS_BORDER_COLOR" "$STATUS_TITLE_STYLE"
+   
+    # Start content inside the box
+    local content_row=5  # Start 2 rows inside the box for spacing
+
+    # Show base components first - just like Build Stack
+    tput cup $content_row 6
+    style_line "$SUMMARY_CATEGORY_STYLE" "Base Development Tools"
+    ((content_row++))
+
+    # Base components with checkmarks
+    local base_items=(
+        "Filebrowser (port 8090)"
+        "Git"
+        "GitHub CLI (gh)"
+        "Microsoft TUI Test"
+        "Node.js 20.18.0"
+        "SSH Server (port 2222)"
+    )
+
+    for item in "${base_items[@]}"; do
+        if [[ $content_row -lt $((box_height + 3)) ]]; then
+            tput cup $content_row 8
+            echo -e "${SUMMARY_CHECKMARK_COLOR}${ICON_CHECKMARK}${STYLE_RESET} ${item}"
+            ((content_row++))
+        fi
+    done
+
     # Count selections
     local selection_count=0
     for i in "${!in_cart[@]}"; do
         [[ "${in_cart[$i]}" == true ]] && ((selection_count++))
     done
-    
-    if [[ $selection_count -eq 0 ]]; then
-        echo ""
-        echo -e "${YELLOW}No additional components selected${NC}"
-    else
-        echo ""
-        echo -e "${GREEN}Additional components selected: $selection_count${NC}"
-        
+
+    if [[ $selection_count -gt 0 ]]; then
         # Store selections
         SELECTED_YAML_FILES=()
         SELECTED_IDS=()
@@ -1095,15 +2380,26 @@ select_components() {
             local category_display="${category_names[$cat_idx]}"
             local category_has_items=false
             
+            echo "DEBUG: Processing category: $category" >> "$LOG_FILE"
+            
             for i in "${!ids[@]}"; do
                 if [[ "${in_cart[$i]}" == true ]] && [[ "${component_categories[$i]}" == "$category" ]]; then
-                    if [[ $category_has_items == false ]]; then
-                        echo ""
-                        echo -e "  ${BLUE}━ ${category_display} ━${NC}"
+                    echo "DEBUG: Found item in category $category: ${names[$i]}" >> "$LOG_FILE"
+                    echo "DEBUG: Will store yaml_file: ${yaml_files[$i]}" >> "$LOG_FILE"
+                    
+                    if [[ $category_has_items == false ]] && [[ $content_row -lt $((box_height + 3)) ]]; then
+                        ((content_row++))  # Single line spacing between categories
+                        tput cup $content_row 6
+                        style_line "$SUMMARY_CATEGORY_STYLE" "$category_display"
+                        ((content_row++))
                         category_has_items=true
                     fi
                     
-                    echo -e "    ${GREEN}✓${NC} ${names[$i]}"
+                    if [[ $content_row -lt $((box_height + 3)) ]]; then
+                        tput cup $content_row 8
+                        echo -e "${SUMMARY_CHECKMARK_COLOR}${ICON_CHECKMARK}${STYLE_RESET} ${names[$i]}"
+                        ((content_row++))
+                    fi
                     
                     # Store selection details
                     SELECTED_YAML_FILES+=("${yaml_files[$i]}")
@@ -1115,22 +2411,53 @@ select_components() {
                 fi
             done
         done
+        
+        # DEBUG: Final selected arrays
+        echo "DEBUG: Final SELECTED_YAML_FILES has ${#SELECTED_YAML_FILES[@]} items:" >> "$LOG_FILE"
+        for i in "${!SELECTED_YAML_FILES[@]}"; do
+            echo "DEBUG: SELECTED_YAML_FILES[$i] = ${SELECTED_YAML_FILES[$i]}" >> "$LOG_FILE"
+        done
     fi
+
+    # Initial deployment steps - now showing all steps as initial
+    local deployment_steps=(
+        "Clean previous build"
+        "Build Docker image"
+        "Deploy to Kubernetes"
+        "Setup port forwarding"
+    )
     
-    echo ""
-    echo ""
+    local step_statuses=("initial" "initial" "initial" "initial")
+    local step_messages=("" "" "" "")
     
-    # Separator
-    for ((i=0; i<term_width; i++)); do echo -ne "${BLUE}─${NC}"; done
-    echo ""
+    # Render all steps initially
+    render_deployment_steps $status_start_col $status_width deployment_steps[@] step_statuses[@] step_messages[@]
+
+    # Position prompt below the boxes with proper spacing
+    local prompt_row=$((box_height + 4))
+    tput cup $prompt_row 0
+    tput el  # Clear the line
     
-    log "Ready to build with this configuration?"
-    echo -ne "Press ${GREEN}ENTER${NC} to continue or ${RED}'q'${NC} to quit: "
-    read -r CONFIRM
+    # Center the prompt text
+    local prompt_text="Press ENTER to continue or 'q' to quit: "
+    local prompt_len=${#prompt_text}
+    local prompt_pos=$(( (term_width - prompt_len) / 2 ))
     
-    [[ "$CONFIRM" =~ ^[qQ]$ ]] && log "Build cancelled." && exit 0
-    
-    set -e
+    tput cup $prompt_row $prompt_pos
+    printf "%bPress %b%bENTER%b%b to continue or %b%b'q'%b%b to quit: %b" \
+        "$INSTRUCTION_TEXT_STYLE" \
+        "$STYLE_RESET" "$INSTRUCTION_KEY_STYLE" "$STYLE_RESET" "$INSTRUCTION_TEXT_STYLE" \
+        "$STYLE_RESET" "$INSTRUCTION_ABORT_STYLE" "$STYLE_RESET" "$INSTRUCTION_TEXT_STYLE" \
+        "$STYLE_RESET"
+    read -r CONFIRM   
+
+    if [[ "$CONFIRM" =~ ^[qQ]$ ]]; then
+        tput cnorm
+        stty echo
+        clear
+        log "Build cancelled."
+        exit 0
+    fi
 }
 
 # Global variables for selected items
@@ -1173,6 +2500,23 @@ execute_pre_build_scripts() {
     local selected_names="${SELECTED_NAMES[*]}"
     local selected_yaml_files="${SELECTED_YAML_FILES[*]}"
     
+    # First, copy ALL component markdown files to the build directory
+    log "Copying component documentation files..."
+    for i in "${!SELECTED_YAML_FILES[@]}"; do
+        local yaml_file="${SELECTED_YAML_FILES[$i]}"
+        local component_name="${SELECTED_NAMES[$i]}"
+        local yaml_basename=$(basename "$yaml_file" .yaml)
+        local md_source="$(dirname "$yaml_file")/${yaml_basename}.md"
+        
+        if [[ -f "$md_source" ]]; then
+            cp "$md_source" "$TEMP_DIR/"
+            success "Copied ${yaml_basename}.md for ${component_name}"
+        else
+            log "No documentation file ${yaml_basename}.md found for ${component_name}"
+        fi
+    done
+    
+    # Then execute pre-build scripts for components that have them
     for i in "${!SELECTED_YAML_FILES[@]}"; do
         local yaml_file="${SELECTED_YAML_FILES[$i]}"
         local component_name="${SELECTED_NAMES[$i]}"
@@ -1203,6 +2547,81 @@ execute_pre_build_scripts() {
     done
 }
 
+# Function to generate component imports if no pre-build script exists
+generate_component_imports() {
+    log "Generating component imports..."
+    
+    # Only generate if component-imports.txt doesn't exist (i.e., no pre-build script created it)
+    if [[ ! -f "$TEMP_DIR/component-imports.txt" ]]; then
+        local imports_file="$TEMP_DIR/component-imports.txt"
+        
+        cat > "$imports_file" << 'EOF'
+
+---
+
+# Installed Components
+
+This environment includes the following components:
+
+EOF
+        
+        # Group components by category
+        declare -A category_components
+        declare -A category_display_names
+        
+        for i in "${!SELECTED_YAML_FILES[@]}"; do
+            local category="${SELECTED_CATEGORIES[$i]}"
+            local name="${SELECTED_NAMES[$i]}"
+            local yaml_file="${SELECTED_YAML_FILES[$i]}"
+            local yaml_basename=$(basename "$yaml_file" .yaml)
+            local md_file="${yaml_basename}.md"
+            
+            # Check if markdown file exists in TEMP_DIR
+            if [[ -f "$TEMP_DIR/$md_file" ]]; then
+                if [[ -z "${category_components[$category]}" ]]; then
+                    category_components[$category]="$name:$md_file"
+                    
+                    # Get category display name
+                    local cat_dir="$(dirname "$yaml_file")"
+                    local display_name="$category"
+                    if [[ -f "$cat_dir/.category.yaml" ]]; then
+                        # Try to extract display_name
+                        while IFS= read -r line; do
+                            if [[ "$line" =~ ^display_name:[[:space:]]*(.+)$ ]]; then
+                                display_name="${BASH_REMATCH[1]}"
+                                display_name="${display_name#[\"\']}"
+                                display_name="${display_name%[\"\']}"
+                                break
+                            fi
+                        done < "$cat_dir/.category.yaml"
+                    fi
+                    category_display_names[$category]="$display_name"
+                else
+                    category_components[$category]="${category_components[$category]}|$name:$md_file"
+                fi
+            fi
+        done
+        
+        # Write categories and components
+        for category in "${!category_components[@]}"; do
+            echo "## ${category_display_names[$category]}" >> "$imports_file"
+            echo "" >> "$imports_file"
+            
+            # Split components and write them
+            IFS='|' read -ra components <<< "${category_components[$category]}"
+            for component in "${components[@]}"; do
+                IFS=':' read -r name md_file <<< "$component"
+                echo "- $name @~/.claude/$md_file" >> "$imports_file"
+            done
+            echo "" >> "$imports_file"
+        done
+        
+        success "Generated component imports"
+    else
+        log "Component imports already generated by pre-build script"
+    fi
+}
+
 # Function to extract inject_files from YAML
 extract_inject_files_from_yaml() {
     local yaml_file=$1
@@ -1228,10 +2647,10 @@ extract_inject_files_from_yaml() {
             # New item starts with - source:
             if [[ "$line" =~ ^[[:space:]]*-[[:space:]]+source:[[:space:]]*(.+)$ ]]; then
                 # Process previous item if exists
-                if [[ -n "$source" && -n "$destination" ]]; then
-                    inject_commands+="COPY $source $destination\n"
+                if [[ -n "$source" ]] && [[ -n "$destination" ]]; then
+                    inject_commands+="COPY $source $destination"$NL
                     if [[ -n "$permissions" ]]; then
-                        inject_commands+="RUN chmod $permissions $destination\n"
+                        inject_commands+="RUN chmod $permissions $destination"$NL
                     fi
                 fi
                 
@@ -1251,54 +2670,14 @@ extract_inject_files_from_yaml() {
     done < "$yaml_file"
     
     # Process last item
-    if [[ -n "$source" && -n "$destination" ]]; then
-        inject_commands+="COPY $source $destination\n"
+    if [[ -n "$source" ]] && [[ -n "$destination" ]]; then
+        inject_commands+="COPY $source $destination"$NL
         if [[ -n "$permissions" ]]; then
-            inject_commands+="RUN chmod $permissions $destination\n"
+            inject_commands+="RUN chmod $permissions $destination"$NL
         fi
     fi
     
     echo -n "$inject_commands"
-}
-
-# Function to extract memory_content from YAML file
-extract_memory_content() {
-    local yaml_file=$1
-    local in_memory_content=false
-    local memory_content=""
-    local line_count=0
-    
-    while IFS= read -r line; do
-        ((line_count++))
-        
-        # Check if we're entering memory_content section
-        if [[ "$line" =~ ^memory_content:[[:space:]]*\|[[:space:]]*$ ]]; then
-            in_memory_content=true
-            continue
-        fi
-        
-        # Check if we're exiting memory_content section (new top-level key)
-        if [[ $in_memory_content == true ]] && [[ "$line" =~ ^[a-zA-Z_]+: ]] && [[ ! "$line" =~ ^[[:space:]] ]]; then
-            in_memory_content=false
-            break
-        fi
-        
-        # Collect memory_content lines
-        if [[ $in_memory_content == true ]]; then
-            # Remove the first 2 spaces of YAML indentation
-            if [[ "$line" =~ ^"  " ]]; then
-                memory_content+="${line:2}\n"
-            elif [[ -z "$line" ]]; then
-                # Preserve empty lines
-                memory_content+="\n"
-            fi
-        fi
-    done < "$yaml_file"
-    
-    # Trim trailing newlines
-    memory_content=$(echo -n "$memory_content" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}')
-    
-    echo "$memory_content"
 }
 
 # Function to extract entrypoint_setup from YAML file
@@ -1324,16 +2703,19 @@ extract_entrypoint_setup() {
         if [[ $in_entrypoint_setup == true ]]; then
             # Remove the first 2 spaces of YAML indentation
             if [[ "$line" =~ ^"  " ]]; then
-                entrypoint_content+="${line:2}"$'\n'
+                entrypoint_content+="${line:2}"$NL
             elif [[ -z "$line" ]]; then
                 # Preserve empty lines
-                entrypoint_content+=$'\n'
+                entrypoint_content+=$NL
             fi
         fi
     done < "$yaml_file"
     
-    # Trim trailing newlines
-    entrypoint_content=$(echo -n "$entrypoint_content" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}')
+    # Trim trailing newlines but keep the content intact
+    # Don't use complex sed operations that might corrupt the content
+    while [[ "$entrypoint_content" =~ ${NL}$ ]]; do
+        entrypoint_content="${entrypoint_content%$NL}"
+    done
     
     echo "$entrypoint_content"
 }
@@ -1372,15 +2754,15 @@ extract_installation_from_yaml() {
             # For dockerfile content, we need to preserve the exact formatting
             # Only remove the first 4 spaces that are YAML indentation
             if [[ "$line" =~ ^"    " ]]; then
-                dockerfile_content+="${line:4}"$'\n'
+                dockerfile_content+="${line:4}"$NL
             else
                 # Handle empty lines or lines with different indentation
-                dockerfile_content+="$line"$'\n'
+                dockerfile_content+="$line"$NL
             fi
         elif [[ $in_nexus == true ]]; then
             # For nexus content, preserve it as-is after removing YAML indent
             if [[ "$line" =~ ^"    " ]]; then
-                nexus_content+="${line:4}"$'\n'
+                nexus_content+="${line:4}"$NL
             fi
         fi
     done < "$yaml_file"
@@ -1389,8 +2771,12 @@ extract_installation_from_yaml() {
     local full_content="$dockerfile_content"
     if [[ -n "$nexus_content" ]]; then
         # The nexus_config should already be properly formatted in the YAML
-        # Just wrap it in RUN
-        full_content+=$'\n'"# Nexus configuration"$'\n'"RUN ${nexus_content}"
+        # Just wrap it in RUN - but be careful with the newline
+        if [[ -n "$full_content" ]]; then
+            full_content+=$NL
+        fi
+        full_content+="# Nexus configuration"$NL
+        full_content+="RUN ${nexus_content}"
     fi
     
     printf "%s" "$full_content"
@@ -1463,27 +2849,33 @@ create_custom_dockerfile() {
     # First, generate the base entrypoint.sh in TEMP_DIR
     log "Generating custom entrypoint.sh..."
     
-    # Check if entrypoint.base.sh exists
-    if [[ ! -f "entrypoint.base.sh" ]]; then
-        error "entrypoint.base.sh not found in current directory: $(pwd)"
+    if [[ ! -f "docker/entrypoint.base.sh" ]]; then
+        error "docker/entrypoint.base.sh not found in current directory: $(pwd)"
     fi
-    
-    log "Copying entrypoint.base.sh to $TEMP_DIR/entrypoint.sh"
-    cp -v entrypoint.base.sh "$TEMP_DIR/entrypoint.sh"
-    
+
+    log "Copying docker/entrypoint.base.sh to $TEMP_DIR/entrypoint.sh"
+    cp -v docker/entrypoint.base.sh "$TEMP_DIR/entrypoint.sh"
+
     if [[ ! -f "$TEMP_DIR/entrypoint.sh" ]]; then
         error "Failed to create entrypoint.sh in $TEMP_DIR"
     fi
     
     chmod +x "$TEMP_DIR/entrypoint.sh"
-    log "Successfully created entrypoint.sh in $TEMP_DIR"
+    success "Successfully created entrypoint.sh in $TEMP_DIR"
     
     # Copy Dockerfile.base
-    log "Copying Dockerfile.base to $TEMP_DIR/Dockerfile"
-    cp Dockerfile.base "$TEMP_DIR/Dockerfile"
+    log "Copying docker/Dockerfile.base to $TEMP_DIR/Dockerfile"
+    cp docker/Dockerfile.base "$TEMP_DIR/Dockerfile"
     
-    # Execute pre-build scripts
+    # Execute pre-build scripts (this now also copies markdown files)
     execute_pre_build_scripts
+    
+    # Generate component imports if not already done by a pre-build script
+    generate_component_imports
+    
+    # Create placeholder files if they don't exist (for when no components are selected)
+    touch "$TEMP_DIR/user-CLAUDE.md" 2>/dev/null || true
+    touch "$TEMP_DIR/component-imports.txt" 2>/dev/null || true
     
     # Sort components by dependencies
     log "Sorting components by dependencies..."
@@ -1503,28 +2895,39 @@ create_custom_dockerfile() {
         # Extract installation commands
         local install_cmds=$(extract_installation_from_yaml "$yaml_file")
         if [[ -n "$install_cmds" ]]; then
-            installation_content+="\n# From $yaml_file\n"
-            installation_content+="$install_cmds\n"
+            if [[ -n "$installation_content" ]]; then
+                installation_content+=$NL
+            fi
+            installation_content+="# From $yaml_file"$NL
+            installation_content+="$install_cmds"
         fi
         
         # Extract inject_files directives
         local inject_cmds=$(extract_inject_files_from_yaml "$yaml_file")
         if [[ -n "$inject_cmds" ]]; then
-            inject_files_content+="\n# Files injected by $component_name\n"
+            if [[ -n "$inject_files_content" ]]; then
+                inject_files_content+=$NL
+            fi
+            inject_files_content+="# Files injected by $component_name"$NL
             inject_files_content+="$inject_cmds"
         fi
         
         # Extract entrypoint setup
         local entrypoint_cmds=$(extract_entrypoint_setup "$yaml_file")
         if [[ -n "$entrypoint_cmds" ]]; then
-            entrypoint_setup_content+="\n# Setup for $component_name\n"
-            entrypoint_setup_content+="$entrypoint_cmds\n"
+            if [[ -n "$entrypoint_setup_content" ]]; then
+                entrypoint_setup_content+=$NL
+            fi
+            entrypoint_setup_content+="# Setup for $component_name"$NL
+            entrypoint_setup_content+="$entrypoint_cmds"
         fi
     done
     
     # Insert installations
     if [[ -n "$installation_content" ]]; then
-        echo -e "$installation_content" > "$TEMP_DIR/installations.txt"
+        # Remove any trailing newlines to avoid parse errors
+        installation_content=$(echo -n "$installation_content")
+        echo "$installation_content" > "$TEMP_DIR/installations.txt"
         sed -i.bak "/# LANGUAGE_INSTALLATIONS_PLACEHOLDER/r $TEMP_DIR/installations.txt" "$TEMP_DIR/Dockerfile"
         sed -i.bak "/# LANGUAGE_INSTALLATIONS_PLACEHOLDER/d" "$TEMP_DIR/Dockerfile"
         rm -f "$TEMP_DIR/Dockerfile.bak" "$TEMP_DIR/installations.txt"
@@ -1535,8 +2938,10 @@ create_custom_dockerfile() {
     
     # Insert file injections before volume declarations
     if [[ -n "$inject_files_content" ]]; then
-        echo -e "$inject_files_content" > "$TEMP_DIR/inject_files.txt"
-        # Insert before the VOLUME declaration
+        # Remove any trailing newlines
+        inject_files_content=$(echo -n "$inject_files_content")
+        echo "$inject_files_content" > "$TEMP_DIR/inject_files.txt"
+        # Insert before the VOLUME declaration - add a blank line first
         sed -i.bak '/^# Set up volume mount points/i\
 ' "$TEMP_DIR/Dockerfile"
         sed -i.bak "/^# Set up volume mount points/r $TEMP_DIR/inject_files.txt" "$TEMP_DIR/Dockerfile"
@@ -1546,7 +2951,7 @@ create_custom_dockerfile() {
     # Now modify the generated entrypoint.sh with component setup
     if [[ -n "$entrypoint_setup_content" ]]; then
         # Create temporary file with the setup content
-        echo -e "$entrypoint_setup_content" > "$TEMP_DIR/entrypoint_setup.txt"
+        echo "$entrypoint_setup_content" > "$TEMP_DIR/entrypoint_setup.txt"
         
         # Insert the setup content at the placeholder
         sed -i.bak "/# COMPONENT_SETUP_PLACEHOLDER/r $TEMP_DIR/entrypoint_setup.txt" "$TEMP_DIR/entrypoint.sh"
@@ -1569,7 +2974,7 @@ create_custom_dockerfile() {
 
 # Check for host git configuration
 check_host_git_config() {
-    local config_dir="$HOME/.claude-code-k8s"
+    local config_dir="$HOME/.ai-devkit-k8s"
     
     if [[ -d "$config_dir" ]] && [[ -f "$config_dir/git-config/.gitconfig" ]]; then
         return 0
@@ -1579,12 +2984,10 @@ check_host_git_config() {
 
 # Create git configuration secret
 create_git_config_secret() {
-    local config_dir="$HOME/.claude-code-k8s"
-    
-    log "Creating Kubernetes secret for git configuration..."
+    local config_dir="$HOME/.ai-devkit-k8s"
     
     # Delete existing secret if it exists
-    kubectl delete secret git-config -n ${NAMESPACE} --ignore-not-found=true
+    kubectl delete secret git-config -n ${NAMESPACE} --ignore-not-found=true >/dev/null 2>&1
     
     # Create secret from files
     local secret_args="--from-file=gitconfig=$config_dir/git-config/.gitconfig"
@@ -1597,27 +3000,45 @@ create_git_config_secret() {
         secret_args="$secret_args --from-file=gh-hosts=$config_dir/github/hosts.yml"
     
     # Create the secret
-    kubectl create secret generic git-config -n ${NAMESPACE} $secret_args
-    
-    success "Git configuration secret created"
+    kubectl create secret generic git-config -n ${NAMESPACE} $secret_args >/dev/null 2>&1
 }
 
-# Main execution
-main() {
-    log "=== Starting Container Component Configurator ==="
-    
+# ============================================================================
+# MAIN EXECUTION HELPER FUNCTIONS
+# ============================================================================
+
+# Function to validate environment
+validate_environment() {
     check_deps
     
     [[ ! -d "$COMPONENTS_DIR" ]] && error "Components directory '$COMPONENTS_DIR' not found"
     
+    # Check if MOTD file exists
+    printf "."
+    if [[ ! -f "scripts/motd-ai-devkit.sh" ]]; then
+        error "motd-ai-devkit.sh not found in scripts directory. Please create this file first."
+    fi
+    
     # Check Colima status
-    colima status &> /dev/null || error "Colima is not running\nPlease start Colima with: colima start --kubernetes"
-    kubectl get nodes &> /dev/null || error "Kubernetes is not accessible\nPlease make sure Colima started with --kubernetes flag"
+    printf "."
+    colima status &> /dev/null || error "Colima is not running. Please start Colima with: colima start --kubernetes"
+    printf "."
+    kubectl get nodes &> /dev/null || error "Kubernetes is not accessible. Please make sure Colima started with --kubernetes flag"
     
-    success "Colima with Kubernetes is running and accessible"
-    
+    echo " ✓"
+}
+
+# Check if Nexus is available
+check_nexus() {
+    if curl -s http://localhost:8081 > /dev/null 2>&1; then
+        return 0
+    fi
+    return 1
+}
+
+# Function to initialize component system
+initialize_components() {
     # Load categories for use in generate_claude_md
-    # This is a bit hacky but necessary since we need the category display names
     local component_data=$(load_components)
     local categories_line=$(echo "$component_data" | sed -n '1p')
     
@@ -1641,125 +3062,353 @@ main() {
             category_names+=("$line")
         fi
     done <<< "$component_data"
+}
+
+# Function to setup configuration options
+setup_configuration() {
+    # Check Nexus first
+    NEXUS_AVAILABLE=false
+    if check_nexus; then
+        echo "  • Nexus proxy detected"
+        NEXUS_AVAILABLE=true
+        export DOCKER_BUILDKIT=0
+        export NEXUS_BUILD_ARGS="--build-arg PIP_INDEX_URL=http://host.lima.internal:8081/repository/pypi-proxy/simple --build-arg PIP_TRUSTED_HOST=host.lima.internal --build-arg NPM_REGISTRY=http://host.lima.internal:8081/repository/npm-proxy/ --build-arg GOPROXY=http://host.lima.internal:8081/repository/go-proxy/ --build-arg USE_NEXUS_APT=true --build-arg NEXUS_APT_URL=http://host.lima.internal:8081"
+    fi
     
     # Check for host git configuration
     USE_HOST_GIT_CONFIG=false
     if check_host_git_config; then
-        info "Git configuration found in ~/.claude-code-k8s/"
         echo ""
-        read -p "Use host git configuration in this deployment? [Y/n]: " -n 1 -r
+        # Make sure we're reading from the terminal, not stdin
+        read -p "Use host git configuration? [Y/n]: " -n 1 -r </dev/tty
         echo ""
         if [[ ! $REPLY =~ ^[Nn]$ ]]; then
             USE_HOST_GIT_CONFIG=true
-            success "Host git configuration will be included"
-        else
-            info "Host git configuration will not be used"
-            echo "You can configure git later using setup-git.sh inside the container"
         fi
-        echo ""
+    fi
+    echo ""
+}
+
+# Function to cleanup previous build
+cleanup_previous_build() {
+    # Clean up only AFTER user confirms they want to build
+    if [[ -d "$TEMP_DIR" ]]; then
+        # Suppress output since we're in TUI mode
+        rm -rf "$TEMP_DIR"/* 2>/dev/null
     fi
     
-    # Check Nexus
-    NEXUS_AVAILABLE=false
-    if check_nexus; then
-        NEXUS_AVAILABLE=true
-        export DOCKER_BUILDKIT=0
-        export NEXUS_BUILD_ARGS="--build-arg PIP_INDEX_URL=http://host.lima.internal:8081/repository/pypi-proxy/simple --build-arg PIP_TRUSTED_HOST=host.lima.internal --build-arg NPM_REGISTRY=http://host.lima.internal:8081/repository/npm-proxy/ --build-arg GOPROXY=http://host.lima.internal:8081/repository/go-proxy/ --build-arg USE_NEXUS_APT=true --build-arg NEXUS_APT_URL=http://host.lima.internal:8081"
-        success "Nexus proxy will be used for package downloads"
-    else
-        log "Nexus not detected, using default package repositories"
-    fi
+    # Delete the deployment to ensure fresh container
+    kubectl delete deployment ai-devkit -n ${NAMESPACE} --ignore-not-found=true >> "$LOG_FILE" 2>&1
+    docker rmi ${IMAGE_NAME}:${IMAGE_TAG} >> "$LOG_FILE" 2>&1 || true
+}
+
+# Function to build Docker image
+build_docker_image() {
+    # Create custom Dockerfile silently
+    echo -e "\nDockerfile generation output:" >> "$LOG_FILE"
+    echo "=================================================================================" >> "$LOG_FILE"
+    create_custom_dockerfile >> "$LOG_FILE" 2>&1
     
-    # Handle flags
-    if [[ "$1" =~ ^(--clean|-c)$ ]]; then
-        log "Cleaning up previous deployment..."
-        kubectl delete deployment claude-code -n ${NAMESPACE} --ignore-not-found=true
-        docker rmi ${IMAGE_NAME}:${IMAGE_TAG} 2>/dev/null || true
-        rm -rf "$TEMP_DIR"
-    fi
-    
-    # Component selection
-    [[ ! "$1" =~ --no-select && ! "$2" =~ --no-select ]] && select_components
-    
-    # Build process
-    log "Creating custom Dockerfile..."
-    create_custom_dockerfile
-    
-    log "Building Docker image..."
     # Always build from TEMP_DIR since we now generate entrypoint.sh
-    cp setup-git.sh "$TEMP_DIR/"
-    
-    # List files in TEMP_DIR for debugging
-    log "Files in $TEMP_DIR:"
-    ls -la "$TEMP_DIR/"
-    
+    mkdir -p "$TEMP_DIR/scripts"
+    mkdir -p "$TEMP_DIR/docker"
+    cp scripts/setup-git.sh "$TEMP_DIR/scripts/" 2>/dev/null
+    cp scripts/motd-ai-devkit.sh "$TEMP_DIR/scripts/" 2>/dev/null
+    cp docker/nodejs-base.md "$TEMP_DIR/docker/" 2>/dev/null
+    cp -r config "$TEMP_DIR/" 2>/dev/null
+    cp -r templates "$TEMP_DIR/" 2>/dev/null
+
     cd "$TEMP_DIR"
-    log "Building from $TEMP_DIR with generated files"
+    echo "Docker build output:" >> "../$LOG_FILE"
+    echo "=================================================================================" >> "../$LOG_FILE"
     if [[ -n "$NEXUS_BUILD_ARGS" ]]; then
-        success "Using Nexus proxy for package downloads"
-        docker build $NEXUS_BUILD_ARGS -t ${IMAGE_NAME}:${IMAGE_TAG} .
+        docker build $NEXUS_BUILD_ARGS -t ${IMAGE_NAME}:${IMAGE_TAG} . >> "../$LOG_FILE" 2>&1 || \
+            (cd .. && error "Docker build failed - check $LOG_FILE for details")
     else
-        docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
+        docker build -t ${IMAGE_NAME}:${IMAGE_TAG} . >> "../$LOG_FILE" 2>&1 || \
+            (cd .. && error "Docker build failed - check $LOG_FILE for details")
     fi
     cd ..
+}
+
+# Function to deploy to Kubernetes
+deploy_to_kubernetes() {
+    echo -e "\nKubernetes deployment output:" >> "$LOG_FILE"
+    echo "=================================================================================" >> "$LOG_FILE"
+    docker save ${IMAGE_NAME}:${IMAGE_TAG} | colima ssh -- sudo ctr -n k8s.io images import - >> "$LOG_FILE" 2>&1
     
-    # Deploy
-    log "Loading image into Colima..."
-    docker save ${IMAGE_NAME}:${IMAGE_TAG} | colima ssh -- sudo ctr -n k8s.io images import -
-    
-    log "Applying Kubernetes resources..."
-    kubectl apply -f kubernetes/namespace.yaml
-    kubectl apply -f kubernetes/pvc.yaml
+    kubectl apply -f kubernetes/namespace.yaml >> "$LOG_FILE" 2>&1
+    kubectl apply -f kubernetes/pvc.yaml >> "$LOG_FILE" 2>&1
     
     # Create git config secret if using host configuration
     if [[ "$USE_HOST_GIT_CONFIG" = true ]]; then
         create_git_config_secret
     fi
     
+    # Create SSH host keys secret
+    create_ssh_host_keys_secret
+    
     # Apply Nexus configuration if available
     if [[ "$NEXUS_AVAILABLE" = true ]]; then
-        log "Applying Nexus proxy configuration..."
-        kubectl apply -f kubernetes/nexus-config.yaml
+        kubectl apply -f kubernetes/nexus-config.yaml >> "$LOG_FILE" 2>&1
     fi
     
     # Apply deployment
-    kubectl apply -f kubernetes/deployment.yaml
+    kubectl apply -f kubernetes/deployment.yaml >> "$LOG_FILE" 2>&1
     
-    log "Waiting for deployment to be ready..."
-    kubectl wait --for=condition=available --timeout=120s deployment/claude-code -n ${NAMESPACE}
+    # Wait for deployment
+    kubectl wait --for=condition=available --timeout=120s deployment/ai-devkit -n ${NAMESPACE} >> "$LOG_FILE" 2>&1
     
-    POD_NAME=$(kubectl get pods -n ${NAMESPACE} -l app=claude-code -o jsonpath="{.items[0].metadata.name}")
+    POD_NAME=$(kubectl get pods -n ${NAMESPACE} -l app=ai-devkit -o jsonpath="{.items[0].metadata.name}")
+}
+
+# Function to setup port forwarding
+setup_port_forwarding() {
+    pkill -f 'kubectl.*port-forward.*ai-devkit' 2>/dev/null || true
+    sleep 1
+    kubectl port-forward -n ${NAMESPACE} service/ai-devkit 2222:22 8090:8090 >> "$LOG_FILE" 2>&1 &
+    PORT_FORWARD_PID=$!
+    sleep 2
     
-    success "=== Deployment Complete ==="
-    echo -e "Your AI Dev Environment is now running in container: ${YELLOW}${POD_NAME}${NC}"
+    # Check if port forwarding is running
+    if ! ps -p $PORT_FORWARD_PID > /dev/null 2>&1; then
+        # Update status in TUI context
+        return 1
+    fi
+    return 0
+}
+
+# Refactored main function with deployment status updates
+main() {
+    # Initialize log file
+    echo "Build started at $(date)" > "$LOG_FILE"
+    echo "=================================================================================" >> "$LOG_FILE"
     
-    [[ "$NEXUS_AVAILABLE" = true ]] && success "✓ Container is configured to use Nexus proxy"
+    # Set up global cleanup trap
+    trap 'tput cnorm 2>/dev/null; stty echo 2>/dev/null; rm -f /tmp/ai-devkit-anim-* 2>/dev/null; exit' INT TERM EXIT
     
-    info "\nFile Manager Access:"
-    echo -e "A web-based file manager (Filebrowser) is included for easy file uploads/downloads."
-    echo -e "To access it, run:"
-    echo -e "${YELLOW}kubectl port-forward -n ${NAMESPACE} service/claude-code 8090:8090${NC}"
-    echo -e "Then open: ${BLUE}http://localhost:8090${NC}"
-    echo -e "Default credentials: ${YELLOW}admin / admin${NC} (change after first login!)"
+    # Initial startup message before TUI
+    echo "AI DevKit Pod Configurator"
+    echo ""
     
-    info "\nContainer Access:"
-    echo -e "To connect to the container, run:"
-    echo -e "${YELLOW}kubectl exec -it -n ${NAMESPACE} ${POD_NAME} -c claude-code -- su - devuser${NC}"
-    echo -e "\nOnce connected:"
+    # Validate environment
+    echo -n "Checking environment"
+    validate_environment
     
-    # Check if Claude Code was selected
-    local claude_selected=false
-    for id in "${SELECTED_IDS[@]}"; do
-        if [[ "$id" == "CLAUDE_CODE" ]]; then
-            claude_selected=true
+    # Generate SSH host keys
+    echo -n "Preparing SSH keys"
+    generate_ssh_host_keys
+    
+    # Initialize component system
+    echo -n "Loading components"
+    initialize_components
+    echo " ✓"  # Add completion checkmark after components are loaded
+    
+    # Setup configuration options
+    setup_configuration
+    
+    # Component selection
+    [[ ! "$1" =~ --no-select && ! "$2" =~ --no-select ]] && run_component_selection_ui
+
+    # If we reach here, user has confirmed to build
+    # Store terminal dimensions for deployment status
+    local term_width=$(tput cols)
+    local term_height=$(tput lines)
+    local manifest_width=$((term_width / 2 - 2))
+    local status_start_col=$((manifest_width + 3))
+    local status_width=$((term_width - status_start_col))
+    local box_height=$((term_height - 8))
+    
+    # Define deployment steps
+    local deployment_steps=(
+        "Clean previous build"
+        "Build Docker image"
+        "Deploy to Kubernetes"
+        "Setup port forwarding"
+    )
+    
+    # Start with initial status
+    local step_statuses=("initial" "initial" "initial" "initial")
+    local step_messages=("" "" "" "")
+    
+    # Hide cursor during deployment
+    tput civis
+    
+    # Initial render of all steps (only time we do full render)
+    render_deployment_steps $status_start_col $status_width deployment_steps[@] step_statuses[@] step_messages[@]
+    
+    # Before starting the build, update all steps to "pending"
+    for i in "${!step_statuses[@]}"; do
+        step_statuses[$i]="pending"
+        update_single_deployment_step $i "pending" "" $status_start_col $status_width "${deployment_steps[$i]}"
+    done
+    
+    # Step 1: Clean up previous build
+    update_deployment_step 0 "running" "" step_statuses step_messages
+    update_single_deployment_step 0 "running" "" $status_start_col $status_width "${deployment_steps[0]}"
+    
+    cleanup_previous_build
+    
+    update_deployment_step 0 "success" "" step_statuses step_messages
+    update_single_deployment_step 0 "success" "" $status_start_col $status_width "${deployment_steps[0]}"
+    
+    # Step 2: Build Docker image - with animation
+    update_deployment_step 1 "running" "" step_statuses step_messages
+    update_single_deployment_step 1 "running" "" $status_start_col $status_width "${deployment_steps[1]}"
+    
+    # Create a flag file for animation control
+    local anim_flag="/tmp/ai-devkit-anim-$$"
+    touch "$anim_flag"
+    
+    # Start a background job to animate while building
+    (
+        while [[ -f "$anim_flag" ]]; do
+            CURRENT_ANIM_FRAME=$(( (CURRENT_ANIM_FRAME + 1) % ${#ANIM_FRAMES[@]} ))
+            # Only update the animation character, not the whole line
+            update_single_deployment_step 1 "running" "" $status_start_col $status_width "${deployment_steps[1]}" "true"
+            sleep 0.1
+        done
+    ) &
+    local anim_pid=$!
+    
+    # Run build in foreground
+    local build_result=0
+    build_docker_image || build_result=$?
+    
+    # Stop animation
+    rm -f "$anim_flag"
+    wait $anim_pid 2>/dev/null
+    
+    if [[ $build_result -eq 0 ]]; then
+        update_deployment_step 1 "success" "${IMAGE_NAME}:${IMAGE_TAG}" step_statuses step_messages
+        update_single_deployment_step 1 "success" "${IMAGE_NAME}:${IMAGE_TAG}" $status_start_col $status_width "${deployment_steps[1]}"
+    else
+        update_deployment_step 1 "failed" "Check $LOG_FILE for details" step_statuses step_messages
+        update_single_deployment_step 1 "failed" "Check $LOG_FILE for details" $status_start_col $status_width "${deployment_steps[1]}"
+        
+        tput cup $((box_height + 4)) 4
+        printf "%bPress %b%bENTER%b%b to exit: %b" \
+            "$INSTRUCTION_TEXT_STYLE" \
+            "$STYLE_RESET" "$INSTRUCTION_KEY_STYLE" "$STYLE_RESET" "$INSTRUCTION_TEXT_STYLE" \
+            "$STYLE_RESET"
+        read -r
+        tput cnorm
+        stty echo
+        clear
+        error "Build failed - check $LOG_FILE for details"
+    fi
+    
+    # Step 3: Deploy to Kubernetes - with animation
+    update_deployment_step 2 "running" "" step_statuses step_messages
+    update_single_deployment_step 2 "running" "" $status_start_col $status_width "${deployment_steps[2]}"
+    
+    # Create new flag for this step
+    touch "$anim_flag"
+    
+    # Start animation for deployment
+    (
+        while [[ -f "$anim_flag" ]]; do
+            CURRENT_ANIM_FRAME=$(( (CURRENT_ANIM_FRAME + 1) % ${#ANIM_FRAMES[@]} ))
+            update_single_deployment_step 2 "running" "" $status_start_col $status_width "${deployment_steps[2]}" "true"
+            sleep 0.1
+        done
+    ) &
+    anim_pid=$!
+    
+    deploy_to_kubernetes
+    
+    rm -f "$anim_flag"
+    wait $anim_pid 2>/dev/null
+    
+    update_deployment_step 2 "success" "$POD_NAME" step_statuses step_messages
+    update_single_deployment_step 2 "success" "$POD_NAME" $status_start_col $status_width "${deployment_steps[2]}"
+    
+    # Step 4: Setup port forwarding - with animation
+    update_deployment_step 3 "running" "" step_statuses step_messages
+    update_single_deployment_step 3 "running" "" $status_start_col $status_width "${deployment_steps[3]}"
+    
+    # Create new flag for this step
+    touch "$anim_flag"
+    
+    # Start animation for port forwarding
+    (
+        while [[ -f "$anim_flag" ]]; do
+            CURRENT_ANIM_FRAME=$(( (CURRENT_ANIM_FRAME + 1) % ${#ANIM_FRAMES[@]} ))
+            update_single_deployment_step 3 "running" "" $status_start_col $status_width "${deployment_steps[3]}" "true"
+            sleep 0.1
+        done
+    ) &
+    anim_pid=$!
+    
+    local port_result=0
+    setup_port_forwarding || port_result=$?
+    
+    rm -f "$anim_flag"
+    wait $anim_pid 2>/dev/null
+    
+    if [[ $port_result -eq 0 ]]; then
+        update_deployment_step 3 "success" "SSH port 2222, PID $PORT_FORWARD_PID" step_statuses step_messages
+        update_single_deployment_step 3 "success" "SSH port 2222, PID $PORT_FORWARD_PID" $status_start_col $status_width "${deployment_steps[3]}"
+    else
+        update_deployment_step 3 "failed" "Check $LOG_FILE" step_statuses step_messages
+        update_single_deployment_step 3 "failed" "Check $LOG_FILE" $status_start_col $status_width "${deployment_steps[3]}"
+    fi
+    
+    # Clean up any remaining animation files
+    rm -f "$anim_flag"
+    
+    # Check if all steps succeeded
+    local all_success=true
+    for status in "${step_statuses[@]}"; do
+        if [[ "$status" == "failed" ]]; then
+            all_success=false
             break
         fi
     done
     
-    if [[ $claude_selected == true ]]; then
-        echo -e "You can start Claude Code with: ${YELLOW}claude${NC}"
+    # Wait for user
+    local prompt_row=$((box_height + 4))
+    
+    # Clear the entire prompt area (both lines)
+    for ((r=prompt_row; r<=prompt_row+1; r++)); do
+        tput cup $r 0
+        tput el
+    done
+    
+    # Center the final prompt
+    local final_prompt_text="Press ENTER to return to terminal"
+    local final_prompt_len=${#final_prompt_text}
+    local final_prompt_pos=$(( (term_width - final_prompt_len) / 2 ))
+    
+    tput cup $prompt_row $final_prompt_pos
+    printf "%bPress %b%bENTER%b%b to return to terminal: %b" \
+        "$INSTRUCTION_TEXT_STYLE" \
+        "$STYLE_RESET" "$INSTRUCTION_KEY_STYLE" "$STYLE_RESET" "$INSTRUCTION_TEXT_STYLE" \
+        "$STYLE_RESET"
+    read -r
+    
+    # Clean up and return to prompt
+    tput cnorm
+    stty echo
+    clear
+
+    # Display simplified connection instructions at terminal
+    if [[ $all_success == true ]]; then
+        echo ""
+        style_line "$COLOR_GRAY" "Connection Info:"
+        echo ""
+        style_line "$COLOR_GRAY" "Shell:        ssh devuser@localhost -p 2222"
+        style_line "$COLOR_GRAY" "Password:     devuser"
+        echo ""
+        style_line "$COLOR_GRAY" "File Manager: http://localhost:8090"
+        style_line "$COLOR_GRAY" "User:         admin"
+        style_line "$COLOR_GRAY" "Password:     admin"
+        echo ""
+        style_line "$COLOR_GRAY" "Port Forward: 2222:22, 8090:8090"
+        style_line "$COLOR_GRAY" "PID:          $PORT_FORWARD_PID"
+        echo ""
     else
-        echo -e "Start developing with your selected tools!"
+        error "Deployment failed - check $LOG_FILE for details"
     fi
 }
 

@@ -1,0 +1,249 @@
+FROM ubuntu:22.04
+
+# Set architecture (defaults to arm64 for Apple Silicon)
+ARG TARGETARCH=arm64
+
+# Build arguments for package manager proxies (optional)
+ARG PIP_INDEX_URL=""
+ARG PIP_TRUSTED_HOST=""
+ARG NPM_REGISTRY=""
+ARG GOPROXY=""
+ARG USE_NEXUS_APT=""
+ARG NEXUS_APT_URL=""
+
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TARGETARCH=${TARGETARCH}
+
+# Configure APT to use Nexus if enabled
+RUN if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
+        echo "Configuring APT to use Nexus proxy..." && \
+        # Set APT proxy \
+        echo "Acquire::http::Proxy \"${NEXUS_APT_URL}/\";" > /etc/apt/apt.conf.d/00proxy && \
+        # Configure APT sources to use Nexus repositories \
+        echo "deb ${NEXUS_APT_URL}/repository/ubuntu-main/ jammy main restricted universe multiverse" > /etc/apt/sources.list && \
+        echo "deb ${NEXUS_APT_URL}/repository/ubuntu-security/ jammy-security main restricted universe multiverse" >> /etc/apt/sources.list && \
+        echo "deb ${NEXUS_APT_URL}/repository/ubuntu-updates/ jammy-updates main restricted universe multiverse" >> /etc/apt/sources.list && \
+        echo "✓ Configured APT to use Nexus proxy" ; \
+    fi
+
+# Install base dependencies (minimal set) including OpenSSH server and locales
+RUN apt-get update && apt-get install -y \
+    curl \
+    ca-certificates \
+    gnupg \
+    lsb-release \
+    git \
+    vim \
+    jq \
+    wget \
+    bash-completion \
+    build-essential \
+    pkg-config \
+    libssl-dev \
+    unzip \
+    xz-utils \
+    tree \
+    less \
+    expect \
+    tmux \
+    openssh-server \
+    sudo \
+    locales \
+    --no-install-recommends \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Generate locales to fix the locale warning
+RUN locale-gen en_US.UTF-8 && \
+    update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+
+# Set locale environment variables
+ENV LANG=en_US.UTF-8
+ENV LC_ALL=en_US.UTF-8
+ENV LANGUAGE=en_US:en
+
+# Install GitHub CLI (gh) - handle both proxy and non-proxy scenarios
+RUN if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
+        # When using Nexus, try to install from Ubuntu universe repo instead \
+        apt-get update && apt-get install -y gh || \
+        # If that fails, download the binary directly \
+        (ARCH=$(dpkg --print-architecture) && \
+         GH_VERSION="2.40.1" && \
+         wget -q "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_${ARCH}.deb" && \
+         dpkg -i "gh_${GH_VERSION}_linux_${ARCH}.deb" && \
+         rm "gh_${GH_VERSION}_linux_${ARCH}.deb") || \
+        echo "Warning: GitHub CLI installation failed"; \
+    else \
+        # Standard installation when not using proxy \
+        curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | gpg --dearmor -o /usr/share/keyrings/githubcli-archive-keyring.gpg && \
+        chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg && \
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null && \
+        apt-get update && \
+        apt-get install -y gh; \
+    fi && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Node.js 20.x (required for Microsoft TUI Test and Claude Code)
+# Direct binary installation to avoid repository issues with proxy
+RUN export DEBIAN_FRONTEND=noninteractive && \
+    ARCH=$(dpkg --print-architecture) && \
+    NODE_ARCH=${ARCH} && \
+    if [ "${ARCH}" = "arm64" ]; then NODE_ARCH="arm64"; elif [ "${ARCH}" = "amd64" ]; then NODE_ARCH="x64"; fi && \
+    NODE_VERSION="v20.18.0" && \
+    wget -q https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz && \
+    tar -xJf node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz -C /usr/local --strip-components=1 && \
+    rm node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz && \
+    npm install -g npm@latest
+
+# Configure npm if proxy URL is provided
+RUN if [ -n "$NPM_REGISTRY" ]; then \
+        npm config set registry ${NPM_REGISTRY} && \
+        echo "✓ Configured npm to use proxy" ; \
+    fi
+
+# Set up user's npm configuration
+RUN mkdir -p /home/devuser/.npm-global && \
+    echo 'export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"' >> /etc/skel/.bashrc && \
+    echo 'export NPM_CONFIG_PREFIX="$HOME/.npm-global"' >> /etc/skel/.bashrc
+
+# Install Microsoft TUI Test globally
+RUN export NPM_CONFIG_PREFIX=/usr/local && \
+    npm install -g @microsoft/tui-test && \
+    # Verify installation
+    tui-test --version || echo "TUI Test installed successfully"
+
+# Create a non-root user to run development tools
+RUN useradd -ms /bin/bash devuser && \
+    echo 'devuser:devuser' | chpasswd && \
+    usermod -aG sudo devuser && \
+    echo 'devuser ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+
+# Create directories for the devuser AFTER user creation
+RUN mkdir -p /home/devuser/.config/claude-code && \
+    mkdir -p /home/devuser/workspace && \
+    mkdir -p /home/devuser/.claude && \
+    chown -R devuser:devuser /home/devuser/
+
+# Configure SSH
+RUN mkdir /var/run/sshd && \
+    # Allow password authentication for initial login \
+    sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config && \
+    sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config && \
+    # Allow devuser to login via SSH \
+    echo "AllowUsers devuser" >> /etc/ssh/sshd_config && \
+    # Configure SSH to look for host keys in mounted location \
+    echo "HostKey /etc/ssh/mounted_keys/ssh_host_rsa_key" >> /etc/ssh/sshd_config && \
+    echo "HostKey /etc/ssh/mounted_keys/ssh_host_ecdsa_key" >> /etc/ssh/sshd_config && \
+    echo "HostKey /etc/ssh/mounted_keys/ssh_host_ed25519_key" >> /etc/ssh/sshd_config && \
+    # Disable the default Ubuntu login banner \
+    echo "PrintMotd no" >> /etc/ssh/sshd_config && \
+    echo "PrintLastLog no" >> /etc/ssh/sshd_config
+
+# Copy MOTD script
+COPY scripts/motd-ai-devkit.sh /tmp/motd-ai-devkit.sh
+
+# Configure MOTD and remove default Ubuntu components
+RUN cp /tmp/motd-ai-devkit.sh /etc/update-motd.d/00-ai-devkit && \
+    chmod +x /etc/update-motd.d/00-ai-devkit && \
+    rm -f /tmp/motd-ai-devkit.sh && \
+    rm -rf /etc/update-motd.d/00-header \
+           /etc/update-motd.d/10-help-text \
+           /etc/update-motd.d/50-motd-news \
+           /etc/update-motd.d/60-unminimize \
+           /etc/update-motd.d/90-updates-available \
+           /etc/update-motd.d/95-hwe-eol && \
+    # Remove the legal notice that appears after MOTD \
+    : > /etc/legal && \
+    # Debug: Show permissions \
+    echo "MOTD permissions check:" && \
+    ls -la /etc/update-motd.d/00-ai-devkit && \
+    # Test execution \
+    echo "Testing MOTD execution:" && \
+    /etc/update-motd.d/00-ai-devkit || echo "MOTD script failed to execute"
+
+# Copy configuration files and templates
+COPY config/bashrc /home/devuser/.bashrc
+COPY config/profile /home/devuser/.profile
+COPY config/npmrc.template /tmp/npmrc.template
+
+# Create TUI Test template directory
+RUN mkdir -p /home/devuser/.tui-test-templates && \
+    chown -R devuser:devuser /home/devuser/.tui-test-templates
+
+# Copy TUI Test templates
+COPY templates/tui-test.config.ts /home/devuser/.tui-test-templates/
+COPY templates/example.test.ts /home/devuser/.tui-test-templates/
+
+# Set proper ownership for config files
+RUN chown devuser:devuser /home/devuser/.bashrc /home/devuser/.profile
+
+# Remove the sudo hint from system files
+RUN sed -i '/To run a command as administrator/d' /etc/bash.bashrc 2>/dev/null || true && \
+    sed -i '/use "sudo <command>"/d' /etc/bash.bashrc 2>/dev/null || true && \
+    sed -i '/See "man sudo_root" for details/d' /etc/bash.bashrc 2>/dev/null || true && \
+    # Also check profile.d \
+    find /etc/profile.d -type f -name "*.sh" -exec sed -i '/To run a command as administrator/d' {} \; 2>/dev/null || true && \
+    find /etc/profile.d -type f -name "*.sh" -exec sed -i '/use "sudo <command>"/d' {} \; 2>/dev/null || true && \
+    find /etc/profile.d -type f -name "*.sh" -exec sed -i '/See "man sudo_root" for details/d' {} \; 2>/dev/null || true
+
+# Configure npm for the devuser if proxy URL is provided
+RUN if [ -n "$NPM_REGISTRY" ]; then \
+        sed "s|{{NPM_REGISTRY}}|${NPM_REGISTRY}|g" /tmp/npmrc.template > /home/devuser/.npmrc; \
+    else \
+        echo "prefix=/home/devuser/.npm-global" > /home/devuser/.npmrc; \
+    fi && \
+    chown devuser:devuser /home/devuser/.npmrc && \
+    rm -f /tmp/npmrc.template
+
+# Ensure npm global directory exists and has correct permissions
+RUN mkdir -p /home/devuser/.npm-global && \
+    chown -R devuser:devuser /home/devuser/.npm-global
+
+# Ensure proper ownership of TUI Test templates
+RUN chown -R devuser:devuser /home/devuser/.tui-test-templates
+
+# LANGUAGE_INSTALLATIONS_PLACEHOLDER
+
+# Pass Nexus configuration to language installations
+ARG USE_NEXUS_APT
+ARG NEXUS_APT_URL
+
+# Copy entrypoint script (will be generated in build directory)
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Copy git setup script for user convenience
+COPY scripts/setup-git.sh /usr/local/bin/setup-git.sh
+RUN chmod +x /usr/local/bin/setup-git.sh
+
+# Copy base documentation files
+COPY docker/nodejs-base.md /tmp/
+
+# Copy user-CLAUDE.md if it exists (generated by pre-build)
+COPY user-CLAUDE.md* /tmp/
+
+# Copy component imports if it exists (generated by pre-build)
+COPY component-imports.txt* /tmp/
+
+# Copy all component markdown files (generated by pre-build)
+# Use a more specific pattern to avoid copying project-CLAUDE.md
+COPY *.md /tmp/
+
+# Set environment variables for runtime if proxies are configured
+ENV PIP_INDEX_URL=${PIP_INDEX_URL}
+ENV PIP_TRUSTED_HOST=${PIP_TRUSTED_HOST}
+ENV NPM_CONFIG_REGISTRY=${NPM_REGISTRY}
+ENV GOPROXY=${GOPROXY}
+
+# Switch to the devuser for runtime (but not for entrypoint)
+USER devuser
+WORKDIR /home/devuser
+
+# Switch back to root for the entrypoint
+USER root
+ENTRYPOINT ["/entrypoint.sh"]
+
+# Set up volume mount points for persistence - MUST be last!
+VOLUME ["/home/devuser/.config/claude-code", "/home/devuser/workspace"]

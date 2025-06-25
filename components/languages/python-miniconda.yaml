@@ -1,5 +1,6 @@
 id: PYTHON_MINICONDA
 name: Python (Miniconda)
+version: "latest"
 group: python-version
 requires: []
 description: Python distribution with conda package manager
@@ -61,44 +62,3 @@ entrypoint_setup: |
       echo '    eval "$(/opt/conda/bin/conda shell.bash hook)"' >> "$BASHRC"
       echo 'fi' >> "$BASHRC"
   fi
-memory_content: |
-  #### Python (Miniconda)
-  
-  **Environment Management**:
-  - Create env: `conda create -n myenv python=3.11`
-  - **Activation workaround** (if standard fails): `eval "$(conda shell.bash hook)" && conda activate myenv`
-  - Deactivate: `conda deactivate`
-  - List envs: `conda env list`
-  - Remove env: `conda env remove -n myenv`
-  
-  **Common Activation Issue**:
-  If you see "Run 'conda init' before 'conda activate'", use:
-  ```bash
-  eval "$(conda shell.bash hook)"
-  conda activate myenv
-  ```
-  
-  **Package Management**:
-  - Install: `conda install numpy pandas matplotlib`
-  - From conda-forge: `conda install -c conda-forge package`
-  - Search: `conda search package`
-  - Update all: `conda update --all`
-  
-  **TUI Development Stack**:
-  ```bash
-  conda create -n tui-dev python=3.11
-  eval "$(conda shell.bash hook)"
-  conda activate tui-dev
-  pip install textual textual-dev
-  pip install gql[aiohttp] aiohttp pydantic
-  ```
-  
-  **Best Practices**:
-  - Export env: `conda env export > environment.yml`
-  - Create from file: `conda env create -f environment.yml`
-  - Mix pip carefully: Use `pip` only after `conda` installs
-  - Clean cache: `conda clean -a` to free space
-  - **Test immediately**: Run your app after installing dependencies
-  
-  **Data Science Stack**:
-  - Quick setup: `conda install numpy pandas matplotlib jupyter scikit-learn`

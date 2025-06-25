@@ -1,9 +1,9 @@
 id: SCALA_2_13
 name: Scala 2.13
-group: scala-version
-requires: java-version
-description: Scala 2.13 - Object-oriented and functional programming language
 version: "2.13.12"
+group: scala-version
+requires: java
+description: Scala 2.13 - Object-oriented and functional programming language
 installation:
   dockerfile: |
     RUN export DEBIAN_FRONTEND=noninteractive && \
@@ -25,58 +25,3 @@ entrypoint_setup: |
       echo '# Scala environment' >> "$BASHRC"
       echo 'export PATH="/usr/share/scala/bin:$PATH"' >> "$BASHRC"
   fi
-memory_content: |
-  #### Scala 2.13
-  
-  **REPL & Scripts**:
-  - Start REPL: `scala`
-  - Run script: `scala script.scala`
-  - With classpath: `scala -cp lib/* MyApp`
-  
-  **Compilation**:
-  - Compile: `scalac MyClass.scala`
-  - With options: `scalac -deprecation -feature MyClass.scala`
-  
-  **Scala 2.13 Features**:
-  - Literal types: `val x: 42 = 42`
-  - Partial unification enabled by default
-  - Improved collections performance
-  - Better type inference
-  
-  **Common Libraries**:
-  - Cats: `"org.typelevel" %% "cats-core" % "2.10.0"`
-  - Akka: `"com.typesafe.akka" %% "akka-actor" % "2.8.5"`
-  - Play JSON: `"com.typesafe.play" %% "play-json" % "2.10.0"`
-  - Http4s: `"org.http4s" %% "http4s-dsl" % "0.23.23"`
-  
-  **API Development Pattern**:
-  ```scala
-  // Using Akka HTTP
-  implicit val system = ActorSystem()
-  implicit val materializer = ActorMaterializer()
-  
-  val route = path("hello") {
-    get {
-      complete("Hello, Scala API!")
-    }
-  }
-  Http().bindAndHandle(route, "localhost", 8080)
-  ```
-  
-  **Dependency Management Tips**:
-  - Always use `%%` for Scala libraries (cross-compilation)
-  - Use `%` for Java libraries
-  - Check compatibility matrix for Akka/Play versions
-  - Run `sbt evicted` to check for conflicts
-  
-  **Testing**:
-  - ScalaTest: `"org.scalatest" %% "scalatest" % "3.2.17" % Test`
-  - Run immediately: `sbt test` or `sbt ~test` for watch mode
-  - Property testing: `"org.scalacheck" %% "scalacheck" % "1.17.0"`
-  
-  **Common Issues**:
-  - Binary compatibility: Scala 2.13 libs won't work with 2.12
-  - Use `sbt +compile` for cross-compilation
-  - Clear ivy cache if dependency issues: `rm -rf ~/.ivy2/cache`
-  
-  **Note**: Use SBT for dependency management (see SBT section)
