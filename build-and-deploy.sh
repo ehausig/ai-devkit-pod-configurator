@@ -527,17 +527,10 @@ warning() {
 check_deps() {
     local deps=("docker" "kubectl" "colima")
     for dep in "${deps[@]}"; do
+        printf "."
         command -v "$dep" &> /dev/null || error "$dep is not installed or not in PATH"
     done
-}
-
-# Check if Nexus is available
-check_nexus() {
-    if curl -s http://localhost:8081 > /dev/null 2>&1; then
-        success "${ICON_SUCCESS} Nexus detected at http://localhost:8081"
-        return 0
-    fi
-    return 1
+    echo " ✓"
 }
 
 # Generate SSH host keys if they don't exist
@@ -546,13 +539,15 @@ generate_ssh_host_keys() {
     
     # Generate keys if they don't exist
     if [ ! -f "$SSH_KEYS_DIR/ssh_host_rsa_key" ]; then
-        log "Generating SSH host keys..."
+        printf "."
         ssh-keygen -q -t rsa -b 4096 -f "$SSH_KEYS_DIR/ssh_host_rsa_key" -N "" -C "ai-devkit-rsa" >/dev/null 2>&1
+        printf "."
         ssh-keygen -q -t ecdsa -b 521 -f "$SSH_KEYS_DIR/ssh_host_ecdsa_key" -N "" -C "ai-devkit-ecdsa" >/dev/null 2>&1
+        printf "."
         ssh-keygen -q -t ed25519 -f "$SSH_KEYS_DIR/ssh_host_ed25519_key" -N "" -C "ai-devkit-ed25519" >/dev/null 2>&1
-        success "SSH host keys generated"
+        echo " ✓"
     else
-        success "Using existing SSH host keys"
+        echo "... ✓"
     fi
 }
 
@@ -665,15 +660,14 @@ load_components() {
         echo "$cat_name"
     done
     echo "---SEPARATOR---"
-    
+   
     # Load components from each category
     for category in "${categories[@]}"; do
-        echo "DEBUG: Loading components from category: $category" >&2
+        # Show progress dots to stderr
+        printf "." >&2
         for yaml_file in "$COMPONENTS_DIR/$category"/*.yaml; do
             [[ ! -f "$yaml_file" ]] && continue
             [[ "$yaml_file" == *"/.category.yaml" ]] && continue
-           
-            echo "DEBUG: Processing YAML file: $yaml_file" >&2
 
             # Parse the YAML file
             eval $(parse_yaml "$yaml_file" "comp_")
@@ -685,6 +679,8 @@ load_components() {
             unset comp_id comp_name comp_group comp_requires
         done
     done
+
+    printf "\n" >&2
 }
 
 # ============================================================================
@@ -1589,12 +1585,6 @@ run_component_selection_ui() {
         yaml_files+=("$yaml_file")
         in_cart+=(false)
     done <<< "$components_data"
-    
-    # DEBUG: Check what was parsed
-    echo "DEBUG: Parsed ${#ids[@]} components from component_data" >> "$LOG_FILE"
-    for i in "${!ids[@]}"; do
-        echo "DEBUG: Component $i: id=${ids[$i]}, name=${names[$i]}, category=${component_categories[$i]}, yaml=${yaml_files[$i]}" >> "$LOG_FILE"
-    done
     
     local current=0 view="catalog" cart_cursor=0
     local total_items=${#ids[@]}
@@ -3074,15 +3064,26 @@ validate_environment() {
     [[ ! -d "$COMPONENTS_DIR" ]] && error "Components directory '$COMPONENTS_DIR' not found"
     
     # Check if MOTD file exists
+    printf "."
     if [[ ! -f "motd-ai-devkit.sh" ]]; then
         error "motd-ai-devkit.sh not found in current directory. Please create this file first."
     fi
     
     # Check Colima status
+    printf "."
     colima status &> /dev/null || error "Colima is not running. Please start Colima with: colima start --kubernetes"
+    printf "."
     kubectl get nodes &> /dev/null || error "Kubernetes is not accessible. Please make sure Colima started with --kubernetes flag"
     
-    success "Colima with Kubernetes is running and accessible"
+    echo " ✓"
+}
+
+# Check if Nexus is available
+check_nexus() {
+    if curl -s http://localhost:8081 > /dev/null 2>&1; then
+        return 0
+    fi
+    return 1
 }
 
 # Function to initialize component system
@@ -3115,23 +3116,27 @@ initialize_components() {
 
 # Function to setup configuration options
 setup_configuration() {
+    # Check Nexus first
+    NEXUS_AVAILABLE=false
+    if check_nexus; then
+        echo "  • Nexus proxy detected"
+        NEXUS_AVAILABLE=true
+        export DOCKER_BUILDKIT=0
+        export NEXUS_BUILD_ARGS="--build-arg PIP_INDEX_URL=http://host.lima.internal:8081/repository/pypi-proxy/simple --build-arg PIP_TRUSTED_HOST=host.lima.internal --build-arg NPM_REGISTRY=http://host.lima.internal:8081/repository/npm-proxy/ --build-arg GOPROXY=http://host.lima.internal:8081/repository/go-proxy/ --build-arg USE_NEXUS_APT=true --build-arg NEXUS_APT_URL=http://host.lima.internal:8081"
+    fi
+    
     # Check for host git configuration
     USE_HOST_GIT_CONFIG=false
     if check_host_git_config; then
-        read -p "Use host git configuration? [Y/n]: " -n 1 -r
+        echo ""
+        # Make sure we're reading from the terminal, not stdin
+        read -p "Use host git configuration? [Y/n]: " -n 1 -r </dev/tty
         echo ""
         if [[ ! $REPLY =~ ^[Nn]$ ]]; then
             USE_HOST_GIT_CONFIG=true
         fi
     fi
-    
-    # Check Nexus
-    NEXUS_AVAILABLE=false
-    if check_nexus; then
-        NEXUS_AVAILABLE=true
-        export DOCKER_BUILDKIT=0
-        export NEXUS_BUILD_ARGS="--build-arg PIP_INDEX_URL=http://host.lima.internal:8081/repository/pypi-proxy/simple --build-arg PIP_TRUSTED_HOST=host.lima.internal --build-arg NPM_REGISTRY=http://host.lima.internal:8081/repository/npm-proxy/ --build-arg GOPROXY=http://host.lima.internal:8081/repository/go-proxy/ --build-arg USE_NEXUS_APT=true --build-arg NEXUS_APT_URL=http://host.lima.internal:8081"
-    fi
+    echo ""
 }
 
 # Function to cleanup previous build
@@ -3231,23 +3236,28 @@ main() {
     trap 'tput cnorm 2>/dev/null; stty echo 2>/dev/null; rm -f /tmp/ai-devkit-anim-* 2>/dev/null; exit' INT TERM EXIT
     
     # Initial startup message before TUI
-    log "=== Starting AI DevKit Pod Configurator ==="
+    echo "AI DevKit Pod Configurator"
+    echo ""
     
     # Validate environment
+    echo -n "Checking environment"
     validate_environment
     
     # Generate SSH host keys
+    echo -n "Preparing SSH keys"
     generate_ssh_host_keys
     
     # Initialize component system
+    echo -n "Loading components"
     initialize_components
+    echo " ✓"  # Add completion checkmark after components are loaded
     
     # Setup configuration options
     setup_configuration
     
     # Component selection
     [[ ! "$1" =~ --no-select && ! "$2" =~ --no-select ]] && run_component_selection_ui
-    
+
     # If we reach here, user has confirmed to build
     # Store terminal dimensions for deployment status
     local term_width=$(tput cols)
