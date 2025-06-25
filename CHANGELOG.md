@@ -157,6 +157,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - clarify dual license status in README ([cf73a9e](https://github.com/ehausig/ai-devkit-pod-configurator/commit/cf73a9e6f9471aec808e4c6fbd702605e63f6403))
 
 ### 🔧 Other Changes
+- implement semantic versioning system ([2988ae0](https://github.com/ehausig/ai-devkit-pod-configurator/commit/2988ae06074eb9098ecde25a48d7104ee348e209))
+- add scripts for versioning ([ed61659](https://github.com/ehausig/ai-devkit-pod-configurator/commit/ed616598e20e9938093c77378a9bcd042c16de40))
+- update changelog ([af275b6](https://github.com/ehausig/ai-devkit-pod-configurator/commit/af275b6c93862313f631f3bbf35e81953e7df73c))
 - exclude zzz files from git ([5ecb4e6](https://github.com/ehausig/ai-devkit-pod-configurator/commit/5ecb4e619f600fb619f565ec69e2af56d9330cd4))
 - remove unused script ([d21dde3](https://github.com/ehausig/ai-devkit-pod-configurator/commit/d21dde3dbe30e42610d3660ad363d0fc2ecf1724))
 - clean up startup messages and improve progress indicators ([15da738](https://github.com/ehausig/ai-devkit-pod-configurator/commit/15da738f461b64dc258d24f1dc4f5d5845653734))
