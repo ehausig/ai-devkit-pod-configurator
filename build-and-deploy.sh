@@ -11,6 +11,15 @@ COMPONENTS_DIR="components"
 SSH_KEYS_DIR="$HOME/.ai-devkit-k8s/ssh-keys"
 LOG_FILE="build-and-deploy.log"
 
+VERSION_FILE="VERSION"
+if [[ -f "$VERSION_FILE" ]]; then
+    VERSION=$(cat "$VERSION_FILE")
+    IMAGE_TAG="v${VERSION}"
+else
+    VERSION="dev"
+    IMAGE_TAG="latest"
+fi
+
 # ============================================================================
 # SPECIAL CHARACTERS AND KEYCODES
 # ============================================================================
@@ -1574,7 +1583,7 @@ run_component_selection_ui() {
         # Initialize screen if needed
         if [[ $screen_initialized == false ]]; then
             clear
-            draw_gradient_title "AI DevKit Pod Configurator" 1 
+            draw_gradient_title "AI DevKit Pod Configurator v${VERSION}" 1 
             echo ""
             draw_box 0 3 $catalog_width $((content_height + 2)) "Available Components" "" "$CATALOG_BORDER_COLOR" "$CATALOG_TITLE_STYLE"
             draw_box $cart_start_col 3 $cart_width $((content_height + 2)) "Build Stack" "" "$CART_BORDER_COLOR" "$CART_TITLE_STYLE" 
@@ -2316,7 +2325,7 @@ display_selection_summary() {
     clear
 
     # Draw gradient title
-    draw_gradient_title "AI DevKit Pod Configurator" 1   
+    draw_gradient_title "AI DevKit Pod Configurator v${VERSION}" 1   
 
     # Add spacing
     echo ""
