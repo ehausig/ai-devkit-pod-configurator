@@ -898,6 +898,7 @@ update_single_deployment_step() {
     local col=$4
     local width=$5
     local step_name=$6
+    local animation_only="${7:-false}"  # New parameter for animation-only updates
     
     # Calculate the row for this step (5 + (step_index * 2) for 1 blank row between steps)
     local row=$((5 + (step_index * 2)))
@@ -936,15 +937,21 @@ update_single_deployment_step() {
             ;;
     esac
     
-    # Update the entire line with 4-char indent
-    tput cup $row $((col + 6))
-    printf "%-$((width-8))s" " "  # Clear the entire line
-    tput cup $row $((col + 6))
-    printf "%b%s%b %b%s%b" "$icon_style" "$icon" "$STYLE_RESET" "$text_style" "$step_name" "$STYLE_RESET"
-    
-    # Add inline message if exists
-    if [[ -n "$message" ]]; then
-        printf " %b→ %s%b" "$STATUS_INFO_COLOR" "$message" "$STYLE_RESET"
+    if [[ "$animation_only" == "true" && "$status" == "running" ]]; then
+        # Only update the spinner character
+        tput cup $row $((col + 6))
+        printf "%b%s%b" "$icon_style" "$icon" "$STYLE_RESET"
+    else
+        # Update the entire line with 4-char indent
+        tput cup $row $((col + 6))
+        printf "%-$((width-8))s" " "  # Clear the entire line
+        tput cup $row $((col + 6))
+        printf "%b%s%b %b%s%b" "$icon_style" "$icon" "$STYLE_RESET" "$text_style" "$step_name" "$STYLE_RESET"
+        
+        # Add inline message if exists
+        if [[ -n "$message" ]]; then
+            printf " %b→ %s%b" "$STATUS_INFO_COLOR" "$message" "$STYLE_RESET"
+        fi
     fi
 }
 
@@ -3295,10 +3302,8 @@ main() {
     (
         while [[ -f "$anim_flag" ]]; do
             CURRENT_ANIM_FRAME=$(( (CURRENT_ANIM_FRAME + 1) % ${#ANIM_FRAMES[@]} ))
-            # Save cursor position, update animation, restore position
-            tput sc
-            update_single_deployment_step 1 "running" "" $status_start_col $status_width "${deployment_steps[1]}"
-            tput rc
+            # Only update the animation character, not the whole line
+            update_single_deployment_step 1 "running" "" $status_start_col $status_width "${deployment_steps[1]}" "true"
             sleep 0.1
         done
     ) &
@@ -3342,9 +3347,7 @@ main() {
     (
         while [[ -f "$anim_flag" ]]; do
             CURRENT_ANIM_FRAME=$(( (CURRENT_ANIM_FRAME + 1) % ${#ANIM_FRAMES[@]} ))
-            tput sc
-            update_single_deployment_step 2 "running" "" $status_start_col $status_width "${deployment_steps[2]}"
-            tput rc
+            update_single_deployment_step 2 "running" "" $status_start_col $status_width "${deployment_steps[2]}" "true"
             sleep 0.1
         done
     ) &
@@ -3369,9 +3372,7 @@ main() {
     (
         while [[ -f "$anim_flag" ]]; do
             CURRENT_ANIM_FRAME=$(( (CURRENT_ANIM_FRAME + 1) % ${#ANIM_FRAMES[@]} ))
-            tput sc
-            update_single_deployment_step 3 "running" "" $status_start_col $status_width "${deployment_steps[3]}"
-            tput rc
+            update_single_deployment_step 3 "running" "" $status_start_col $status_width "${deployment_steps[3]}" "true"
             sleep 0.1
         done
     ) &
