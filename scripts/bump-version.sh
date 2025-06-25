@@ -1,5 +1,5 @@
 #!/bin/bash
-# Usage: ./bump-version.sh [major|minor|patch]
+# Usage: ./scripts/bump-version.sh [major|minor|patch]
 
 current=$(cat VERSION)
 IFS='.' read -ra ADDR <<< "$current"
