@@ -210,6 +210,20 @@ RUN chown -R devuser:devuser /home/devuser/.tui-test-templates
 ARG USE_NEXUS_APT
 ARG NEXUS_APT_URL
 
+# Copy VERSION file if it exists
+COPY VERSION /tmp/VERSION
+
+# Install version file
+RUN if [ -f /tmp/VERSION ]; then \
+        cp /tmp/VERSION /etc/ai-devkit-version && \
+        chmod 644 /etc/ai-devkit-version && \
+        echo "Version installed: $(cat /etc/ai-devkit-version)"; \
+    else \
+        echo "dev" > /etc/ai-devkit-version && \
+        echo "No VERSION file found, using dev"; \
+    fi && \
+    rm -f /tmp/VERSION
+
 # Copy entrypoint script (will be generated in build directory)
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
