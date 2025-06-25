@@ -3431,7 +3431,7 @@ main() {
     done
     
     # Center the final prompt
-    local final_prompt_text="Press ENTER to return to terminal: "
+    local final_prompt_text="Press ENTER to return to terminal"
     local final_prompt_len=${#final_prompt_text}
     local final_prompt_pos=$(( (term_width - final_prompt_len) / 2 ))
     
@@ -3446,23 +3446,22 @@ main() {
     tput cnorm
     stty echo
     clear
-    
+
     # Display simplified connection instructions at terminal
     if [[ $all_success == true ]]; then
-        success "=== AI DevKit Deployment Complete ==="
         echo ""
-        style_line "$LOG_SUCCESS_STYLE" "Port forwarding is active (PID: $PORT_FORWARD_PID)"
+        style_line "$COLOR_GRAY" "Connection Info:"
         echo ""
-        style_line "$LOG_INFO_STYLE" "Shell: ssh devuser@localhost -p 2222 (password: devuser)"
-        style_line "$LOG_INFO_STYLE" "File Manager: http://localhost:8090 (admin/admin)"
-        
-        if [[ $claude_selected == true ]]; then
-            style_line "$LOG_INFO_STYLE" "Claude Code: Run 'claude' after SSH login"
-        fi
-        
+        style_line "$COLOR_GRAY" "Shell:        ssh devuser@localhost -p 2222"
+        style_line "$COLOR_GRAY" "Password:     devuser"
         echo ""
-        style_line "$COLOR_GRAY" "To stop port forwarding: kill $PORT_FORWARD_PID"
-        style_line "$COLOR_GRAY" "Build log: $LOG_FILE"
+        style_line "$COLOR_GRAY" "File Manager: http://localhost:8090"
+        style_line "$COLOR_GRAY" "User:         admin"
+        style_line "$COLOR_GRAY" "Password:     admin"
+        echo ""
+        style_line "$COLOR_GRAY" "Port Forward: 2222:22, 8090:8090"
+        style_line "$COLOR_GRAY" "PID:          $PORT_FORWARD_PID"
+        echo ""
     else
         error "Deployment failed - check $LOG_FILE for details"
     fi
