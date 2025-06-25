@@ -121,6 +121,10 @@ readonly ICON_FAILED="✗"
 readonly ICON_NOT_STARTED="○"
 readonly ICON_INITIAL="-"
 
+# Animation frames for running status
+readonly ANIM_FRAMES=("⠋" "⠙" "⠹" "⠸" "⠼" "⠴" "⠦" "⠧" "⠇" "⠏")
+CURRENT_ANIM_FRAME=0
+
 # Box Drawing Characters
 readonly BOX_TOP_LEFT="╭"
 readonly BOX_TOP_RIGHT="╮"
@@ -194,6 +198,62 @@ LOG_SUCCESS_STYLE="$COLOR_GREEN"
 LOG_WARNING_STYLE="$BOLD_YELLOW"
 LOG_INFO_STYLE="$COLOR_BLUE"
 LOG_DEFAULT_STYLE="$COLOR_YELLOW"
+
+# Global variable for animation PID
+ANIMATION_PID=""
+
+# Function to animate running steps
+animate_running_steps() {
+    local status_start_col=$1
+    local status_width=$2
+    local deployment_steps=("${!3}")
+    local step_statuses=("${!4}")
+    local step_messages=("${!5}")
+    
+    # Increment animation frame
+    CURRENT_ANIM_FRAME=$(( (CURRENT_ANIM_FRAME + 1) % ${#ANIM_FRAMES[@]} ))
+    
+    # Update any running steps with new animation frame
+    for i in "${!step_statuses[@]}"; do
+        if [[ "${step_statuses[$i]}" == "running" ]]; then
+            update_single_deployment_step $i "running" "${step_messages[$i]}" $status_start_col $status_width "${deployment_steps[$i]}"
+        fi
+    done
+}
+
+# Function to start animation in background
+start_animation() {
+    local status_start_col=$1
+    local status_width=$2
+    
+    # Create a file to communicate animation state
+    ANIMATION_STATE_FILE="/tmp/ai-devkit-anim-$$"
+    echo "running" > "$ANIMATION_STATE_FILE"
+    
+    {
+        while [[ -f "$ANIMATION_STATE_FILE" ]] && [[ "$(cat "$ANIMATION_STATE_FILE")" == "running" ]]; do
+            # Increment animation frame
+            CURRENT_ANIM_FRAME=$(( (CURRENT_ANIM_FRAME + 1) % ${#ANIM_FRAMES[@]} ))
+            
+            # Export the frame so parent can see it
+            echo "$CURRENT_ANIM_FRAME" > "/tmp/ai-devkit-frame-$$"
+            
+            sleep 0.1
+        done
+    } &
+    ANIMATION_PID=$!
+}
+
+# Function to stop animation
+stop_animation() {
+    if [[ -n "$ANIMATION_PID" ]]; then
+        echo "stop" > "$ANIMATION_STATE_FILE" 2>/dev/null
+        kill $ANIMATION_PID 2>/dev/null
+        wait $ANIMATION_PID 2>/dev/null
+        rm -f "$ANIMATION_STATE_FILE" "/tmp/ai-devkit-frame-$$" 2>/dev/null
+        ANIMATION_PID=""
+    fi
+}
 
 # Theme selection
 THEME="${AI_DEVKIT_THEME:-default}"
@@ -768,7 +828,7 @@ render_deployment_steps() {
     
     if [[ $all_initial == true ]]; then
         # Clear the status area first time only
-        for ((r=5; r<25; r++)); do
+        for ((r=5; r<30; r++)); do
             tput cup $r $((col + 2))
             printf "%-$((width-4))s" " "
         done
@@ -794,7 +854,8 @@ render_deployment_steps() {
                 text_style="$STATUS_INITIAL_TEXT_COLOR"
                 ;;
             "running")
-                icon="$ICON_PENDING"
+                # Use animation frame
+                icon="${ANIM_FRAMES[$CURRENT_ANIM_FRAME]}"
                 icon_style="$STATUS_PENDING_BULLET_COLOR"
                 text_style="$STATUS_PENDING_TEXT_COLOR"
                 ;;
@@ -816,8 +877,13 @@ render_deployment_steps() {
         
         printf "%b%s%b %b%s%b" "$icon_style" "$icon" "$STYLE_RESET" "$text_style" "${steps[$i]}" "$STYLE_RESET"
         
-        # Always skip to next step position (3 rows total between step lines)
-        ((row+=3))
+        # Add inline message if exists
+        if [[ -n "${messages[$i]}" ]]; then
+            printf " %b→ %s%b" "$STATUS_INFO_COLOR" "${messages[$i]}" "$STYLE_RESET"
+        fi
+        
+        # Skip to next step position (2 rows total = 1 blank row between)
+        ((row+=2))
     done
     
     # Use a global variable to pass the row value back
@@ -833,8 +899,8 @@ update_single_deployment_step() {
     local width=$5
     local step_name=$6
     
-    # Calculate the row for this step (5 + (step_index * 3) for 2 blank rows between steps)
-    local row=$((5 + (step_index * 3)))
+    # Calculate the row for this step (5 + (step_index * 2) for 1 blank row between steps)
+    local row=$((5 + (step_index * 2)))
     
     # Determine icon and style
     local icon=""
@@ -853,7 +919,8 @@ update_single_deployment_step() {
             text_style="$STATUS_INITIAL_TEXT_COLOR"
             ;;
         "running")
-            icon="$ICON_PENDING"
+            # Use animation frame
+            icon="${ANIM_FRAMES[$CURRENT_ANIM_FRAME]}"
             icon_style="$STATUS_PENDING_BULLET_COLOR"
             text_style="$STATUS_PENDING_TEXT_COLOR"
             ;;
@@ -869,24 +936,15 @@ update_single_deployment_step() {
             ;;
     esac
     
-    # Update just the step line with 4-char indent
+    # Update the entire line with 4-char indent
     tput cup $row $((col + 6))
-    printf "%-$((width-8))s" " "  # Clear the line
+    printf "%-$((width-8))s" " "  # Clear the entire line
     tput cup $row $((col + 6))
     printf "%b%s%b %b%s%b" "$icon_style" "$icon" "$STYLE_RESET" "$text_style" "$step_name" "$STYLE_RESET"
     
-    # Update message line if needed (1 row below the step)
+    # Add inline message if exists
     if [[ -n "$message" ]]; then
-        local message_row=$((row + 1))
-        tput cup $message_row $((col + 8))  # Indent message 2 more chars
-        printf "%-$((width-10))s" " "  # Clear the line
-        tput cup $message_row $((col + 8))
-        printf "%b%s%b" "$STATUS_INFO_COLOR" "$message" "$STYLE_RESET"
-    else
-        # Clear the message line if no message
-        local message_row=$((row + 1))
-        tput cup $message_row $((col + 8))
-        printf "%-$((width-10))s" " "
+        printf " %b→ %s%b" "$STATUS_INFO_COLOR" "$message" "$STYLE_RESET"
     fi
 }
 
@@ -913,38 +971,48 @@ show_connection_details() {
     local claude_selected=$6
     
     ((row+=1))
+    
+    # Shell Connection section
     tput cup $row $((col + 6))  # Indent to match steps
-    printf "%b%s%b" "$STATUS_INFO_COLOR" "Connection Details:" "$STYLE_RESET"
-    ((row+=2))
+    printf "%b%s%b" "$STATUS_INFO_COLOR" "Shell Connection:" "$STYLE_RESET"
+    ((row+=1))
     
-    tput cup $row $((col + 8))  # Indent details a bit more
-    printf "%bShell:%b ssh devuser@localhost -p 2222" "$BOLD_WHITE" "$STYLE_RESET"
+    tput cup $row $((col + 8))  # Indent details
+    printf "ssh devuser@localhost -p 2222"
     ((row++))
     
     tput cup $row $((col + 8))
-    printf "%bPassword:%b devuser" "$BOLD_WHITE" "$STYLE_RESET"
-    ((row+=2))
+    printf "Password: devuser"
+    ((row+=2))  # Blank row
     
-    tput cup $row $((col + 8))
-    printf "%bFile Manager:%b" "$BOLD_WHITE" "$STYLE_RESET"
-    ((row++))
+    # File Manager Connection section
+    tput cup $row $((col + 6))
+    printf "%b%s%b" "$STATUS_INFO_COLOR" "File Manager Connection:" "$STYLE_RESET"
+    ((row+=1))
     
     tput cup $row $((col + 8))
     printf "http://localhost:8090"
     ((row++))
     
     tput cup $row $((col + 8))
-    printf "(admin/admin)"
-    ((row+=2))
-    
-    if [[ $claude_selected == true ]]; then
-        tput cup $row $((col + 8))
-        printf "%bClaude Code:%b claude" "$BOLD_WHITE" "$STYLE_RESET"
-        ((row+=2))
-    fi
+    printf "User: admin"
+    ((row++))
     
     tput cup $row $((col + 8))
-    printf "%bPort Forward PID:%b $port_forward_pid" "$BOLD_WHITE" "$STYLE_RESET"
+    printf "Password: admin"
+    ((row+=2))  # Blank row
+    
+    # Port Forward section
+    tput cup $row $((col + 6))
+    printf "%b%s%b" "$STATUS_INFO_COLOR" "Port Forward:" "$STYLE_RESET"
+    ((row+=1))
+    
+    tput cup $row $((col + 8))
+    printf "PID: %s" "$port_forward_pid"
+    ((row++))
+    
+    tput cup $row $((col + 8))
+    printf "Ports: 2222 (SSH), 8090 (Filebrowser)"
 }
 
 # Function to check if a group has items in cart
@@ -1545,7 +1613,7 @@ run_component_selection_ui() {
     # Hide cursor and disable echo
     tput civis
     stty -echo
-    trap 'tput cnorm; stty echo' EXIT
+    trap 'tput cnorm; stty echo; stop_animation' EXIT
     
     # Saved screen state
     local last_current=-1 last_cart_cursor=-1 last_view="" last_catalog_page=-1 last_cart_page=-1
@@ -3152,6 +3220,9 @@ main() {
     echo "Build started at $(date)" > "$LOG_FILE"
     echo "=================================================================================" >> "$LOG_FILE"
     
+    # Set up global cleanup trap
+    trap 'tput cnorm 2>/dev/null; stty echo 2>/dev/null; rm -f /tmp/ai-devkit-anim-* 2>/dev/null; exit' INT TERM EXIT
+    
     # Initial startup message before TUI
     log "=== Starting AI DevKit Pod Configurator ==="
     
@@ -3212,18 +3283,43 @@ main() {
     update_deployment_step 0 "success" "" step_statuses step_messages
     update_single_deployment_step 0 "success" "" $status_start_col $status_width "${deployment_steps[0]}"
     
-    # Step 2: Build Docker image
-    update_deployment_step 1 "running" "This may take several minutes..." step_statuses step_messages
-    update_single_deployment_step 1 "running" "This may take several minutes..." $status_start_col $status_width "${deployment_steps[1]}"
+    # Step 2: Build Docker image - with animation
+    update_deployment_step 1 "running" "" step_statuses step_messages
+    update_single_deployment_step 1 "running" "" $status_start_col $status_width "${deployment_steps[1]}"
     
-    if build_docker_image; then
-        update_deployment_step 1 "success" "" step_statuses step_messages
-        update_single_deployment_step 1 "success" "" $status_start_col $status_width "${deployment_steps[1]}"
+    # Create a flag file for animation control
+    local anim_flag="/tmp/ai-devkit-anim-$$"
+    touch "$anim_flag"
+    
+    # Start a background job to animate while building
+    (
+        while [[ -f "$anim_flag" ]]; do
+            CURRENT_ANIM_FRAME=$(( (CURRENT_ANIM_FRAME + 1) % ${#ANIM_FRAMES[@]} ))
+            # Save cursor position, update animation, restore position
+            tput sc
+            update_single_deployment_step 1 "running" "" $status_start_col $status_width "${deployment_steps[1]}"
+            tput rc
+            sleep 0.1
+        done
+    ) &
+    local anim_pid=$!
+    
+    # Run build in foreground
+    local build_result=0
+    build_docker_image || build_result=$?
+    
+    # Stop animation
+    rm -f "$anim_flag"
+    wait $anim_pid 2>/dev/null
+    
+    if [[ $build_result -eq 0 ]]; then
+        update_deployment_step 1 "success" "${IMAGE_NAME}:${IMAGE_TAG}" step_statuses step_messages
+        update_single_deployment_step 1 "success" "${IMAGE_NAME}:${IMAGE_TAG}" $status_start_col $status_width "${deployment_steps[1]}"
     else
         update_deployment_step 1 "failed" "Check $LOG_FILE for details" step_statuses step_messages
         update_single_deployment_step 1 "failed" "Check $LOG_FILE for details" $status_start_col $status_width "${deployment_steps[1]}"
         
-        tput cup $((box_height + 5)) 4
+        tput cup $((box_height + 4)) 4
         printf "%bPress %b%bENTER%b%b to exit: %b" \
             "$INSTRUCTION_TEXT_STYLE" \
             "$STYLE_RESET" "$INSTRUCTION_KEY_STYLE" "$STYLE_RESET" "$INSTRUCTION_TEXT_STYLE" \
@@ -3235,29 +3331,71 @@ main() {
         error "Build failed - check $LOG_FILE for details"
     fi
     
-    # Step 3: Deploy to Kubernetes
+    # Step 3: Deploy to Kubernetes - with animation
     update_deployment_step 2 "running" "" step_statuses step_messages
     update_single_deployment_step 2 "running" "" $status_start_col $status_width "${deployment_steps[2]}"
     
+    # Create new flag for this step
+    touch "$anim_flag"
+    
+    # Start animation for deployment
+    (
+        while [[ -f "$anim_flag" ]]; do
+            CURRENT_ANIM_FRAME=$(( (CURRENT_ANIM_FRAME + 1) % ${#ANIM_FRAMES[@]} ))
+            tput sc
+            update_single_deployment_step 2 "running" "" $status_start_col $status_width "${deployment_steps[2]}"
+            tput rc
+            sleep 0.1
+        done
+    ) &
+    anim_pid=$!
+    
     deploy_to_kubernetes
     
-    update_deployment_step 2 "success" "Pod: $POD_NAME" step_statuses step_messages
-    update_single_deployment_step 2 "success" "Pod: $POD_NAME" $status_start_col $status_width "${deployment_steps[2]}"
+    rm -f "$anim_flag"
+    wait $anim_pid 2>/dev/null
     
-    # Step 4: Setup port forwarding
+    update_deployment_step 2 "success" "$POD_NAME" step_statuses step_messages
+    update_single_deployment_step 2 "success" "$POD_NAME" $status_start_col $status_width "${deployment_steps[2]}"
+    
+    # Step 4: Setup port forwarding - with animation
     update_deployment_step 3 "running" "" step_statuses step_messages
     update_single_deployment_step 3 "running" "" $status_start_col $status_width "${deployment_steps[3]}"
     
-    if setup_port_forwarding; then
-        update_deployment_step 3 "success" "PID: $PORT_FORWARD_PID" step_statuses step_messages
-        update_single_deployment_step 3 "success" "PID: $PORT_FORWARD_PID" $status_start_col $status_width "${deployment_steps[3]}"
+    # Create new flag for this step
+    touch "$anim_flag"
+    
+    # Start animation for port forwarding
+    (
+        while [[ -f "$anim_flag" ]]; do
+            CURRENT_ANIM_FRAME=$(( (CURRENT_ANIM_FRAME + 1) % ${#ANIM_FRAMES[@]} ))
+            tput sc
+            update_single_deployment_step 3 "running" "" $status_start_col $status_width "${deployment_steps[3]}"
+            tput rc
+            sleep 0.1
+        done
+    ) &
+    anim_pid=$!
+    
+    local port_result=0
+    setup_port_forwarding || port_result=$?
+    
+    rm -f "$anim_flag"
+    wait $anim_pid 2>/dev/null
+    
+    if [[ $port_result -eq 0 ]]; then
+        update_deployment_step 3 "success" "SSH port 2222, PID $PORT_FORWARD_PID" step_statuses step_messages
+        update_single_deployment_step 3 "success" "SSH port 2222, PID $PORT_FORWARD_PID" $status_start_col $status_width "${deployment_steps[3]}"
     else
         update_deployment_step 3 "failed" "Check $LOG_FILE" step_statuses step_messages
         update_single_deployment_step 3 "failed" "Check $LOG_FILE" $status_start_col $status_width "${deployment_steps[3]}"
     fi
     
-    # Calculate final row for connection details (adjusted for 3-row spacing)
-    local final_row=$((5 + (${#deployment_steps[@]} * 3)))
+    # Clean up any remaining animation files
+    rm -f "$anim_flag"
+    
+    # Calculate final row for connection details (adjusted for 2-row spacing)
+    local final_row=$((5 + (${#deployment_steps[@]} * 2)))
     DEPLOYMENT_STATUS_FINAL_ROW=$final_row
     
     # Check if Claude Code was selected
