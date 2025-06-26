@@ -206,24 +206,6 @@ Components can include markdown documentation that gets injected into LLM system
 my-tool --help
 ```
 
-**Common Tasks**:
-- Task 1: `my-tool do-something`
-- Task 2: `my-tool configure`
-```
-
-These markdown files are automatically included in AI assistant contexts when the component is selected.
-
-## 🎨 Theme Customization
-
-Change the UI theme with environment variable:
-
-```bash
-# Available themes: default, dark, matrix, ocean, minimal, neon
-AI_DEVKIT_THEME=matrix ./build-and-deploy.sh
-```
-
-See [Theme Customization](docs/themes.md) for creating custom themes.
-
 ## 🤝 Contributing
 
 We welcome contributions! Please see our [Developer Guide](docs/developer.md) for information on:
