@@ -191,11 +191,13 @@ installation:
     RUN apt-get update && apt-get install -y my-tool
 ```
 
-### Component Documentation
+### Component Documentation (Optional)
 
-Each component should have a corresponding `.md` file with usage instructions:
+Components can include markdown documentation that gets injected into LLM system prompts:
 
 ```markdown
+# components/category/my-component.md
+
 #### My Component Name
 
 **Getting Started**:
@@ -203,7 +205,13 @@ Each component should have a corresponding `.md` file with usage instructions:
 # How to use this component
 my-tool --help
 ```
+
+**Common Tasks**:
+- Task 1: `my-tool do-something`
+- Task 2: `my-tool configure`
 ```
+
+These markdown files are automatically included in AI assistant contexts when the component is selected.
 
 ## 🎨 Theme Customization
 

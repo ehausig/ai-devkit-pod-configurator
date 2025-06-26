@@ -126,9 +126,24 @@ entrypoint_setup: |
   fi
 ```
 
-## Component Documentation
+## Component Documentation (Optional)
 
-Create a markdown file with the same name as your component:
+Components can optionally include markdown documentation files that enhance the AI assistant experience. These files are automatically injected into LLM system prompts when the component is selected.
+
+### Purpose
+
+The markdown files serve to:
+- Provide usage examples and common commands to AI assistants
+- Document component-specific workflows and best practices
+- Help AI assistants give accurate, component-aware responses
+
+### File Naming
+
+Documentation files must have the same base name as the component YAML:
+- Component: `python-miniconda.yaml`
+- Documentation: `python-miniconda.md`
+
+### Documentation Structure
 
 ```markdown
 # components/languages/example.md
@@ -144,16 +159,49 @@ example init my-project
 example run
 ```
 
+**Environment Setup**:
+```bash
+# Activate virtual environment
+example venv activate
+
+# Install dependencies
+example install -r requirements.txt
+```
+
+**Common Tasks**:
+- Build project: `example build`
+- Run tests: `example test`
+- Deploy: `example deploy`
+
 **Configuration**:
 - Config file: `~/.example/config.json`
 - Environment: `EXAMPLE_HOME`
 
-**Common Commands**:
-```bash
-example --version
-example --help
+**Troubleshooting**:
+- If X happens, try Y
+- Check logs at: `~/.example/logs/`
 ```
-```
+
+### How It Works
+
+1. When a component is selected, its `.md` file is copied to the build directory
+2. During container startup, the file is placed in `~/.claude/` directory
+3. AI assistants (like Claude Code) can access these files for context
+4. The documentation helps AI assistants provide accurate, component-specific guidance
+
+### Best Practices
+
+1. **Focus on AI Context**: Write documentation that helps AI assistants understand:
+   - Common commands and their purposes
+   - Typical workflows
+   - Configuration locations
+   - Error resolution steps
+
+2. **Keep It Concise**: AI assistants work better with clear, structured information
+
+3. **Include Examples**: Real command examples are more useful than abstract descriptions
+
+4. **Document Gotchas**: Include any non-obvious behaviors or common mistakes
 
 ## Pre-build Scripts
 
