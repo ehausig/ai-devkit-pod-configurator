@@ -8,63 +8,42 @@ The AI DevKit Pod Configurator is a modular system for creating customized devel
 
 ## High-Level Architecture
 
-```mermaid
-flowchart TB
-    %% Main flow - all boxes same width
-    UI[User Interface<br/>build-and-deploy.sh]
-    CS[Component System]
-    BE[Build Engine]
-    CO[AI DevKit Container<br/>Ubuntu 22.04 LTS]
-    K8S[Kubernetes Deployment]
-    
-    %% Main connections
-    UI --> CS
-    CS --> BE
-    BE --> CO
-    CO --> K8S
-    
-    %% Detail boxes aligned to the right
-    CompList["<b>Components</b><br/><br/>
-    • AI Agents<br/>
-    • Languages<br/>
-    • Build Tools<br/>
-    • Testing Tools"]
-    
-    BuildList["<b>Functions</b><br/><br/>
-    • Dockerfile Generation<br/>
-    • Dependency Resolution<br/>
-    • Pre-build Scripts"]
-    
-    ServiceList["<b>Services</b><br/><br/>
-    • SSH Server :2222<br/>
-    • Filebrowser :8090<br/>
-    • Selected Components"]
-    
-    K8SList["<b>Resources</b><br/><br/>
-    • Persistent Volumes<br/>
-    • ConfigMaps/Secrets<br/>
-    • Service Exposure"]
-    
-    %% Positioning detail boxes to the right
-    CS -.-> CompList
-    BE -.-> BuildList
-    CO -.-> ServiceList
-    K8S -.-> K8SList
-    
-    %% Styling for consistent appearance
-    classDef mainBox fill:#2563eb,stroke:#1d4ed8,stroke-width:2px,color:#fff,font-weight:bold
-    classDef detailBox fill:#f8fafc,stroke:#cbd5e1,stroke-width:1px,text-align:left,font-size:14px
-    
-    %% Apply styles
-    class UI,CS,BE,CO,K8S mainBox
-    class CompList,BuildList,ServiceList,K8SList detailBox
-    
-    %% Force same width for main boxes
-    style UI width:300px
-    style CS width:300px
-    style BE width:300px
-    style CO width:300px
-    style K8S width:300px
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        User Interface                       │
+│                    (build-and-deploy.sh)                    │
+└───────────────────────────┬─────────────────────────────────┘
+                            │
+┌───────────────────────────▼─────────────────────────────────┐
+│                    Component System                         │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │
+│  │   Agents    │  │  Languages  │  │Build Tools  │  ...     │
+│  └─────────────┘  └─────────────┘  └─────────────┘          │
+└───────────────────────────┬─────────────────────────────────┘
+                            │
+┌───────────────────────────▼─────────────────────────────────┐
+│                     Build Engine                            │
+│  • Dockerfile generation                                    │
+│  • Component dependency resolution                          │
+│  • Pre-build script execution                               │
+└───────────────────────────┬─────────────────────────────────┘
+                            │
+┌───────────────────────────▼─────────────────────────────────┐
+│                 Container Runtime                           │
+│  ┌──────────────────────────────┐                           │
+│  │     AI DevKit Container      │                           │
+│  │  • Ubuntu 22.04 base         │                           │
+│  │  • Selected components       │                           │
+│  │  • SSH server (port 2222)    │                           │
+│  └──────────────────────────────┘                           │
+└───────────────────────────┬─────────────────────────────────┘
+                            │
+┌───────────────────────────▼─────────────────────────────────┐
+│                    Kubernetes                               │
+│  • Persistent volumes                                       │
+│  • Service exposure                                         │
+│  • ConfigMaps/Secrets                                       │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ## Core Components
