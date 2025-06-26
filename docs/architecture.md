@@ -1,278 +1,303 @@
 # Architecture Overview
 
-This document describes the architecture and design decisions of the AI DevKit Pod Configurator.
+This document describes the architecture and design of the AI DevKit Pod Configurator.
 
 ## System Overview
 
-The AI DevKit Pod Configurator is a modular system for creating customized development environments in Kubernetes. It consists of:
+The AI DevKit Pod Configurator is a modular system for creating customized development environments in Kubernetes. It uses a component-based architecture where users can select exactly what tools they need.
 
-1. **Component Selection TUI** - Interactive terminal interface for selecting development tools
-2. **Build System** - Dynamic Docker image generation based on selections
-3. **Kubernetes Deployment** - Containerized environment with persistent storage
-4. **Component Framework** - Plugin-style architecture for adding tools
+## High-Level Architecture
 
-## Architecture Diagram
-
+```mermaid
+graph TB
+    subgraph "User Layer"
+        UI[User Interface<br/>build-and-deploy.sh]
+    end
+    
+    subgraph "Component Layer"
+        CS[Component System]
+        subgraph "Component Categories"
+            direction LR
+            Agents[AI Agents]
+            Languages[Languages]
+            BuildTools[Build Tools]
+            Testing[Testing Tools]
+        end
+    end
+    
+    subgraph "Build Layer"
+        BE[Build Engine]
+        DF[Dockerfile<br/>Generation]
+        DR[Dependency<br/>Resolution]
+        PS[Pre-build<br/>Scripts]
+    end
+    
+    subgraph "Container Layer"
+        CR[Container Runtime]
+        subgraph "AI DevKit Container"
+            Base[Ubuntu 22.04 LTS]
+            Components[Selected Components]
+            SSH[SSH Server :2222]
+            FB[Filebrowser :8090]
+        end
+    end
+    
+    subgraph "Infrastructure Layer"
+        K8S[Kubernetes Cluster]
+        PV[Persistent Volumes]
+        SVC[Services]
+        CM[ConfigMaps/Secrets]
+    end
+    
+    %% Connections
+    UI --> CS
+    CS --> Agents
+    CS --> Languages
+    CS --> BuildTools
+    CS --> Testing
+    
+    CS --> BE
+    BE --> DF
+    BE --> DR
+    BE --> PS
+    
+    BE --> CR
+    CR --> Base
+    CR --> Components
+    CR --> SSH
+    CR --> FB
+    
+    CR --> K8S
+    K8S --> PV
+    K8S --> SVC
+    K8S --> CM
+    
+    %% Styling
+    classDef userStyle fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef componentStyle fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef buildStyle fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef containerStyle fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    classDef k8sStyle fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+    
+    class UI userStyle
+    class CS,Agents,Languages,BuildTools,Testing componentStyle
+    class BE,DF,DR,PS buildStyle
+    class CR,Base,Components,SSH,FB containerStyle
+    class K8S,PV,SVC,CM k8sStyle
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        User Interface                        │
-│                    (build-and-deploy.sh)                    │
-└─────────────────────┬───────────────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────────────┐
-│                    Component System                          │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
-│  │   Agents    │  │  Languages  │  │Build Tools  │  ...   │
-│  └─────────────┘  └─────────────┘  └─────────────┘        │
-└─────────────────────┬───────────────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────────────┐
-│                     Build Engine                             │
-│  • Dockerfile generation                                     │
-│  • Component dependency resolution                           │
-│  • Pre-build script execution                                │
-└─────────────────────┬───────────────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────────────┐
-│                 Container Runtime                            │
-│  ┌──────────────────────────────┐                          │
-│  │     AI DevKit Container      │                          │
-│  │  • Ubuntu 22.04 base         │                          │
-│  │  • Selected components       │                          │
-│  │  • SSH server (port 2222)   │                          │
-│  └──────────────────────────────┘                          │
-└─────────────────────┬───────────────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────────────┐
-│                    Kubernetes                                │
-│  • Persistent volumes                                        │
-│  • Service exposure                                          │
-│  • ConfigMaps/Secrets                                        │
-└─────────────────────────────────────────────────────────────┘
-```
 
-## Component System
+## Core Components
 
-### Component Structure
+### 1. Terminal User Interface (TUI)
 
-Each component is defined by:
-- **YAML definition** (`component-name.yaml`) - Metadata and installation instructions
-- **Markdown documentation** (`component-name.md`) - Usage instructions
-- **Optional pre-build script** - For complex setup tasks
+The TUI is built into `build-and-deploy.sh` and provides:
+- Interactive component selection
+- Real-time build status
+- Theme support
+- Keyboard navigation
+- Multi-page catalog browsing
 
-### Component Categories
+**Key Features:**
+- Written in pure Bash for portability
+- Supports vim-style navigation (hjkl)
+- Dynamic pagination based on terminal size
+- Visual feedback for dependencies and conflicts
 
+### 2. Component System
+
+Components are the building blocks of the system. Each component is:
+- Self-contained YAML definition
+- Optional markdown documentation
+- Optional pre-build script
+- Dependency aware
+
+**Component Structure:**
 ```
 components/
-├── agents/          # AI assistants (Claude Code, etc.)
-├── languages/       # Programming languages
-├── build-tools/     # Build and dependency managers
-└── .../            # Extensible categories
+├── agents/
+│   ├── .category.yaml
+│   ├── claude-code.yaml
+│   └── claude-code.md
+├── languages/
+│   ├── .category.yaml
+│   ├── python-miniconda.yaml
+│   └── python-miniconda.md
+└── build-tools/
+    ├── .category.yaml
+    ├── maven.yaml
+    └── maven.md
 ```
 
-### Component Lifecycle
+### 3. Build Engine
 
-1. **Selection** - User chooses components via TUI
-2. **Dependency Resolution** - System resolves dependencies and conflicts
-3. **Pre-build** - Execute any pre-build scripts
-4. **Build** - Generate Dockerfile with component installations
-5. **Deploy** - Create container with selected components
+The build engine handles:
+1. **Component Loading**: Parses YAML files and builds dependency graph
+2. **Dependency Resolution**: Topological sort for correct installation order
+3. **Dockerfile Generation**: Creates custom Dockerfile from base + components
+4. **Pre-build Scripts**: Executes component-specific setup scripts
+5. **Documentation Aggregation**: Collects component markdown files
 
-## Build System
+### 4. Container Image
 
-### Dynamic Dockerfile Generation
+Built on Ubuntu 22.04 LTS with:
+- **Base Tools**: Git, SSH server, file manager
+- **Development User**: Non-root `devuser` with sudo access
+- **Persistent Paths**: 
+  - `/home/devuser/workspace` - Code and projects
+  - `/home/devuser/.config/ai-devkit` - Configuration
+- **Service Ports**:
+  - 2222: SSH server
+  - 8090: Filebrowser web UI
 
-The build system creates a custom Dockerfile by:
+### 5. Kubernetes Deployment
 
-1. Starting with `docker/Dockerfile.base`
-2. Inserting component installations at `LANGUAGE_INSTALLATIONS_PLACEHOLDER`
-3. Adding file injections before `VOLUME` declarations
-4. Configuring entrypoint setup for runtime initialization
+The deployment includes:
+- **Main Pod**: Development environment container
+- **Sidecar**: Filebrowser for web-based file management
+- **Persistent Volumes**: For workspace and configuration
+- **Services**: ClusterIP for SSH and Filebrowser
+- **ConfigMaps**: Nexus proxy configuration (optional)
+- **Secrets**: SSH keys and git credentials
 
-### Build Flow
+## Data Flow
 
-```
-User Selection
-     │
-     ▼
-Load Components ──────► Sort by Dependencies
-     │                         │
-     │                         ▼
-     │                  Execute Pre-build Scripts
-     │                         │
-     ▼                         ▼
-Generate Dockerfile ◄──── Component Processing
-     │
-     ▼
-Docker Build ─────────► Push to K8s
-     │
-     ▼
-Deploy to Kubernetes
-```
+### Build Process
 
-## Kubernetes Architecture
-
-### Namespace Structure
-
-All resources are deployed to the `ai-devkit` namespace:
-
-```yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: ai-devkit
+```mermaid
+graph TD
+    A[User runs build-and-deploy.sh] --> B[TUI Component Selection]
+    B --> C[Load Component Definitions]
+    C --> D[Resolve Dependencies]
+    D --> E[Execute Pre-build Scripts]
+    E --> F[Generate Dockerfile]
+    F --> G[Build Container Image]
+    G --> H[Deploy to Kubernetes]
+    H --> I[Setup Port Forwarding]
 ```
 
-### Persistent Storage
+### Component Installation Flow
 
-Two persistent volumes provide data persistence:
+1. **Selection**: User selects components in TUI
+2. **Validation**: Check dependencies and conflicts
+3. **Sorting**: Topological sort by dependencies
+4. **Pre-build**: Run component pre-build scripts
+5. **Generation**: Create Dockerfile with installations
+6. **Building**: Docker builds the image
+7. **Deployment**: Image deployed to Kubernetes
 
-1. **Workspace Volume** (`ai-devkit-workspace-pvc`)
-   - Mount: `/home/devuser/workspace`
-   - Purpose: User code and projects
-   - Size: 5Gi
-
-2. **Config Volume** (`ai-devkit-config-pvc`)
-   - Mount: `/home/devuser/.config/ai-devkit`
-   - Purpose: General configuration persistence
-   - Size: 1Gi
-
-### Service Architecture
-
-The deployment includes two containers:
-
-1. **Main Container** (`ai-devkit`)
-   - Development environment with selected tools
-   - SSH server on port 22
-   - Runs as non-root user (`devuser`)
-
-2. **Sidecar Container** (`filebrowser`)
-   - Web-based file manager
-   - Port 8090
-   - Access to workspace volume
-
-### Networking
-
-Services are exposed via `ClusterIP`:
-- SSH: Port 22 → 2222 (via port-forward)
-- Filebrowser: Port 8090 → 8090 (via port-forward)
-
-## Security Considerations
+## Security Architecture
 
 ### Container Security
-
-- **Non-root execution** - Container runs as `devuser` (UID 1000)
-- **No privileged access** - Standard security context
-- **Isolated namespace** - Dedicated `ai-devkit` namespace
+- Runs as non-root user (`devuser`)
+- SSH requires authentication
+- Minimal base image
+- No unnecessary privileges
 
 ### Secret Management
-
-Sensitive data is stored in Kubernetes secrets:
-- `ssh-host-keys` - SSH server host keys
-- `git-config` - Git credentials (optional)
+- SSH host keys in Kubernetes secrets
+- Git credentials isolated to container
+- Optional host credential injection
+- Proper file permissions (600)
 
 ### Network Security
-
-- No direct external exposure (ClusterIP only)
-- Port forwarding required for access
-- SSH password authentication (configurable)
-
-## Configuration Management
-
-### Environment Variables
-
-Components can define environment variables that are:
-1. Set during build (via `ARG`)
-2. Configured at runtime (via ConfigMap)
-3. Passed to processes (via entrypoint)
-
-### Nexus Proxy Support
-
-When Nexus is detected:
-- Package managers are configured to use proxy
-- Build arguments are automatically added
-- ConfigMaps provide runtime configuration
-
-## File Structure
-
-### Project Layout
-
-```
-ai-devkit-pod-configurator/
-├── build-and-deploy.sh      # Main entry point
-├── components/              # Component definitions
-├── docker/                  # Base container files
-│   ├── Dockerfile.base      # Base image definition
-│   └── entrypoint.base.sh   # Runtime initialization
-├── kubernetes/              # K8s manifests
-│   ├── deployment.yaml      # Main deployment
-│   ├── namespace.yaml       # Namespace definition
-│   ├── pvc.yaml           # Persistent volumes
-│   └── nexus-config.yaml   # Optional Nexus config
-├── scripts/                 # Utility scripts
-└── docs/                   # Documentation
-```
-
-### Container Layout
-
-```
-/home/devuser/
-├── workspace/              # Persistent user workspace
-├── .config/
-│   └── ai-devkit/         # Persistent configuration
-├── .claude/               # AI assistant files
-├── .local/                # User installations
-└── .bashrc                # Shell configuration
-```
+- Services use ClusterIP (not exposed externally)
+- Port forwarding for local access only
+- Optional network policies
+- Filebrowser requires authentication
 
 ## Extension Points
 
 ### Adding New Components
 
 1. Create YAML definition in appropriate category
-2. Add installation instructions in `dockerfile` section
-3. Optional: Add pre-build script for complex setup
-4. Create documentation markdown file
+2. Optional: Add markdown documentation
+3. Optional: Create pre-build script
+4. Define dependencies via `requires` field
 
-### Custom Categories
+### Custom Themes
 
-New categories can be added by:
-1. Creating directory under `components/`
-2. Adding `.category.yaml` for metadata
-3. Following standard component structure
+Themes are defined in `build-and-deploy.sh`:
+- Color schemes for TUI elements
+- Icon sets
+- Border styles
+- Status indicators
 
-### Theme System
+### Pre-build Scripts
 
-The TUI supports custom themes via environment variable:
-```bash
-AI_DEVKIT_THEME=custom ./build-and-deploy.sh
-```
+Components can include pre-build scripts that:
+- Generate configuration files
+- Download additional resources
+- Create documentation aggregates
+- Set up component-specific structures
+
+## Configuration Management
+
+### Host Configuration
+- Git credentials via `configure-git-host.sh`
+- Stored in `~/.ai-devkit/`
+- Injected as Kubernetes secrets
+
+### Container Configuration
+- Environment variables for tools
+- Dotfiles in home directory
+- Package manager configurations
+- Persistent across restarts
+
+### Nexus Proxy Support (Optional)
+- Proxy configuration
+- ConfigMaps for each package manager
+- Environment variables for tools
+- Transparent to components
 
 ## Performance Considerations
 
 ### Build Optimization
-
-- **Layer caching** - Common installations in base image
-- **Parallel downloads** - When using Nexus proxy
-- **Minimal base image** - Ubuntu 22.04 with only essentials
+- Minimal base image
+- Layer caching
+- Conditional installations
+- Cleanup after each component
 
 ### Runtime Performance
+- Resource limits in Kubernetes
+- Efficient file watching
+- Lazy loading of tools
+- Minimal background processes
 
-- **Resource limits** - Configurable CPU/memory limits
-- **Volume performance** - Local persistent volumes
-- **Network optimization** - Local cluster communication
+## Monitoring and Debugging
 
-## Future Architecture Considerations
+### Build Logs
+- Detailed logging to `build-and-deploy.log`
+- Component installation tracking
+- Error capture and reporting
 
-### Planned Enhancements
+### Runtime Debugging
+- SSH access for troubleshooting
+- Container logs via kubectl
+- Filebrowser for file inspection
+- Standard Kubernetes tooling
 
-1. **Multi-architecture support** - ARM64 and AMD64
-2. **Component versioning** - Version constraints and compatibility
-3. **Remote deployments** - Deploy to remote clusters
-4. **Component registry** - External component sources
+## Technical Decisions
 
-### Scalability
+### Why Bash for TUI?
+- No additional dependencies
+- Works on all POSIX systems
+- Direct terminal control
+- Fast and responsive
 
-- **Multi-user** - Separate namespaces per user
-- **Team workspaces** - Shared persistent volumes
-- **Resource quotas** - Namespace-level limits
+### Why YAML for Components?
+- Human readable
+- Simple parsing
+- Widely understood
+- Supports multiline strings
+
+### Why Ubuntu Base?
+- Excellent package availability
+- Long-term support (LTS)
+- Familiar to developers
+- Good container support
+
+### Why Kubernetes?
+- Persistent storage management
+- Service discovery
+- Secret management
+- Platform agnostic
