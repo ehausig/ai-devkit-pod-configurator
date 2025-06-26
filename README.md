@@ -41,8 +41,11 @@ AI DevKit Pod Configurator provides a beautiful TUI (Terminal User Interface) fo
 *Interactive TUI for selecting development tools and languages*
 
 ### Deployment Status Dashboard
-![Deployment Status Dashboard](docs/images/deployment-status.png)
+![Deployment Status Dashboard - In Progress](docs/images/deployment-status.png)
 *Real-time deployment progress with animated status indicators*
+
+![Deployment Status Dashboard - Complete](docs/images/deployment-complete.png)
+*Automatic port forwarding for easy connectivity*
 
 ### Development Environment
 ![Development Environment](docs/images/dev-environment.png)
