@@ -1,378 +1,330 @@
-# Theme Customization Guide
+# Theme Customization
 
-The AI DevKit Pod Configurator features a sophisticated theming system for the Terminal User Interface (TUI) that allows you to customize colors and styles to match your preferences.
+The AI DevKit Pod Configurator includes a sophisticated theme system for customizing the Terminal User Interface (TUI) appearance.
 
-## Table of Contents
+## Using Built-in Themes
 
-- [Available Themes](#available-themes)
-- [Using Themes](#using-themes)
-- [Theme Structure](#theme-structure)
-- [Creating Custom Themes](#creating-custom-themes)
-- [Color Reference](#color-reference)
-- [Theme Components](#theme-components)
-- [Best Practices](#best-practices)
-
-## Available Themes
-
-The build script includes several built-in themes:
-
-### 1. **Default Theme**
-- Professional color scheme with cyan, blue, and sage green accents
-- High contrast for readability
-- Suitable for both light and dark terminals
-
-### 2. **Dark Theme**
-- Softer colors optimized for dark terminals
-- Reduced eye strain for extended use
-- Muted color palette
-
-### 3. **Matrix Theme**
-- Classic green-on-black terminal aesthetic
-- All UI elements in various shades of green
-- Perfect for that hacker vibe
-
-### 4. **Ocean Theme**
-- Blues and cyans inspired by the sea
-- Calming color palette
-- Good for extended coding sessions
-
-### 5. **Minimal Theme**
-- Mostly white and gray
-- Reduces visual clutter
-- Focus on content over style
-
-### 6. **Neon Theme**
-- High contrast with bright, vibrant colors
-- Eye-catching design
-- Great for demonstrations
-
-## Using Themes
-
-### Setting a Theme
-
-You can set a theme using the `AI_DEVKIT_THEME` environment variable:
+Set the theme using the `AI_DEVKIT_THEME` environment variable:
 
 ```bash
-# Use a specific theme for one run
+# Available themes: default, dark, matrix, ocean, minimal, neon
 AI_DEVKIT_THEME=matrix ./build-and-deploy.sh
-
-# Export for the session
-export AI_DEVKIT_THEME=ocean
-./build-and-deploy.sh
-
-# Make it permanent (add to ~/.bashrc or ~/.zshrc)
-echo 'export AI_DEVKIT_THEME=dark' >> ~/.bashrc
 ```
 
-### Available Theme Names
+## Built-in Themes
 
-- `default` (or unset)
-- `dark`
-- `matrix`
-- `ocean`
-- `minimal`
-- `neon`
+### Default Theme
+The default colorful theme with good contrast and readability.
 
-## Theme Structure
+### Dark Theme
+Softer colors optimized for dark terminals:
+- Muted colors to reduce eye strain
+- Gray borders and accents
+- Cyan highlights
 
-Themes are defined in the `build-and-deploy.sh` script within the `load_theme()` function. Each theme sets various color and style variables for different UI components.
+### Matrix Theme
+Green-on-black theme inspired by The Matrix:
+- All green color palette
+- Perfect for that hacker aesthetic
+- High contrast monochrome
 
-### Color Variable Categories
+### Ocean Theme
+Blues and cyans for a calm appearance:
+- Blue and cyan color scheme
+- Soothing water-inspired palette
+- Good for long coding sessions
 
-1. **Base Colors** - Fundamental terminal colors
-2. **Custom Colors** - Extended color palette
-3. **UI Component Styles** - Specific styles for each UI element
+### Minimal Theme
+Mostly white and gray for a clean look:
+- Monochrome design
+- Reduced visual clutter
+- Focus on content
+
+### Neon Theme
+High contrast with bright colors:
+- Vibrant, eye-catching colors
+- Perfect for demos
+- Maximum visual impact
 
 ## Creating Custom Themes
 
-To add a new theme, modify the `load_theme()` function in `build-and-deploy.sh`:
-
-```bash
-# In the load_theme() function, add a new case:
-"mytheme")
-    # Set your custom colors
-    GLOBAL_TITLE_STYLE="$BOLD_MAGENTA"
-    CATALOG_BORDER_COLOR="$COLOR_BRIGHT_MAGENTA"
-    CATALOG_CURSOR_COLOR="$COLOR_BRIGHT_YELLOW"
-    # ... set all other variables
-    ;;
-```
-
-### Complete Theme Template
-
-Here's a template for creating a complete custom theme:
+To create a custom theme, modify the `load_theme()` function in `build-and-deploy.sh`:
 
 ```bash
 "custom")
-    # Global Elements
-    GLOBAL_TITLE_STYLE="$BOLD_CYAN"
-    GLOBAL_HINT_STYLE="$COLOR_YELLOW"
-    
-    # Instructions Bar
-    INSTRUCTION_KEY_STYLE="$BOLD_WHITE"
-    INSTRUCTION_TEXT_STYLE="$COLOR_GRAY"
-    INSTRUCTION_ABORT_STYLE="$COLOR_RED"
-    
-    # Catalog Box (Available Components)
-    CATALOG_BORDER_COLOR="$COLOR_BRIGHT_CHARCOAL"
-    CATALOG_TITLE_STYLE="$BOLD_WHITE"
-    CATALOG_CATEGORY_STYLE="$COLOR_SEAFOAM"
-    CATALOG_CURSOR_COLOR="$COLOR_BRIGHT_BLUE"
-    CATALOG_ITEM_SELECTED_STYLE="$COLOR_BRIGHT_SAGE"
-    CATALOG_ITEM_AVAILABLE_STYLE="$COLOR_BRIGHT_WHITE"
-    CATALOG_ITEM_DISABLED_STYLE="$COLOR_GRAY"
-    CATALOG_STATUS_IN_STACK_STYLE="$COLOR_BRIGHT_SAGE"
-    CATALOG_STATUS_REQUIRED_STYLE="$COLOR_SAND"
-    CATALOG_PAGE_INDICATOR_STYLE="$COLOR_SAND"
-    CATALOG_ICON_SELECTED_COLOR="$COLOR_BRIGHT_SAGE"
-    CATALOG_ICON_AVAILABLE_COLOR="$STYLE_RESET"
-    CATALOG_ICON_DISABLED_COLOR="$COLOR_GRAY"
-    CATALOG_ICON_WARNING_COLOR="$COLOR_MAGENTA"
-    
-    # Cart Box (Build Stack)
-    CART_BORDER_COLOR="$COLOR_BRIGHT_CHARCOAL"
-    CART_TITLE_STYLE="$BOLD_WHITE"
-    CART_CATEGORY_STYLE="$COLOR_BRIGHT_SEAFOAM"
-    CART_CURSOR_COLOR="$COLOR_BRIGHT_BLUE"
-    CART_ITEM_STYLE="$COLOR_BRIGHT_SAGE"
-    CART_BASE_CATEGORY_STYLE="$COLOR_SEAFOAM"
-    CART_BASE_ITEM_STYLE="$COLOR_SILVER"
-    CART_REMOVE_HINT_STYLE="$COLOR_WHITE"
-    CART_COUNT_STYLE="$COLOR_SAND"
-    
-    # Summary Screen
-    SUMMARY_BORDER_COLOR="$COLOR_SAGE"
-    SUMMARY_TITLE_STYLE="$BOLD_WHITE"
-    SUMMARY_CATEGORY_STYLE="$COLOR_BRIGHT_SEAFOAM"
-    SUMMARY_CHECKMARK_COLOR="$COLOR_BRIGHT_SAGE"
-    
-    # Deployment Status
-    STATUS_BORDER_COLOR="$COLOR_BRIGHT_CHARCOAL"
-    STATUS_TITLE_STYLE="$BOLD_WHITE"
-    STATUS_PENDING_STYLE="$COLOR_SAND"
-    STATUS_RUNNING_STYLE="$COLOR_BRIGHT_SKY"
-    STATUS_SUCCESS_STYLE="$COLOR_BRIGHT_SAGE"
-    STATUS_FAILED_STYLE="$COLOR_BRIGHT_CORAL"
-    STATUS_STEP_STYLE="$COLOR_SILVER"
-    STATUS_INFO_STYLE="$COLOR_BRIGHT_CYAN"
-    
-    # Logging
-    LOG_ERROR_STYLE="$COLOR_RED"
-    LOG_SUCCESS_STYLE="$COLOR_GREEN"
-    LOG_WARNING_STYLE="$BOLD_YELLOW"
-    LOG_INFO_STYLE="$COLOR_BLUE"
-    LOG_DEFAULT_STYLE="$COLOR_YELLOW"
+    # Custom theme - your colors here
+    GLOBAL_SEPARATOR_COLOR="$COLOR_MAGENTA"
+    GLOBAL_TITLE_STYLE="$BOLD_MAGENTA"
+    # ... set all theme variables
     ;;
 ```
 
-## Color Reference
+## Theme Variables
 
-### Base Terminal Colors
+### Global Elements
 
 ```bash
-COLOR_BLACK='\033[0;30m'
-COLOR_RED='\033[0;31m'
-COLOR_GREEN='\033[0;32m'
-COLOR_YELLOW='\033[0;33m'
-COLOR_BLUE='\033[0;34m'
-COLOR_MAGENTA='\033[0;35m'
-COLOR_CYAN='\033[0;36m'
-COLOR_WHITE='\033[0;37m'
-COLOR_GRAY='\033[0;90m'
+GLOBAL_TITLE_STYLE          # Main title styling
+GLOBAL_SEPARATOR_COLOR      # Separator lines (deprecated)
+GLOBAL_HINT_STYLE          # Hint messages
+```
+
+### Catalog Box (Available Components)
+
+```bash
+CATALOG_BORDER_COLOR        # Box border color
+CATALOG_TITLE_STYLE        # "Available Components" title
+CATALOG_CATEGORY_STYLE     # Category headers (Languages, etc.)
+CATALOG_CURSOR_COLOR       # Selection cursor (▸)
+CATALOG_ITEM_SELECTED_STYLE    # Selected items
+CATALOG_ITEM_AVAILABLE_STYLE   # Available items
+CATALOG_ITEM_DISABLED_STYLE    # Disabled items
+CATALOG_STATUS_IN_STACK_STYLE  # "(in stack)" text
+CATALOG_STATUS_REQUIRED_STYLE  # "* requires X" text
+CATALOG_PAGE_INDICATOR_STYLE   # "Page 1/2" text
+CATALOG_ICON_SELECTED_COLOR    # ✓ icon color
+CATALOG_ICON_AVAILABLE_COLOR   # ○ icon color
+CATALOG_ICON_DISABLED_COLOR    # Disabled ○ icon
+CATALOG_ICON_WARNING_COLOR     # Warning icon color
+```
+
+### Cart Box (Build Stack)
+
+```bash
+CART_BORDER_COLOR          # Box border color
+CART_TITLE_STYLE          # "Build Stack" title
+CART_CATEGORY_STYLE       # Category headers
+CART_CURSOR_COLOR         # Selection cursor
+CART_ITEM_STYLE          # Selected component names
+CART_BASE_CATEGORY_STYLE  # "Base Development Tools"
+CART_BASE_ITEM_STYLE     # Base tool names
+CART_REMOVE_HINT_STYLE   # "[DEL to remove]" hint
+CART_COUNT_STYLE         # "X selected" count
+```
+
+### Instructions Bar
+
+```bash
+INSTRUCTION_KEY_STYLE     # Keyboard shortcuts
+INSTRUCTION_TEXT_STYLE    # Instruction text
+INSTRUCTION_ABORT_STYLE   # Cancel/quit styling
+```
+
+### Summary Screen
+
+```bash
+SUMMARY_BORDER_COLOR      # Box border
+SUMMARY_TITLE_STYLE      # Title styling
+SUMMARY_CHECKMARK_COLOR  # ✓ checkmark
+SUMMARY_CATEGORY_STYLE   # Category headers
+```
+
+### Deployment Status
+
+```bash
+STATUS_BORDER_COLOR          # Box border
+STATUS_TITLE_STYLE          # "Deployment Status" title
+STATUS_INITIAL_BULLET_COLOR  # Initial state bullet
+STATUS_INITIAL_TEXT_COLOR    # Initial state text
+STATUS_PENDING_BULLET_COLOR  # Pending state bullet
+STATUS_PENDING_TEXT_COLOR    # Pending state text
+STATUS_SUCCESS_BULLET_COLOR  # Success bullet (✓)
+STATUS_SUCCESS_TEXT_COLOR    # Success text
+STATUS_FAILED_BULLET_COLOR   # Failed bullet (✗)
+STATUS_FAILED_TEXT_COLOR     # Failed text
+STATUS_INFO_COLOR           # Info messages
+```
+
+### Logging
+
+```bash
+LOG_ERROR_STYLE    # Error messages
+LOG_SUCCESS_STYLE  # Success messages
+LOG_WARNING_STYLE  # Warning messages
+LOG_INFO_STYLE     # Info messages
+LOG_DEFAULT_STYLE  # Default log style
+```
+
+## Available Colors
+
+### Base Colors
+
+```bash
+COLOR_BLACK, COLOR_RED, COLOR_GREEN, COLOR_YELLOW
+COLOR_BLUE, COLOR_MAGENTA, COLOR_CYAN, COLOR_WHITE
+COLOR_GRAY
+```
+
+### Custom Colors
+
+```bash
+COLOR_SILVER      # #ABB2BF
+COLOR_CHARCOAL    # #5C6370
+COLOR_SKY         # #61AFEF
+COLOR_SAGE        # #B2C179
+COLOR_CORAL       # #E06C75
+COLOR_SAND        # #E5C07B
+COLOR_SEAFOAM     # #8ABFB7
+COLOR_LAVENDER    # #C678DD
 ```
 
 ### Bright Colors
 
 ```bash
-COLOR_BRIGHT_RED='\033[0;91m'
-COLOR_BRIGHT_GREEN='\033[0;92m'
-COLOR_BRIGHT_YELLOW='\033[0;93m'
-COLOR_BRIGHT_BLUE='\033[0;94m'
-COLOR_BRIGHT_MAGENTA='\033[0;95m'
-COLOR_BRIGHT_CYAN='\033[0;96m'
-COLOR_BRIGHT_WHITE='\033[0;97m'
+COLOR_BRIGHT_RED, COLOR_BRIGHT_GREEN, COLOR_BRIGHT_YELLOW
+COLOR_BRIGHT_BLUE, COLOR_BRIGHT_MAGENTA, COLOR_BRIGHT_CYAN
+COLOR_BRIGHT_WHITE, COLOR_BRIGHT_SILVER, COLOR_BRIGHT_CHARCOAL
+COLOR_BRIGHT_SKY, COLOR_BRIGHT_SAGE, COLOR_BRIGHT_CORAL
+COLOR_BRIGHT_SAND, COLOR_BRIGHT_SEAFOAM, COLOR_BRIGHT_LAVENDER
 ```
 
-### Custom Extended Colors
+### Styles
 
 ```bash
-COLOR_SILVER='\033[38;2;171;178;191m'       # #ABB2BF
-COLOR_CHARCOAL='\033[38;2;92;99;112m'       # #5C6370
-COLOR_SKY='\033[38;2;97;175;239m'           # #61AFEF
-COLOR_SAGE='\033[38;2;178;193;121m'         # #B2C179
-COLOR_CORAL='\033[38;2;224;108;117m'        # #E06C75
-COLOR_SAND='\033[38;2;229;192;123m'         # #E5C07B
-COLOR_SEAFOAM='\033[38;2;138;191;183m'      # #8ABFB7
-COLOR_LAVENDER='\033[38;2;198;120;221m'     # #C678DD
+STYLE_BOLD        # Bold text
+STYLE_DIM         # Dimmed text
+STYLE_ITALIC      # Italic text
+STYLE_UNDERLINE   # Underlined text
+STYLE_BLINK       # Blinking text
+STYLE_REVERSE     # Reversed colors
+STYLE_RESET       # Reset all styles
 ```
 
-### Style Modifiers
+### Compound Styles
 
 ```bash
-STYLE_BOLD='\033[1m'
-STYLE_DIM='\033[2m'
-STYLE_ITALIC='\033[3m'
-STYLE_UNDERLINE='\033[4m'
-STYLE_BLINK='\033[5m'
-STYLE_REVERSE='\033[7m'
-STYLE_RESET='\033[0m'
+BOLD_RED, BOLD_GREEN, BOLD_YELLOW, BOLD_BLUE
+BOLD_MAGENTA, BOLD_CYAN, BOLD_WHITE, BOLD_BRIGHT_WHITE
+BOLD_SILVER, BOLD_CHARCOAL, BOLD_SKY, BOLD_SAGE
+BOLD_CORAL, BOLD_SAND, BOLD_SEAFOAM, BOLD_LAVENDER
 ```
 
-## Theme Components
+## Creating a Complete Custom Theme
 
-### 1. Title Bar
-
-The gradient title uses multiple colors:
+Here's an example of creating a "Cyberpunk" theme:
 
 ```bash
-# Example from the default theme
-local gradient_colors=("$COLOR_CYAN" "$COLOR_BLUE" "$COLOR_LAVENDER" "$COLOR_MAGENTA")
-```
-
-### 2. Component Catalog
-
-- **Border**: Frame around the available components
-- **Categories**: Section headers (Languages, Build Tools, etc.)
-- **Items**: Individual components with various states
-- **Icons**: Selection indicators (✓, ○, etc.)
-
-### 3. Build Stack (Cart)
-
-- **Border**: Frame around selected components
-- **Base Items**: Always-included components
-- **Selected Items**: User-selected components
-- **Counter**: Shows number of selected items
-
-### 4. Status Display
-
-- **Animations**: Spinning indicators for running tasks
-- **Status Colors**: Different colors for pending, running, success, failed
-- **Messages**: Additional information for each step
-
-### 5. Instructions Bar
-
-- **Key Hints**: Keyboard shortcuts in highlighted style
-- **Action Text**: Description of what each key does
-
-## Best Practices
-
-### 1. Contrast
-
-Ensure sufficient contrast between:
-- Text and background
-- Selected and unselected items
-- Different UI sections
-
-### 2. Consistency
-
-- Use the same color for similar elements
-- Maintain a cohesive color palette
-- Don't use too many different colors
-
-### 3. Accessibility
-
-- Consider colorblind users
-- Test on different terminal backgrounds
-- Ensure text remains readable
-
-### 4. Terminal Compatibility
-
-- Test on multiple terminal emulators
-- Some terminals may not support all colors
-- Provide fallbacks for limited color support
-
-### 5. Color Psychology
-
-- **Green**: Success, completion, positive actions
-- **Red**: Errors, warnings, stop actions
-- **Blue**: Information, navigation, neutral elements
-- **Yellow**: Warnings, attention, hints
-- **Gray**: Disabled, unavailable, background elements
-
-## Advanced Theming
-
-### RGB Color Definition
-
-You can define custom RGB colors:
-
-```bash
-# Define a custom color using RGB values
-COLOR_CUSTOM='\033[38;2;R;G;Bm'  # Replace R, G, B with values 0-255
-
-# Example: Purple (128, 0, 128)
-COLOR_PURPLE='\033[38;2;128;0;128m'
-```
-
-### Background Colors
-
-To set background colors:
-
-```bash
-# Background color format
-BG_COLOR='\033[48;2;R;G;Bm'
-
-# Example: Blue background
-BG_BLUE='\033[48;2;0;0;255m'
-```
-
-### Combining Styles
-
-You can combine multiple styles:
-
-```bash
-# Bold red text on blue background
-STYLE_COMBO="${STYLE_BOLD}${COLOR_RED}${BG_BLUE}"
+"cyberpunk")
+    # Cyberpunk theme - neon pink and blue
+    GLOBAL_TITLE_STYLE="$BOLD_BRIGHT_MAGENTA"
+    GLOBAL_HINT_STYLE="$COLOR_BRIGHT_CYAN"
+    
+    # Catalog styling
+    CATALOG_BORDER_COLOR="$COLOR_BRIGHT_MAGENTA"
+    CATALOG_TITLE_STYLE="$BOLD_BRIGHT_CYAN"
+    CATALOG_CATEGORY_STYLE="$COLOR_BRIGHT_YELLOW"
+    CATALOG_CURSOR_COLOR="$COLOR_BRIGHT_MAGENTA"
+    CATALOG_ITEM_SELECTED_STYLE="$COLOR_BRIGHT_CYAN"
+    CATALOG_ITEM_AVAILABLE_STYLE="$COLOR_BRIGHT_WHITE"
+    CATALOG_ITEM_DISABLED_STYLE="$COLOR_GRAY"
+    CATALOG_STATUS_IN_STACK_STYLE="$COLOR_BRIGHT_GREEN"
+    CATALOG_STATUS_REQUIRED_STYLE="$COLOR_BRIGHT_YELLOW"
+    CATALOG_PAGE_INDICATOR_STYLE="$COLOR_BRIGHT_MAGENTA"
+    CATALOG_ICON_SELECTED_COLOR="$COLOR_BRIGHT_CYAN"
+    CATALOG_ICON_AVAILABLE_COLOR="$COLOR_WHITE"
+    CATALOG_ICON_DISABLED_COLOR="$COLOR_GRAY"
+    CATALOG_ICON_WARNING_COLOR="$COLOR_BRIGHT_YELLOW"
+    
+    # Cart styling
+    CART_BORDER_COLOR="$COLOR_BRIGHT_CYAN"
+    CART_TITLE_STYLE="$BOLD_BRIGHT_MAGENTA"
+    CART_CATEGORY_STYLE="$COLOR_BRIGHT_YELLOW"
+    CART_CURSOR_COLOR="$COLOR_BRIGHT_CYAN"
+    CART_ITEM_STYLE="$COLOR_BRIGHT_WHITE"
+    CART_BASE_CATEGORY_STYLE="$COLOR_BRIGHT_YELLOW"
+    CART_BASE_ITEM_STYLE="$COLOR_WHITE"
+    CART_REMOVE_HINT_STYLE="$COLOR_BRIGHT_RED"
+    CART_COUNT_STYLE="$COLOR_BRIGHT_MAGENTA"
+    
+    # Instructions
+    INSTRUCTION_KEY_STYLE="$COLOR_BRIGHT_CYAN"
+    INSTRUCTION_TEXT_STYLE="$COLOR_WHITE"
+    INSTRUCTION_ABORT_STYLE="$COLOR_BRIGHT_RED"
+    
+    # Summary screen
+    SUMMARY_BORDER_COLOR="$COLOR_BRIGHT_MAGENTA"
+    SUMMARY_TITLE_STYLE="$BOLD_BRIGHT_CYAN"
+    SUMMARY_CHECKMARK_COLOR="$COLOR_BRIGHT_GREEN"
+    SUMMARY_CATEGORY_STYLE="$COLOR_BRIGHT_YELLOW"
+    
+    # Status
+    STATUS_BORDER_COLOR="$COLOR_BRIGHT_CYAN"
+    STATUS_TITLE_STYLE="$BOLD_BRIGHT_MAGENTA"
+    STATUS_PENDING_STYLE="$COLOR_BRIGHT_YELLOW"
+    STATUS_RUNNING_STYLE="$COLOR_BRIGHT_CYAN"
+    STATUS_SUCCESS_STYLE="$COLOR_BRIGHT_GREEN"
+    STATUS_FAILED_STYLE="$COLOR_BRIGHT_RED"
+    
+    # Logging
+    LOG_ERROR_STYLE="$COLOR_BRIGHT_RED"
+    LOG_SUCCESS_STYLE="$COLOR_BRIGHT_GREEN"
+    LOG_WARNING_STYLE="$COLOR_BRIGHT_YELLOW"
+    LOG_INFO_STYLE="$COLOR_BRIGHT_CYAN"
+    LOG_DEFAULT_STYLE="$COLOR_BRIGHT_MAGENTA"
+    ;;
 ```
 
 ## Testing Your Theme
 
-1. **Quick Test**: Run the build script with your theme
+1. Add your theme to the `load_theme()` function
+2. Test with different terminal backgrounds:
    ```bash
-   AI_DEVKIT_THEME=mytheme ./build-and-deploy.sh
+   AI_DEVKIT_THEME=cyberpunk ./build-and-deploy.sh
    ```
+3. Navigate through all screens to verify readability
+4. Test in different terminal emulators
 
-2. **Visual Check**: Navigate through all UI elements:
-   - Browse component pages
-   - Select/deselect items
-   - Switch between catalog and cart
-   - View the build process
+## Theme Design Guidelines
 
-3. **Different Terminals**: Test in various terminal emulators:
-   - Terminal.app (macOS)
-   - iTerm2
-   - VS Code integrated terminal
-   - tmux/screen sessions
+1. **Contrast**: Ensure sufficient contrast between text and background
+2. **Consistency**: Use consistent colors for similar elements
+3. **Readability**: Test with both light and dark terminal backgrounds
+4. **Accessibility**: Consider colorblind users
+5. **Purpose**: Use color to convey meaning (red=error, green=success)
 
-4. **Background Colors**: Test with both light and dark terminal backgrounds
+## Terminal Compatibility
 
-## Contributing Themes
+The theme system uses ANSI escape codes that work in most modern terminals:
+- iTerm2 (macOS)
+- Terminal.app (macOS)
+- GNOME Terminal (Linux)
+- Konsole (Linux)
+- Windows Terminal (Windows)
+- VS Code integrated terminal
 
-To contribute a new theme:
+## Sharing Themes
 
-1. Create a well-tested theme following the template
-2. Ensure it works on common terminal emulators
-3. Document any special requirements
-4. Submit a pull request with:
-   - Theme code in `build-and-deploy.sh`
-   - Screenshot showing the theme
-   - Description of the theme's design philosophy
+To share your custom theme:
+
+1. Extract your theme case from `load_theme()`
+2. Document the color choices and inspiration
+3. Include screenshots with different backgrounds
+4. Submit a pull request to add it as a built-in theme
 
 ## Troubleshooting
 
-### Colors Not Displaying
+### Colors Not Displaying Correctly
 
-- Check if your terminal supports 24-bit color
-- Try a simpler theme like `minimal`
-- Verify the `TERM` environment variable is set correctly
+1. Check terminal supports 256 colors:
+   ```bash
+   echo $TERM  # Should show xterm-256color or similar
+   ```
 
-### Text Unreadable
+2. Some terminals need configuration:
+   ```bash
+   export TERM=xterm-256color
+   ```
 
-- Adjust contrast between foreground and background
-- Test on both light and dark terminal backgrounds
-- Use the `STYLE_BOLD` modifier for better visibility
+3. Verify terminal emulator settings for ANSI color support
 
 ### Theme Not Loading
 
-- Verify the theme name is spelled correctly
-- Check that the theme case matches in `load_theme()`
-- Ensure no syntax errors in theme definition
+1. Check environment variable is set correctly
+2. Verify theme name matches exactly (case-sensitive)
+3. Check for syntax errors in theme definition
+
+### Poor Readability
+
+1. Adjust terminal's base colors/profile
+2. Try a different built-in theme
+3. Modify specific colors that clash with your setup
