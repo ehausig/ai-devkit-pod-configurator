@@ -12,6 +12,7 @@ A powerful, modular system for creating containerized development environments i
 - **[Creating Components](docs/components.md)** - Build your own custom components
 - **[Theme Customization](docs/themes.md)** - Customize the TUI appearance
 - **[Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions
+- **[Roadmap](docs/roadmap.md)** - Future plans and enhancements
 
 ### For Contributors
 - **[Developer Guide](docs/developer.md)** - Contributing code and creating pull requests
@@ -120,68 +121,100 @@ This creates an isolated git configuration that's automatically injected into yo
 - GitHub Personal Access Token
 - GitHub CLI authentication
 
-## 📁 File Management
+## 📁 Accessing Your Environment
 
-Access the web-based file manager:
+### SSH Access
+
+After deployment completes, the build script automatically sets up port forwarding:
 
 ```bash
-./access-filebrowser.sh
-# Or manually:
-kubectl port-forward -n ai-devkit service/ai-devkit 8090:8090
+# Connect to your development environment
+ssh devuser@localhost -p 2222
+# Password: devuser
 ```
 
-Navigate to [http://localhost:8090](http://localhost:8090)
+### Web File Manager
+
+Access the built-in Filebrowser at [http://localhost:8090](http://localhost:8090)
 - Default credentials: admin/admin (change after first login!)
+- Upload/download files through the web interface
+- Edit files directly in the browser
 
-## 🧹 Maintenance
+## 🧹 Disk Management
 
-### Disk Cleanup (Colima users)
+### Colima Disk Cleanup
+
+Colima uses a virtual machine with a fixed disk size. Over time, Docker images and containers can fill up this disk, causing deployment failures.
+
+**The Problem**: When Colima's disk fills up, you'll see errors like:
+- "No space left on device"
+- Image pull failures
+- Build failures
+
+**The Solution**: The `cleanup-colima.sh` script helps reclaim disk space:
 
 ```bash
-# Clean up disk space in Colima
-./cleanup-colima.sh
-
-# Check what can be cleaned
+# Check what can be cleaned (dry run)
 ./cleanup-colima.sh --check
+
+# Clean up disk space
+./cleanup-colima.sh
 
 # Force cleanup without prompts
 ./cleanup-colima.sh --force
 ```
 
-## 🔧 Optional: Nexus Repository Manager
+**⚠️ CRITICAL WARNING**: 
+- **DO NOT USE** the `--overlay2` option - it will corrupt Docker
+- If you need to completely reset, delete and recreate the Colima VM:
+  ```bash
+  colima delete
+  colima start --kubernetes --cpu 4 --memory 8 --disk 100
+  ```
 
-If you have a local Nexus repository manager, the build script will automatically detect and use it for faster builds:
+## 📚 Creating Custom Components
 
-```bash
-# Start Nexus (if not already running)
-docker run -d -p 8081:8081 --name nexus sonatype/nexus3
+Components are self-contained YAML files that define how to install and configure tools. See [Creating Components](docs/components.md) for detailed instructions.
 
-# The build script will automatically detect Nexus on port 8081
-./build-and-deploy.sh
+### Basic Component Structure
+
+```yaml
+id: MY_COMPONENT
+name: My Component Name
+version: "1.0.0"
+group: component-group
+requires: []
+description: What this component does
+installation:
+  dockerfile: |
+    # Installation commands
+    RUN apt-get update && apt-get install -y my-tool
 ```
 
-## 🏗️ Architecture
+### Component Documentation
 
-The project uses a plugin-style architecture where each component is self-contained. For details, see the [Architecture documentation](docs/architecture.md).
+Each component should have a corresponding `.md` file with usage instructions:
 
-## 🛠️ Available Components
+```markdown
+#### My Component Name
 
-### Programming Languages
-- **Python**: System (3.10), Official 3.11, Miniconda
-- **Java**: OpenJDK 11/17/21, Eclipse Adoptium 11/17/21
-- **Go**: 1.21, 1.22
-- **Rust**: Stable, Nightly channels
-- **Ruby**: System package, 3.3 via rbenv
-- **Scala**: 2.13, 3.x
-- **Kotlin**: Latest version
+**Getting Started**:
+```bash
+# How to use this component
+my-tool --help
+```
+```
 
-### Build Tools
-- **Maven** - Java build automation
-- **Gradle** - Modern build tool for JVM
-- **SBT** - Scala build tool
+## 🎨 Theme Customization
 
-### AI Assistants
-- **Claude Code** - Anthropic's AI coding assistant (requires subscription)
+Change the UI theme with environment variable:
+
+```bash
+# Available themes: default, dark, matrix, ocean, minimal, neon
+AI_DEVKIT_THEME=matrix ./build-and-deploy.sh
+```
+
+See [Theme Customization](docs/themes.md) for creating custom themes.
 
 ## 🤝 Contributing
 
@@ -192,19 +225,6 @@ We welcome contributions! Please see our [Developer Guide](docs/developer.md) fo
 - Submitting pull requests
 
 For maintainers, see the [Maintainer Guide](docs/maintainer.md) for release procedures.
-
-## 🚀 Roadmap
-
-### Version 1.0 (Coming Soon)
-- [ ] Semantic versioning implementation
-- [ ] Stable API for component definitions
-- [ ] Comprehensive test suite
-
-See [ROADMAP.md](docs/roadmap.md) for future plans.
-
-## ⚠️ Known Issues
-
-See the [Troubleshooting Guide](docs/troubleshooting.md) for known issues and workarounds.
 
 ## 💖 Support This Project
 
