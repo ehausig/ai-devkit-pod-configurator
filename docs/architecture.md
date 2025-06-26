@@ -9,51 +9,62 @@ The AI DevKit Pod Configurator is a modular system for creating customized devel
 ## High-Level Architecture
 
 ```mermaid
-flowchart TD
-    %% User Interface
+flowchart TB
+    %% Main flow - all boxes same width
     UI[User Interface<br/>build-and-deploy.sh]
-    
-    %% Component System
     CS[Component System]
-    
-    %% Build Engine Components
     BE[Build Engine]
-    
-    %% Container & Deployment
-    Container[AI DevKit Container<br/>Ubuntu 22.04 LTS]
+    CO[AI DevKit Container<br/>Ubuntu 22.04 LTS]
     K8S[Kubernetes Deployment]
     
-    %% Connections
+    %% Main connections
     UI --> CS
     CS --> BE
-    BE --> Container
-    Container --> K8S
+    BE --> CO
+    CO --> K8S
     
-    %% Component Details
-    CS -.- CompDetails[Components:<br/>• AI Agents<br/>• Languages<br/>• Build Tools<br/>• Testing Tools]
+    %% Detail boxes aligned to the right
+    CompList["<b>Components</b><br/><br/>
+    • AI Agents<br/>
+    • Languages<br/>
+    • Build Tools<br/>
+    • Testing Tools"]
     
-    %% Build Engine Details
-    BE -.- BuildDetails[Functions:<br/>• Dockerfile Generation<br/>• Dependency Resolution<br/>• Pre-build Scripts]
+    BuildList["<b>Functions</b><br/><br/>
+    • Dockerfile Generation<br/>
+    • Dependency Resolution<br/>
+    • Pre-build Scripts"]
     
-    %% Container Details
-    Container -.- ContainerDetails[Services:<br/>• SSH Server :2222<br/>• Filebrowser :8090<br/>• Selected Components]
+    ServiceList["<b>Services</b><br/><br/>
+    • SSH Server :2222<br/>
+    • Filebrowser :8090<br/>
+    • Selected Components"]
     
-    %% Kubernetes Details
-    K8S -.- K8SDetails[Resources:<br/>• Persistent Volumes<br/>• ConfigMaps/Secrets<br/>• Service Exposure]
+    K8SList["<b>Resources</b><br/><br/>
+    • Persistent Volumes<br/>
+    • ConfigMaps/Secrets<br/>
+    • Service Exposure"]
     
-    %% Styling
-    classDef primary fill:#2196F3,stroke:#1565C0,stroke-width:2px,color:#fff
-    classDef secondary fill:#4CAF50,stroke:#2E7D32,stroke-width:2px,color:#fff
-    classDef tertiary fill:#FF9800,stroke:#E65100,stroke-width:2px,color:#fff
-    classDef quaternary fill:#9C27B0,stroke:#6A1B9A,stroke-width:2px,color:#fff
-    classDef details fill:#f9f9f9,stroke:#999,stroke-width:1px,stroke-dasharray: 5 5
+    %% Positioning detail boxes to the right
+    CS -.-> CompList
+    BE -.-> BuildList
+    CO -.-> ServiceList
+    K8S -.-> K8SList
     
-    class UI primary
-    class CS secondary
-    class BE tertiary
-    class Container quaternary
-    class K8S quaternary
-    class CompDetails,BuildDetails,ContainerDetails,K8SDetails details
+    %% Styling for consistent appearance
+    classDef mainBox fill:#2563eb,stroke:#1d4ed8,stroke-width:2px,color:#fff,font-weight:bold
+    classDef detailBox fill:#f8fafc,stroke:#cbd5e1,stroke-width:1px,text-align:left,font-size:14px
+    
+    %% Apply styles
+    class UI,CS,BE,CO,K8S mainBox
+    class CompList,BuildList,ServiceList,K8SList detailBox
+    
+    %% Force same width for main boxes
+    style UI width:300px
+    style CS width:300px
+    style BE width:300px
+    style CO width:300px
+    style K8S width:300px
 ```
 
 ## Core Components
