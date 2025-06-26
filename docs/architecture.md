@@ -9,81 +9,51 @@ The AI DevKit Pod Configurator is a modular system for creating customized devel
 ## High-Level Architecture
 
 ```mermaid
-graph TB
-    subgraph "User Layer"
-        UI[User Interface<br/>build-and-deploy.sh]
-    end
+flowchart TD
+    %% User Interface
+    UI[User Interface<br/>build-and-deploy.sh]
     
-    subgraph "Component Layer"
-        CS[Component System]
-        subgraph "Component Categories"
-            direction LR
-            Agents[AI Agents]
-            Languages[Languages]
-            BuildTools[Build Tools]
-            Testing[Testing Tools]
-        end
-    end
+    %% Component System
+    CS[Component System]
     
-    subgraph "Build Layer"
-        BE[Build Engine]
-        DF[Dockerfile<br/>Generation]
-        DR[Dependency<br/>Resolution]
-        PS[Pre-build<br/>Scripts]
-    end
+    %% Build Engine Components
+    BE[Build Engine]
     
-    subgraph "Container Layer"
-        CR[Container Runtime]
-        subgraph "AI DevKit Container"
-            Base[Ubuntu 22.04 LTS]
-            Components[Selected Components]
-            SSH[SSH Server :2222]
-            FB[Filebrowser :8090]
-        end
-    end
-    
-    subgraph "Infrastructure Layer"
-        K8S[Kubernetes Cluster]
-        PV[Persistent Volumes]
-        SVC[Services]
-        CM[ConfigMaps/Secrets]
-    end
+    %% Container & Deployment
+    Container[AI DevKit Container<br/>Ubuntu 22.04 LTS]
+    K8S[Kubernetes Deployment]
     
     %% Connections
     UI --> CS
-    CS --> Agents
-    CS --> Languages
-    CS --> BuildTools
-    CS --> Testing
-    
     CS --> BE
-    BE --> DF
-    BE --> DR
-    BE --> PS
+    BE --> Container
+    Container --> K8S
     
-    BE --> CR
-    CR --> Base
-    CR --> Components
-    CR --> SSH
-    CR --> FB
+    %% Component Details
+    CS -.- CompDetails[Components:<br/>• AI Agents<br/>• Languages<br/>• Build Tools<br/>• Testing Tools]
     
-    CR --> K8S
-    K8S --> PV
-    K8S --> SVC
-    K8S --> CM
+    %% Build Engine Details
+    BE -.- BuildDetails[Functions:<br/>• Dockerfile Generation<br/>• Dependency Resolution<br/>• Pre-build Scripts]
+    
+    %% Container Details
+    Container -.- ContainerDetails[Services:<br/>• SSH Server :2222<br/>• Filebrowser :8090<br/>• Selected Components]
+    
+    %% Kubernetes Details
+    K8S -.- K8SDetails[Resources:<br/>• Persistent Volumes<br/>• ConfigMaps/Secrets<br/>• Service Exposure]
     
     %% Styling
-    classDef userStyle fill:#e1f5fe,stroke:#01579b,stroke-width:2px
-    classDef componentStyle fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
-    classDef buildStyle fill:#fff3e0,stroke:#e65100,stroke-width:2px
-    classDef containerStyle fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
-    classDef k8sStyle fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+    classDef primary fill:#2196F3,stroke:#1565C0,stroke-width:2px,color:#fff
+    classDef secondary fill:#4CAF50,stroke:#2E7D32,stroke-width:2px,color:#fff
+    classDef tertiary fill:#FF9800,stroke:#E65100,stroke-width:2px,color:#fff
+    classDef quaternary fill:#9C27B0,stroke:#6A1B9A,stroke-width:2px,color:#fff
+    classDef details fill:#f9f9f9,stroke:#999,stroke-width:1px,stroke-dasharray: 5 5
     
-    class UI userStyle
-    class CS,Agents,Languages,BuildTools,Testing componentStyle
-    class BE,DF,DR,PS buildStyle
-    class CR,Base,Components,SSH,FB containerStyle
-    class K8S,PV,SVC,CM k8sStyle
+    class UI primary
+    class CS secondary
+    class BE tertiary
+    class Container quaternary
+    class K8S quaternary
+    class CompDetails,BuildDetails,ContainerDetails,K8SDetails details
 ```
 
 ## Core Components
