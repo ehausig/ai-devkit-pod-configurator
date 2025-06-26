@@ -272,6 +272,74 @@ echo "1.0.0-rc.1" > VERSION
 echo "1.0.0-beta.1" > VERSION
 ```
 
+## Documentation-Only Updates
+
+For documentation fixes that don't warrant a version bump:
+
+### Small Documentation Fixes
+
+For typos, clarifications, or minor updates:
+
+1. **Create a docs branch from main**:
+   ```bash
+   git checkout main
+   git pull origin main
+   git checkout -b docs/fix-typo-in-readme
+   ```
+
+2. **Make the fix**:
+   ```bash
+   # Edit the file
+   git add .
+   git commit -m "docs: fix typo in README.md"
+   ```
+
+3. **Create PR directly to main**:
+   ```bash
+   git push origin docs/fix-typo-in-readme
+   gh pr create --base main --title "docs: fix typo in README.md"
+   ```
+
+4. **After merge, sync to develop**:
+   ```bash
+   git checkout develop
+   git pull origin main
+   git push origin develop
+   ```
+
+### Documentation Fix Criteria
+
+Documentation-only PRs to main are allowed when:
+- ✓ Fixing typos or grammar
+- ✓ Clarifying existing instructions
+- ✓ Updating broken links
+- ✓ Adding missing examples to existing sections
+- ✓ Updating screenshots
+- ✓ Correcting factual errors in docs
+
+Documentation changes that should go through normal flow:
+- ✗ Adding new features or sections
+- ✗ Changing installation/usage instructions significantly
+- ✗ Documenting new functionality
+- ✗ Major restructuring of documentation
+
+### Commit Message Format
+
+For documentation-only commits:
+```bash
+# For typos
+docs: fix typo in component.md
+
+# For clarifications
+docs: clarify build requirements in README
+
+# For updates
+docs: update screenshot for new TUI theme
+
+# For corrections
+docs: correct port number in usage instructions
+```
+
 ## Hotfix Procedures
 
 For critical bugs in production:
