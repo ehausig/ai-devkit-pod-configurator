@@ -18,7 +18,7 @@ spec:
         kubectl.kubernetes.io/default-container: ai-devkit
     spec:
       containers:
-      # Main Claude Code container
+      # Main AI DevKit container
       - name: ai-devkit
         image: ai-devkit:latest
         imagePullPolicy: IfNotPresent
@@ -29,7 +29,7 @@ spec:
         # The entrypoint will handle setup and then run sleep infinity
         volumeMounts:
         - name: config-volume
-          mountPath: /home/devuser/.config/claude-code
+          mountPath: /home/devuser/.config/ai-devkit
         - name: workspace-volume
           mountPath: /home/devuser/workspace
         # SSH host keys mount

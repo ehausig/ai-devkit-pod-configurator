@@ -14,8 +14,7 @@ if [ -d /etc/profile.d ]; then
 fi
 
 # Create essential directories that are always needed
-# TODO: incoporate Claude Code specific configurations in components/agents/* files
-CONFIG_DIR="/home/devuser/.config/claude-code"
+CONFIG_DIR="/home/devuser/.config/ai-devkit"
 mkdir -p "$CONFIG_DIR"
 mkdir -p /home/devuser/workspace
 mkdir -p /home/devuser/.claude
@@ -112,7 +111,7 @@ BASHRC="/home/devuser/.bashrc"
 # Ensure proper ownership of essential directories
 chown -R devuser:devuser /home/devuser/workspace 2>/dev/null || true
 chown -R devuser:devuser /home/devuser/.claude 2>/dev/null || true
-chown -R devuser:devuser /home/devuser/.config/claude-code 2>/dev/null || true
+chown -R devuser:devuser /home/devuser/.config/ai-devkit 2>/dev/null || true
 chown -R devuser:devuser /home/devuser/.local 2>/dev/null || true
 chown -R devuser:devuser /home/devuser/.tui-test-templates 2>/dev/null || true
 

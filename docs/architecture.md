@@ -1,473 +1,278 @@
-# Architecture Documentation
+# Architecture Overview
 
-This document provides a detailed overview of the AI DevKit Pod Configurator's architecture, design decisions, and implementation details.
-
-## Table of Contents
-
-- [System Overview](#system-overview)
-- [Core Components](#core-components)
-- [Build Process](#build-process)
-- [Component System Architecture](#component-system-architecture)
-- [TUI Architecture](#tui-architecture)
-- [Container Architecture](#container-architecture)
-- [Kubernetes Architecture](#kubernetes-architecture)
-- [Security Architecture](#security-architecture)
-- [Data Flow](#data-flow)
-- [Design Decisions](#design-decisions)
+This document describes the architecture and design decisions of the AI DevKit Pod Configurator.
 
 ## System Overview
 
-The AI DevKit Pod Configurator is a modular system designed to create customized development environments in Kubernetes. It follows a plugin-based architecture where functionality is added through components rather than being built into the base system.
+The AI DevKit Pod Configurator is a modular system for creating customized development environments in Kubernetes. It consists of:
 
-### Key Design Principles
+1. **Component Selection TUI** - Interactive terminal interface for selecting development tools
+2. **Build System** - Dynamic Docker image generation based on selections
+3. **Kubernetes Deployment** - Containerized environment with persistent storage
+4. **Component Framework** - Plugin-style architecture for adding tools
 
-1. **Modularity**: Every feature beyond the base is a component
-2. **Composability**: Components can depend on and work with each other
-3. **Flexibility**: Users select only what they need
-4. **Reproducibility**: Same selections produce identical environments
-5. **Security**: Non-root execution with proper isolation
-
-### High-Level Architecture
+## Architecture Diagram
 
 ```
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│                 │     │                  │     │                 │
-│  Component TUI  │────▶│  Build System    │────▶│   Kubernetes    │
-│   (Selection)   │     │  (Docker Build)  │     │   Deployment    │
-│                 │     │                  │     │                 │
-└─────────────────┘     └──────────────────┘     └─────────────────┘
-         │                       │                         │
-         ▼                       ▼                         ▼
-   User Selects            Dockerfile              Running Pod with
-   Components              Generated              Selected Tools
+┌─────────────────────────────────────────────────────────────┐
+│                        User Interface                        │
+│                    (build-and-deploy.sh)                    │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+┌─────────────────────▼───────────────────────────────────────┐
+│                    Component System                          │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
+│  │   Agents    │  │  Languages  │  │Build Tools  │  ...   │
+│  └─────────────┘  └─────────────┘  └─────────────┘        │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+┌─────────────────────▼───────────────────────────────────────┐
+│                     Build Engine                             │
+│  • Dockerfile generation                                     │
+│  • Component dependency resolution                           │
+│  • Pre-build script execution                                │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+┌─────────────────────▼───────────────────────────────────────┐
+│                 Container Runtime                            │
+│  ┌──────────────────────────────┐                          │
+│  │     AI DevKit Container      │                          │
+│  │  • Ubuntu 22.04 base         │                          │
+│  │  • Selected components       │                          │
+│  │  • SSH server (port 2222)   │                          │
+│  └──────────────────────────────┘                          │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+┌─────────────────────▼───────────────────────────────────────┐
+│                    Kubernetes                                │
+│  • Persistent volumes                                        │
+│  • Service exposure                                          │
+│  • ConfigMaps/Secrets                                        │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-## Core Components
+## Component System
 
-### 1. Build Script (`build-and-deploy.sh`)
+### Component Structure
 
-The main orchestrator that:
-- Presents the TUI for component selection
-- Manages the build process
-- Handles deployment to Kubernetes
-- Provides status updates with animations
+Each component is defined by:
+- **YAML definition** (`component-name.yaml`) - Metadata and installation instructions
+- **Markdown documentation** (`component-name.md`) - Usage instructions
+- **Optional pre-build script** - For complex setup tasks
 
-**Key Features:**
-- Theme system for UI customization
-- Pagination for large component lists
-- Real-time build status updates
-- Error handling and recovery
-
-### 2. Component System
-
-Located in `components/` directory:
+### Component Categories
 
 ```
 components/
-├── agents/          # AI assistants
+├── agents/          # AI assistants (Claude Code, etc.)
 ├── languages/       # Programming languages
-├── build-tools/     # Build automation tools
-└── <custom>/        # User-defined categories
+├── build-tools/     # Build and dependency managers
+└── .../            # Extensible categories
 ```
 
-Each component consists of:
-- **YAML Definition**: Metadata and installation instructions
-- **Documentation**: Markdown file with usage information
-- **Pre-build Script**: Optional setup automation
-- **Templates**: Configuration files to inject
+### Component Lifecycle
 
-### 3. Base Container
+1. **Selection** - User chooses components via TUI
+2. **Dependency Resolution** - System resolves dependencies and conflicts
+3. **Pre-build** - Execute any pre-build scripts
+4. **Build** - Generate Dockerfile with component installations
+5. **Deploy** - Create container with selected components
 
-Minimal Ubuntu 22.04 with only essential tools:
-- Git and GitHub CLI
-- SSH Server
-- Node.js (required for TUI Test and Claude Code)
-- Basic development utilities
+## Build System
 
-### 4. Supporting Scripts
+### Dynamic Dockerfile Generation
 
-- `configure-git-host.sh`: Git credential management
-- `cleanup-colima.sh`: Disk space maintenance
-- `access-filebrowser.sh`: File manager access
-- `setup-git.sh`: In-container git configuration
+The build system creates a custom Dockerfile by:
 
-## Build Process
+1. Starting with `docker/Dockerfile.base`
+2. Inserting component installations at `LANGUAGE_INSTALLATIONS_PLACEHOLDER`
+3. Adding file injections before `VOLUME` declarations
+4. Configuring entrypoint setup for runtime initialization
 
-### Phase 1: Initialization
-
-1. **Environment Validation**
-   - Check prerequisites (Docker, kubectl, etc.)
-   - Verify Kubernetes connectivity
-   - Generate SSH host keys
-
-2. **Component Discovery**
-   - Scan `components/` directory
-   - Parse category metadata
-   - Load component definitions
-
-3. **Configuration Detection**
-   - Check for Nexus proxy
-   - Detect host git configuration
-   - Set build parameters
-
-### Phase 2: Component Selection
-
-1. **TUI Presentation**
-   - Display available components
-   - Show dependencies and conflicts
-   - Handle user navigation
-
-2. **Dependency Resolution**
-   - Validate requirements
-   - Handle mutual exclusions
-   - Build dependency graph
-
-3. **Selection Validation**
-   - Ensure all dependencies met
-   - Check for conflicts
-   - Confirm selections
-
-### Phase 3: Build Preparation
-
-1. **Pre-build Scripts**
-   - Execute component scripts
-   - Generate configuration files
-   - Process templates
-
-2. **Dockerfile Generation**
-   - Start with base Dockerfile
-   - Insert component installations
-   - Add file injections
-   - Configure entrypoint
-
-3. **Asset Collection**
-   - Copy documentation files
-   - Gather configuration templates
-   - Prepare build context
-
-### Phase 4: Container Build
-
-1. **Docker Build**
-   - Execute multi-stage build
-   - Apply Nexus proxy if configured
-   - Tag resulting image
-
-2. **Image Distribution**
-   - Save image as tar
-   - Import to Kubernetes node
-   - Make available to cluster
-
-### Phase 5: Deployment
-
-1. **Kubernetes Resources**
-   - Create namespace
-   - Apply PVCs for persistence
-   - Create secrets (git, SSH keys)
-   - Deploy pod with sidecars
-
-2. **Service Configuration**
-   - Expose SSH and Filebrowser
-   - Setup port forwarding
-   - Configure networking
-
-## Component System Architecture
-
-### Component Definition Schema
-
-```yaml
-id: UNIQUE_ID
-name: Display Name
-version: "1.0.0"
-group: mutual-exclusion-group
-requires: space-separated-dependencies
-description: Brief description
-pre_build_script: setup-script.sh
-installation:
-  dockerfile: |
-    # Installation commands
-  nexus_config: |
-    # Proxy configuration
-  inject_files:
-    - source: file.conf
-      destination: /path/in/container
-      permissions: 644
-  test_command: command --version
-entrypoint_setup: |
-  # Runtime setup commands
-memory_content: |
-  # Documentation for AI agents
-```
-
-### Dependency Management
-
-Components can:
-- **Require** other components via `requires:` field
-- **Exclude** others via `group:` field
-- **Enhance** others via pre-build scripts
-
-### Pre-build Script System
-
-Scripts receive:
-1. `TEMP_DIR` - Build directory
-2. `SELECTED_IDS` - Component IDs
-3. `SELECTED_NAMES` - Component names
-4. `SELECTED_YAML_FILES` - YAML paths
-5. `SCRIPT_DIR` - Script location
-
-Used for:
-- Generating dynamic configuration
-- Processing templates
-- Collecting documentation
-- Creating component manifests
-
-## TUI Architecture
-
-### Display Layout
+### Build Flow
 
 ```
-┌─────────────────────────┬─────────────────────────┐
-│   Available Components  │      Build Stack        │
-├─────────────────────────┼─────────────────────────┤
-│ ▸ ○ Component 1         │ Base Development Tools  │
-│   ✓ Component 2         │   ✓ Git                 │
-│   ○ Component 3         │   ✓ GitHub CLI          │
-│                         │                         │
-│                         │ Selected Components     │
-│                         │   ✓ Python Miniconda    │
-│                         │   ✓ Claude Code         │
-└─────────────────────────┴─────────────────────────┘
- ↑↓ Navigate  SPACE Select  TAB Switch  ENTER Build
+User Selection
+     │
+     ▼
+Load Components ──────► Sort by Dependencies
+     │                         │
+     │                         ▼
+     │                  Execute Pre-build Scripts
+     │                         │
+     ▼                         ▼
+Generate Dockerfile ◄──── Component Processing
+     │
+     ▼
+Docker Build ─────────► Push to K8s
+     │
+     ▼
+Deploy to Kubernetes
 ```
-
-### State Management
-
-The TUI maintains:
-- Current cursor position
-- Selected components array
-- View state (catalog/cart)
-- Pagination state
-- Hint messages
-
-### Rendering Pipeline
-
-1. **Initial Draw**
-   - Clear screen
-   - Draw borders
-   - Render components
-
-2. **Incremental Updates**
-   - Update only changed elements
-   - Preserve static content
-   - Minimize flicker
-
-3. **Animation System**
-   - Background process for spinners
-   - Frame-based animation
-   - Non-blocking updates
-
-## Container Architecture
-
-### Filesystem Layout
-
-```
-/home/devuser/
-├── .config/
-│   ├── claude-code/     # AI agent config
-│   └── gh/              # GitHub CLI config
-├── .claude/             # Claude documentation
-├── workspace/           # User code (persistent)
-├── .local/bin/          # User binaries
-└── .npm-global/         # Node.js global packages
-```
-
-### User Management
-
-- **Root Operations**: Package installation only
-- **devuser**: Non-root user for all work
-- **Permissions**: Proper ownership maintained
-
-### Entrypoint Flow
-
-1. Set up environment paths
-2. Start SSH daemon if keys mounted
-3. Configure git from secrets
-4. Copy documentation files
-5. Run component setup scripts
-6. Switch to devuser
-7. Execute user command or sleep
 
 ## Kubernetes Architecture
 
-### Resource Structure
+### Namespace Structure
+
+All resources are deployed to the `ai-devkit` namespace:
 
 ```yaml
-Namespace: ai-devkit
-├── Deployment: ai-devkit
-│   ├── Container: ai-devkit (main)
-│   └── Container: filebrowser (sidecar)
-├── Service: ai-devkit
-│   ├── Port 22 → SSH
-│   └── Port 8090 → Filebrowser
-├── PVC: ai-devkit-config-pvc
-├── PVC: ai-devkit-workspace-pvc
-├── Secret: ssh-host-keys
-├── Secret: git-config (optional)
-├── ConfigMap: filebrowser-config
-└── ConfigMap: nexus-proxy-config (optional)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ai-devkit
 ```
 
-### Volume Mounts
+### Persistent Storage
 
-1. **Persistent Volumes**
-   - `/home/devuser/workspace` - Code persistence
-   - `/home/devuser/.config/claude-code` - Config persistence
+Two persistent volumes provide data persistence:
 
-2. **Secrets**
-   - `/etc/ssh/mounted_keys` - SSH host keys
-   - `/tmp/git-mounted/` - Git configuration
+1. **Workspace Volume** (`ai-devkit-workspace-pvc`)
+   - Mount: `/home/devuser/workspace`
+   - Purpose: User code and projects
+   - Size: 5Gi
 
-3. **ConfigMaps**
-   - Package manager configurations
-   - Filebrowser settings
+2. **Config Volume** (`ai-devkit-config-pvc`)
+   - Mount: `/home/devuser/.config/ai-devkit`
+   - Purpose: General configuration persistence
+   - Size: 1Gi
+
+### Service Architecture
+
+The deployment includes two containers:
+
+1. **Main Container** (`ai-devkit`)
+   - Development environment with selected tools
+   - SSH server on port 22
+   - Runs as non-root user (`devuser`)
+
+2. **Sidecar Container** (`filebrowser`)
+   - Web-based file manager
+   - Port 8090
+   - Access to workspace volume
 
 ### Networking
 
-- **ClusterIP Service**: Internal access only
-- **Port Forwarding**: kubectl port-forward for external access
-- **No Ingress**: Simplified security model
+Services are exposed via `ClusterIP`:
+- SSH: Port 22 → 2222 (via port-forward)
+- Filebrowser: Port 8090 → 8090 (via port-forward)
 
-## Security Architecture
+## Security Considerations
 
 ### Container Security
 
-1. **Non-root Execution**
-   - devuser (UID 1000) for all operations
-   - sudo available but logged
+- **Non-root execution** - Container runs as `devuser` (UID 1000)
+- **No privileged access** - Standard security context
+- **Isolated namespace** - Dedicated `ai-devkit` namespace
 
-2. **Minimal Base Image**
-   - Ubuntu 22.04 LTS
-   - Only essential packages
-   - Regular security updates
+### Secret Management
 
-3. **Secret Management**
-   - Git credentials in Kubernetes secrets
-   - SSH keys generated per deployment
-   - No hardcoded credentials
+Sensitive data is stored in Kubernetes secrets:
+- `ssh-host-keys` - SSH server host keys
+- `git-config` - Git credentials (optional)
 
 ### Network Security
 
-1. **No External Exposure**
-   - ClusterIP services only
-   - Explicit port-forward required
-   - SSH password authentication
+- No direct external exposure (ClusterIP only)
+- Port forwarding required for access
+- SSH password authentication (configurable)
 
-2. **Isolation**
-   - Namespace separation
-   - Network policies compatible
-   - Resource quotas applicable
+## Configuration Management
 
-## Data Flow
+### Environment Variables
 
-### Build Time
+Components can define environment variables that are:
+1. Set during build (via `ARG`)
+2. Configured at runtime (via ConfigMap)
+3. Passed to processes (via entrypoint)
 
-```
-Component YAML → Parser → TUI Selection → Pre-build Scripts
-                                              ↓
-Docker Build ← Dockerfile Generator ← Component Merge
-     ↓
-Container Image → Kubernetes Import → Pod Creation
-```
+### Nexus Proxy Support
 
-### Runtime
+When Nexus is detected:
+- Package managers are configured to use proxy
+- Build arguments are automatically added
+- ConfigMaps provide runtime configuration
 
-```
-User SSH/kubectl → Pod → Entrypoint Script
-                           ↓
-                    Component Setup
-                           ↓
-                    User Environment
-```
+## File Structure
 
-### Configuration Flow
+### Project Layout
 
 ```
-Host Git Config → Kubernetes Secret → Pod Mount
-                                         ↓
-                                  Container Git Config
+ai-devkit-pod-configurator/
+├── build-and-deploy.sh      # Main entry point
+├── components/              # Component definitions
+├── docker/                  # Base container files
+│   ├── Dockerfile.base      # Base image definition
+│   └── entrypoint.base.sh   # Runtime initialization
+├── kubernetes/              # K8s manifests
+│   ├── deployment.yaml      # Main deployment
+│   ├── namespace.yaml       # Namespace definition
+│   ├── pvc.yaml           # Persistent volumes
+│   └── nexus-config.yaml   # Optional Nexus config
+├── scripts/                 # Utility scripts
+└── docs/                   # Documentation
 ```
 
-## Design Decisions
+### Container Layout
 
-### Why Kubernetes?
+```
+/home/devuser/
+├── workspace/              # Persistent user workspace
+├── .config/
+│   └── ai-devkit/         # Persistent configuration
+├── .claude/               # AI assistant files
+├── .local/                # User installations
+└── .bashrc                # Shell configuration
+```
 
-1. **Isolation**: Each environment is isolated
-2. **Persistence**: Volumes preserve work
-3. **Scalability**: Multiple environments easy
-4. **Standard**: Works on any Kubernetes
+## Extension Points
 
-### Why Component System?
+### Adding New Components
 
-1. **Flexibility**: Users choose what they need
-2. **Maintainability**: Components updated independently
-3. **Extensibility**: Easy to add new tools
-4. **Size**: Smaller images with only needed tools
+1. Create YAML definition in appropriate category
+2. Add installation instructions in `dockerfile` section
+3. Optional: Add pre-build script for complex setup
+4. Create documentation markdown file
 
-### Why TUI?
+### Custom Categories
 
-1. **User Experience**: Visual selection better than config files
-2. **Discoverability**: Users can see all options
-3. **Validation**: Real-time feedback on selections
-4. **Progress**: Visual build status
+New categories can be added by:
+1. Creating directory under `components/`
+2. Adding `.category.yaml` for metadata
+3. Following standard component structure
 
-### Why Not X?
+### Theme System
 
-**Why not Docker Compose?**
-- Less isolation between environments
-- No native Kubernetes features
-- Harder to manage multiple environments
+The TUI supports custom themes via environment variable:
+```bash
+AI_DEVKIT_THEME=custom ./build-and-deploy.sh
+```
 
-**Why not Helm?**
-- Too complex for single-pod deployments
-- Component system simpler than Helm charts
-- Direct control over build process
+## Performance Considerations
 
-**Why not Dev Containers?**
-- Kubernetes provides better isolation
-- More flexibility in tool selection
-- Better for team environments
+### Build Optimization
+
+- **Layer caching** - Common installations in base image
+- **Parallel downloads** - When using Nexus proxy
+- **Minimal base image** - Ubuntu 22.04 with only essentials
+
+### Runtime Performance
+
+- **Resource limits** - Configurable CPU/memory limits
+- **Volume performance** - Local persistent volumes
+- **Network optimization** - Local cluster communication
 
 ## Future Architecture Considerations
 
 ### Planned Enhancements
 
-1. **Component Registry**
-   - Central repository for components
-   - Version management
-   - Dependency resolution
+1. **Multi-architecture support** - ARM64 and AMD64
+2. **Component versioning** - Version constraints and compatibility
+3. **Remote deployments** - Deploy to remote clusters
+4. **Component registry** - External component sources
 
-2. **Multi-Architecture Support**
-   - Better ARM64 support
-   - Architecture-specific components
-   - Cross-compilation tools
+### Scalability
 
-3. **Enterprise Features**
-   - LDAP/AD integration
-   - Audit logging
-   - Resource quotas
-
-### Extension Points
-
-1. **Custom Components**
-   - Private component repositories
-   - Organization-specific tools
-   - Proprietary software support
-
-2. **Build Plugins**
-   - Alternative build systems
-   - Cache layers
-   - Security scanning
-
-3. **Runtime Plugins**
-   - Monitoring agents
-   - Backup systems
-   - Development metrics
+- **Multi-user** - Separate namespaces per user
+- **Team workspaces** - Shared persistent volumes
+- **Resource quotas** - Namespace-level limits
