@@ -6,40 +6,16 @@ A powerful, modular system for creating containerized development environments i
 ![Ubuntu](https://img.shields.io/badge/Ubuntu-22.04%20LTS-orange)
 ![Kubernetes](https://img.shields.io/badge/Kubernetes-Compatible-326ce5)
 
-## 📸 Screenshots
+## 📖 Documentation
 
-### Component Selection Interface
-![Component Selection Interface](docs/images/component-selection.png)
-*Interactive TUI for selecting development tools and languages*
+- **[Architecture Overview](docs/architecture.md)** - System design and component structure
+- **[Creating Components](docs/components.md)** - Build your own custom components
+- **[Theme Customization](docs/themes.md)** - Customize the TUI appearance
+- **[Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions
 
-### Deployment Status Dashboard
-![Deployment Status Dashboard](docs/images/deployment-status.png)
-*Real-time deployment progress with animated status indicators*
-
-### Development Environment
-![Development Environment](docs/images/dev-environment.png)
-*Inside the configured container with your selected tools ready to use*
-
-## 🚀 Quick Start
-
-```bash
-# Clone the repository
-git clone https://github.com/ehausig/ai-devkit-pod-configurator.git
-cd ai-devkit-pod-configurator
-
-# Make scripts executable
-chmod +x *.sh
-
-# (Optional) Configure git credentials for automatic injection
-./configure-git-host.sh
-
-# Build and deploy with interactive component selection
-./build-and-deploy.sh
-
-# Access your development environment
-ssh devuser@localhost -p 2222
-# Password: devuser
-```
+### For Contributors
+- **[Developer Guide](docs/developer.md)** - Contributing code and creating pull requests
+- **[Maintainer Guide](docs/maintainer.md)** - Release management and repository maintenance
 
 ## 🎯 Overview
 
@@ -57,7 +33,23 @@ AI DevKit Pod Configurator provides a beautiful TUI (Terminal User Interface) fo
 - 🌐 **Web File Manager** - Built-in Filebrowser for easy file management
 - 🔒 **Secure** - Runs as non-root user with proper isolation
 
-## 📋 Prerequisites
+## 📸 Screenshots
+
+### Component Selection Interface
+![Component Selection Interface](docs/images/component-selection.png)
+*Interactive TUI for selecting development tools and languages*
+
+### Deployment Status Dashboard
+![Deployment Status Dashboard](docs/images/deployment-status.png)
+*Real-time deployment progress with animated status indicators*
+
+### Development Environment
+![Development Environment](docs/images/dev-environment.png)
+*Inside the configured container with your selected tools ready to use*
+
+## 🚀 Quick Start
+
+### Prerequisites
 
 - Kubernetes cluster (k3s, minikube, Colima, or any Kubernetes distribution)
 - kubectl configured to access your cluster
@@ -77,20 +69,25 @@ colima start --kubernetes --cpu 4 --memory 8
 kubectl get nodes
 ```
 
-## 🏗️ Architecture
+### Basic Usage
 
-The project uses a plugin-style architecture where each component is self-contained:
+```bash
+# Clone the repository
+git clone https://github.com/ehausig/ai-devkit-pod-configurator.git
+cd ai-devkit-pod-configurator
 
-```
-ai-devkit-pod-configurator/
-├── components/          # Available components
-│   ├── agents/         # AI assistants (Claude Code)
-│   ├── languages/      # Programming languages
-│   └── build-tools/    # Build and dependency tools
-├── docker/             # Base container files
-├── kubernetes/         # K8s manifests
-├── scripts/            # Helper scripts
-└── docs/              # Documentation
+# Make scripts executable
+chmod +x *.sh
+
+# (Optional) Configure git credentials for automatic injection
+./configure-git-host.sh
+
+# Build and deploy with interactive component selection
+./build-and-deploy.sh
+
+# Access your development environment
+ssh devuser@localhost -p 2222
+# Password: devuser
 ```
 
 ## 🎮 Using the Component Selector
@@ -151,12 +148,21 @@ Navigate to [http://localhost:8090](http://localhost:8090)
 ./cleanup-colima.sh --force
 ```
 
-## 📚 Documentation
+## 🔧 Optional: Nexus Repository Manager
 
-- [Creating Custom Components](docs/components.md) - Build your own components
-- [Theme Customization](docs/themes.md) - Customize the TUI appearance
-- [Troubleshooting](docs/troubleshooting.md) - Common issues and solutions
-- [Architecture Details](docs/architecture.md) - Deep dive into the system design
+If you have a local Nexus repository manager, the build script will automatically detect and use it for faster builds:
+
+```bash
+# Start Nexus (if not already running)
+docker run -d -p 8081:8081 --name nexus sonatype/nexus3
+
+# The build script will automatically detect Nexus on port 8081
+./build-and-deploy.sh
+```
+
+## 🏗️ Architecture
+
+The project uses a plugin-style architecture where each component is self-contained. For details, see the [Architecture documentation](docs/architecture.md).
 
 ## 🛠️ Available Components
 
@@ -179,7 +185,13 @@ Navigate to [http://localhost:8090](http://localhost:8090)
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) for details.
+We welcome contributions! Please see our [Developer Guide](docs/developer.md) for information on:
+- Setting up your development environment
+- Creating feature branches
+- Writing tests
+- Submitting pull requests
+
+For maintainers, see the [Maintainer Guide](docs/maintainer.md) for release procedures.
 
 ## 🚀 Roadmap
 
@@ -188,84 +200,11 @@ Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md)
 - [ ] Stable API for component definitions
 - [ ] Comprehensive test suite
 
-### Future Enhancements
-
-**Language & Tool Support**
-- [ ] Additional programming languages (C/C++, Zig, Elixir, etc.)
-- [ ] More AI agents (GitHub Copilot, Amazon CodeWhisperer, etc.)
-- [ ] Database tools and clients
-- [ ] Cloud provider CLIs (AWS, GCP, Azure)
-
-**Component System Improvements**
-- [ ] Advanced mutual exclusion rules (conflicts, dependencies)
-- [ ] Component versioning and compatibility matrix
-- [ ] Component marketplace/registry
-- [ ] Custom component repositories
-
-**Kubernetes Platform Support**
-- [ ] Minikube support and testing
-- [ ] Kind (Kubernetes in Docker) support
-- [ ] k3d support
-- [ ] Cloud Kubernetes services (EKS, GKE, AKS)
-
-**Enterprise Features**
-- [ ] Team deployments to remote clusters
-- [ ] Multi-user workspace management
-- [ ] Resource limits and quotas configuration
-- [ ] RBAC and security policies
-- [ ] Centralized configuration management
-
-**Developer Experience**
-- [ ] Web-based component selector UI
-- [ ] VS Code extension
-- [ ] Workspace templates
-- [ ] Backup and restore functionality
+See [ROADMAP.md](docs/roadmap.md) for future plans.
 
 ## ⚠️ Known Issues
 
-### Disk Management
-
-**Overlay2 Cleanup (CRITICAL)**
-- The `--overlay2` option in `cleanup-colima.sh` is **currently broken** and will corrupt Docker
-- **DO NOT USE** the overlay2 cleanup feature
-- The standard cleanup options work correctly
-
-**Disk Space Workaround**
-- If you encounter disk pressure errors in Colima:
-  ```bash
-  # Nuclear option but effective
-  colima delete
-  colima start --kubernetes --cpu 4 --memory 8 --disk 100
-  ```
-- This will delete all containers and images but resolve space issues
-
-### Testing Limitations
-
-**Nexus Repository Manager**
-- Only tested with local Nexus instances
-- Remote Nexus instances not yet validated
-- No testing without Nexus proxy (should work but unverified)
-
-**Platform Testing**
-- Primary testing on macOS with Colima
-- Limited testing on other Kubernetes distributions
-- Windows WSL2 support theoretical but untested
-
-### Component Limitations
-
-**Mutual Exclusions**
-- Currently only supports simple group-based exclusions
-- Complex dependency rules not yet implemented
-- No version conflict resolution
-
-### Other Known Issues
-
-- Repeated deployments may leave orphaned PVCs
-- Some component combinations untested
-- TUI may have rendering issues in some terminal emulators
-- Git configuration may need manual setup in some environments
-
-Please check the [Issues](https://github.com/ehausig/ai-devkit-pod-configurator/issues) page for the latest known issues and workarounds.
+See the [Troubleshooting Guide](docs/troubleshooting.md) for known issues and workarounds.
 
 ## 💖 Support This Project
 
@@ -281,42 +220,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-This project builds upon excellent work from these organizations and projects:
-
-### Core Technologies
-
-- **[Claude Code](https://www.anthropic.com/claude-code)** by [Anthropic](https://www.anthropic.com) - AI coding assistant that lives in your terminal
-  - Claude is a trademark of Anthropic PBC
-  - [Documentation](https://docs.anthropic.com/en/docs/claude-code/overview) | [GitHub](https://github.com/anthropics/claude-code) | [npm](https://www.npmjs.com/package/@anthropic-ai/claude-code)
-  
-- **[Microsoft TUI Test](https://github.com/microsoft/tui-test)** - End-to-end terminal testing framework
-  - Built and maintained by Microsoft
-  - Provides rich API for testing terminal applications across platforms
-  
-- **[Ubuntu](https://ubuntu.com)** - The base operating system (22.04 LTS)
-  - Copyright © Canonical Ltd.
-  
-- **[Kubernetes](https://kubernetes.io)** - Container orchestration platform
-  - Originally designed by Google, now maintained by the Cloud Native Computing Foundation
-
-### Development Tools
-
-- **[Docker](https://www.docker.com)** - Container platform
-- **[Colima](https://github.com/abiosoft/colima)** - Container runtime for macOS
-- **[Git](https://git-scm.com)** - Version control system
-- **[GitHub CLI](https://cli.github.com)** - GitHub's official command line tool
-- **[Filebrowser](https://filebrowser.org)** - Web-based file management
-
-### Languages and Runtimes
-
-All programming language implementations retain their respective copyrights and licenses:
-- Python, Node.js, Java (OpenJDK), Go, Rust, Ruby, and others
-
-### Special Thanks
-
-- The open source community for continuous improvements and contributions
-- All beta testers who provided valuable feedback
-- Contributors who help improve this project
+See [ACKNOWLEDGMENTS.md](docs/acknowledgments.md) for credits to the projects and teams that made this possible.
 
 ---
 
