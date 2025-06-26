@@ -10,39 +10,39 @@ The AI DevKit Pod Configurator is a modular system for creating customized devel
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                        User Interface                       │
-│                    (build-and-deploy.sh)                    │
+│                        User Interface                        │
+│                    (build-and-deploy.sh)                     │
 └───────────────────────────┬─────────────────────────────────┘
                             │
 ┌───────────────────────────▼─────────────────────────────────┐
-│                    Component System                         │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │
-│  │   Agents    │  │  Languages  │  │Build Tools  │  ...     │
-│  └─────────────┘  └─────────────┘  └─────────────┘          │
+│                    Component System                          │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
+│  │   Agents    │  │  Languages  │  │Build Tools  │  ...    │
+│  └─────────────┘  └─────────────┘  └─────────────┘        │
 └───────────────────────────┬─────────────────────────────────┘
                             │
 ┌───────────────────────────▼─────────────────────────────────┐
-│                     Build Engine                            │
-│  • Dockerfile generation                                    │
-│  • Component dependency resolution                          │
-│  • Pre-build script execution                               │
+│                     Build Engine                             │
+│  • Dockerfile generation                                     │
+│  • Component dependency resolution                           │
+│  • Pre-build script execution                                │
 └───────────────────────────┬─────────────────────────────────┘
                             │
 ┌───────────────────────────▼─────────────────────────────────┐
-│                 Container Runtime                           │
-│  ┌──────────────────────────────┐                           │
-│  │     AI DevKit Container      │                           │
-│  │  • Ubuntu 22.04 base         │                           │
-│  │  • Selected components       │                           │
-│  │  • SSH server (port 2222)    │                           │
-│  └──────────────────────────────┘                           │
+│                 Container Runtime                            │
+│  ┌──────────────────────────────┐                          │
+│  │     AI DevKit Container      │                          │
+│  │  • Ubuntu 22.04 base         │                          │
+│  │  • Selected components       │                          │
+│  │  • SSH server (port 2222)   │                          │
+│  └──────────────────────────────┘                          │
 └───────────────────────────┬─────────────────────────────────┘
                             │
 ┌───────────────────────────▼─────────────────────────────────┐
-│                    Kubernetes                               │
-│  • Persistent volumes                                       │
-│  • Service exposure                                         │
-│  • ConfigMaps/Secrets                                       │
+│                    Kubernetes                                │
+│  • Persistent volumes                                        │
+│  • Service exposure                                          │
+│  • ConfigMaps/Secrets                                        │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -123,16 +123,50 @@ The deployment includes:
 
 ### Build Process
 
-```mermaid
-graph TD
-    A[User runs build-and-deploy.sh] --> B[TUI Component Selection]
-    B --> C[Load Component Definitions]
-    C --> D[Resolve Dependencies]
-    D --> E[Execute Pre-build Scripts]
-    E --> F[Generate Dockerfile]
-    F --> G[Build Container Image]
-    G --> H[Deploy to Kubernetes]
-    H --> I[Setup Port Forwarding]
+```
+┌─────────────────────────────┐
+│   Run build-and-deploy.sh   │
+└──────────────┬──────────────┘
+               │
+               ▼
+┌─────────────────────────────┐
+│   TUI Component Selection   │
+└──────────────┬──────────────┘
+               │
+               ▼
+┌─────────────────────────────┐
+│  Load Component Definitions │
+└──────────────┬──────────────┘
+               │
+               ▼
+┌─────────────────────────────┐
+│    Resolve Dependencies     │
+└──────────────┬──────────────┘
+               │
+               ▼
+┌─────────────────────────────┐
+│  Execute Pre-build Scripts  │
+└──────────────┬──────────────┘
+               │
+               ▼
+┌─────────────────────────────┐
+│    Generate Dockerfile      │
+└──────────────┬──────────────┘
+               │
+               ▼
+┌─────────────────────────────┐
+│   Build Container Image     │
+└──────────────┬──────────────┘
+               │
+               ▼
+┌─────────────────────────────┐
+│   Deploy to Kubernetes      │
+└──────────────┬──────────────┘
+               │
+               ▼
+┌─────────────────────────────┐
+│   Setup Port Forwarding     │
+└─────────────────────────────┘
 ```
 
 ### Component Installation Flow
