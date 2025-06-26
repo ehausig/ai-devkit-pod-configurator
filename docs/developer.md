@@ -43,20 +43,6 @@ chmod +x *.sh scripts/*.sh
 # Currently, the project uses standard bash tooling
 ```
 
-### Configure Git
-
-```bash
-# Set up your git identity
-git config user.name "Your Name"
-git config user.email "your.email@example.com"
-
-# Configure git to use main as default branch
-git config init.defaultBranch main
-
-# Set up commit signing (recommended)
-git config commit.gpgsign true
-```
-
 ## Development Workflow
 
 ### 1. Always Start with a Fresh Branch
