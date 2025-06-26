@@ -240,7 +240,42 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-See [ACKNOWLEDGMENTS.md](docs/acknowledgments.md) for credits to the projects and teams that made this possible.
+This project builds upon excellent work from these organizations and projects:
+
+### Core Technologies
+
+- **[Claude Code](https://www.anthropic.com/claude-code)** by [Anthropic](https://www.anthropic.com) - AI coding assistant that lives in your terminal
+  - Claude is a trademark of Anthropic PBC
+  - [Documentation](https://docs.anthropic.com/en/docs/claude-code/overview) | [GitHub](https://github.com/anthropics/claude-code) | [npm](https://www.npmjs.com/package/@anthropic-ai/claude-code)
+  
+- **[Microsoft TUI Test](https://github.com/microsoft/tui-test)** - End-to-end terminal testing framework
+  - Built and maintained by Microsoft
+  - Provides rich API for testing terminal applications across platforms
+  
+- **[Ubuntu](https://ubuntu.com)** - The base operating system (22.04 LTS)
+  - Copyright © Canonical Ltd.
+  
+- **[Kubernetes](https://kubernetes.io)** - Container orchestration platform
+  - Originally designed by Google, now maintained by the Cloud Native Computing Foundation
+
+### Development Tools
+
+- **[Docker](https://www.docker.com)** - Container platform
+- **[Colima](https://github.com/abiosoft/colima)** - Container runtime for macOS
+- **[Git](https://git-scm.com)** - Version control system
+- **[GitHub CLI](https://cli.github.com)** - GitHub's official command line tool
+- **[Filebrowser](https://filebrowser.org)** - Web-based file management
+
+### Languages and Runtimes
+
+All programming language implementations retain their respective copyrights and licenses:
+- Python, Node.js, Java (OpenJDK), Go, Rust, Ruby, and others
+
+### Special Thanks
+
+- The open source community for continuous improvements and contributions
+- All beta testers who provided valuable feedback
+- Contributors who help improve this project
 
 ---
 
