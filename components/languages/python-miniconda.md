@@ -137,6 +137,47 @@ python src/app.py
 textual run --dev src/app.py
 ```
 
+**Security Scanning**
+```bash
+# Run security checks locally
+pip install safety bandit
+
+# Check for known vulnerabilities
+safety check
+
+# Static security analysis
+bandit -r src/
+
+# Check for outdated packages
+pip list --outdated
+```
+
+**Pre-commit Hooks (Local)**
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.1.0
+    hooks:
+      - id: ruff
+  
+  - repo: https://github.com/psf/black
+    rev: 23.0.0
+    hooks:
+      - id: black
+  
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.7.0
+    hooks:
+      - id: mypy
+        additional_dependencies: [types-all]
+
+# Install and use locally:
+pip install pre-commit
+pre-commit install
+pre-commit run --all-files  # Run manually
+```
+
 **TUI Testing Notes**
 - Keep conda environments outside project directory to avoid symlink issues with TUI Test
 - Use `conda create -n myapp -p ~/envs/myapp python=3.11` for external environments
