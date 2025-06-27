@@ -6,40 +6,17 @@ A powerful, modular system for creating containerized development environments i
 ![Ubuntu](https://img.shields.io/badge/Ubuntu-22.04%20LTS-orange)
 ![Kubernetes](https://img.shields.io/badge/Kubernetes-Compatible-326ce5)
 
-## 📸 Screenshots
+## 📖 Documentation
 
-### Component Selection Interface
-![Component Selection Interface](docs/images/component-selection.png)
-*Interactive TUI for selecting development tools and languages*
+- **[Architecture Overview](docs/architecture.md)** - System design and component structure
+- **[Creating Components](docs/components.md)** - Build your own custom components
+- **[Theme Customization](docs/themes.md)** - Customize the TUI appearance
+- **[Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions
+- **[Roadmap](docs/roadmap.md)** - Future plans and enhancements
 
-### Deployment Status Dashboard
-![Deployment Status Dashboard](docs/images/deployment-status.png)
-*Real-time deployment progress with animated status indicators*
-
-### Development Environment
-![Development Environment](docs/images/dev-environment.png)
-*Inside the configured container with your selected tools ready to use*
-
-## 🚀 Quick Start
-
-```bash
-# Clone the repository
-git clone https://github.com/ehausig/ai-devkit-pod-configurator.git
-cd ai-devkit-pod-configurator
-
-# Make scripts executable
-chmod +x *.sh
-
-# (Optional) Configure git credentials for automatic injection
-./configure-git-host.sh
-
-# Build and deploy with interactive component selection
-./build-and-deploy.sh
-
-# Access your development environment
-ssh devuser@localhost -p 2222
-# Password: devuser
-```
+### For Contributors
+- **[Developer Guide](docs/developer.md)** - Contributing code and creating pull requests
+- **[Maintainer Guide](docs/maintainer.md)** - Release management and repository maintenance
 
 ## 🎯 Overview
 
@@ -57,7 +34,26 @@ AI DevKit Pod Configurator provides a beautiful TUI (Terminal User Interface) fo
 - 🌐 **Web File Manager** - Built-in Filebrowser for easy file management
 - 🔒 **Secure** - Runs as non-root user with proper isolation
 
-## 📋 Prerequisites
+## 📸 Screenshots
+
+### Component Selection Interface
+![Component Selection Interface](docs/images/component-selection.png)
+*Interactive TUI for selecting development tools and languages*
+
+### Deployment Status Dashboard
+![Deployment Status Dashboard - In Progress](docs/images/deployment-status.png)
+*Real-time deployment progress with animated status indicators*
+
+![Deployment Status Dashboard - Complete](docs/images/deployment-complete.png)
+*Automatic port forwarding for easy connectivity*
+
+### Development Environment
+![Development Environment](docs/images/dev-environment.png)
+*Inside the configured container with your selected tools ready to use*
+
+## 🚀 Quick Start
+
+### Prerequisites
 
 - Kubernetes cluster (k3s, minikube, Colima, or any Kubernetes distribution)
 - kubectl configured to access your cluster
@@ -77,20 +73,25 @@ colima start --kubernetes --cpu 4 --memory 8
 kubectl get nodes
 ```
 
-## 🏗️ Architecture
+### Basic Usage
 
-The project uses a plugin-style architecture where each component is self-contained:
+```bash
+# Clone the repository
+git clone https://github.com/ehausig/ai-devkit-pod-configurator.git
+cd ai-devkit-pod-configurator
 
-```
-ai-devkit-pod-configurator/
-├── components/          # Available components
-│   ├── agents/         # AI assistants (Claude Code)
-│   ├── languages/      # Programming languages
-│   └── build-tools/    # Build and dependency tools
-├── docker/             # Base container files
-├── kubernetes/         # K8s manifests
-├── scripts/            # Helper scripts
-└── docs/              # Documentation
+# Make scripts executable
+chmod +x *.sh
+
+# (Optional) Configure git credentials for automatic injection
+./configure-git-host.sh
+
+# Build and deploy with interactive component selection
+./build-and-deploy.sh
+
+# Access your development environment
+ssh devuser@localhost -p 2222
+# Password: devuser
 ```
 
 ## 🎮 Using the Component Selector
@@ -123,149 +124,100 @@ This creates an isolated git configuration that's automatically injected into yo
 - GitHub Personal Access Token
 - GitHub CLI authentication
 
-## 📁 File Management
+## 📁 Accessing Your Environment
 
-Access the web-based file manager:
+### SSH Access
+
+After deployment completes, the build script automatically sets up port forwarding:
 
 ```bash
-./access-filebrowser.sh
-# Or manually:
-kubectl port-forward -n ai-devkit service/ai-devkit 8090:8090
+# Connect to your development environment
+ssh devuser@localhost -p 2222
+# Password: devuser
 ```
 
-Navigate to [http://localhost:8090](http://localhost:8090)
+### Web File Manager
+
+Access the built-in Filebrowser at [http://localhost:8090](http://localhost:8090)
 - Default credentials: admin/admin (change after first login!)
+- Upload/download files through the web interface
+- Edit files directly in the browser
 
-## 🧹 Maintenance
+## 🧹 Disk Management
 
-### Disk Cleanup (Colima users)
+### Colima Disk Cleanup
+
+Colima uses a virtual machine with a fixed disk size. Over time, Docker images and containers can fill up this disk, causing deployment failures.
+
+**The Problem**: When Colima's disk fills up, you'll see errors like:
+- "No space left on device"
+- Image pull failures
+- Build failures
+
+**The Solution**: The `cleanup-colima.sh` script helps reclaim disk space:
 
 ```bash
-# Clean up disk space in Colima
-./cleanup-colima.sh
-
-# Check what can be cleaned
+# Check what can be cleaned (dry run)
 ./cleanup-colima.sh --check
+
+# Clean up disk space
+./cleanup-colima.sh
 
 # Force cleanup without prompts
 ./cleanup-colima.sh --force
 ```
 
-## 📚 Documentation
-
-- [Creating Custom Components](docs/components.md) - Build your own components
-- [Theme Customization](docs/themes.md) - Customize the TUI appearance
-- [Troubleshooting](docs/troubleshooting.md) - Common issues and solutions
-- [Architecture Details](docs/architecture.md) - Deep dive into the system design
-
-## 🛠️ Available Components
-
-### Programming Languages
-- **Python**: System (3.10), Official 3.11, Miniconda
-- **Java**: OpenJDK 11/17/21, Eclipse Adoptium 11/17/21
-- **Go**: 1.21, 1.22
-- **Rust**: Stable, Nightly channels
-- **Ruby**: System package, 3.3 via rbenv
-- **Scala**: 2.13, 3.x
-- **Kotlin**: Latest version
-
-### Build Tools
-- **Maven** - Java build automation
-- **Gradle** - Modern build tool for JVM
-- **SBT** - Scala build tool
-
-### AI Assistants
-- **Claude Code** - Anthropic's AI coding assistant (requires subscription)
-
-## 🤝 Contributing
-
-Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) for details.
-
-## 🚀 Roadmap
-
-### Version 1.0 (Coming Soon)
-- [ ] Semantic versioning implementation
-- [ ] Stable API for component definitions
-- [ ] Comprehensive test suite
-
-### Future Enhancements
-
-**Language & Tool Support**
-- [ ] Additional programming languages (C/C++, Zig, Elixir, etc.)
-- [ ] More AI agents (GitHub Copilot, Amazon CodeWhisperer, etc.)
-- [ ] Database tools and clients
-- [ ] Cloud provider CLIs (AWS, GCP, Azure)
-
-**Component System Improvements**
-- [ ] Advanced mutual exclusion rules (conflicts, dependencies)
-- [ ] Component versioning and compatibility matrix
-- [ ] Component marketplace/registry
-- [ ] Custom component repositories
-
-**Kubernetes Platform Support**
-- [ ] Minikube support and testing
-- [ ] Kind (Kubernetes in Docker) support
-- [ ] k3d support
-- [ ] Cloud Kubernetes services (EKS, GKE, AKS)
-
-**Enterprise Features**
-- [ ] Team deployments to remote clusters
-- [ ] Multi-user workspace management
-- [ ] Resource limits and quotas configuration
-- [ ] RBAC and security policies
-- [ ] Centralized configuration management
-
-**Developer Experience**
-- [ ] Web-based component selector UI
-- [ ] VS Code extension
-- [ ] Workspace templates
-- [ ] Backup and restore functionality
-
-## ⚠️ Known Issues
-
-### Disk Management
-
-**Overlay2 Cleanup (CRITICAL)**
-- The `--overlay2` option in `cleanup-colima.sh` is **currently broken** and will corrupt Docker
-- **DO NOT USE** the overlay2 cleanup feature
-- The standard cleanup options work correctly
-
-**Disk Space Workaround**
-- If you encounter disk pressure errors in Colima:
+**⚠️ CRITICAL WARNING**: 
+- **DO NOT USE** the `--overlay2` option - it will corrupt Docker
+- If you need to completely reset, delete and recreate the Colima VM:
   ```bash
-  # Nuclear option but effective
   colima delete
   colima start --kubernetes --cpu 4 --memory 8 --disk 100
   ```
-- This will delete all containers and images but resolve space issues
 
-### Testing Limitations
+## 📚 Creating Custom Components
 
-**Nexus Repository Manager**
-- Only tested with local Nexus instances
-- Remote Nexus instances not yet validated
-- No testing without Nexus proxy (should work but unverified)
+Components are self-contained YAML files that define how to install and configure tools. See [Creating Components](docs/components.md) for detailed instructions.
 
-**Platform Testing**
-- Primary testing on macOS with Colima
-- Limited testing on other Kubernetes distributions
-- Windows WSL2 support theoretical but untested
+### Basic Component Structure
 
-### Component Limitations
+```yaml
+id: MY_COMPONENT
+name: My Component Name
+version: "1.0.0"
+group: component-group
+requires: []
+description: What this component does
+installation:
+  dockerfile: |
+    # Installation commands
+    RUN apt-get update && apt-get install -y my-tool
+```
 
-**Mutual Exclusions**
-- Currently only supports simple group-based exclusions
-- Complex dependency rules not yet implemented
-- No version conflict resolution
+### Component Documentation (Optional)
 
-### Other Known Issues
+Components can include markdown documentation that gets injected into LLM system prompts:
 
-- Repeated deployments may leave orphaned PVCs
-- Some component combinations untested
-- TUI may have rendering issues in some terminal emulators
-- Git configuration may need manual setup in some environments
+```markdown
+# components/category/my-component.md
 
-Please check the [Issues](https://github.com/ehausig/ai-devkit-pod-configurator/issues) page for the latest known issues and workarounds.
+#### My Component Name
+
+**Getting Started**:
+```bash
+# How to use this component
+my-tool --help
+```
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Developer Guide](docs/developer.md) for information on:
+- Setting up your development environment
+- Creating feature branches
+- Writing tests
+- Submitting pull requests
+
+For maintainers, see the [Maintainer Guide](docs/maintainer.md) for release procedures.
 
 ## 💖 Support This Project
 

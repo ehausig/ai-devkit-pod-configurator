@@ -1,38 +1,18 @@
-# Developer Workflow Guide
+# Developer Guide
 
-This guide walks you through the complete development workflow for the AI DevKit Pod Configurator project.
+This guide covers how to contribute code to the AI DevKit Pod Configurator project.
 
 ## Table of Contents
 
-- [Quick Reference](#quick-reference)
-- [Getting Started](#getting-started)
-- [Development Workflow](#development-workflow)
-- [Commit Messages](#commit-messages)
-- [Testing Your Changes](#testing-your-changes)
-- [Release Process](#release-process)
-- [Common Scenarios](#common-scenarios)
-- [Troubleshooting](#troubleshooting)
+1. [Development Setup](#development-setup)
+2. [Development Workflow](#development-workflow)
+3. [Coding Standards](#coding-standards)
+4. [Testing Requirements](#testing-requirements)
+5. [Submitting Changes](#submitting-changes)
 
-## Quick Reference
+## Development Setup
 
-```bash
-# Start work on a new feature
-git checkout develop && git pull
-git checkout -b feat/your-feature-name
-# ... make changes ...
-git add .
-git commit -m "feat: add your feature"
-git push origin feat/your-feature-name
-# Create PR to develop branch via GitHub
-
-# After PR is merged, update local develop
-git checkout develop
-git pull origin develop
-```
-
-## Getting Started
-
-### 1. Fork and Clone
+### Fork and Clone the Repository
 
 ```bash
 # Fork the repository on GitHub first, then:
@@ -46,445 +26,303 @@ git remote add upstream https://github.com/ehausig/ai-devkit-pod-configurator.gi
 git remote -v
 ```
 
-### 2. Set Up Your Environment
+### Set Up Your Development Environment
 
 ```bash
-# Make scripts executable
-chmod +x *.sh
-chmod +x scripts/*.sh
-
-# Check current version
-cat VERSION
-
-# Ensure you're on develop branch
+# Ensure you're on the develop branch
 git checkout develop
-git pull upstream develop
+
+# Sync with upstream
+git fetch upstream
+git merge upstream/develop
+
+# Make scripts executable
+chmod +x *.sh scripts/*.sh
+
+# Install development dependencies (if any)
+# Currently, the project uses standard bash tooling
 ```
 
 ## Development Workflow
 
-### Step 1: Create a Feature Branch
+### 1. Always Start with a Fresh Branch
 
-Always branch from `develop`, never from `main`:
+**Critical**: Always create feature branches from `develop`, never from `main`:
 
 ```bash
-# Update your local develop
+# Ensure your develop branch is up to date
 git checkout develop
-git pull upstream develop
+git fetch upstream
+git merge upstream/develop
 
-# Create your feature branch
-git checkout -b type/short-description
+# Create a new feature branch
+git checkout -b feat/your-feature-name
 
-# Examples:
-# git checkout -b feat/add-rust-support
-# git checkout -b fix/docker-build-error
-# git checkout -b docs/improve-readme
+# For bug fixes:
+git checkout -b fix/issue-description
+
+# For documentation:
+git checkout -b docs/what-you-are-documenting
 ```
 
-**Branch naming convention:**
-- `feat/` - New features
-- `fix/` - Bug fixes
-- `docs/` - Documentation only
-- `style/` - Code style changes
-- `refactor/` - Code refactoring
-- `test/` - Test additions/changes
-- `chore/` - Maintenance tasks
+### 2. Make Your Changes
 
-### Step 2: Make Your Changes
+Follow these principles:
 
-```bash
-# Example: Adding a new component
-cd components/languages
-create your-component.yaml
-create your-component.md
+- **One Feature Per Branch**: Keep changes focused
+- **Atomic Commits**: Each commit should be a logical unit
+- **Clear Messages**: Use conventional commit format (see below)
 
-# Test your changes locally
-./build-and-deploy.sh
-```
-
-### Step 3: Commit Your Changes
+### 3. Commit Your Changes
 
 We use [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```bash
-# Stage your changes
+# Format: <type>(<scope>): <subject>
+
+# Examples:
+git commit -m "feat(tui): add new matrix theme"
+git commit -m "fix(docker): correct entrypoint permissions"
+git commit -m "docs(readme): update installation instructions"
+git commit -m "test(components): add unit tests for yaml parser"
+```
+
+**Commit Types:**
+- `feat`: New feature
+- `fix`: Bug fix
+- `docs`: Documentation changes
+- `style`: Code style changes (formatting, not CSS)
+- `refactor`: Code refactoring
+- `test`: Test additions/changes
+- `chore`: Maintenance tasks
+- `perf`: Performance improvements
+- `ci`: CI/CD changes
+- `build`: Build system changes
+
+### 4. Keep Your Branch Updated
+
+**Important**: Regularly sync with upstream to avoid conflicts:
+
+```bash
+# Periodically sync with upstream develop
+git fetch upstream
+git rebase upstream/develop
+
+# If there are conflicts:
+# 1. Resolve conflicts in your editor
+# 2. Stage the resolved files
 git add .
-
-# Write a conventional commit message
-git commit -m "type(scope): description
-
-Longer explanation if needed
-
-Fixes #123"
-```
-
-**Commit message examples:**
-```bash
-# Feature
-git commit -m "feat(languages): add Rust 1.75 support"
-
-# Bug fix
-git commit -m "fix(docker): resolve build cache issue on ARM64"
-
-# Documentation
-git commit -m "docs: add troubleshooting guide for disk pressure"
-
-# Breaking change (note the !)
-git commit -m "feat!: change default Python version to 3.11"
-```
-
-### Step 4: Push and Create Pull Request
-
-```bash
-# Push your branch
-git push origin feat/your-feature-name
-
-# Create PR using GitHub CLI
-gh pr create --base develop \
-  --title "feat: add your feature" \
-  --body "## Description
-Brief description of your changes
-
-## Type of Change
-- [ ] Bug fix
-- [x] New feature
-- [ ] Breaking change
-- [ ] Documentation
-
-## Testing
-- [x] Tested locally
-- [x] All tests pass
-
-## Screenshots (if applicable)
-[Add screenshots]
-
-Fixes #123"
-```
-
-Or create the PR via GitHub web interface - make sure to:
-- Set base branch to `develop` (not main!)
-- Fill out the PR template
-- Link any related issues
-
-### Step 5: After PR is Merged
-
-```bash
-# Update your local develop
-git checkout develop
-git pull upstream develop
-
-# Delete your feature branch locally
-git branch -d feat/your-feature-name
-
-# Delete remote branch (if not auto-deleted)
-git push origin --delete feat/your-feature-name
-```
-
-## Commit Messages
-
-### Format
-
-```
-<type>(<scope>): <subject>
-<BLANK LINE>
-<body>
-<BLANK LINE>
-<footer>
-```
-
-### Types
-
-| Type | Description | Example |
-|------|-------------|---------|
-| `feat` | New feature | `feat: add Python 3.12 support` |
-| `fix` | Bug fix | `fix: resolve memory leak in build script` |
-| `docs` | Documentation | `docs: update installation guide` |
-| `style` | Code style (formatting) | `style: fix indentation in yaml files` |
-| `refactor` | Code refactoring | `refactor: simplify component loading` |
-| `test` | Add/update tests | `test: add integration tests for TUI` |
-| `chore` | Maintenance | `chore: update dependencies` |
-| `perf` | Performance | `perf: optimize docker build cache` |
-| `ci` | CI/CD changes | `ci: add GitHub Actions workflow` |
-
-### Scope Examples
-
-- `(components)` - Component system
-- `(docker)` - Docker/container related
-- `(k8s)` - Kubernetes related
-- `(tui)` - Terminal UI
-- `(languages)` - Language components
-- `(agents)` - AI agent components
-
-### Breaking Changes
-
-Add `!` after type or include `BREAKING CHANGE:` in body:
-
-```bash
-# Method 1: Using !
-git commit -m "feat!: remove support for Python 2.7"
-
-# Method 2: In body
-git commit -m "feat: update component API
-
-BREAKING CHANGE: Component YAML schema now requires version field"
-```
-
-## Testing Your Changes
-
-### 1. Local Testing
-
-```bash
-# Test the build process
-./build-and-deploy.sh
-
-# Select your components in the TUI
-# Verify deployment succeeds
-
-# Check the pod
-kubectl get pods -n ai-devkit
-kubectl logs -n ai-devkit <pod-name>
-
-# SSH into container
-ssh devuser@localhost -p 2222
-```
-
-### 2. Component Testing
-
-If you added a new component:
-
-```bash
-# 1. Build with your component selected
-# 2. Verify it installs correctly
-# 3. Test its functionality
-# 4. Check for conflicts with other components
-# 5. Verify documentation is accessible
-```
-
-### 3. Clean Up
-
-```bash
-# After testing
-kubectl delete namespace ai-devkit
-./cleanup-colima.sh  # If using Colima
-```
-
-## Release Process
-
-**Note:** Only maintainers can create releases, but understanding the process helps with contributions.
-
-### 1. When is a Release Made?
-
-Releases happen when:
-- Significant features are complete
-- Important bug fixes are ready
-- Security updates are needed
-- Monthly scheduled release (if changes exist)
-
-### 2. Release Steps (for Maintainers)
-
-```bash
-# Create a release (interactive mode)
-./scripts/create-release.sh
-
-# Or specify the bump type directly
-./scripts/create-release.sh patch  # Bug fixes
-./scripts/create-release.sh minor  # New features
-./scripts/create-release.sh major  # Breaking changes
-
-# The script will:
-# 1. Verify you're on develop branch
-# 2. Calculate the new version automatically
-# 3. Update VERSION file
-# 4. Generate CHANGELOG
-# 5. Create commits and PR
-# 6. Generate a post-merge script for final steps
-```
-
-After the PR is merged, run the generated post-merge script:
-
-```bash
-# The script will be named: release-vX.Y.Z-post-merge.sh
-./release-vX.Y.Z-post-merge.sh
-
-# This will:
-# 1. Tag the release
-# 2. Push the tag
-# 3. Create GitHub release
-# 4. Merge main back to develop
-# 5. Self-delete when complete
-```
-
-### 3. Version Numbering
-
-We follow [Semantic Versioning](https://semver.org/):
-
-- **MAJOR** version for incompatible API changes
-- **MINOR** version for backwards-compatible functionality additions
-- **PATCH** version for backwards-compatible bug fixes
-
-Examples:
-- `0.1.0` → `0.1.1` (patch): Fixed a bug in component loading
-- `0.1.1` → `0.2.0` (minor): Added new Python component
-- `0.2.0` → `1.0.0` (major): Changed component YAML schema
-
-## Common Scenarios
-
-### Scenario 1: Adding a New Language Component
-
-```bash
-# 1. Create branch
-git checkout -b feat/add-elixir-support
-
-# 2. Create component files
-mkdir -p components/languages
-cat > components/languages/elixir.yaml << 'EOF'
-id: ELIXIR
-name: Elixir
-version: "1.15"
-group: elixir-version
-requires: ""
-description: Elixir programming language
-installation:
-  dockerfile: |
-    RUN apt-get update && \
-        apt-get install -y elixir && \
-        rm -rf /var/lib/apt/lists/*
-EOF
-
-# 3. Add documentation
-cat > components/languages/elixir.md << 'EOF'
-#### Elixir
-
-**Quick Start**: `iex` for interactive shell
-...
-EOF
-
-# 4. Test locally
-./build-and-deploy.sh
-# Select Elixir in TUI, verify it works
-
-# 5. Commit and push
-git add .
-git commit -m "feat(languages): add Elixir 1.15 support
-
-- Add Elixir component with apt installation
-- Include interactive shell (iex) 
-- Add quick start documentation"
-
-git push origin feat/add-elixir-support
-
-# 6. Create PR to develop
-```
-
-### Scenario 2: Fixing a Bug
-
-```bash
-# 1. Create branch
-git checkout -b fix/cleanup-script-error
-
-# 2. Make fix
-vim cleanup-colima.sh
-# Fix the bug
-
-# 3. Test the fix
-./cleanup-colima.sh --check
-
-# 4. Commit
-git add cleanup-colima.sh
-git commit -m "fix: resolve array iteration error in cleanup script
-
-The script was failing when no Docker images were present.
-Added check for empty image list before iteration.
-
-Fixes #45"
-
-# 5. Push and PR
-git push origin fix/cleanup-script-error
-```
-
-### Scenario 3: Updating Documentation
-
-```bash
-# 1. Branch for docs
-git checkout -b docs/improve-component-guide
-
-# 2. Make changes
-vim docs/components.md
-
-# 3. Commit
-git add docs/components.md
-git commit -m "docs: add examples for component dependencies"
-
-# 4. Push and PR
-git push origin docs/improve-component-guide
-```
-
-## Troubleshooting
-
-### Git Issues
-
-**Merge conflicts with develop:**
-```bash
-# Update your branch with latest develop
-git checkout develop
-git pull upstream develop
-git checkout your-branch
-git rebase develop
-# Resolve conflicts
-git add .
+# 3. Continue the rebase
 git rebase --continue
 ```
 
-**Accidentally committed to main:**
+### 5. Push Your Branch
+
 ```bash
-# Move commits to new branch
-git checkout -b fix/my-fix
-git checkout main
-git reset --hard upstream/main
-git checkout fix/my-fix
+# First push
+git push origin feat/your-feature-name
+
+# After rebasing, you may need to force push
+git push origin feat/your-feature-name --force-with-lease
 ```
 
-### PR Issues
+## Coding Standards
 
-**PR has conflicts:**
-1. Update your local develop
-2. Rebase your branch on develop
-3. Force push: `git push origin your-branch --force-with-lease`
+### Bash Scripts
 
-**PR checks failing:**
-- Review the error messages
-- Fix issues locally
-- Push fixes to the same branch
+1. **Shebang**: Always use `#!/bin/bash`
+2. **Set Options**: Use `set -e` for error handling
+3. **Variables**: 
+   - Use UPPERCASE for constants/globals
+   - Use lowercase for local variables
+   - Always quote variables: `"$var"`
+4. **Functions**: 
+   - Use descriptive names
+   - Add comments for complex logic
+5. **Error Handling**: 
+   - Check command success
+   - Provide meaningful error messages
 
-### Testing Issues
-
-**Can't connect to container:**
+Example:
 ```bash
-# Check pod status
-kubectl get pods -n ai-devkit
+#!/bin/bash
+set -e
 
-# Check port forwarding
-lsof -i :2222
-lsof -i :8090
+# Constants
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly LOG_FILE="operation.log"
 
-# Restart port forwarding
-pkill -f "kubectl.*port-forward"
-kubectl port-forward -n ai-devkit service/ai-devkit 2222:22 8090:8090
+# Function with error handling
+perform_operation() {
+    local input_file="$1"
+    
+    if [[ ! -f "$input_file" ]]; then
+        echo "Error: File not found: $input_file" >&2
+        return 1
+    fi
+    
+    # Process file
+    process_file "$input_file" || {
+        echo "Error: Failed to process $input_file" >&2
+        return 1
+    }
+}
 ```
 
-## Best Practices
+### YAML Files
 
-1. **Keep PRs focused**: One feature/fix per PR
-2. **Write clear commit messages**: Future you will thank you
-3. **Test thoroughly**: Don't assume it works
-4. **Update documentation**: If you change behavior, update docs
-5. **Ask questions**: Use issues/discussions if unsure
-6. **Be patient**: PRs may take time to review
+1. Use 2-space indentation
+2. Quote strings when necessary
+3. Add comments for clarity
+4. Follow component schema strictly
+
+### Documentation
+
+1. Use Markdown for all docs
+2. Include code examples
+3. Keep line length under 100 characters
+4. Use proper heading hierarchy
+
+## Testing Requirements
+
+### 1. Component Testing
+
+When adding new components:
+
+```bash
+# Test your component locally
+./build-and-deploy.sh
+
+# Verify the component installs correctly
+kubectl exec -it -n ai-devkit deployment/ai-devkit -- bash
+# Inside container: verify your component works
+```
+
+### 2. Script Testing
+
+Before submitting:
+
+```bash
+# Run shellcheck on your scripts
+shellcheck scripts/*.sh
+
+# Test scripts work on both Linux and macOS
+# Test with minimal dependencies
+```
+
+### 3. TUI Testing
+
+For TUI changes:
+
+```bash
+# Test all themes
+AI_DEVKIT_THEME=dark ./build-and-deploy.sh
+AI_DEVKIT_THEME=matrix ./build-and-deploy.sh
+# etc.
+
+# Test navigation and selection
+# Test error cases
+```
+
+## Submitting Changes
+
+### 1. Create Pull Request
+
+**Before creating a PR, ensure your branch is up to date**:
+
+```bash
+# One final sync with upstream
+git fetch upstream
+git rebase upstream/develop
+
+# Push your branch
+git push origin feat/your-feature-name
+```
+
+Then on GitHub:
+
+1. Go to your fork
+2. Click "Pull Request"
+3. **Ensure base is `ehausig/ai-devkit-pod-configurator:develop`** (not main!)
+4. Fill out the PR template:
+
+```markdown
+## Description
+Brief description of changes
+
+## Type of Change
+- [ ] Bug fix (non-breaking change)
+- [ ] New feature (non-breaking change)
+- [ ] Breaking change
+- [ ] Documentation update
+
+## Testing
+- [ ] Tested locally
+- [ ] Tests pass
+- [ ] Documentation updated
+
+## Screenshots (if applicable)
+Add screenshots for UI changes
+
+## Checklist
+- [ ] My code follows the project style
+- [ ] I've added tests (if applicable)
+- [ ] All tests pass
+- [ ] My commits follow conventional format
+- [ ] I've updated documentation
+```
+
+### 2. Respond to Reviews
+
+- Address feedback promptly
+- Push new commits (don't force push during review)
+- Mark conversations as resolved when addressed
+- Be respectful and professional
+
+### 3. After Merge
+
+Once your PR is merged:
+
+```bash
+# Clean up your local branch
+git checkout develop
+git pull upstream develop
+git branch -d feat/your-feature-name
+
+# Delete remote branch
+git push origin --delete feat/your-feature-name
+```
+
+## Common Development Tasks
+
+### Adding a New Component
+
+1. Create YAML file in appropriate category directory
+2. Add corresponding markdown documentation
+3. Test the component thoroughly
+4. Update relevant documentation
+
+See [Creating Components](components.md) for detailed instructions.
+
+### Modifying the TUI
+
+1. Test all themes
+2. Ensure keyboard navigation works
+3. Test on different terminal sizes
+4. Update screenshots if needed
+
+### Updating Dependencies
+
+1. Document why the update is needed
+2. Test thoroughly
+3. Update relevant documentation
 
 ## Getting Help
 
-- **Questions**: Open an issue with the `question` label
-- **Discussions**: Use GitHub Discussions for general topics
-- **Real-time help**: Consider joining our community chat (if available)
+- Open an issue for bugs
+- Use discussions for questions
+- Check existing issues before creating new ones
 
-Remember: Everyone was new once. Don't hesitate to ask for help!
+## Next Steps
+
+Once you're comfortable with development, consider reviewing the [Maintainer Guide](maintainer.md) to understand the full project lifecycle.

@@ -1,373 +1,362 @@
-# Component System Documentation
+# Creating Components
 
-The AI DevKit Pod Configurator uses a modular component system that allows you to build customized development environments with only the tools you need.
-
-## Table of Contents
-
-- [Component Structure](#component-structure)
-- [Creating a New Component](#creating-a-new-component)
-- [Component Categories](#component-categories)
-- [YAML Schema](#yaml-schema)
-- [Pre-build Scripts](#pre-build-scripts)
-- [File Injection](#file-injection)
-- [Testing Components](#testing-components)
-- [Best Practices](#best-practices)
+This guide explains how to create custom components for the AI DevKit Pod Configurator.
 
 ## Component Structure
 
 Each component consists of:
 
-1. **YAML Definition** (`component-name.yaml`) - Metadata and installation instructions
-2. **Documentation** (`component-name.md`) - Optional markdown documentation
-3. **Pre-build Script** (`component-setup.sh`) - Optional setup script
-4. **Template Files** - Any configuration files to inject
-
-### Directory Layout
-
-```
-components/
-├── category-name/
-│   ├── .category.yaml          # Category metadata
-│   ├── component-name.yaml     # Component definition
-│   ├── component-name.md       # Component documentation
-│   ├── component-setup.sh      # Pre-build script (optional)
-│   └── templates/              # Template files (optional)
-```
-
-## Creating a New Component
-
-### Step 1: Choose or Create a Category
-
-Categories group related components. Create a new category directory if needed:
-
-```bash
-mkdir -p components/my-category
-```
-
-Create `.category.yaml`:
-
-```yaml
-display_name: My Category
-description: Description of what this category contains
-order: 5  # Display order in the TUI (lower numbers appear first)
-```
-
-### Step 2: Create Component Definition
-
-Create `components/my-category/my-component.yaml`:
-
-```yaml
-id: MY_COMPONENT
-name: My Component
-version: "1.0.0"
-group: my-component-group  # For mutual exclusion
-requires: dependency-group  # Space-separated list of required groups
-description: Brief description of the component
-pre_build_script: my-component-setup.sh  # Optional
-installation:
-  dockerfile: |
-    # Dockerfile commands to install the component
-    RUN apt-get update && \
-        apt-get install -y my-package && \
-        rm -rf /var/lib/apt/lists/*
-  nexus_config: |
-    # Optional: Commands for Nexus proxy configuration
-    if [ -n "$USE_NEXUS_APT" ]; then
-        # Configure for Nexus
-    fi
-  test_command: my-command --version
-entrypoint_setup: |
-  # Bash commands that run at container startup
-  echo "Setting up My Component..."
-  mkdir -p /home/devuser/.myconfig
-```
-
-### Step 3: Add Documentation (Optional)
-
-Create `components/my-category/my-component.md`:
-
-```markdown
-#### My Component
-
-**Quick Start**: Instructions for using the component
-
-**Common Commands**:
-- `command1` - Description
-- `command2` - Description
-
-**Tips and Tricks**:
-- Useful information
-- Best practices
-```
-
-### Step 4: Create Pre-build Script (Optional)
-
-Pre-build scripts run during the Docker build process and can:
-- Generate configuration files
-- Process templates
-- Copy files to the build directory
-
-Create `components/my-category/my-component-setup.sh`:
-
-```bash
-#!/bin/bash
-# Pre-build script for My Component
-
-# Standard arguments provided
-TEMP_DIR="$1"              # Build directory
-SELECTED_IDS="$2"          # Space-separated selected component IDs
-SELECTED_NAMES="$3"        # Space-separated selected component names
-SELECTED_YAML_FILES="$4"   # Space-separated YAML file paths
-SCRIPT_DIR="$5"            # Directory containing this script
-
-# Generate configuration
-cat > "$TEMP_DIR/my-config.json" << EOF
-{
-  "setting": "value"
-}
-EOF
-
-# Copy templates
-cp "$SCRIPT_DIR/templates/template.conf" "$TEMP_DIR/"
-
-echo "My Component pre-build completed"
-```
+1. **YAML Definition File** (required) - `components/CATEGORY/NAME.yaml`
+2. **Documentation File** (recommended) - `components/CATEGORY/NAME.md`
+3. **Pre-build Script** (optional) - `components/CATEGORY/NAME-setup.sh`
 
 ## Component Categories
 
-### Built-in Categories
+Components are organized into categories:
 
-1. **AI Agents** (`agents/`) - AI assistants and coding companions
-2. **Build & Deploy** (`build-tools/`) - Build automation tools
-3. **Languages** (`languages/`) - Programming languages and runtimes
-
-### Creating Custom Categories
-
-You can create any category you need:
-
-```bash
-# Examples
-components/databases/       # Database clients and tools
-components/cloud/          # Cloud provider CLIs
-components/devops/         # Infrastructure and DevOps tools
-components/testing/        # Testing frameworks
-components/editors/        # Text editors and IDEs
+```
+components/
+├── agents/          # AI coding assistants
+├── languages/       # Programming languages and runtimes
+├── build-tools/     # Build and dependency management tools
+└── your-category/   # Create your own categories
 ```
 
-## YAML Schema
+### Creating a New Category
 
-### Required Fields
-
-- `id` - Unique identifier (uppercase with underscores)
-- `name` - Display name in the TUI
-- `group` - Mutual exclusion group
-- `description` - Brief description
-- `installation.dockerfile` - Installation commands
-
-### Optional Fields
-
-- `version` - Component version
-- `requires` - Space-separated list of required groups
-- `pre_build_script` - Script to run during build
-- `installation.nexus_config` - Nexus proxy configuration
-- `installation.test_command` - Command to verify installation
-- `installation.inject_files` - Files to copy into the container
-- `entrypoint_setup` - Commands to run at container startup
-- `memory_content` - Documentation for AI agents (Claude Code)
-
-### Mutual Exclusion Groups
-
-Components in the same `group` are mutually exclusive. For example:
+1. Create a directory under `components/`
+2. Add `.category.yaml` for metadata:
 
 ```yaml
-# Only one Python version can be selected
-group: python-version  # python-default, python-3.11, python-miniconda
-group: java           # java-11-openjdk, java-17-adoptium, etc.
-group: rust-version   # rust-stable, rust-nightly
+# components/your-category/.category.yaml
+display_name: Your Category Name
+description: What this category contains
+order: 10  # Display order (lower numbers first)
 ```
 
-### Dependencies
+## Component YAML Schema
 
-Use `requires` to specify dependencies:
+### Basic Structure
 
 ```yaml
-requires: java          # Requires any Java component
-requires: nodejs-version python-version  # Requires both Node.js and Python
+# components/languages/example.yaml
+id: EXAMPLE_COMPONENT
+name: Example Component
+version: "1.0.0"  # Optional version
+group: example-group
+requires: []  # List of required groups
+description: Brief description of the component
 ```
 
-## Pre-build Scripts
+### Field Descriptions
 
-Pre-build scripts are powerful tools for dynamic configuration:
+- **id**: Unique identifier (UPPERCASE_WITH_UNDERSCORES)
+- **name**: Display name shown in the TUI
+- **version**: Component version (optional)
+- **group**: Mutual exclusion group (only one per group can be selected)
+- **requires**: Array of group names this component depends on
+- **description**: Brief description for users
 
-### Use Cases
-
-1. **Generate Configuration Files**
-   ```bash
-   # Generate config based on selected components
-   if [[ "$SELECTED_IDS" == *"NODEJS"* ]]; then
-       echo "node_modules/" >> "$TEMP_DIR/.gitignore"
-   fi
-   ```
-
-2. **Process Templates**
-   ```bash
-   # Replace placeholders in templates
-   sed "s/{{VERSION}}/$VERSION/g" "$SCRIPT_DIR/template.conf" > "$TEMP_DIR/config.conf"
-   ```
-
-3. **Copy Documentation**
-   ```bash
-   # Copy all markdown files for selected components
-   for yaml_file in $SELECTED_YAML_FILES; do
-       md_file="${yaml_file%.yaml}.md"
-       [[ -f "$md_file" ]] && cp "$md_file" "$TEMP_DIR/"
-   done
-   ```
-
-### Best Practices
-
-- Always check if files exist before copying
-- Use proper error handling
-- Log actions for debugging
-- Clean up temporary files
-- Use the provided arguments instead of hardcoding paths
-
-## File Injection
-
-Components can inject configuration files into the container:
+### Installation Instructions
 
 ```yaml
 installation:
-  inject_files:
-    - source: config.template
-      destination: /home/devuser/.config/app/config.json
-      permissions: 644
-    - source: script.sh
-      destination: /usr/local/bin/myscript
-      permissions: 755
+  dockerfile: |
+    # Standard Dockerfile commands
+    RUN apt-get update && apt-get install -y example-package
+    
+    # Set up paths
+    ENV PATH="/opt/example/bin:$PATH"
+    
+    # Create configuration
+    RUN echo "config" > /etc/example.conf
 ```
 
-Files are copied from the component directory during build.
+### Nexus Proxy Support
 
-## Testing Components
+For components that download packages, add Nexus configuration:
 
-### Local Testing
+```yaml
+installation:
+  dockerfile: |
+    # Main installation commands
+    RUN curl -o example.tar.gz https://example.com/download
+  
+  nexus_config: |
+    # Commands that only run when Nexus is available
+    if [ -n "$USE_NEXUS_APT" ]; then
+        echo "Using Nexus proxy for downloads"
+        # Configure package manager for Nexus
+    fi
+```
 
-1. **Build with your component**:
-   ```bash
-   ./build-and-deploy.sh
-   # Select your component in the TUI
-   ```
+### File Injection
 
-2. **Verify installation**:
-   ```bash
-   kubectl exec -it -n ai-devkit <pod-name> -- su - devuser
-   # Test your component's commands
-   ```
+To copy files from the build context:
 
-3. **Check logs**:
-   ```bash
-   kubectl logs -n ai-devkit <pod-name>
-   tail -f build-and-deploy.log
-   ```
+```yaml
+inject_files:
+  - source: config-template.json
+    destination: /tmp/config-template.json
+    permissions: 644
+  - source: script.sh
+    destination: /usr/local/bin/script.sh
+    permissions: 755
+```
 
-### Component Validation
+### Runtime Setup
 
-Ensure your component:
-- Installs successfully
-- Doesn't conflict with other components
-- Has proper documentation
-- Includes a test command
-- Handles errors gracefully
+For initialization that happens when the container starts:
+
+```yaml
+entrypoint_setup: |
+  # This runs in entrypoint.sh during container startup
+  echo "Setting up Example Component..."
+  
+  # Configure for the devuser
+  if [ ! -f /home/devuser/.example/config ]; then
+      mkdir -p /home/devuser/.example
+      cp /tmp/config-template.json /home/devuser/.example/config.json
+      chown -R devuser:devuser /home/devuser/.example
+  fi
+  
+  # Add to bashrc
+  if ! grep -q "example init" "$BASHRC"; then
+      echo 'eval "$(example init bash)"' >> "$BASHRC"
+  fi
+```
+
+## Component Documentation (Optional)
+
+Components can optionally include markdown documentation files that enhance the AI assistant experience. These files are automatically injected into LLM system prompts when the component is selected.
+
+### Purpose
+
+The markdown files serve to:
+- Provide usage examples and common commands to AI assistants
+- Document component-specific workflows and best practices
+- Help AI assistants give accurate, component-aware responses
+
+### File Naming
+
+Documentation files must have the same base name as the component YAML:
+- Component: `python-miniconda.yaml`
+- Documentation: `python-miniconda.md`
+
+### Documentation Structure
+
+```markdown
+# components/languages/example.md
+
+#### Example Component
+
+**Getting Started**:
+```bash
+# Initialize a new project
+example init my-project
+
+# Run the example
+example run
+```
+
+**Environment Setup**:
+```bash
+# Activate virtual environment
+example venv activate
+
+# Install dependencies
+example install -r requirements.txt
+```
+
+**Common Tasks**:
+- Build project: `example build`
+- Run tests: `example test`
+- Deploy: `example deploy`
+
+**Configuration**:
+- Config file: `~/.example/config.json`
+- Environment: `EXAMPLE_HOME`
+
+**Troubleshooting**:
+- If X happens, try Y
+- Check logs at: `~/.example/logs/`
+```
+
+### How It Works
+
+1. When a component is selected, its `.md` file is copied to the build directory
+2. During container startup, the file is placed in `~/.claude/` directory
+3. AI assistants (like Claude Code) can access these files for context
+4. The documentation helps AI assistants provide accurate, component-specific guidance
+
+### Best Practices
+
+1. **Focus on AI Context**: Write documentation that helps AI assistants understand:
+   - Common commands and their purposes
+   - Typical workflows
+   - Configuration locations
+   - Error resolution steps
+
+2. **Keep It Concise**: AI assistants work better with clear, structured information
+
+3. **Include Examples**: Real command examples are more useful than abstract descriptions
+
+4. **Document Gotchas**: Include any non-obvious behaviors or common mistakes
+
+## Pre-build Scripts
+
+For complex setup tasks, create a pre-build script:
+
+```bash
+#!/bin/bash
+# components/languages/example-setup.sh
+
+# Standard arguments provided by build system
+TEMP_DIR="$1"
+SELECTED_IDS="$2"
+SELECTED_NAMES="$3"
+SELECTED_YAML_FILES="$4"
+SCRIPT_DIR="$5"
+
+# Your setup logic
+echo "Preparing Example Component..."
+
+# Copy files to temp directory
+cp "$SCRIPT_DIR/example-config.json" "$TEMP_DIR/"
+
+# Generate dynamic content
+cat > "$TEMP_DIR/example-setup.txt" << EOF
+Selected components: $SELECTED_NAMES
+EOF
+
+echo "Example Component prepared successfully"
+```
+
+## Component Dependencies
+
+### Simple Dependencies
+
+Component requires another group:
+
+```yaml
+requires: [python-version]  # Requires any Python version
+```
+
+### Multiple Dependencies
+
+```yaml
+requires: [python-version, build-tools]  # Requires Python AND build tools
+```
+
+### Mutual Exclusion
+
+Components in the same group are mutually exclusive:
+
+```yaml
+# Only one Python version can be selected
+group: python-version
+```
 
 ## Best Practices
 
-### 1. Minimal Installation
+### 1. Naming Conventions
 
-- Only install what's necessary
-- Clean up package manager caches
-- Remove temporary files
+- **ID**: UPPERCASE_WITH_UNDERSCORES (e.g., `PYTHON_MINICONDA`)
+- **Files**: lowercase-with-hyphens (e.g., `python-miniconda.yaml`)
+- **Groups**: lowercase-with-hyphens (e.g., `python-version`)
 
-```yaml
-dockerfile: |
-  RUN apt-get update && \
-      apt-get install -y --no-install-recommends my-package && \
-      rm -rf /var/lib/apt/lists/*
-```
+### 2. Version Management
 
-### 2. User Permissions
+- Include version in the component name if multiple versions exist
+- Use groups for mutual exclusion of versions
+- Document version-specific features in the markdown
 
-- Install to system locations as root
-- Configure user-specific settings in `entrypoint_setup`
-- Ensure proper file ownership
+### 3. Installation Best Practices
 
-```yaml
-entrypoint_setup: |
-  mkdir -p /home/devuser/.myapp
-  chown -R devuser:devuser /home/devuser/.myapp
-```
-
-### 3. Environment Variables
-
-- Use existing environment variables when available
-- Document any new environment variables
-- Handle proxy configurations
-
-```yaml
-entrypoint_setup: |
-  if [ -n "$PROXY_URL" ]; then
-      echo "proxy=$PROXY_URL" >> /home/devuser/.myapp/config
-  fi
-```
+- Clean up package manager caches (`apt-get clean`, `rm -rf /var/lib/apt/lists/*`)
+- Verify installations with test commands
+- Use specific versions when possible for reproducibility
+- Handle both ARM64 and AMD64 architectures
 
 ### 4. Documentation
 
-- Include practical examples
-- Document common commands
-- Provide troubleshooting tips
-- Use consistent formatting
+- Always include a markdown file with usage examples
+- Document environment variables and configuration files
+- Include troubleshooting tips
+- Show common workflows
 
-### 5. Error Handling
+### 5. Testing
 
-- Check if commands exist before using them
-- Provide meaningful error messages
-- Don't fail the entire build for optional features
+Test your component by:
 
-```bash
-if command -v mycommand &> /dev/null; then
-    mycommand --init
-else
-    echo "Warning: mycommand not found, skipping initialization"
-fi
-```
+1. Running the build script
+2. Selecting only your component
+3. Verifying it installs correctly
+4. Testing all documented commands
 
-### 6. Nexus Support
-
-If your component downloads packages, add Nexus proxy support:
+## Example: Complete Python Component
 
 ```yaml
-nexus_config: |
-  if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then
-      # Configure package manager to use Nexus
-      echo "registry=$NEXUS_APT_URL/repository/npm-proxy/" > ~/.npmrc
+# components/languages/python-system.yaml
+id: PYTHON_SYSTEM
+name: Python (System)
+version: "3.10"
+group: python-version
+requires: []
+description: Python 3.10 from Ubuntu repositories
+installation:
+  dockerfile: |
+    # Install Python from system packages
+    RUN apt-get update && apt-get install -y \
+        python3 \
+        python3-pip \
+        python3-venv \
+        python3-dev \
+        && apt-get clean \
+        && rm -rf /var/lib/apt/lists/*
+    
+    # Create symbolic links
+    RUN ln -sf /usr/bin/python3 /usr/bin/python && \
+        ln -sf /usr/bin/pip3 /usr/bin/pip
+  
+  nexus_config: |
+    # Configure pip to use Nexus if available
+    if [ -n "$USE_NEXUS_APT" ] && [ -n "$PIP_INDEX_URL" ]; then
+        pip config set global.index-url ${PIP_INDEX_URL}
+        pip config set global.trusted-host ${PIP_TRUSTED_HOST}
+    fi
+
+entrypoint_setup: |
+  # Configure pip for the devuser if proxy URL is provided
+  if command -v python3 &> /dev/null && [ -n "$PIP_INDEX_URL" ]; then
+      mkdir -p /home/devuser/.config/pip
+      if [ ! -f /home/devuser/.config/pip/pip.conf ]; then
+          echo "[global]" > /home/devuser/.config/pip/pip.conf
+          echo "index-url = ${PIP_INDEX_URL}" >> /home/devuser/.config/pip/pip.conf
+          echo "trusted-host = ${PIP_TRUSTED_HOST}" >> /home/devuser/.config/pip/pip.conf
+          chown -R devuser:devuser /home/devuser/.config/pip
+      fi
   fi
 ```
 
-## Examples
+## Troubleshooting
 
-See the existing components for examples:
+### Component Not Showing in TUI
 
-- `components/languages/python-miniconda.yaml` - Complex language installation
-- `components/agents/claude-code.yaml` - AI agent with pre-build script
-- `components/build-tools/gradle.yaml` - Build tool with Nexus support
-- `components/languages/rust-stable.yaml` - Language with cargo configuration
+1. Check YAML syntax is valid
+2. Ensure file is in correct category directory
+3. Verify all required fields are present
+4. Look for errors in build log
 
-## Contributing Components
+### Installation Fails
 
-1. Follow the structure and naming conventions
-2. Test thoroughly in different configurations
-3. Document all features and requirements
-4. Submit a pull request with:
-   - Component files
-   - Updated README if adding a new category
-   - Example usage in the PR description
+1. Test Dockerfile commands manually
+2. Check for architecture-specific issues
+3. Verify network connectivity for downloads
+4. Review build output in `build-and-deploy.log`
+
+### Dependencies Not Working
+
+1. Verify group names match exactly
+2. Check that required groups have available components
+3. Test with simplified dependencies first

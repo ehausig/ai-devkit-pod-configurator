@@ -1,122 +1,114 @@
 #### Python 3.11
 
-**Performance**: 10-60% faster than 3.10
+**Environment Setup**
+```bash
+# Create virtual environment
+python3.11 -m venv .venv
+source .venv/bin/activate
 
-**New Features**:
-- Better error messages with exact locations
-- Exception groups: `except* ExceptionGroup`
-- Type improvements: `Self` type
+# Upgrade pip
+pip install --upgrade pip setuptools wheel
+```
 
-**Testing**:
-```python
-# pytest with async
-pip install pytest pytest-asyncio pytest-cov
+**Project Init**
+```bash
+# Same structure as Python 3.10
+mkdir -p src tests docs
+touch README.md requirements.txt .gitignore pyproject.toml
 
+# Modern pyproject.toml
+cat > pyproject.toml << 'EOF'
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "myproject"
+version = "0.1.0"
+requires-python = ">=3.11"
+EOF
+```
+
+**Dependencies**
+```bash
+# Core dependencies for modern Python
+cat > requirements.txt << 'EOF'
+# Async web
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# TUI
+textual>=0.47.0
+
+# Testing
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+pytest-cov>=4.1.0
+
+# Dev tools
+black>=23.0.0
+ruff>=0.1.0
+mypy>=1.7.0
+EOF
+
+pip install -r requirements.txt
+```
+
+**Format & Lint**
+```bash
+# Black for formatting
+black src/ tests/
+
+# Ruff for fast linting
+ruff check src/ tests/
+ruff check --fix src/ tests/
+
+# Type checking
+mypy src/ --python-version 3.11
+```
+
+**Testing**
+```bash
+# Standard pytest
+pytest -v
+
+# With coverage
+pytest -v --cov=src --cov-report=html
+
+# Async tests
 @pytest.mark.asyncio
-async def test_async():
+async def test_async_function():
     result = await async_function()
     assert result == expected
 ```
 
-**TUI Stack**:
+**Build**
 ```bash
-pip install textual textual-dev
-pip install gql[aiohttp] aiohttp pydantic
+# Build with modern tools
+pip install build
+python -m build
+
+# Creates wheel and sdist
+# dist/*.whl
+# dist/*.tar.gz
 ```
 
-**Development**:
-- Format: `black .`
-- Lint: `ruff check .`
-- Type check: `mypy .`
-- Debug: `python -m pdb`
-
-## TUI Testing with Microsoft TUI Test
-
-**IMPORTANT**: Like Python 3.10, venv creates symlinks that conflict with TUI Test. Use the same approaches:
-
-### Option 1: External Virtual Environment (Recommended)
+**Run**
 ```bash
-# Create venv outside project
-python3.11 -m venv ~/venvs/myproject
-source ~/venvs/myproject/bin/activate
-cd ~/workspace/myproject
-pip install -r requirements.txt
+# FastAPI app
+uvicorn src.main:app --reload
 
-# TUI Test works without venv in project dir
-npx @microsoft/tui-test
+# Textual TUI app
+textual run --dev src/app.py
+
+# Module execution
+python -m src.main
+
+# With optimizations
+python -O -m src.main
 ```
 
-### Option 2: Docker-based Testing
-```dockerfile
-# Dockerfile.test
-FROM python:3.11-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-COPY src/ src/
-COPY tests/ tests/
-CMD ["python", "src/main.py"]
-```
-
-```typescript
-// Test against Docker container
-test.use({ 
-    program: { 
-        file: "docker", 
-        args: ["run", "-it", "myapp-test"] 
-    } 
-});
-```
-
-### Option 3: Project-specific Test Script
-```bash
-# Create tui-test-runner.sh
-#!/bin/bash
-# This script manages venv for TUI testing
-
-if [ -d ".venv" ]; then
-    echo "Backing up .venv..."
-    mv .venv .venv.backup
-fi
-
-# Run TUI tests
-npx @microsoft/tui-test "$@"
-TEST_RESULT=$?
-
-if [ -d ".venv.backup" ]; then
-    echo "Restoring .venv..."
-    mv .venv.backup .venv
-fi
-
-exit $TEST_RESULT
-```
-
-### Python 3.11 Specific Test Example
-```typescript
-import { test, expect } from "@microsoft/tui-test";
-
-test.describe("Python 3.11 TUI Features", () => {
-    test("exception groups display correctly", async ({ terminal }) => {
-        test.use({ 
-            program: { 
-                file: "python3.11", 
-                args: ["-m", "src.main"] 
-            },
-            cwd: "/home/devuser/workspace/myproject",
-            env: {
-                PYTHONPATH: "/home/devuser/workspace/myproject"
-            }
-        });
-        
-        // Test error handling with new exception groups
-        terminal.sendKey("ctrl+e"); // Trigger error
-        await expect(terminal.getByText("ExceptionGroup")).toBeVisible();
-    });
-});
-```
-
-**Recommended Workflow**:
-1. Develop with venv in project (normal Python workflow)
-2. Use external venv or system Python for TUI testing
-3. Document the testing setup in your README
-4. Consider GitHub Actions for CI where venv location doesn't matter
+**TUI Testing Notes**
+- Same venv/symlink issues as Python 3.10
+- Use external venv: `python3.11 -m venv ~/venvs/myproject`
+- Exception groups provide better error context in tests

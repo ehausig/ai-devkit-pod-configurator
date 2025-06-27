@@ -8,7 +8,7 @@ IMAGE_TAG="latest"
 NAMESPACE="ai-devkit"
 TEMP_DIR=".build-temp"
 COMPONENTS_DIR="components"
-SSH_KEYS_DIR="$HOME/.ai-devkit-k8s/ssh-keys"
+SSH_KEYS_DIR="$HOME/.ai-devkit/ssh-keys"
 LOG_FILE="build-and-deploy.log"
 
 VERSION_FILE="VERSION"
@@ -185,7 +185,7 @@ INSTRUCTION_TEXT_STYLE="$COLOR_SILVER"
 INSTRUCTION_ABORT_STYLE="$COLOR_BRIGHT_CORAL"
 
 # Summary Screen
-SUMMARY_BORDER_COLOR="$COLOR_SAGE"
+SUMMARY_BORDER_COLOR="$COLOR_BRIGHT_CHARCOAL"
 SUMMARY_TITLE_STYLE="$BOLD_BRIGHT_WHITE"
 SUMMARY_CHECKMARK_COLOR="$COLOR_BRIGHT_SAGE"
 SUMMARY_CATEGORY_STYLE="$COLOR_BRIGHT_SEAFOAM"
@@ -2995,7 +2995,7 @@ create_custom_dockerfile() {
 
 # Check for host git configuration
 check_host_git_config() {
-    local config_dir="$HOME/.ai-devkit-k8s"
+    local config_dir="$HOME/.ai-devkit"
     
     if [[ -d "$config_dir" ]] && [[ -f "$config_dir/git-config/.gitconfig" ]]; then
         return 0
@@ -3005,7 +3005,7 @@ check_host_git_config() {
 
 # Create git configuration secret
 create_git_config_secret() {
-    local config_dir="$HOME/.ai-devkit-k8s"
+    local config_dir="$HOME/.ai-devkit"
     
     # Delete existing secret if it exists
     kubectl delete secret git-config -n ${NAMESPACE} --ignore-not-found=true >/dev/null 2>&1

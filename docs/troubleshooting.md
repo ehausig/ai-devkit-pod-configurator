@@ -1,573 +1,419 @@
 # Troubleshooting Guide
 
-This guide covers common issues and their solutions when using the AI DevKit Pod Configurator.
+This guide helps resolve common issues with the AI DevKit Pod Configurator.
 
 ## Table of Contents
 
-- [Build Issues](#build-issues)
-- [Deployment Issues](#deployment-issues)
-- [Component Issues](#component-issues)
-- [Connection Issues](#connection-issues)
-- [Disk Space Issues](#disk-space-issues)
-- [Git Configuration Issues](#git-configuration-issues)
-- [Claude Code Issues](#claude-code-issues)
-- [TUI Display Issues](#tui-display-issues)
-- [Performance Issues](#performance-issues)
-- [Debugging Tips](#debugging-tips)
+1. [Installation Issues](#installation-issues)
+2. [Build Failures](#build-failures)
+3. [Deployment Issues](#deployment-issues)
+4. [Connection Problems](#connection-problems)
+5. [Component Issues](#component-issues)
+6. [Performance Problems](#performance-problems)
+7. [Known Issues](#known-issues)
 
-## Build Issues
+## Installation Issues
 
-### Docker Build Fails
+### kubectl: command not found
 
-**Symptoms:**
-- Build exits with error
-- "Docker build failed" message
+**Problem**: The `kubectl` command is not available.
 
-**Solutions:**
+**Solution**:
+```bash
+# macOS
+brew install kubectl
 
-1. **Check the build log**:
+# Linux (snap)
+sudo snap install kubectl --classic
+
+# Linux (manual)
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+```
+
+### Cannot connect to Docker daemon
+
+**Problem**: Docker commands fail with connection errors.
+
+**Solution**:
+
+For Colima:
+```bash
+# Check status
+colima status
+
+# Start if not running
+colima start --kubernetes --cpu 4 --memory 8
+
+# Verify Docker context
+docker context use colima
+```
+
+For Linux:
+```bash
+# Check Docker service
+sudo systemctl status docker
+
+# Start if not running
+sudo systemctl start docker
+
+# Add user to docker group
+sudo usermod -aG docker $USER
+# Log out and back in
+```
+
+### Kubernetes cluster unreachable
+
+**Problem**: `kubectl` commands fail to connect.
+
+**Solution**:
+```bash
+# Check cluster info
+kubectl cluster-info
+
+# For Colima
+colima kubernetes status
+colima start --kubernetes  # If not running
+
+# For k3s
+sudo systemctl status k3s
+sudo systemctl start k3s
+
+# Check kubeconfig
+echo $KUBECONFIG
+ls -la ~/.kube/config
+```
+
+## Build Failures
+
+### Permission denied on scripts
+
+**Problem**: Scripts fail with permission errors.
+
+**Solution**:
+```bash
+# Make all scripts executable
+chmod +x *.sh
+chmod +x scripts/*.sh
+
+# Or recursively
+find . -name "*.sh" -type f -exec chmod +x {} \;
+```
+
+### Docker build fails
+
+**Problem**: Container image fails to build.
+
+**Solutions**:
+
+1. **Check the log file**:
    ```bash
    tail -100 build-and-deploy.log
    ```
 
-2. **Verify Docker is running**:
+2. **Disk space issues**:
    ```bash
-   docker info
-   ```
-
-3. **Clear Docker cache**:
-   ```bash
-   docker system prune -a
-   ```
-
-4. **Check available disk space**:
-   ```bash
+   # Check disk space
    df -h
-   ```
-
-### Component Installation Fails
-
-**Symptoms:**
-- Specific component fails during build
-- Package not found errors
-
-**Solutions:**
-
-1. **Check internet connectivity**:
-   ```bash
-   curl -I https://github.com
-   ```
-
-2. **Verify component YAML syntax**:
-   ```bash
-   # Look for syntax errors
-   cat components/category/component.yaml
-   ```
-
-3. **Try building without the problematic component**
-
-4. **If using Nexus proxy, verify it's accessible**:
-   ```bash
-   curl http://localhost:8081
-   ```
-
-## Deployment Issues
-
-### Pod Stuck in Pending State
-
-**Symptoms:**
-- Pod never reaches Running state
-- `kubectl get pods` shows Pending
-
-**Solutions:**
-
-1. **Check pod events**:
-   ```bash
-   kubectl describe pod -n ai-devkit <pod-name>
-   ```
-
-2. **Check for disk pressure** (common with Colima):
-   ```bash
-   kubectl get nodes -o wide
+   
+   # Clean up Docker
+   docker system prune -a
+   
+   # For Colima
    ./cleanup-colima.sh
    ```
 
-3. **Verify PVC creation**:
+3. **Network issues during build**:
+   ```bash
+   # Test connectivity
+   curl -I https://registry-1.docker.io
+   
+   # Retry with no build cache
+   docker build --no-cache -t ai-devkit:latest .
+   ```
+
+### Component installation fails
+
+**Problem**: Specific component fails during Docker build.
+
+**Solutions**:
+
+1. **Check component YAML syntax**:
+   ```bash
+   # Validate YAML
+   cat components/CATEGORY/component.yaml
+   ```
+
+2. **Test installation commands manually**:
+   ```bash
+   # Run a test container
+   docker run -it ubuntu:22.04 bash
+   # Try the installation commands
+   ```
+
+3. **Architecture issues**:
+   - Ensure component supports both ARM64 and AMD64
+   - Check for architecture-specific download URLs
+
+## Deployment Issues
+
+### Pod stays in Pending state
+
+**Problem**: Kubernetes pod never becomes ready.
+
+**Solutions**:
+
+1. **Check pod events**:
+   ```bash
+   kubectl describe pod -n ai-devkit
+   kubectl get events -n ai-devkit
+   ```
+
+2. **Check PVC status**:
    ```bash
    kubectl get pvc -n ai-devkit
+   # If pending, check storage class
+   kubectl get storageclass
    ```
 
-4. **Check resource limits**:
+3. **Resource constraints**:
    ```bash
+   # Check node resources
    kubectl top nodes
+   kubectl describe nodes
    ```
 
-### Pod CrashLoopBackOff
+### Pod crashes repeatedly
 
-**Symptoms:**
-- Pod repeatedly restarts
-- Status shows CrashLoopBackOff
+**Problem**: Pod enters CrashLoopBackOff state.
 
-**Solutions:**
+**Solutions**:
 
-1. **Check container logs**:
+1. **Check logs**:
    ```bash
-   kubectl logs -n ai-devkit <pod-name> -c ai-devkit
-   kubectl logs -n ai-devkit <pod-name> -c ai-devkit --previous
+   kubectl logs -n ai-devkit deployment/ai-devkit
+   kubectl logs -n ai-devkit deployment/ai-devkit --previous
    ```
 
-2. **Verify entrypoint script**:
+2. **Check entrypoint script**:
    ```bash
-   # Check if entrypoint.sh was generated correctly
-   ls -la .build-temp/entrypoint.sh
+   # Verify entrypoint exists and is executable
+   kubectl exec -n ai-devkit deployment/ai-devkit -- ls -la /entrypoint.sh
    ```
 
-3. **Check for missing dependencies**:
-   - Review selected components
-   - Ensure all requirements are met
-
-### Port Forwarding Fails
-
-**Symptoms:**
-- Cannot connect to SSH or Filebrowser
-- "Connection refused" errors
-
-**Solutions:**
-
-1. **Kill existing port forwards**:
+3. **Debug with shell**:
    ```bash
-   pkill -f "kubectl.*port-forward.*ai-devkit"
+   # Override entrypoint temporarily
+   kubectl run debug --rm -it --image=ai-devkit:latest --command -- /bin/bash
    ```
 
-2. **Restart port forwarding**:
+## Connection Problems
+
+### SSH connection refused
+
+**Problem**: Cannot SSH to the container.
+
+**Solutions**:
+
+1. **Check port forwarding**:
    ```bash
-   kubectl port-forward -n ai-devkit service/ai-devkit 2222:22 8090:8090
+   # Check if port-forward is running
+   ps aux | grep "kubectl port-forward"
+   
+   # Restart port forwarding
+   kubectl port-forward -n ai-devkit service/ai-devkit 2222:22 8090:8090 &
    ```
 
-3. **Check service status**:
+2. **Check SSH service**:
+   ```bash
+   # Check if SSH is running in container
+   kubectl exec -n ai-devkit deployment/ai-devkit -- ps aux | grep sshd
+   ```
+
+3. **Verify SSH host keys**:
+   ```bash
+   # Check secret exists
+   kubectl get secret ssh-host-keys -n ai-devkit
+   ```
+
+### Filebrowser not accessible
+
+**Problem**: Cannot access web file manager.
+
+**Solutions**:
+
+1. **Check filebrowser container**:
+   ```bash
+   kubectl logs -n ai-devkit deployment/ai-devkit -c filebrowser
+   ```
+
+2. **Verify service**:
    ```bash
    kubectl get svc -n ai-devkit
+   curl http://localhost:8090  # After port-forward
    ```
 
 ## Component Issues
 
-### Component Not Available for Selection
+### Component not showing in TUI
 
-**Symptoms:**
-- Component doesn't appear in TUI
-- Category is missing
+**Problem**: Created component doesn't appear in selector.
 
-**Solutions:**
+**Solutions**:
 
-1. **Verify component files exist**:
+1. **Check file location**:
    ```bash
-   ls -la components/category/component.yaml
+   # Ensure correct path
+   ls -la components/CATEGORY/your-component.yaml
    ```
 
-2. **Check category file**:
+2. **Validate YAML**:
    ```bash
-   cat components/category/.category.yaml
+   # Check for syntax errors
+   grep -E "^(id|name|group|requires):" components/CATEGORY/your-component.yaml
    ```
 
-3. **Validate YAML syntax**:
-   - Ensure proper indentation
-   - Check for special characters
-   - Verify all required fields
-
-### Component Dependencies Not Met
-
-**Symptoms:**
-- Component shows "requires X" message
-- Cannot select component
-
-**Solutions:**
-
-1. **Check requirements**:
-   - Review the `requires:` field in component YAML
-   - Select required components first
-
-2. **Verify group names**:
-   - Ensure dependency groups exist
-   - Check for typos in group names
-
-### Mutual Exclusion Conflicts
-
-**Symptoms:**
-- Selecting one component deselects another
-- Components in same group conflict
-
-**Solutions:**
-
-1. **Review group assignments**:
-   - Components in same `group:` are mutually exclusive
-   - Choose only one per group
-
-2. **Check if you need multiple versions**:
-   - Consider if you really need multiple Python/Java versions
-   - Use containers for isolation if needed
-
-## Connection Issues
-
-### SSH Connection Refused
-
-**Symptoms:**
-- `ssh devuser@localhost -p 2222` fails
-- "Connection refused" error
-
-**Solutions:**
-
-1. **Verify SSH is running in container**:
+3. **Check for errors**:
    ```bash
-   kubectl exec -n ai-devkit <pod-name> -- ps aux | grep sshd
+   # Run with debug output
+   bash -x ./build-and-deploy.sh 2>&1 | grep -i error
    ```
 
-2. **Check SSH host keys**:
+### Component conflicts not working
+
+**Problem**: Multiple components from same group can be selected.
+
+**Solution**:
+- Verify all components in the group have exact same `group` value
+- Check for typos or extra spaces in group names
+
+## Performance Problems
+
+### Slow package downloads
+
+**Problem**: Build takes very long downloading packages.
+
+**Solutions**:
+
+1. **Enable Nexus proxy** (if available):
    ```bash
-   kubectl get secret ssh-host-keys -n ai-devkit
+   # Start Nexus
+   docker run -d -p 8081:8081 --name nexus sonatype/nexus3
+   # Build script auto-detects Nexus
    ```
 
-3. **Restart the pod**:
+2. **Use local Docker cache**:
    ```bash
-   kubectl delete pod -n ai-devkit <pod-name>
+   # Don't use --no-cache flag
+   # Reuse layers when possible
    ```
 
-### Filebrowser Not Accessible
+### Out of memory errors
 
-**Symptoms:**
-- Cannot access http://localhost:8090
-- Page doesn't load
+**Problem**: Container or build fails with memory errors.
 
-**Solutions:**
+**Solutions**:
 
-1. **Check Filebrowser container**:
-   ```bash
-   kubectl logs -n ai-devkit <pod-name> -c filebrowser
-   ```
-
-2. **Verify port forwarding**:
-   ```bash
-   lsof -i :8090
-   ```
-
-3. **Try direct pod port-forward**:
-   ```bash
-   kubectl port-forward -n ai-devkit pod/<pod-name> 8090:8090
-   ```
-
-## Disk Space Issues
-
-### Colima Disk Full
-
-**Symptoms:**
-- Build fails with "No space left on device"
-- Kubernetes reports disk pressure
-
-**Solutions:**
-
-1. **Run cleanup script**:
-   ```bash
-   ./cleanup-colima.sh --force
-   ```
-
-2. **Check Docker images**:
-   ```bash
-   colima ssh -- docker images
-   colima ssh -- docker system df
-   ```
-
-3. **Increase Colima disk size**:
+1. **Increase Colima resources**:
    ```bash
    colima stop
-   colima delete
-   colima start --disk 100 --kubernetes
+   colima start --kubernetes --cpu 6 --memory 12 --disk 100
    ```
 
-### Overlay2 Growth
-
-**Symptoms:**
-- `/var/lib/docker/overlay2` consuming excessive space
-- Orphaned directories accumulating
-
-**Solutions:**
-
-1. **Check for orphaned directories**:
+2. **Check current usage**:
    ```bash
-   ./cleanup-colima.sh --check
+   kubectl top pods -n ai-devkit
    ```
 
-2. **Clean Docker system**:
+3. **Adjust resource limits** in `kubernetes/deployment.yaml`
+
+## Known Issues
+
+### Critical Issues
+
+#### Overlay2 Cleanup (Colima)
+
+**Problem**: The `--overlay2` option in cleanup script corrupts Docker.
+
+**Solution**: 
+- **DO NOT USE** `./cleanup-colima.sh --overlay2`
+- Use standard cleanup: `./cleanup-colima.sh`
+- For severe issues: Delete and recreate Colima VM
+
+### Platform Limitations
+
+#### Limited Testing
+
+**Tested Platforms**:
+- ✅ macOS with Colima
+- ⚠️  Linux with k3s (limited testing)
+- ❌ Windows WSL2 (theoretical support only)
+- ❌ Minikube (not tested)
+- ❌ Kind (not tested)
+
+#### Nexus Repository
+
+**Limitations**:
+- Only tested with local Nexus instances
+- Remote Nexus not validated
+- No testing without Nexus proxy
+
+### Component Limitations
+
+#### Mutual Exclusions
+
+**Current State**:
+- Simple group-based exclusions only
+- No complex dependency resolution
+- No version conflict handling
+
+**Workaround**: Design components with clear groups
+
+### Other Known Issues
+
+1. **Repeated deployments may leave orphaned PVCs**
    ```bash
-   colima ssh -- docker system prune -a --volumes
+   # Clean up old PVCs
+   kubectl delete pvc -n ai-devkit --all
    ```
 
-3. **Restart Colima** (nuclear option):
+2. **TUI rendering issues in some terminals**
+   - Use supported terminal (iTerm2, GNOME Terminal, etc.)
+   - Set `TERM=xterm-256color`
+
+3. **Git configuration may need manual setup**
+   - Run `./configure-git-host.sh` before first deployment
+
+## Getting Help
+
+If these solutions don't resolve your issue:
+
+1. **Check the build log**:
    ```bash
-   colima restart
+   cat build-and-deploy.log
    ```
 
-## Git Configuration Issues
-
-### Git Credentials Not Working
-
-**Symptoms:**
-- Git push/pull fails
-- Authentication errors
-
-**Solutions:**
-
-1. **Reconfigure git on host**:
+2. **Enable debug mode**:
    ```bash
-   ./configure-git-host.sh
+   bash -x ./build-and-deploy.sh
    ```
 
-2. **Check secret creation**:
-   ```bash
-   kubectl get secret git-config -n ai-devkit -o yaml
-   ```
-
-3. **Verify in container**:
-   ```bash
-   kubectl exec -it -n ai-devkit <pod-name> -- cat /home/devuser/.git-credentials
-   ```
-
-### GitHub CLI (gh) Authentication Fails
-
-**Symptoms:**
-- `gh auth status` shows not authenticated
-- Cannot create repos or PRs
-
-**Solutions:**
-
-1. **Check gh config**:
-   ```bash
-   kubectl exec -it -n ai-devkit <pod-name> -- cat /home/devuser/.config/gh/hosts.yml
-   ```
-
-2. **Re-authenticate**:
-   ```bash
-   # Inside container
-   gh auth login
-   ```
-
-## Claude Code Issues
-
-### Claude Code Not Found
-
-**Symptoms:**
-- `claude` command not found
-- Claude Code not available in container
-
-**Solutions:**
-
-1. **Verify Claude Code was selected**:
-   - Claude Code is optional
-   - Must be explicitly selected during build
-
-2. **Check installation**:
-   ```bash
-   kubectl exec -it -n ai-devkit <pod-name> -- which claude
-   ```
-
-3. **Review build log**:
-   ```bash
-   grep -i "claude" build-and-deploy.log
-   ```
-
-### Claude Code Configuration Issues
-
-**Symptoms:**
-- Claude doesn't start properly
-- Missing configuration files
-
-**Solutions:**
-
-1. **Check CLAUDE.md exists**:
-   ```bash
-   kubectl exec -it -n ai-devkit <pod-name> -- ls -la /home/devuser/.claude/
-   ```
-
-2. **Verify settings.json**:
-   ```bash
-   kubectl exec -it -n ai-devkit <pod-name> -- cat /home/devuser/.claude/settings.json
-   ```
-
-3. **Review memory content**:
-   ```bash
-   kubectl exec -it -n ai-devkit <pod-name> -- head -50 /home/devuser/.claude/CLAUDE.md
-   ```
-
-## TUI Display Issues
-
-### Colors Not Showing
-
-**Symptoms:**
-- TUI appears monochrome
-- No color differentiation
-
-**Solutions:**
-
-1. **Check TERM variable**:
-   ```bash
-   echo $TERM
-   export TERM=xterm-256color
-   ```
-
-2. **Try different terminal**:
-   - Use iTerm2 on macOS
-   - Enable 24-bit color in terminal settings
-
-3. **Use minimal theme**:
-   ```bash
-   AI_DEVKIT_THEME=minimal ./build-and-deploy.sh
-   ```
-
-### TUI Navigation Not Working
-
-**Symptoms:**
-- Arrow keys don't work
-- Cannot select components
-
-**Solutions:**
-
-1. **Check terminal mode**:
-   - Ensure not in vim mode
-   - Try different terminal emulator
-
-2. **Use alternative keys**:
-   - j/k for up/down
-   - h/l for left/right
-   - SPACE for select
-
-3. **Reset terminal**:
-   ```bash
-   reset
-   stty sane
-   ```
-
-## Performance Issues
-
-### Slow Build Times
-
-**Symptoms:**
-- Builds take excessive time
-- Downloads are slow
-
-**Solutions:**
-
-1. **Use Nexus proxy** (if available):
-   - Set up local Nexus repository
-   - Configure proxy repositories
-
-2. **Reuse Docker cache**:
-   - Don't use `--no-cache` unless necessary
-   - Order Dockerfile commands efficiently
-
-3. **Reduce selected components**:
-   - Only select what you need
-   - Use minimal base for testing
-
-### Container Performance
-
-**Symptoms:**
-- Container is slow or unresponsive
-- High CPU/memory usage
-
-**Solutions:**
-
-1. **Check resource limits**:
-   ```bash
-   kubectl top pod -n ai-devkit
-   ```
-
-2. **Increase resources**:
-   ```yaml
-   # Edit kubernetes/deployment.yaml
-   resources:
-     limits:
-       memory: "8Gi"
-       cpu: "8000m"
-   ```
-
-3. **Monitor processes**:
-   ```bash
-   kubectl exec -it -n ai-devkit <pod-name> -- htop
-   ```
-
-## Debugging Tips
-
-### Enable Verbose Logging
-
-1. **Build script debug mode**:
-   ```bash
-   # Add to build-and-deploy.sh
-   set -x  # Enable debug output
-   ```
-
-2. **Component script debugging**:
-   ```bash
-   # In pre-build scripts
-   echo "DEBUG: Variable = $VARIABLE" >&2
-   ```
-
-### Check Temporary Files
-
-```bash
-# Build artifacts
-ls -la .build-temp/
-
-# Generated Dockerfile
-cat .build-temp/Dockerfile
-
-# Component imports
-cat .build-temp/component-imports.txt
-```
-
-### Kubernetes Debugging
-
-```bash
-# Get all resources
-kubectl get all -n ai-devkit
-
-# Describe everything
-kubectl describe all -n ai-devkit
-
-# Check events
-kubectl get events -n ai-devkit --sort-by='.lastTimestamp'
-
-# Shell into container
-kubectl exec -it -n ai-devkit <pod-name> -- /bin/bash
-```
-
-### Common Log Locations
-
-- **Build log**: `build-and-deploy.log`
-- **Container logs**: `kubectl logs -n ai-devkit <pod-name>`
-- **System logs**: Inside container at `/var/log/`
-
-### Getting Help
-
-If you're still experiencing issues:
-
-1. **Check existing issues**: GitHub Issues page
-2. **Gather information**:
-   - OS and Kubernetes version
-   - Selected components
-   - Error messages and logs
-3. **Create detailed issue**: Include all relevant information
-
-## Prevention Tips
-
-1. **Regular Maintenance**:
-   - Run cleanup scripts periodically
-   - Update components regularly
-   - Monitor disk usage
-
-2. **Test Incrementally**:
-   - Start with minimal components
-   - Add components one at a time
-   - Verify each addition works
-
-3. **Keep Backups**:
-   - Export working configurations
-   - Document successful component combinations
-   - Save working Dockerfiles
+3. **Search existing issues**:
+   https://github.com/ehausig/ai-devkit-pod-configurator/issues
+
+4. **Open a new issue** with:
+   - Your platform (OS, Kubernetes distribution)
+   - Complete error messages
+   - Steps to reproduce
+   - `build-and-deploy.log` contents
+
+## Quick Fixes Checklist
+
+- [ ] All scripts are executable (`chmod +x *.sh`)
+- [ ] Kubernetes is running (`kubectl get nodes`)
+- [ ] Docker/Colima is running (`docker ps`)
+- [ ] Sufficient disk space (`df -h`)
+- [ ] Sufficient memory allocated to Colima/VM
+- [ ] No conflicting port forwards (`lsof -i :2222`)
+- [ ] Component YAML files are valid
+- [ ] Using a supported terminal emulator

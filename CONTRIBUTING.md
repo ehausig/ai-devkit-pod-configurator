@@ -17,7 +17,9 @@ Thank you for your interest in contributing to AI DevKit Pod Configurator! This 
 
 ## Code of Conduct
 
-This project adheres to a Code of Conduct that all contributors are expected to follow. Please be respectful and inclusive in all interactions.
+This project adheres to a Code of Conduct that all contributors are expected to follow. Please read [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) before contributing to ensure you understand the expectations for participation in this community.
+
+By participating in this project, you agree to abide by its terms.
 
 ### Our Standards
 
