@@ -119,8 +119,6 @@ echo "$(date -Iseconds) [INFO] User request: $USER_REQUEST" >> ~/workspace/JOURN
    echo "$(date -Iseconds) [INFO] Git workflow initialized" >> ~/workspace/JOURNAL.md
    ```
 
-
-
 ### PROTOTYPE PATH (Fast Experimentation)
 
 4. **Quick local setup**:
@@ -661,36 +659,124 @@ touch LICENSE CONTRIBUTING.md
 echo "$(date -Iseconds) [INFO] Created library/package structure" >> ~/workspace/JOURNAL.md
 ```
 
+## Error Recovery Strategies
+
+### Common Issues and Solutions
+
+**GitHub repo creation fails**:
+```bash
+if ! gh repo create PROJECT_NAME; then
+    echo "$(date -Iseconds) [ERROR] GitHub creation failed" >> ~/workspace/JOURNAL.md
+    echo "$(date -Iseconds) [RECOVERY] Continuing with local development" >> ~/workspace/JOURNAL.md
+    echo "$(date -Iseconds) [TODO] Manually create repo later and add remote" >> ~/workspace/JOURNAL.md
+fi
+```
+
+**Merge conflicts**:
+```bash
+# When pulling or merging
+git pull origin develop
+if [ $? -ne 0 ]; then
+    echo "$(date -Iseconds) [CONFLICT] Merge conflict detected" >> ~/workspace/JOURNAL.md
+    
+    # For automated resolution of specific files
+    # Accept theirs for generated files
+    git checkout --theirs package-lock.json
+    
+    # Accept ours for config files
+    git checkout --ours .env.example
+    
+    # Manual resolution required for source code
+    echo "$(date -Iseconds) [MANUAL] Resolving conflicts in source files" >> ~/workspace/JOURNAL.md
+    # Fix conflicts...
+    git add .
+    git commit -m "fix: resolve merge conflicts"
+fi
+```
+
+**Test failures after multiple attempts**:
+```bash
+MAX_ATTEMPTS=3
+ATTEMPT=0
+
+while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+    if run_tests; then
+        break
+    fi
+    ATTEMPT=$((ATTEMPT + 1))
+    echo "$(date -Iseconds) [RETRY] Test attempt $ATTEMPT of $MAX_ATTEMPTS" >> ~/workspace/JOURNAL.md
+done
+
+if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+    echo "$(date -Iseconds) [ESCALATION] Tests failing after $MAX_ATTEMPTS attempts" >> ~/workspace/JOURNAL.md
+    # Options:
+    # 1. Mark test as flaky and skip temporarily
+    # 2. Simplify test case
+    # 3. Add debugging output
+    # 4. Create issue for investigation
+fi
+```
+
+**Dependency conflicts**:
+```bash
+# Log the issue
+echo "$(date -Iseconds) [ERROR] Dependency conflict: PACKAGE_NAME" >> ~/workspace/JOURNAL.md
+
+# Try resolution strategies
+# Python: pip install --force-reinstall
+# Node: npm install --force
+# Go: go mod tidy
+# See language-specific docs for details
+```
+
 ## Security Considerations
 
-### Security Considerations
-
-**Local Security Scanning**
+### Local Security Scanning
 ```bash
 # Run security scans locally in the container
-# Python: pip install safety bandit && safety check && bandit -r src/
-# Node.js: npm audit
-# Go: go install github.com/securego/gosec/v2/cmd/gosec@latest && gosec ./...
-# Rust: cargo install cargo-audit && cargo audit
-# See language-specific docs for commands
+# Consult language-specific documentation for appropriate tools:
+# - Dependency vulnerability scanning
+# - Static code analysis
+# - License compliance checking
 
-echo "$(date -Iseconds) [INFO] Security scan completed locally" >> ~/workspace/JOURNAL.md
+echo "$(date -Iseconds) [INFO] Running security scans" >> ~/workspace/JOURNAL.md
+# [Language-specific security commands from imported docs]
+SECURITY_RESULT=$?
+
+if [ $SECURITY_RESULT -ne 0 ]; then
+    echo "$(date -Iseconds) [WARNING] Security issues found - review and fix" >> ~/workspace/JOURNAL.md
+fi
+
+echo "$(date -Iseconds) [INFO] Security scan completed" >> ~/workspace/JOURNAL.md
 ```
 
 ### Secret Management
 ```bash
-# NEVER commit secrets
+# NEVER commit secrets or sensitive data
 # Use environment variables or secret management tools
-# Add to .gitignore:
+
+# Common patterns to add to .gitignore:
 echo "
+# Secrets and sensitive data
 .env
-.env.local
+.env.*
 *.key
 *.pem
+*.p12
+*.pfx
 secrets/
+credentials/
+config/local.*
 " >> .gitignore
 
-echo "$(date -Iseconds) [INFO] Secret management rules added" >> ~/workspace/JOURNAL.md
+# Verify no secrets in staged files
+echo "$(date -Iseconds) [INFO] Checking for accidentally staged secrets" >> ~/workspace/JOURNAL.md
+git diff --staged --name-only | grep -E '\.(env|key|pem)$' && {
+    echo "$(date -Iseconds) [ERROR] Sensitive files detected in staging area" >> ~/workspace/JOURNAL.md
+    exit 1
+}
+
+echo "$(date -Iseconds) [INFO] Secret management rules configured" >> ~/workspace/JOURNAL.md
 ```
 
 ## Collaboration Patterns
@@ -712,12 +798,43 @@ echo "$(date -Iseconds) [DECISION] [FOR-AGENT: other-agent] Decision details" >>
 echo "$(date -Iseconds) [BLOCKER] Waiting for: DESCRIPTION" >> ~/workspace/JOURNAL.md
 ```
 
+## Critical Rules
+
+### Testing Requirements
+1. **Three-Tier Testing Strategy**:
+   - Unit tests for isolated component testing
+   - Integration tests for component interaction
+   - User simulation tests for end-to-end validation
+
+2. **Test Organization**:
+   ```
+   tests/
+   ├── unit/          # Fast, isolated, mocked dependencies
+   ├── integration/   # Database, API, file system tests
+   └── e2e/          # User simulation, UI automation
+   ```
+
+3. **Coverage Requirements**:
+   - Unit tests: Minimum 80% code coverage
+   - Integration tests: All critical paths covered
+   - User simulation: All user workflows tested
+
+4. **Language-Specific Details**: Consult the imported documentation below for:
+   - Testing frameworks and tools for your language
+   - Specific examples of each test type
+   - Performance and property-based testing options
+   - Test execution commands and patterns
+
+**Note**: This environment includes Microsoft TUI Test for terminal application testing. Run `tui-test-init` to set up TUI testing for any language.
+
 ### DO NOT:
 - Create git repositories inside other git repositories
 - Skip ANY journal entry
 - Push code without ALL tests passing
 - Create directories without proper structure
 - Use generic test assertions - test actual behavior
+- Commit secrets or sensitive data
+- Skip error handling and recovery steps
 
 ### ALWAYS:
 - Use proper environment activation based on language/tool
@@ -725,6 +842,9 @@ echo "$(date -Iseconds) [BLOCKER] Waiting for: DESCRIPTION" >> ~/workspace/JOURN
 - Log EVERY significant action to the journal
 - Verify project structure with `tree` command
 - Follow language-specific conventions and idioms
+- Handle errors gracefully with recovery strategies
+- Consider security implications
+- Document architectural decisions
 
 ### Testing Best Practices:
 1. Write tests that describe actual behavior
@@ -732,7 +852,8 @@ echo "$(date -Iseconds) [BLOCKER] Waiting for: DESCRIPTION" >> ~/workspace/JOURN
 3. Test both happy path and edge cases
 4. Ensure tests are deterministic and reliable
 5. Add proper assertions for all expected outcomes
-6. **IMPORTANT**: Check the imported component documentation below for specialized testing tools available in this environment
+6. Include performance tests for critical paths
+7. **IMPORTANT**: Check the imported component documentation below for specialized testing tools available in this environment
 
 ## VERIFICATION CHECKLIST
 Before considering ANY task complete:
