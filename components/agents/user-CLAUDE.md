@@ -158,40 +158,73 @@ echo "$(date -Iseconds) [INFO] Dependencies installed" >> ~/workspace/JOURNAL.md
 
 #### 3.3 Write Tests FIRST (TDD is MANDATORY)
 
+**Testing Philosophy**
+The project MUST include three levels of testing:
+1. **Unit Tests** - Test individual functions/methods in isolation
+2. **Integration Tests** - Test component interactions, databases, APIs
+3. **User Simulation Tests** - Test the actual user experience end-to-end
+
 **Create test structure**:
 ```bash
-echo "$(date -Iseconds) [INFO] Creating test suite" >> ~/workspace/JOURNAL.md
+# Standard test organization
+mkdir -p tests/unit tests/integration tests/e2e
+echo "$(date -Iseconds) [INFO] Creating three-tier test structure" >> ~/workspace/JOURNAL.md
 ```
 
-**Unit Tests**:
+**Unit Tests** (Foundation):
 ```bash
-# Create test files based on language conventions
-# Python: tests/test_*.py with pytest
-# Node.js: tests/*.test.js with jest
-# Go: *_test.go files
-# Rust: tests/*.rs or #[test] in source
-# Ruby: spec/*_spec.rb with rspec
+# Unit tests verify individual components work correctly
+# - Fast execution (milliseconds)
+# - No external dependencies (mocked)
+# - Test pure logic and calculations
+# - Minimum 80% code coverage target
 
-echo "$(date -Iseconds) [INFO] Creating test suite" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) [INFO] Created unit tests following LANGUAGE conventions" >> ~/workspace/JOURNAL.md
+echo "$(date -Iseconds) [INFO] Creating unit tests for FEATURE" >> ~/workspace/JOURNAL.md
+# Create focused unit tests that test ONE thing per test
+# Name tests descriptively: test_calculate_tax_with_zero_income()
 ```
 
-**Integration Tests for TUI/CLI apps**:
+**Integration Tests** (Connectivity):
 ```bash
-# Create integration tests appropriate for your application type
-# Check the "Additional Instructions" section below for specific testing tools available in this environment
+# Integration tests verify components work together
+# - Test database operations
+# - Test API endpoints
+# - Test file I/O operations
+# - Test external service integrations
 
-# For TUI/CLI applications, ensure you test:
-# - Application startup and initialization
-# - User input handling and navigation
-# - Output verification and state changes
-# - Error handling and edge cases
-
-echo "$(date -Iseconds) [INFO] Creating integration tests for TUI/CLI application" >> ~/workspace/JOURNAL.md
-
-# The specific testing approach depends on available tools
-# See imported component documentation for detailed examples
+echo "$(date -Iseconds) [INFO] Creating integration tests for FEATURE" >> ~/workspace/JOURNAL.md
+# These may use test databases, mock servers, or containers
 ```
+
+**User Simulation Tests** (Reality):
+```bash
+# User simulation tests verify the complete user experience
+# - For TUI/CLI: Use Microsoft TUI Test (pre-installed)
+# - For Web UI: Use appropriate browser automation
+# - Test complete user workflows
+# - Verify accessibility and usability
+
+echo "$(date -Iseconds) [INFO] Creating user simulation tests for FEATURE" >> ~/workspace/JOURNAL.md
+
+# TUI Test example setup:
+tui-test-init  # Creates tui-test.config.ts
+tui-test-example  # Creates example test template
+```
+
+**Test Implementation Guidelines**:
+- Write tests that describe behavior, not implementation
+- Each test should have a clear ARRANGE-ACT-ASSERT structure
+- Use descriptive test names that explain what is being tested
+- Tests must be deterministic (no random failures)
+- Integration tests should clean up after themselves
+- User simulation tests should test happy paths and error scenarios
+
+**IMPORTANT**: Check the imported language-specific documentation below for detailed examples of each test type, including:
+- Language-specific testing frameworks and tools
+- Code examples for each type of test
+- Best practices for test organization
+- Performance testing considerations
+- Property-based testing where applicable
 
 #### 3.4 Run Tests (MUST FAIL FIRST - This proves TDD)
 ```bash
@@ -215,39 +248,33 @@ echo "$(date -Iseconds) [INFO] Implementation completed - FILES created/modified
 
 #### 3.6 Run Tests Again (MUST PASS NOW)
 ```bash
-# Run tests using language-specific test runner
-# Python: pytest
-# Node.js: npm test
-# Go: go test
-# Rust: cargo test
-# Ruby: rspec or bundle exec rake test
+# Run ALL test levels in order
+echo "$(date -Iseconds) [INFO] Running complete test suite" >> ../JOURNAL.md
 
-echo "$(date -Iseconds) [INFO] Running test suite" >> ../JOURNAL.md
-TEST_RESULT=$?
-echo "$(date -Iseconds) [INFO] Test suite status: $TEST_RESULT" >> ../JOURNAL.md
+# 1. Unit tests (fastest, run first)
+echo "$(date -Iseconds) [INFO] Running unit tests" >> ../JOURNAL.md
+# [Language-specific unit test command]
+UNIT_RESULT=$?
 
-if [ $TEST_RESULT -ne 0 ]; then
-    echo "$(date -Iseconds) [ERROR] Tests failed" >> ../JOURNAL.md
+# 2. Integration tests (slower, run second)
+echo "$(date -Iseconds) [INFO] Running integration tests" >> ../JOURNAL.md
+# [Language-specific integration test command]
+INTEGRATION_RESULT=$?
+
+# 3. User simulation tests (slowest, run last)
+echo "$(date -Iseconds) [INFO] Running user simulation tests" >> ../JOURNAL.md
+# [Language-specific e2e test command]
+E2E_RESULT=$?
+
+# Log results
+echo "$(date -Iseconds) [INFO] Test results - Unit: $UNIT_RESULT, Integration: $INTEGRATION_RESULT, E2E: $E2E_RESULT" >> ../JOURNAL.md
+
+if [ $UNIT_RESULT -ne 0 ] || [ $INTEGRATION_RESULT -ne 0 ] || [ $E2E_RESULT -ne 0 ]; then
+    echo "$(date -Iseconds) [ERROR] Tests failed - stopping" >> ../JOURNAL.md
     # STOP and fix!
 fi
 
-# Run integration tests for TUI/CLI apps
-echo "$(date -Iseconds) [INFO] Running integration tests" >> ../JOURNAL.md
-
-# Use appropriate testing tools based on what's available
-# Check imported component documentation for specific commands
-# Common patterns:
-# - For Node.js: npm test, jest, mocha
-# - For Python: pytest, unittest
-# - For Go: go test
-# - For Rust: cargo test
-# - For specialized TUI testing: see imported testing tools
-
-INTEGRATION_RESULT=$?
-echo "$(date -Iseconds) [INFO] Integration test status: $INTEGRATION_RESULT" >> ../JOURNAL.md
-
-# ALL tests must pass before proceeding
-echo "$(date -Iseconds) [INFO] All test types must pass before continuing" >> ../JOURNAL.md
+# ALL test levels must pass before proceeding
 ```
 
 #### 3.7 Fix Until All Tests Pass
@@ -394,14 +421,31 @@ npx @microsoft/tui-test test-file.ts -g "test name"
 ## Critical Rules
 
 ### Testing Requirements
-For all applications:
-1. Write comprehensive unit tests using language-appropriate frameworks
-2. Create integration tests that verify actual behavior
-3. Test both happy paths and edge cases
-4. Ensure tests are deterministic and reliable
-5. Check the "Additional Instructions" section for specialized testing tools
+1. **Three-Tier Testing Strategy**:
+   - Unit tests for isolated component testing
+   - Integration tests for component interaction
+   - User simulation tests for end-to-end validation
 
-**Note**: This environment may include specialized testing frameworks. Review the imported component documentation at the end of this file for specific testing tools and their usage patterns.
+2. **Test Organization**:
+   ```
+   tests/
+   ├── unit/          # Fast, isolated, mocked dependencies
+   ├── integration/   # Database, API, file system tests
+   └── e2e/          # User simulation, UI automation
+   ```
+
+3. **Coverage Requirements**:
+   - Unit tests: Minimum 80% code coverage
+   - Integration tests: All critical paths covered
+   - User simulation: All user workflows tested
+
+4. **Language-Specific Details**: Consult the imported documentation below for:
+   - Testing frameworks and tools for your language
+   - Specific examples of each test type
+   - Performance and property-based testing options
+   - Test execution commands and patterns
+
+**Note**: This environment includes Microsoft TUI Test for terminal application testing. Run `tui-test-init` to set up TUI testing for any language.
 
 ### DO NOT:
 - Create git repositories inside other git repositories
