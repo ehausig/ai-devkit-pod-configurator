@@ -295,9 +295,20 @@ tui-test-example  # Creates example test template
 
 #### 3.4 Run Tests (MUST FAIL FIRST - This proves TDD)
 ```bash
-# Run unit tests (expect failure)
-pytest tests/test_FEATURE.py -v || echo "Expected failure (TDD)"
-echo "$(date -Iseconds) [INFO] Initial test run - Tests failed as expected (TDD)" >> ~/workspace/JOURNAL.md
+# Run unit tests - expect failure since we haven't implemented yet
+# Use language-specific test command from imported documentation
+echo "$(date -Iseconds) [INFO] Running initial tests - expecting failure (TDD)" >> ~/workspace/JOURNAL.md
+
+# Run the test command for your language
+# The test MUST fail at this point
+TEST_RESULT=$?
+
+if [ $TEST_RESULT -eq 0 ]; then
+    echo "$(date -Iseconds) [ERROR] Tests passed without implementation - not following TDD" >> ~/workspace/JOURNAL.md
+    exit 1
+fi
+
+echo "$(date -Iseconds) [INFO] Tests failed as expected (TDD) - proceeding with implementation" >> ~/workspace/JOURNAL.md
 ```
 
 #### 3.5 Implement Feature (NOW you can code)
@@ -380,8 +391,11 @@ fi
 # Ensure comprehensive documentation
 echo "$(date -Iseconds) [INFO] Updating documentation" >> ~/workspace/JOURNAL.md
 
-# README.md must include:
-cat > README.md << 'EOF'
+# Create README.md with the following template:
+```
+
+**README.md Template:**
+```markdown
 # PROJECT_NAME
 
 Brief description of what this project does.
@@ -393,15 +407,15 @@ Brief description of what this project does.
 
 ## Installation
 
-```bash
+\`\`\`bash
 # Installation commands here
-```
+\`\`\`
 
 ## Usage
 
-```bash
+\`\`\`bash
 # Basic usage examples
-```
+\`\`\`
 
 ## Development
 
@@ -409,18 +423,18 @@ Brief description of what this project does.
 - List requirements
 
 ### Setup
-```bash
+\`\`\`bash
 # Development setup commands
-```
+\`\`\`
 
 ### Testing
-```bash
+\`\`\`bash
 # Run unit tests
 make test-unit
 
 # Run all tests
 make test
-```
+\`\`\`
 
 ## API Documentation
 
@@ -441,11 +455,19 @@ See `.env.example` for required environment variables.
 ## License
 
 [License type]
-EOF
+```
 
-# Create CHANGELOG.md
-touch CHANGELOG.md
-echo "# Changelog\n\nAll notable changes to this project will be documented in this file.\n\n## [Unreleased]\n\n### Added\n- Initial version\n" > CHANGELOG.md
+```bash
+# Also create CHANGELOG.md
+echo "# Changelog
+
+All notable changes to this project will be documented in this file.
+
+## [Unreleased]
+
+### Added
+- Initial version
+" > CHANGELOG.md
 
 # Architecture Decision Records (for complex projects)
 if [ "$PROJECT_TYPE" = "FULL" ]; then
@@ -453,7 +475,7 @@ if [ "$PROJECT_TYPE" = "FULL" ]; then
     echo "$(date -Iseconds) [INFO] Created ADR directory for architecture decisions" >> ~/workspace/JOURNAL.md
 fi
 
-echo "$(date -Iseconds) [INFO] Documentation updated - README.md complete" >> ~/workspace/JOURNAL.md
+echo "$(date -Iseconds) [INFO] Documentation updated - README.md and CHANGELOG.md complete" >> ~/workspace/JOURNAL.md
 ```
 
 #### 3.9 Commit ONLY When All Tests Pass
