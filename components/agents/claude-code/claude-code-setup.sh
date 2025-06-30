@@ -23,11 +23,11 @@ error() { echo -e "${RED}✗ $1${NC}"; exit 1; }
 info() { echo -e "${BLUE}ℹ $1${NC}"; }
 
 # Verify files exist
-USER_CLAUDE="$SCRIPT_DIR/user-CLAUDE.md"
-SETTINGS_TEMPLATE="$SCRIPT_DIR/claude-settings.json.template"
+USER_CLAUDE="$SCRIPT_DIR/claude-code/user-CLAUDE.md"
+SETTINGS_TEMPLATE="$SCRIPT_DIR/claude-code/claude-settings.json.template"
 
-[[ ! -f "$USER_CLAUDE" ]] && error "user-CLAUDE.md not found in $SCRIPT_DIR"
-[[ ! -f "$SETTINGS_TEMPLATE" ]] && error "claude-settings.json.template not found in $SCRIPT_DIR"
+[[ ! -f "$USER_CLAUDE" ]] && error "user-CLAUDE.md not found in $SCRIPT_DIR/claude-code"
+[[ ! -f "$SETTINGS_TEMPLATE" ]] && error "claude-settings.json.template not found in $SCRIPT_DIR/claude-code"
 
 log "Generating component imports for user CLAUDE.md..."
 
@@ -267,11 +267,5 @@ success "Copied user-CLAUDE.md"
 log "Copying claude-settings.json.template..."
 cp "$SETTINGS_TEMPLATE" "$TEMP_DIR/"
 success "Copied claude-settings.json.template"
-
-# Copy claude-code.md if it exists
-if [[ -f "$SCRIPT_DIR/claude-code.md" ]]; then
-    cp "$SCRIPT_DIR/claude-code.md" "$TEMP_DIR/"
-    success "Copied claude-code.md"
-fi
 
 log "Claude Code pre-build completed successfully"

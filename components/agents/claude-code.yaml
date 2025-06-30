@@ -4,7 +4,7 @@ name: Claude Code (AI Assistant)
 group: ai-agents
 requires: []
 description: Anthropic's AI coding assistant for development
-pre_build_script: claude-code-setup.sh
+pre_build_script: ./claude-code/claude-code-setup.sh
 installation:
   dockerfile: |
     # Claude Code requires Node.js to be installed first
