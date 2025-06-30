@@ -152,3 +152,6 @@ cargo run -- --arg1 value
 cargo install cargo-watch
 cargo watch -x run
 ```
+
+**Rules**
+- Ensure that `mod.rs` files have been created recursively under "test" an "src" directories
