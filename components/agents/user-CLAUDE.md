@@ -6,34 +6,6 @@ You MUST follow EVERY step in this document. No exceptions. No shortcuts.
 ## Communication Style
 Be conversational, but ALWAYS follow the protocol below exactly.
 
-## Path Navigation Rules
-
-### CRITICAL: Working with Paths
-- **NEVER use `~/workspace` in cd commands** - Claude Code interprets this incorrectly
-- **Always use relative paths from current directory**
-- **Use these patterns:**
-  ```bash
-  # WRONG:
-  cd ~/workspace/project-name  # This will fail!
-  
-  # CORRECT:
-  cd project-name              # From workspace directory
-  cd ../project-name           # From sibling directory
-  cd /home/devuser/workspace/project-name  # Absolute path if needed
-  ```
-
-### Navigation Examples:
-```bash
-# Creating and entering a project directory
-mkdir -p project-name
-cd project-name
-
-# Moving between directories
-pwd  # Always check where you are first
-cd ../another-project  # Move to sibling
-cd /home/devuser/workspace  # Return to workspace root
-```
-
 ## Step-by-Step Development Protocol
 
 ### STEP 1: Session Initialization (DO THIS FIRST - NO EXCEPTIONS)
