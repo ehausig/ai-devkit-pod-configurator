@@ -602,13 +602,6 @@ test("application lifecycle", async ({ terminal }) => {
 });
 ```
 
-### Key Features
-- **Language Agnostic**: Test Python, Go, Rust, Node.js, or any executable
-- **Auto-wait**: Automatically waits for terminal to be ready
-- **Rich API**: Navigation keys, text matching, snapshots
-- **Tracing**: Capture and replay test failures
-- **Cross-platform**: Works on Linux, macOS, and Windows
-
 ### Common Commands
 ```bash
 # Run with traces
@@ -879,3 +872,6 @@ This environment always includes these pre-installed tools:
 - SSH Server
 - Node.js 20.18.0 @~/.claude/nodejs-base.md
 - Microsoft TUI Test (see TUI Testing section above)
+- sed (GNU sed) 4.8
+- Ubuntu
+
