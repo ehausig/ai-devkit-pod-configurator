@@ -12,59 +12,64 @@ configuration:
 script: |
   #!/bin/bash
   # Test execution tracking hook
+  # Fixed to work with Claude Code's actual JSON structure
   
   # Read JSON input from stdin
   json_input=$(cat)
   
   # Extract command details
   command=$(echo "$json_input" | jq -r '.tool_input.command // ""')
-  success=$(echo "$json_input" | jq -r '.tool_response.success // false')
   
-  # Only process successful commands
-  if [ "$success" != "true" ]; then
-    exit 0
-  fi
-  
-  # Track test executions
-  case "$command" in
-    *"npm test"*|*"npm run test"*)
-      echo "$(date -Iseconds) [INFO] Running unit tests (npm)" >> ~/workspace/JOURNAL.md
-      ;;
-    *"pytest"*|*"python -m pytest"*)
-      echo "$(date -Iseconds) [INFO] Running unit tests (pytest)" >> ~/workspace/JOURNAL.md
-      ;;
-    *"cargo test"*)
-      echo "$(date -Iseconds) [INFO] Running unit tests (cargo)" >> ~/workspace/JOURNAL.md
-      ;;
-    *"go test"*)
-      echo "$(date -Iseconds) [INFO] Running unit tests (go)" >> ~/workspace/JOURNAL.md
-      ;;
-    *"mvn test"*|*"gradle test"*)
-      echo "$(date -Iseconds) [INFO] Running unit tests (Java)" >> ~/workspace/JOURNAL.md
-      ;;
-    *"rspec"*|*"bundle exec rspec"*)
-      echo "$(date -Iseconds) [INFO] Running unit tests (RSpec)" >> ~/workspace/JOURNAL.md
-      ;;
-  esac
-  
-  # Track integration tests
-  if [[ "$command" =~ (integration|e2e|end-to-end) ]]; then
-    echo "$(date -Iseconds) [INFO] Running integration tests" >> ~/workspace/JOURNAL.md
-  fi
-  
-  # Track TUI tests
-  if [[ "$command" =~ tui-test ]]; then
-    echo "$(date -Iseconds) [INFO] Running user simulation tests (TUI Test)" >> ~/workspace/JOURNAL.md
-  fi
-  
-  # Track test creation
-  if [[ "$command" =~ mkdir.*test ]]; then
-    echo "$(date -Iseconds) [INFO] Creating test structure" >> ~/workspace/JOURNAL.md
-  fi
-  
-  # Track coverage
-  if [[ "$command" =~ coverage ]]; then
-    echo "$(date -Iseconds) [INFO] Running test coverage analysis" >> ~/workspace/JOURNAL.md
+  # Check if this is PostToolUse with a response
+  if echo "$json_input" | jq -e '.tool_response' > /dev/null 2>&1; then
+    # Determine success from Claude Code's response structure
+    interrupted=$(echo "$json_input" | jq -r '.tool_response.interrupted // false')
+    stderr=$(echo "$json_input" | jq -r '.tool_response.stderr // ""')
+    
+    # Only process successful commands
+    if [ "$interrupted" = "false" ] && [ -z "$stderr" ]; then
+      # Track test executions
+      case "$command" in
+        *"npm test"*|*"npm run test"*)
+          echo "$(date -Iseconds) [INFO] Running unit tests (npm)" >> ~/workspace/JOURNAL.md
+          ;;
+        *"pytest"*|*"python -m pytest"*)
+          echo "$(date -Iseconds) [INFO] Running unit tests (pytest)" >> ~/workspace/JOURNAL.md
+          ;;
+        *"cargo test"*)
+          echo "$(date -Iseconds) [INFO] Running unit tests (cargo)" >> ~/workspace/JOURNAL.md
+          ;;
+        *"go test"*)
+          echo "$(date -Iseconds) [INFO] Running unit tests (go)" >> ~/workspace/JOURNAL.md
+          ;;
+        *"mvn test"*|*"gradle test"*)
+          echo "$(date -Iseconds) [INFO] Running unit tests (Java)" >> ~/workspace/JOURNAL.md
+          ;;
+        *"rspec"*|*"bundle exec rspec"*)
+          echo "$(date -Iseconds) [INFO] Running unit tests (RSpec)" >> ~/workspace/JOURNAL.md
+          ;;
+      esac
+      
+      # Track integration tests
+      if [[ "$command" =~ (integration|e2e|end-to-end) ]]; then
+        echo "$(date -Iseconds) [INFO] Running integration tests" >> ~/workspace/JOURNAL.md
+      fi
+      
+      # Track TUI tests
+      if [[ "$command" =~ tui-test ]]; then
+        echo "$(date -Iseconds) [INFO] Running user simulation tests (TUI Test)" >> ~/workspace/JOURNAL.md
+      fi
+      
+      # Track test creation
+      if [[ "$command" =~ mkdir.*test ]]; then
+        echo "$(date -Iseconds) [INFO] Creating test structure" >> ~/workspace/JOURNAL.md
+      fi
+      
+      # Track coverage
+      if [[ "$command" =~ coverage ]]; then
+        echo "$(date -Iseconds) [INFO] Running test coverage analysis" >> ~/workspace/JOURNAL.md
+      fi
+    fi
   fi
   
   exit 0
