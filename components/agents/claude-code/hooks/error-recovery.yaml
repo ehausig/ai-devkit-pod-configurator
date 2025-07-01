@@ -12,48 +12,67 @@ configuration:
 script: |
   #!/bin/bash
   # Error and recovery tracking hook
+  # Fixed to work with Claude Code's actual JSON structure
   
   # Read JSON input from stdin
   json_input=$(cat)
   
   # Extract command details
   command=$(echo "$json_input" | jq -r '.tool_input.command // ""')
-  success=$(echo "$json_input" | jq -r '.tool_response.success // false')
   description=$(echo "$json_input" | jq -r '.tool_input.description // ""')
   
-  # Log failed commands
-  if [ "$success" = "false" ]; then
-    echo "$(date -Iseconds) [ERROR] Command failed: $command - $description" >> ~/workspace/JOURNAL.md
+  # Check if this is PostToolUse
+  if echo "$json_input" | jq -e '.tool_response' > /dev/null 2>&1; then
+    # Determine success from Claude Code's response structure
+    interrupted=$(echo "$json_input" | jq -r '.tool_response.interrupted // false')
+    stderr=$(echo "$json_input" | jq -r '.tool_response.stderr // ""')
     
-    # Track specific error types
-    case "$command" in
-      *"git"*)
-        echo "$(date -Iseconds) [ERROR] Git operation failed - may need conflict resolution" >> ~/workspace/JOURNAL.md
-        ;;
-      *"npm install"*|*"pip install"*)
-        echo "$(date -Iseconds) [ERROR] Dependency installation failed - check requirements" >> ~/workspace/JOURNAL.md
-        ;;
-      *"docker"*)
-        echo "$(date -Iseconds) [ERROR] Docker operation failed - check Docker daemon" >> ~/workspace/JOURNAL.md
-        ;;
-    esac
-  fi
-  
-  # Track recovery actions
-  if [ "$success" = "true" ]; then
-    # Git conflict resolution
-    if [[ "$command" =~ git[[:space:]]checkout[[:space:]]--theirs ]] || [[ "$command" =~ git[[:space:]]checkout[[:space:]]--ours ]]; then
-      echo "$(date -Iseconds) [RECOVERY] Resolved git conflict using checkout strategy" >> ~/workspace/JOURNAL.md
+    # Consider it successful if not interrupted and no stderr
+    if [ "$interrupted" = "false" ] && [ -z "$stderr" ]; then
+      success="true"
+    else
+      success="false"
     fi
     
-    # Force operations (recovery attempts)
-    if [[ "$command" =~ --force ]] || [[ "$command" =~ -f[[:space:]] ]]; then
-      echo "$(date -Iseconds) [RECOVERY] Used force flag to overcome issue" >> ~/workspace/JOURNAL.md
+    # Log failed commands
+    if [ "$success" = "false" ]; then
+      echo "$(date -Iseconds) [ERROR] Command failed: $command - $description" >> ~/workspace/JOURNAL.md
+      
+      # Log stderr if available
+      if [ -n "$stderr" ]; then
+        echo "$(date -Iseconds) [ERROR] Error output: $stderr" >> ~/workspace/JOURNAL.md
+      fi
+      
+      # Track specific error types
+      case "$command" in
+        *"git"*)
+          echo "$(date -Iseconds) [ERROR] Git operation failed - may need conflict resolution" >> ~/workspace/JOURNAL.md
+          ;;
+        *"npm install"*|*"pip install"*)
+          echo "$(date -Iseconds) [ERROR] Dependency installation failed - check requirements" >> ~/workspace/JOURNAL.md
+          ;;
+        *"docker"*)
+          echo "$(date -Iseconds) [ERROR] Docker operation failed - check Docker daemon" >> ~/workspace/JOURNAL.md
+          ;;
+      esac
     fi
     
-    # Retry patterns
-    if [[ "$description" =~ [Rr]etry ]] || [[ "$description" =~ again ]]; then
-      echo "$(date -Iseconds) [RECOVERY] Retrying previous operation" >> ~/workspace/JOURNAL.md
+    # Track recovery actions
+    if [ "$success" = "true" ]; then
+      # Git conflict resolution
+      if [[ "$command" =~ git[[:space:]]checkout[[:space:]]--theirs ]] || [[ "$command" =~ git[[:space:]]checkout[[:space:]]--ours ]]; then
+        echo "$(date -Iseconds) [RECOVERY] Resolved git conflict using checkout strategy" >> ~/workspace/JOURNAL.md
+      fi
+      
+      # Force operations (recovery attempts)
+      if [[ "$command" =~ --force ]] || [[ "$command" =~ -f[[:space:]] ]]; then
+        echo "$(date -Iseconds) [RECOVERY] Used force flag to overcome issue" >> ~/workspace/JOURNAL.md
+      fi
+      
+      # Retry patterns
+      if [[ "$description" =~ [Rr]etry ]] || [[ "$description" =~ again ]]; then
+        echo "$(date -Iseconds) [RECOVERY] Retrying previous operation" >> ~/workspace/JOURNAL.md
+      fi
     fi
   fi
   

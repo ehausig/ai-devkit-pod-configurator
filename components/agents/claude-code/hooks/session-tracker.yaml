@@ -12,6 +12,7 @@ configuration:
 script: |
   #!/bin/bash
   # Session tracking hook - logs session initialization and directory changes
+  # Fixed to work with Claude Code's actual JSON structure
   
   # Read JSON input from stdin
   json_input=$(cat)
@@ -24,9 +25,15 @@ script: |
   # Check if this is a cd command to track working directory
   if [[ "$command" =~ ^cd[[:space:]] ]]; then
     target_dir=$(echo "$command" | sed 's/^cd[[:space:]]*//')
+    # Handle complex cd commands (like cd ~/workspace && pwd)
+    # Using grep instead of bash regex to avoid syntax issues
+    if echo "$target_dir" | grep -q '[[:space:]]&&'; then
+      target_dir=$(echo "$target_dir" | sed 's/[[:space:]]&&.*//')
+    fi
     # Resolve the full path
     if [[ "$target_dir" =~ ^~ ]]; then
-      target_dir="${HOME}${target_dir#~}"
+      # Replace ~ with $HOME, not concatenate
+      target_dir="${target_dir/#\~/$HOME}"
     fi
     echo "$(date -Iseconds) [INFO] Working directory: $target_dir" >> ~/workspace/JOURNAL.md
   fi

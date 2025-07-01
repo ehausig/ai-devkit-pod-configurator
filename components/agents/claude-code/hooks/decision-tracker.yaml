@@ -13,6 +13,7 @@ configuration:
 script: |
   #!/bin/bash
   # Technical decision tracking hook
+  # Fixed to work with Claude Code's actual JSON structure
   
   # Read JSON input from stdin
   json_input=$(cat)
@@ -20,11 +21,8 @@ script: |
   # Check if this is PostToolUse (has tool_response)
   if echo "$json_input" | jq -e '.tool_response' > /dev/null 2>&1; then
     # PostToolUse - file was written
-    success=$(echo "$json_input" | jq -r '.tool_response.success // false')
-    if [ "$success" != "true" ]; then
-      exit 0
-    fi
-    
+    # For Write/Edit tools, Claude Code doesn't use the same success pattern
+    # We'll assume success if tool_response exists (file operations typically succeed or throw)
     file_path=$(echo "$json_input" | jq -r '.tool_input.file_path // .tool_input.path // ""')
     content=$(echo "$json_input" | jq -r '.tool_input.content // ""')
     
