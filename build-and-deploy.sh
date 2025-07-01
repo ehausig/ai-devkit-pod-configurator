@@ -2867,6 +2867,20 @@ sort_components_by_dependencies() {
 create_custom_dockerfile() {
     mkdir -p "$TEMP_DIR"
     
+    # Always create these directories to prevent Docker COPY failures
+    mkdir -p "$TEMP_DIR/claude-commands"
+    mkdir -p "$TEMP_DIR/claude-hooks"
+    
+    # Create placeholder files if directories would be empty
+    if [[ ! -f "$TEMP_DIR/claude-commands/.placeholder" ]]; then
+        echo "# No Claude commands configured" > "$TEMP_DIR/claude-commands/.placeholder"
+    fi
+    if [[ ! -f "$TEMP_DIR/claude-hooks/.placeholder.sh" ]]; then
+        echo "#!/bin/bash" > "$TEMP_DIR/claude-hooks/.placeholder.sh"
+        echo "# No hooks configured" >> "$TEMP_DIR/claude-hooks/.placeholder.sh"
+        chmod +x "$TEMP_DIR/claude-hooks/.placeholder.sh"
+    fi
+    
     # First, generate the base entrypoint.sh in TEMP_DIR
     log "Generating custom entrypoint.sh..."
     

@@ -1,0 +1,67 @@
+# Hook definition for automatic code formatting
+id: format-code
+name: Auto Code Formatter
+description: Automatically formats code files after they are written or edited
+events:
+  - PostToolUse
+configuration:
+  matcher: "Write|Edit|MultiEdit"
+  hook:
+    type: command
+    command: "/home/devuser/.claude/hooks/format-code.sh"
+script: |
+  #!/bin/bash
+  # Auto-formatting hook - formats code based on file extension
+  
+  # Read JSON input from stdin
+  json_input=$(cat)
+  
+  # Extract file path from tool input
+  file_path=$(echo "$json_input" | jq -r '.tool_input.file_path // .tool_input.path // ""')
+  
+  if [ -z "$file_path" ] || [ ! -f "$file_path" ]; then
+    # No valid file path found or file doesn't exist
+    exit 0
+  fi
+  
+  # Log formatting attempt
+  echo "$(date -Iseconds) [INFO] Auto-formatting: $file_path" >> ~/workspace/JOURNAL.md
+  
+  # Get file extension
+  extension="${file_path##*.}"
+  
+  # Format based on extension
+  case "$extension" in
+    py)
+      # Python - use black if available
+      if command -v black >/dev/null 2>&1; then
+        black "$file_path" 2>/dev/null || true
+      fi
+      ;;
+    js|jsx|ts|tsx)
+      # JavaScript/TypeScript - use prettier if available
+      if command -v prettier >/dev/null 2>&1; then
+        prettier --write "$file_path" 2>/dev/null || true
+      fi
+      ;;
+    go)
+      # Go - use gofmt
+      if command -v gofmt >/dev/null 2>&1; then
+        gofmt -w "$file_path" 2>/dev/null || true
+      fi
+      ;;
+    rs)
+      # Rust - use rustfmt if available
+      if command -v rustfmt >/dev/null 2>&1; then
+        rustfmt "$file_path" 2>/dev/null || true
+      fi
+      ;;
+    java)
+      # Java - use google-java-format if available
+      if command -v google-java-format >/dev/null 2>&1; then
+        google-java-format -i "$file_path" 2>/dev/null || true
+      fi
+      ;;
+  esac
+  
+  exit 0

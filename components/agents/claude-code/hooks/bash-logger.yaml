@@ -1,0 +1,46 @@
+# Hook definition for logging bash commands to journal
+id: bash-logger
+name: Bash Command Logger
+description: Logs all bash commands executed by Claude Code to the journal
+events:
+  - PreToolUse
+  - PostToolUse
+configuration:
+  # Only match Bash tool calls
+  matcher: "Bash"
+  hook:
+    type: command
+    command: "/home/devuser/.claude/hooks/bash-logger.sh"
+script: |
+  #!/bin/bash
+  # Bash command logging hook - logs all bash commands to journal
+  
+  # Read JSON input from stdin
+  json_input=$(cat)
+  
+  # Extract relevant fields
+  tool_name=$(echo "$json_input" | jq -r '.tool_name // ""')
+  session_id=$(echo "$json_input" | jq -r '.session_id // "unknown"')
+  
+  # Determine if this is pre or post execution based on presence of tool_response
+  if echo "$json_input" | jq -e '.tool_response' > /dev/null 2>&1; then
+    # PostToolUse - command was executed
+    command=$(echo "$json_input" | jq -r '.tool_input.command // ""')
+    description=$(echo "$json_input" | jq -r '.tool_input.description // "No description"')
+    success=$(echo "$json_input" | jq -r '.tool_response.success // false')
+    
+    if [ "$success" = "true" ]; then
+      echo "$(date -Iseconds) [INFO] Executed command: $command - $description" >> ~/workspace/JOURNAL.md
+    else
+      echo "$(date -Iseconds) [ERROR] Failed command: $command - $description" >> ~/workspace/JOURNAL.md
+    fi
+  else
+    # PreToolUse - command is about to be executed
+    command=$(echo "$json_input" | jq -r '.tool_input.command // ""')
+    description=$(echo "$json_input" | jq -r '.tool_input.description // "No description"')
+    
+    echo "$(date -Iseconds) [INFO] Preparing to execute: $command - $description" >> ~/workspace/JOURNAL.md
+  fi
+  
+  # Always allow execution
+  exit 0

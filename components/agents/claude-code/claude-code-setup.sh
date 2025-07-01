@@ -1,6 +1,6 @@
 #!/bin/bash
 # Claude Code pre-build script
-# Generates component imports and handles file copying
+# Generates component imports, handles file copying, and processes hooks
 
 # Standard arguments
 TEMP_DIR="$1"
@@ -21,6 +21,7 @@ log() { echo -e "${YELLOW}$1${NC}"; }
 success() { echo -e "${GREEN}✓ $1${NC}"; }
 error() { echo -e "${RED}✗ $1${NC}"; exit 1; }
 info() { echo -e "${BLUE}ℹ $1${NC}"; }
+warning() { echo -e "${YELLOW}⚠ $1${NC}"; }
 
 # Verify files exist
 USER_CLAUDE="$SCRIPT_DIR/claude-code/user-CLAUDE.md"
@@ -258,6 +259,10 @@ rm -f "$TEMP_CATEGORIES" "$TEMP_COMPONENTS" "$TEMP_ALL_COMPONENTS"
 
 success "Generated component imports for user CLAUDE.md"
 
+# Always create claude-commands and claude-hooks directories to prevent Docker COPY failures
+mkdir -p "$TEMP_DIR/claude-commands"
+mkdir -p "$TEMP_DIR/claude-hooks"
+
 # Copy user-CLAUDE.md
 log "Copying user-CLAUDE.md..."
 cp "$USER_CLAUDE" "$TEMP_DIR/"
@@ -308,6 +313,113 @@ if [[ -d "$COMMANDS_DIR" ]]; then
     done
     
     success "All Claude Code slash commands copied"
+else
+    info "No slash commands directory found"
+    # Create a placeholder to ensure directory exists for Docker COPY
+    echo "# Claude Code Slash Commands" > "$TEMP_DIR/claude-commands/.placeholder"
+    echo "No custom slash commands configured" >> "$TEMP_DIR/claude-commands/.placeholder"
+fi
+
+# Process hooks if they exist
+HOOKS_DIR="$SCRIPT_DIR/claude-code/hooks"
+if [[ -d "$HOOKS_DIR" ]]; then
+    log "Processing Claude Code hooks..."
+    
+    # Create hooks directory in temp for scripts
+    mkdir -p "$TEMP_DIR/claude-hooks"
+    
+    # For each hook YAML file, extract the script content and create the .sh file
+    for hook_file in "$HOOKS_DIR"/*.yaml; do
+        if [[ -f "$hook_file" ]]; then
+            hook_basename=$(basename "$hook_file" .yaml)
+            info "Processing hook: $hook_basename"
+            
+            # Extract the script content from the YAML file
+            # Look for the script: | block and extract everything after it
+            in_script=false
+            script_content=""
+            
+            while IFS= read -r line; do
+                if [[ "$line" =~ ^script:[[:space:]]*\|[[:space:]]*$ ]]; then
+                    in_script=true
+                elif [[ $in_script == true ]]; then
+                    # Check if we've hit another top-level key (no leading spaces)
+                    if [[ "$line" =~ ^[a-zA-Z_]+: ]] && [[ ! "$line" =~ ^[[:space:]] ]]; then
+                        break
+                    fi
+                    # Remove the 2-space YAML indentation
+                    if [[ "$line" =~ ^[[:space:]]{2}(.*)$ ]]; then
+                        script_content+="${BASH_REMATCH[1]}"
+
+log "Claude Code pre-build completed successfully"\n'
+                    elif [[ -z "$line" ]]; then
+                        script_content+=
+
+log "Claude Code pre-build completed successfully"\n'
+                    fi
+                fi
+            done < "$hook_file"
+            
+            # If we found script content, create the .sh file
+            if [[ -n "$script_content" ]]; then
+                script_file="$TEMP_DIR/claude-hooks/${hook_basename}.sh"
+                echo "$script_content" > "$script_file"
+                chmod +x "$script_file"
+                success "Created hook script: ${hook_basename}.sh"
+            else
+                warning "No script content found in ${hook_basename}.yaml"
+            fi
+        fi
+    done
+    
+    # Count processed hooks
+    hook_count=$(find "$TEMP_DIR/claude-hooks" -name "*.sh" -type f 2>/dev/null | wc -l)
+    success "Created $hook_count hook scripts"
+    
+    # Also process hooks configuration for settings.json
+    # Check if Python is available for processing
+    if command -v python3 >/dev/null 2>&1; then
+        # Use Python script to process hooks and merge with settings
+        PROCESS_HOOKS_SCRIPT="$SCRIPT_DIR/claude-code/process-hooks.py"
+        if [[ -f "$PROCESS_HOOKS_SCRIPT" ]]; then
+            info "Using Python to process hooks configuration..."
+            
+            # Make the Python script executable
+            chmod +x "$PROCESS_HOOKS_SCRIPT"
+            
+            # Process hooks and generate configuration
+            python3 "$PROCESS_HOOKS_SCRIPT" "$HOOKS_DIR" "$TEMP_DIR/claude-hooks" "$TEMP_DIR/claude-settings-with-hooks.json" > "$TEMP_DIR/hooks-output.json" 2>&1
+            
+            if [[ $? -eq 0 ]]; then
+                success "Processed hooks configuration with Python"
+                
+                # Merge hooks configuration with settings template if available
+                if [[ -f "$TEMP_DIR/claude-hooks-config.json" ]]; then
+                    info "Hooks configuration generated"
+                    
+                    # Use jq to merge if available
+                    if command -v jq >/dev/null 2>&1; then
+                        info "Merging hooks into settings template using jq..."
+                        jq -s '.[0] * .[1]' "$SETTINGS_TEMPLATE" "$TEMP_DIR/claude-hooks-config.json" > "$TEMP_DIR/claude-settings.json.template.new"
+                        mv "$TEMP_DIR/claude-settings.json.template.new" "$TEMP_DIR/claude-settings.json.template"
+                        success "Merged hooks configuration into settings template"
+                    else
+                        info "jq not available, hooks configuration saved separately"
+                    fi
+                fi
+            else
+                warning "Failed to process hooks configuration with Python"
+            fi
+        fi
+    else
+        warning "Python not available for hooks configuration processing"
+    fi
+else
+    warning "No hooks directory found at $HOOKS_DIR"
+    # Create placeholder files to ensure directory exists for Docker COPY
+    echo '#!/bin/bash' > "$TEMP_DIR/claude-hooks/.placeholder.sh"
+    echo '# No hooks configured' >> "$TEMP_DIR/claude-hooks/.placeholder.sh"
+    chmod +x "$TEMP_DIR/claude-hooks/.placeholder.sh"
 fi
 
 log "Claude Code pre-build completed successfully"
