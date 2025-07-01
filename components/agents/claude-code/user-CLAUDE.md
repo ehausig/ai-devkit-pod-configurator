@@ -36,8 +36,16 @@ Begin by understanding the task requirements and determining the appropriate pro
    # Initialize git repo locally
    git init
    
-   # Create initial files
-   echo "# PROJECT_NAME" > README.md
+   # Create initial README.md file
+   ```
+   
+   Create README.md with:
+   ```markdown
+   # PROJECT_NAME
+   ```
+   
+   ```bash
+   # Create other initial files
    touch requirements.txt .gitignore
    
    # Initial commit
@@ -99,17 +107,21 @@ Begin by understanding the task requirements and determining the appropriate pro
    ```
 
 7. **Environment configuration**:
-   ```bash
-   # Create .env.example (never commit real .env)
-   cat > .env.example << 'EOF'
+   Create .env.example with:
+   ```
    # Application settings
    APP_ENV=development
    DATABASE_URL=postgresql://user:pass@localhost/dbname
    API_KEY=your-api-key-here
-   EOF
+   ```
    
+   ```bash
    cp .env.example .env
-   echo ".env" >> .gitignore
+   ```
+   
+   Add to .gitignore:
+   ```
+   .env
    ```
 
 8. **Setup pre-commit hooks** (optional but recommended).

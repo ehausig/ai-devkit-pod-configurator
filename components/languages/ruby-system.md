@@ -20,7 +20,13 @@ mkdir -p lib spec
 touch Rakefile README.md .gitignore
 
 # Add to .gitignore
-echo "vendor/\n.bundle/\n*.gem" > .gitignore
+```
+
+Create .gitignore:
+```
+vendor/
+.bundle/
+*.gem
 ```
 
 **Dependencies**
