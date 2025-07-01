@@ -268,4 +268,46 @@ log "Copying claude-settings.json.template..."
 cp "$SETTINGS_TEMPLATE" "$TEMP_DIR/"
 success "Copied claude-settings.json.template"
 
+# Copy claude-code.md if it exists
+if [[ -f "$SCRIPT_DIR/claude-code/claude-code.md" ]]; then
+    cp "$SCRIPT_DIR/claude-code/claude-code.md" "$TEMP_DIR/"
+    success "Copied claude-code.md"
+fi
+
+# Copy slash commands if they exist
+COMMANDS_DIR="$SCRIPT_DIR/claude-code/commands"
+if [[ -d "$COMMANDS_DIR" ]]; then
+    log "Copying Claude Code slash commands..."
+    
+    # Create commands directory in temp
+    mkdir -p "$TEMP_DIR/claude-commands"
+    
+    # Copy all .md files from commands directory
+    for cmd_file in "$COMMANDS_DIR"/*.md; do
+        if [[ -f "$cmd_file" ]]; then
+            cmd_basename=$(basename "$cmd_file")
+            cp "$cmd_file" "$TEMP_DIR/claude-commands/"
+            success "Copied command: $cmd_basename"
+        fi
+    done
+    
+    # Check for subdirectories (for namespaced commands)
+    for subdir in "$COMMANDS_DIR"/*; do
+        if [[ -d "$subdir" ]]; then
+            subdir_name=$(basename "$subdir")
+            mkdir -p "$TEMP_DIR/claude-commands/$subdir_name"
+            
+            for cmd_file in "$subdir"/*.md; do
+                if [[ -f "$cmd_file" ]]; then
+                    cmd_basename=$(basename "$cmd_file")
+                    cp "$cmd_file" "$TEMP_DIR/claude-commands/$subdir_name/"
+                    success "Copied namespaced command: $subdir_name/$cmd_basename"
+                fi
+            done
+        fi
+    done
+    
+    success "All Claude Code slash commands copied"
+fi
+
 log "Claude Code pre-build completed successfully"

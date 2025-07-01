@@ -4,7 +4,7 @@ name: Claude Code (AI Assistant)
 group: ai-agents
 requires: []
 description: Anthropic's AI coding assistant for development
-pre_build_script: ./claude-code/claude-code-setup.sh
+pre_build_script: claude-code/claude-code-setup.sh
 installation:
   dockerfile: |
     # Claude Code requires Node.js to be installed first
@@ -33,6 +33,27 @@ entrypoint_setup: |
   # Create .claude directory for global Claude configuration
   if command -v claude &> /dev/null 2>&1 || [ -f /tmp/user-CLAUDE.md ]; then
       mkdir -p /home/devuser/.claude
+  fi
+  
+  # Copy slash commands if they exist
+  if [ -d /tmp/claude-commands ]; then
+      echo "Installing Claude Code slash commands..."
+      mkdir -p /home/devuser/.claude/commands
+      
+      # Copy all files and maintain directory structure
+      cp -r /tmp/claude-commands/* /home/devuser/.claude/commands/ 2>/dev/null || true
+      
+      # Set proper permissions
+      find /home/devuser/.claude/commands -type f -name "*.md" -exec chmod 644 {} \;
+      find /home/devuser/.claude/commands -type d -exec chmod 755 {} \;
+      
+      # List installed commands for verification
+      echo "Installed slash commands:"
+      find /home/devuser/.claude/commands -name "*.md" -type f | while read cmd; do
+          echo "  - $(basename "$cmd" .md)"
+      done
+      
+      echo "Claude Code slash commands installed successfully"
   fi
   
   # Copy settings.json from template if it exists
