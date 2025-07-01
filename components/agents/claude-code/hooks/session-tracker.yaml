@@ -1,0 +1,40 @@
+# Hook definition for session tracking
+id: session-tracker
+name: Session Activity Tracker
+description: Tracks session start, task descriptions, and working directory changes
+events:
+  - PreToolUse
+configuration:
+  matcher: "Bash"
+  hook:
+    type: command
+    command: "/home/devuser/.claude/hooks/session-tracker.sh"
+script: |
+  #!/bin/bash
+  # Session tracking hook - logs session initialization and directory changes
+  
+  # Read JSON input from stdin
+  json_input=$(cat)
+  
+  # Extract command and description
+  command=$(echo "$json_input" | jq -r '.tool_input.command // ""')
+  description=$(echo "$json_input" | jq -r '.tool_input.description // "No description"')
+  session_id=$(echo "$json_input" | jq -r '.session_id // "unknown"')
+  
+  # Check if this is a cd command to track working directory
+  if [[ "$command" =~ ^cd[[:space:]] ]]; then
+    target_dir=$(echo "$command" | sed 's/^cd[[:space:]]*//')
+    # Resolve the full path
+    if [[ "$target_dir" =~ ^~ ]]; then
+      target_dir="${HOME}${target_dir#~}"
+    fi
+    echo "$(date -Iseconds) [INFO] Working directory: $target_dir" >> ~/workspace/JOURNAL.md
+  fi
+  
+  # Track workspace initialization
+  if [[ "$command" =~ mkdir.*workspace ]]; then
+    echo "$(date -Iseconds) [INFO] Initializing workspace structure" >> ~/workspace/JOURNAL.md
+  fi
+  
+  # Always allow execution
+  exit 0

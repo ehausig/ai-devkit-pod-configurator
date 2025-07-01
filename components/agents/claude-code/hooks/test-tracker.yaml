@@ -1,0 +1,70 @@
+# Hook definition for test execution tracking
+id: test-tracker
+name: Test Execution Tracker
+description: Tracks test creation, execution, and results
+events:
+  - PostToolUse
+configuration:
+  matcher: "Bash"
+  hook:
+    type: command
+    command: "/home/devuser/.claude/hooks/test-tracker.sh"
+script: |
+  #!/bin/bash
+  # Test execution tracking hook
+  
+  # Read JSON input from stdin
+  json_input=$(cat)
+  
+  # Extract command details
+  command=$(echo "$json_input" | jq -r '.tool_input.command // ""')
+  success=$(echo "$json_input" | jq -r '.tool_response.success // false')
+  
+  # Only process successful commands
+  if [ "$success" != "true" ]; then
+    exit 0
+  fi
+  
+  # Track test executions
+  case "$command" in
+    *"npm test"*|*"npm run test"*)
+      echo "$(date -Iseconds) [INFO] Running unit tests (npm)" >> ~/workspace/JOURNAL.md
+      ;;
+    *"pytest"*|*"python -m pytest"*)
+      echo "$(date -Iseconds) [INFO] Running unit tests (pytest)" >> ~/workspace/JOURNAL.md
+      ;;
+    *"cargo test"*)
+      echo "$(date -Iseconds) [INFO] Running unit tests (cargo)" >> ~/workspace/JOURNAL.md
+      ;;
+    *"go test"*)
+      echo "$(date -Iseconds) [INFO] Running unit tests (go)" >> ~/workspace/JOURNAL.md
+      ;;
+    *"mvn test"*|*"gradle test"*)
+      echo "$(date -Iseconds) [INFO] Running unit tests (Java)" >> ~/workspace/JOURNAL.md
+      ;;
+    *"rspec"*|*"bundle exec rspec"*)
+      echo "$(date -Iseconds) [INFO] Running unit tests (RSpec)" >> ~/workspace/JOURNAL.md
+      ;;
+  esac
+  
+  # Track integration tests
+  if [[ "$command" =~ (integration|e2e|end-to-end) ]]; then
+    echo "$(date -Iseconds) [INFO] Running integration tests" >> ~/workspace/JOURNAL.md
+  fi
+  
+  # Track TUI tests
+  if [[ "$command" =~ tui-test ]]; then
+    echo "$(date -Iseconds) [INFO] Running user simulation tests (TUI Test)" >> ~/workspace/JOURNAL.md
+  fi
+  
+  # Track test creation
+  if [[ "$command" =~ mkdir.*test ]]; then
+    echo "$(date -Iseconds) [INFO] Creating test structure" >> ~/workspace/JOURNAL.md
+  fi
+  
+  # Track coverage
+  if [[ "$command" =~ coverage ]]; then
+    echo "$(date -Iseconds) [INFO] Running test coverage analysis" >> ~/workspace/JOURNAL.md
+  fi
+  
+  exit 0

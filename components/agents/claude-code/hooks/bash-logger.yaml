@@ -1,7 +1,7 @@
-# Hook definition for logging bash commands to journal
+# Hook definition for comprehensive bash command logging
 id: bash-logger
-name: Bash Command Logger
-description: Logs all bash commands executed by Claude Code to the journal
+name: Enhanced Bash Command Logger
+description: Logs all bash commands with intelligent categorization
 events:
   - PreToolUse
   - PostToolUse
@@ -13,7 +13,7 @@ configuration:
     command: "/home/devuser/.claude/hooks/bash-logger.sh"
 script: |
   #!/bin/bash
-  # Bash command logging hook - logs all bash commands to journal
+  # Enhanced bash command logging hook with intelligent categorization
   
   # Read JSON input from stdin
   json_input=$(cat)
@@ -29,17 +29,57 @@ script: |
     description=$(echo "$json_input" | jq -r '.tool_input.description // "No description"')
     success=$(echo "$json_input" | jq -r '.tool_response.success // false')
     
+    # Intelligent categorization based on command
+    type="INFO"
+    
+    # File operations
+    [[ "$command" =~ ^(touch|mkdir|cp|mv|rm) ]] && type="STRUCTURE"
+    
+    # Git operations
+    [[ "$command" =~ ^git[[:space:]] ]] && type="GIT"
+    [[ "$command" =~ ^gh[[:space:]] ]] && type="GITHUB"
+    
+    # Package management
+    [[ "$command" =~ ^(npm|yarn|pnpm)[[:space:]] ]] && type="NPM"
+    [[ "$command" =~ ^(pip|pipenv|poetry)[[:space:]] ]] && type="PIP"
+    [[ "$command" =~ ^cargo[[:space:]] ]] && type="CARGO"
+    [[ "$command" =~ ^go[[:space:]] ]] && type="GO"
+    [[ "$command" =~ ^(bundle|gem)[[:space:]] ]] && type="RUBY"
+    [[ "$command" =~ ^(mvn|gradle)[[:space:]] ]] && type="JAVA"
+    
+    # Testing
+    [[ "$command" =~ test ]] && type="TEST"
+    [[ "$command" =~ coverage ]] && type="COVERAGE"
+    
+    # Docker
+    [[ "$command" =~ ^docker[[:space:]] ]] && type="DOCKER"
+    [[ "$command" =~ ^docker-compose[[:space:]] ]] && type="COMPOSE"
+    
+    # Environment
+    [[ "$command" =~ ^(export|source|eval) ]] && type="ENV"
+    
+    # Build tools
+    [[ "$command" =~ ^make[[:space:]] ]] && type="BUILD"
+    
     if [ "$success" = "true" ]; then
-      echo "$(date -Iseconds) [INFO] Executed command: $command - $description" >> ~/workspace/JOURNAL.md
+      echo "$(date -Iseconds) [$type] $command" >> ~/workspace/JOURNAL.md
     else
-      echo "$(date -Iseconds) [ERROR] Failed command: $command - $description" >> ~/workspace/JOURNAL.md
+      echo "$(date -Iseconds) [ERROR] Failed: $command - $description" >> ~/workspace/JOURNAL.md
     fi
   else
-    # PreToolUse - command is about to be executed
+    # PreToolUse - only log significant operations we want to track before execution
     command=$(echo "$json_input" | jq -r '.tool_input.command // ""')
     description=$(echo "$json_input" | jq -r '.tool_input.description // "No description"')
     
-    echo "$(date -Iseconds) [INFO] Preparing to execute: $command - $description" >> ~/workspace/JOURNAL.md
+    # Only log certain pre-execution events
+    case "$command" in
+      "rm -rf"*|"sudo"*)
+        echo "$(date -Iseconds) [WARNING] Preparing dangerous command: $command" >> ~/workspace/JOURNAL.md
+        ;;
+      *"production"*|*"deploy"*)
+        echo "$(date -Iseconds) [WARNING] Production operation pending: $command" >> ~/workspace/JOURNAL.md
+        ;;
+    esac
   fi
   
   # Always allow execution

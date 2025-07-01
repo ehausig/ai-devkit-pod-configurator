@@ -328,46 +328,58 @@ if [[ -d "$HOOKS_DIR" ]]; then
     # Create hooks directory in temp for scripts
     mkdir -p "$TEMP_DIR/claude-hooks"
     
+    # Function to extract script from YAML using awk
+    extract_script_from_yaml() {
+        local yaml_file="$1"
+        local output_file="$2"
+        
+        # Use awk to extract the script block more reliably
+        awk '
+            /^script: \|/ { 
+                in_script = 1
+                next
+            }
+            # Stop when we hit a non-indented line (new top-level key)
+            in_script && /^[a-zA-Z_]+:/ && !/^  / { 
+                exit
+            }
+            # Process script lines
+            in_script {
+                # Handle lines that start with exactly 2 spaces
+                if (/^  /) {
+                    # Remove first 2 spaces
+                    sub(/^  /, "")
+                    print
+                } else if (/^$/) {
+                    # Keep empty lines
+                    print
+                }
+            }
+        ' "$yaml_file" > "$output_file"
+    }
+    
     # For each hook YAML file, extract the script content and create the .sh file
     for hook_file in "$HOOKS_DIR"/*.yaml; do
         if [[ -f "$hook_file" ]]; then
             hook_basename=$(basename "$hook_file" .yaml)
             info "Processing hook: $hook_basename"
             
-            # Extract the script content from the YAML file
-            # Look for the script: | block and extract everything after it
-            in_script=false
-            script_content=""
+            script_file="$TEMP_DIR/claude-hooks/${hook_basename}.sh"
             
-            while IFS= read -r line; do
-                if [[ "$line" =~ ^script:[[:space:]]*\|[[:space:]]*$ ]]; then
-                    in_script=true
-                elif [[ $in_script == true ]]; then
-                    # Check if we've hit another top-level key (no leading spaces)
-                    if [[ "$line" =~ ^[a-zA-Z_]+: ]] && [[ ! "$line" =~ ^[[:space:]] ]]; then
-                        break
-                    fi
-                    # Remove the 2-space YAML indentation
-                    if [[ "$line" =~ ^[[:space:]]{2}(.*)$ ]]; then
-                        script_content+="${BASH_REMATCH[1]}"
-
-log "Claude Code pre-build completed successfully"\n'
-                    elif [[ -z "$line" ]]; then
-                        script_content+=
-
-log "Claude Code pre-build completed successfully"\n'
-                    fi
-                fi
-            done < "$hook_file"
+            # Extract script using awk
+            extract_script_from_yaml "$hook_file" "$script_file"
             
-            # If we found script content, create the .sh file
-            if [[ -n "$script_content" ]]; then
-                script_file="$TEMP_DIR/claude-hooks/${hook_basename}.sh"
-                echo "$script_content" > "$script_file"
+            # Check if we got any content
+            if [[ -s "$script_file" ]]; then
                 chmod +x "$script_file"
                 success "Created hook script: ${hook_basename}.sh"
+                
+                # Debug: Show first few lines
+                info "  First 3 lines of ${hook_basename}.sh:"
+                head -3 "$script_file" | sed 's/^/    /'
             else
                 warning "No script content found in ${hook_basename}.yaml"
+                rm -f "$script_file"
             fi
         fi
     done
@@ -376,44 +388,27 @@ log "Claude Code pre-build completed successfully"\n'
     hook_count=$(find "$TEMP_DIR/claude-hooks" -name "*.sh" -type f 2>/dev/null | wc -l)
     success "Created $hook_count hook scripts"
     
-    # Also process hooks configuration for settings.json
-    # Check if Python is available for processing
-    if command -v python3 >/dev/null 2>&1; then
-        # Use Python script to process hooks and merge with settings
-        PROCESS_HOOKS_SCRIPT="$SCRIPT_DIR/claude-code/process-hooks.py"
-        if [[ -f "$PROCESS_HOOKS_SCRIPT" ]]; then
-            info "Using Python to process hooks configuration..."
-            
-            # Make the Python script executable
-            chmod +x "$PROCESS_HOOKS_SCRIPT"
-            
-            # Process hooks and generate configuration
-            python3 "$PROCESS_HOOKS_SCRIPT" "$HOOKS_DIR" "$TEMP_DIR/claude-hooks" "$TEMP_DIR/claude-settings-with-hooks.json" > "$TEMP_DIR/hooks-output.json" 2>&1
-            
-            if [[ $? -eq 0 ]]; then
-                success "Processed hooks configuration with Python"
-                
-                # Merge hooks configuration with settings template if available
-                if [[ -f "$TEMP_DIR/claude-hooks-config.json" ]]; then
-                    info "Hooks configuration generated"
-                    
-                    # Use jq to merge if available
-                    if command -v jq >/dev/null 2>&1; then
-                        info "Merging hooks into settings template using jq..."
-                        jq -s '.[0] * .[1]' "$SETTINGS_TEMPLATE" "$TEMP_DIR/claude-hooks-config.json" > "$TEMP_DIR/claude-settings.json.template.new"
-                        mv "$TEMP_DIR/claude-settings.json.template.new" "$TEMP_DIR/claude-settings.json.template"
-                        success "Merged hooks configuration into settings template"
-                    else
-                        info "jq not available, hooks configuration saved separately"
-                    fi
-                fi
+    # Verify hook scripts are complete by checking for key patterns
+    info "Verifying hook scripts..."
+    for hook_script in "$TEMP_DIR/claude-hooks"/*.sh; do
+        if [[ -f "$hook_script" ]]; then
+            basename_script=$(basename "$hook_script")
+            # Check if script has proper structure
+            if grep -q "#!/bin/bash" "$hook_script" && grep -q "exit 0" "$hook_script"; then
+                success "  $basename_script appears complete"
             else
-                warning "Failed to process hooks configuration with Python"
+                warning "  $basename_script may be incomplete"
+                # Show what we have
+                info "  Content preview:"
+                head -10 "$hook_script" | sed 's/^/    /'
             fi
         fi
-    else
-        warning "Python not available for hooks configuration processing"
-    fi
+    done
+    
+    # Also process hooks configuration for settings.json
+    # For now, we're using a settings.json.template that already includes all hooks
+    # In the future, we could dynamically generate this from the YAML files
+    info "Hooks configuration is included in claude-settings.json.template"
 else
     warning "No hooks directory found at $HOOKS_DIR"
     # Create placeholder files to ensure directory exists for Docker COPY
