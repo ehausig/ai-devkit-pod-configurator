@@ -1,0 +1,87 @@
+# Hook definition for file-based milestone tracking
+id: file-milestone
+name: File Milestone Tracker
+description: Tracks creation of significant files as project milestones
+events:
+  - PostToolUse
+configuration:
+  matcher: "Write"
+  hook:
+    type: command
+    command: "/home/devuser/.claude/hooks/file-milestone.sh"
+script: |
+  #!/bin/bash
+  # File milestone tracking hook
+  
+  # Read JSON input from stdin
+  json_input=$(cat)
+  
+  # Check if write was successful
+  success=$(echo "$json_input" | jq -r '.tool_response.success // false')
+  if [ "$success" != "true" ]; then
+    exit 0
+  fi
+  
+  # Extract file path
+  file_path=$(echo "$json_input" | jq -r '.tool_input.file_path // .tool_input.path // ""')
+  file_name=$(basename "$file_path")
+  
+  # Track significant file creations
+  case "$file_name" in
+    README.md|readme.md)
+      echo "$(date -Iseconds) [MILESTONE] Project README created" >> ~/workspace/JOURNAL.md
+      ;;
+    LICENSE|LICENSE.md|LICENSE.txt)
+      echo "$(date -Iseconds) [MILESTONE] License file added" >> ~/workspace/JOURNAL.md
+      ;;
+    .gitignore)
+      echo "$(date -Iseconds) [MILESTONE] Git ignore rules configured" >> ~/workspace/JOURNAL.md
+      ;;
+    Dockerfile|dockerfile)
+      echo "$(date -Iseconds) [MILESTONE] Docker configuration added" >> ~/workspace/JOURNAL.md
+      ;;
+    docker-compose.yml|docker-compose.yaml)
+      echo "$(date -Iseconds) [MILESTONE] Docker Compose configuration added" >> ~/workspace/JOURNAL.md
+      ;;
+    Makefile|makefile)
+      echo "$(date -Iseconds) [MILESTONE] Build automation added (Makefile)" >> ~/workspace/JOURNAL.md
+      ;;
+    .env.example|.env.template)
+      echo "$(date -Iseconds) [MILESTONE] Environment configuration template created" >> ~/workspace/JOURNAL.md
+      ;;
+    CHANGELOG.md|CHANGELOG.txt)
+      echo "$(date -Iseconds) [MILESTONE] Changelog initialized" >> ~/workspace/JOURNAL.md
+      ;;
+    CONTRIBUTING.md)
+      echo "$(date -Iseconds) [MILESTONE] Contribution guidelines added" >> ~/workspace/JOURNAL.md
+      ;;
+  esac
+  
+  # Track test file creation
+  if [[ "$file_path" =~ test.*\.(py|js|ts|go|rs|java|rb)$ ]] || [[ "$file_path" =~ .*_test\.(py|js|ts|go|rs|java|rb)$ ]]; then
+    echo "$(date -Iseconds) [INFO] Test file created: $file_name" >> ~/workspace/JOURNAL.md
+  fi
+  
+  # Track configuration files
+  case "$file_path" in
+    *.github/workflows/*.yml|*.github/workflows/*.yaml)
+      workflow_name=$(basename "$file_path" .yml | basename "$file_path" .yaml)
+      echo "$(date -Iseconds) [MILESTONE] GitHub Action workflow created: $workflow_name" >> ~/workspace/JOURNAL.md
+      ;;
+    */.pre-commit-config.yaml)
+      echo "$(date -Iseconds) [MILESTONE] Pre-commit hooks configured" >> ~/workspace/JOURNAL.md
+      ;;
+    */tox.ini|*/setup.cfg|*/pyproject.toml)
+      echo "$(date -Iseconds) [MILESTONE] Python project configuration added" >> ~/workspace/JOURNAL.md
+      ;;
+    */tsconfig.json|*/jsconfig.json)
+      echo "$(date -Iseconds) [MILESTONE] TypeScript/JavaScript configuration added" >> ~/workspace/JOURNAL.md
+      ;;
+  esac
+  
+  # Track documentation
+  if [[ "$file_path" =~ docs/.* ]] || [[ "$file_path" =~ .*\.md$ ]]; then
+    echo "$(date -Iseconds) [INFO] Documentation updated: $file_name" >> ~/workspace/JOURNAL.md
+  fi
+  
+  exit 0

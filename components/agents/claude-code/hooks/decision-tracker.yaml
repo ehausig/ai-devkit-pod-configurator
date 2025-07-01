@@ -1,0 +1,88 @@
+# Hook definition for tracking technical decisions
+id: decision-tracker
+name: Technical Decision Tracker
+description: Logs architectural decisions, technology choices, and implementation approaches
+events:
+  - PreToolUse
+  - PostToolUse
+configuration:
+  matcher: "Write|Edit"
+  hook:
+    type: command
+    command: "/home/devuser/.claude/hooks/decision-tracker.sh"
+script: |
+  #!/bin/bash
+  # Technical decision tracking hook
+  
+  # Read JSON input from stdin
+  json_input=$(cat)
+  
+  # Check if this is PostToolUse (has tool_response)
+  if echo "$json_input" | jq -e '.tool_response' > /dev/null 2>&1; then
+    # PostToolUse - file was written
+    success=$(echo "$json_input" | jq -r '.tool_response.success // false')
+    if [ "$success" != "true" ]; then
+      exit 0
+    fi
+    
+    file_path=$(echo "$json_input" | jq -r '.tool_input.file_path // .tool_input.path // ""')
+    content=$(echo "$json_input" | jq -r '.tool_input.content // ""')
+    
+    # Detect project type based on file
+    case "$file_path" in
+      */package.json)
+        echo "$(date -Iseconds) [DECISION] Project type: Node.js/JavaScript chosen" >> ~/workspace/JOURNAL.md
+        ;;
+      */requirements.txt|*/setup.py|*/pyproject.toml)
+        echo "$(date -Iseconds) [DECISION] Project type: Python chosen" >> ~/workspace/JOURNAL.md
+        ;;
+      */Cargo.toml)
+        echo "$(date -Iseconds) [DECISION] Project type: Rust chosen" >> ~/workspace/JOURNAL.md
+        ;;
+      */go.mod)
+        echo "$(date -Iseconds) [DECISION] Project type: Go chosen" >> ~/workspace/JOURNAL.md
+        ;;
+      */pom.xml|*/build.gradle)
+        echo "$(date -Iseconds) [DECISION] Project type: Java chosen" >> ~/workspace/JOURNAL.md
+        ;;
+      */Gemfile)
+        echo "$(date -Iseconds) [DECISION] Project type: Ruby chosen" >> ~/workspace/JOURNAL.md
+        ;;
+    esac
+    
+    # Detect frameworks/libraries from content
+    if [[ -n "$content" ]]; then
+      # Web frameworks
+      if echo "$content" | grep -qE "(express|fastapi|flask|gin|actix|rails|spring)"; then
+        framework=$(echo "$content" | grep -oE "(express|fastapi|flask|gin|actix|rails|spring)" | head -1)
+        echo "$(date -Iseconds) [DECISION] Web framework: $framework chosen" >> ~/workspace/JOURNAL.md
+      fi
+      
+      # Testing frameworks
+      if echo "$content" | grep -qE "(jest|pytest|cargo test|go test|junit|rspec)"; then
+        test_framework=$(echo "$content" | grep -oE "(jest|pytest|cargo test|go test|junit|rspec)" | head -1)
+        echo "$(date -Iseconds) [DECISION] Testing framework: $test_framework chosen" >> ~/workspace/JOURNAL.md
+      fi
+      
+      # Database decisions
+      if echo "$content" | grep -qE "(postgres|mysql|mongodb|redis|sqlite)"; then
+        database=$(echo "$content" | grep -oE "(postgres|mysql|mongodb|redis|sqlite)" | head -1)
+        echo "$(date -Iseconds) [DECISION] Database: $database chosen" >> ~/workspace/JOURNAL.md
+      fi
+    fi
+    
+    # Architecture files
+    case "$file_path" in
+      */Dockerfile)
+        echo "$(date -Iseconds) [DECISION] Containerization: Docker chosen" >> ~/workspace/JOURNAL.md
+        ;;
+      */.github/workflows/*.yml|*/.github/workflows/*.yaml)
+        echo "$(date -Iseconds) [DECISION] CI/CD: GitHub Actions configured" >> ~/workspace/JOURNAL.md
+        ;;
+      */docker-compose.yml|*/docker-compose.yaml)
+        echo "$(date -Iseconds) [DECISION] Multi-container setup: Docker Compose configured" >> ~/workspace/JOURNAL.md
+        ;;
+    esac
+  fi
+  
+  exit 0

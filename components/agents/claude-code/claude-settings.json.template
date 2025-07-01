@@ -247,6 +247,19 @@
           {
             "type": "command",
             "command": "/home/devuser/.claude/hooks/bash-logger.sh"
+          },
+          {
+            "type": "command",
+            "command": "/home/devuser/.claude/hooks/session-tracker.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/devuser/.claude/hooks/decision-tracker.sh"
           }
         ]
       }
@@ -258,6 +271,18 @@
           {
             "type": "command",
             "command": "/home/devuser/.claude/hooks/bash-logger.sh"
+          },
+          {
+            "type": "command",
+            "command": "/home/devuser/.claude/hooks/project-lifecycle.sh"
+          },
+          {
+            "type": "command",
+            "command": "/home/devuser/.claude/hooks/test-tracker.sh"
+          },
+          {
+            "type": "command",
+            "command": "/home/devuser/.claude/hooks/error-recovery.sh"
           }
         ]
       },
@@ -267,6 +292,19 @@
           {
             "type": "command",
             "command": "/home/devuser/.claude/hooks/format-code.sh"
+          },
+          {
+            "type": "command",
+            "command": "/home/devuser/.claude/hooks/decision-tracker.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/devuser/.claude/hooks/file-milestone.sh"
           }
         ]
       }

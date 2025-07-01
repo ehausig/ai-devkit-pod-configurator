@@ -1,0 +1,60 @@
+# Hook definition for error tracking and recovery
+id: error-recovery
+name: Error and Recovery Tracker
+description: Tracks errors, conflicts, and recovery actions
+events:
+  - PostToolUse
+configuration:
+  matcher: "Bash"
+  hook:
+    type: command
+    command: "/home/devuser/.claude/hooks/error-recovery.sh"
+script: |
+  #!/bin/bash
+  # Error and recovery tracking hook
+  
+  # Read JSON input from stdin
+  json_input=$(cat)
+  
+  # Extract command details
+  command=$(echo "$json_input" | jq -r '.tool_input.command // ""')
+  success=$(echo "$json_input" | jq -r '.tool_response.success // false')
+  description=$(echo "$json_input" | jq -r '.tool_input.description // ""')
+  
+  # Log failed commands
+  if [ "$success" = "false" ]; then
+    echo "$(date -Iseconds) [ERROR] Command failed: $command - $description" >> ~/workspace/JOURNAL.md
+    
+    # Track specific error types
+    case "$command" in
+      *"git"*)
+        echo "$(date -Iseconds) [ERROR] Git operation failed - may need conflict resolution" >> ~/workspace/JOURNAL.md
+        ;;
+      *"npm install"*|*"pip install"*)
+        echo "$(date -Iseconds) [ERROR] Dependency installation failed - check requirements" >> ~/workspace/JOURNAL.md
+        ;;
+      *"docker"*)
+        echo "$(date -Iseconds) [ERROR] Docker operation failed - check Docker daemon" >> ~/workspace/JOURNAL.md
+        ;;
+    esac
+  fi
+  
+  # Track recovery actions
+  if [ "$success" = "true" ]; then
+    # Git conflict resolution
+    if [[ "$command" =~ git[[:space:]]checkout[[:space:]]--theirs ]] || [[ "$command" =~ git[[:space:]]checkout[[:space:]]--ours ]]; then
+      echo "$(date -Iseconds) [RECOVERY] Resolved git conflict using checkout strategy" >> ~/workspace/JOURNAL.md
+    fi
+    
+    # Force operations (recovery attempts)
+    if [[ "$command" =~ --force ]] || [[ "$command" =~ -f[[:space:]] ]]; then
+      echo "$(date -Iseconds) [RECOVERY] Used force flag to overcome issue" >> ~/workspace/JOURNAL.md
+    fi
+    
+    # Retry patterns
+    if [[ "$description" =~ [Rr]etry ]] || [[ "$description" =~ again ]]; then
+      echo "$(date -Iseconds) [RECOVERY] Retrying previous operation" >> ~/workspace/JOURNAL.md
+    fi
+  fi
+  
+  exit 0
