@@ -45,6 +45,7 @@
       "Bash(expect:*)",
       "Bash(export:*)",
       "Bash(find:*)",
+      "Bash(flake8:*)",
       "Bash(free:*)",
       "Bash(gh:*)",
       "Bash(gh pr create:*)",
