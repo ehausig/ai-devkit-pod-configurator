@@ -1,0 +1,43 @@
+# Hook definition for journal logging
+id: journal
+name: Journal Logger
+description: Logs structured entries to ~/workspace/JOURNAL.md with timestamps and categories
+events:
+  - Stop
+configuration:
+  # The matcher field - empty string matches all events of the type
+  matcher: ""
+  # The actual hook configuration
+  hook:
+    type: command
+    # Using a shell script that will be created during build
+    command: "/home/devuser/.claude/hooks/journal.sh"
+# Script content that will be generated
+script: |
+  #!/bin/bash
+  # Journal hook script - logs entries to ~/workspace/JOURNAL.md
+  
+  # Read JSON input from stdin
+  json_input=$(cat)
+  
+  # Parse arguments from the transcript or use default values
+  # For Stop event, we'll log that the session completed
+  type="INFO"
+  message="Claude Code session completed"
+  
+  # Extract session_id if available
+  session_id=$(echo "$json_input" | jq -r '.session_id // "unknown"')
+  
+  # Check if this is a stop hook that's already active to prevent loops
+  stop_hook_active=$(echo "$json_input" | jq -r '.stop_hook_active // false')
+  
+  if [ "$stop_hook_active" = "true" ]; then
+    # Don't create recursive journal entries
+    exit 0
+  fi
+  
+  # Create the journal entry
+  echo "$(date -Iseconds) [$type] Session $session_id completed - $message" >> ~/workspace/JOURNAL.md
+  
+  # Return success
+  exit 0

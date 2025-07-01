@@ -26,6 +26,9 @@ installation:
     - source: claude-settings.json.template
       destination: /tmp/claude-settings.json.template
       permissions: 644
+    - source: claude-hooks/
+      destination: /tmp/claude-hooks/
+      permissions: 755
 entrypoint_setup: |
   # Claude Code specific setup
   echo "Setting up Claude Code environment..."
@@ -54,6 +57,195 @@ entrypoint_setup: |
       done
       
       echo "Claude Code slash commands installed successfully"
+  fi
+  
+  # Install hooks if they exist
+  if [ -d /tmp/claude-hooks ]; then
+      echo "Installing Claude Code hooks..."
+      mkdir -p /home/devuser/.claude/hooks
+      
+      # Copy all hook scripts
+      cp -r /tmp/claude-hooks/* /home/devuser/.claude/hooks/ 2>/dev/null || true
+      
+      # Set proper permissions (scripts need to be executable)
+      find /home/devuser/.claude/hooks -type f -name "*.sh" -exec chmod 755 {} \;
+      find /home/devuser/.claude/hooks -type d -exec chmod 755 {} \;
+      
+      # List installed hooks for verification
+      echo "Installed hook scripts:"
+      find /home/devuser/.claude/hooks -name "*.sh" -type f | while read hook; do
+          echo "  - $(basename "$hook" .sh)"
+      done
+      
+      echo "Claude Code hooks installed successfully"
+  else
+      echo "No /tmp/claude-hooks directory found, creating hooks manually..."
+      mkdir -p /home/devuser/.claude/hooks
+      
+      # Create journal.sh hook
+      cat > /home/devuser/.claude/hooks/journal.sh << 'JOURNAL_HOOK'
+  #!/bin/bash
+  # Journal hook script - logs entries to ~/workspace/JOURNAL.md
+  
+  # Read JSON input from stdin
+  json_input=$(cat)
+  
+  # Parse arguments from the transcript or use default values
+  # For Stop event, we'll log that the session completed
+  type="INFO"
+  message="Claude Code session completed"
+  
+  # Extract session_id if available
+  session_id=$(echo "$json_input" | jq -r '.session_id // "unknown"')
+  
+  # Check if this is a stop hook that's already active to prevent loops
+  stop_hook_active=$(echo "$json_input" | jq -r '.stop_hook_active // false')
+  
+  if [ "$stop_hook_active" = "true" ]; then
+    # Don't create recursive journal entries
+    exit 0
+  fi
+  
+  # Create the journal entry
+  echo "$(date -Iseconds) [$type] Session $session_id completed - $message" >> ~/workspace/JOURNAL.md
+  
+  # Return success
+  exit 0
+  JOURNAL_HOOK
+      
+      # Create bash-logger.sh hook
+      cat > /home/devuser/.claude/hooks/bash-logger.sh << 'BASH_LOGGER_HOOK'
+  #!/bin/bash
+  # Bash command logging hook - logs all bash commands to journal
+  
+  # Read JSON input from stdin
+  json_input=$(cat)
+  
+  # Extract relevant fields
+  tool_name=$(echo "$json_input" | jq -r '.tool_name // ""')
+  session_id=$(echo "$json_input" | jq -r '.session_id // "unknown"')
+  
+  # Determine if this is pre or post execution based on presence of tool_response
+  if echo "$json_input" | jq -e '.tool_response' > /dev/null 2>&1; then
+    # PostToolUse - command was executed
+    command=$(echo "$json_input" | jq -r '.tool_input.command // ""')
+    description=$(echo "$json_input" | jq -r '.tool_input.description // "No description"')
+    success=$(echo "$json_input" | jq -r '.tool_response.success // false')
+    
+    if [ "$success" = "true" ]; then
+      echo "$(date -Iseconds) [INFO] Executed command: $command - $description" >> ~/workspace/JOURNAL.md
+    else
+      echo "$(date -Iseconds) [ERROR] Failed command: $command - $description" >> ~/workspace/JOURNAL.md
+    fi
+  else
+    # PreToolUse - command is about to be executed
+    command=$(echo "$json_input" | jq -r '.tool_input.command // ""')
+    description=$(echo "$json_input" | jq -r '.tool_input.description // "No description"')
+    
+    echo "$(date -Iseconds) [INFO] Preparing to execute: $command - $description" >> ~/workspace/JOURNAL.md
+  fi
+  
+  # Always allow execution
+  exit 0
+  BASH_LOGGER_HOOK
+      
+      # Create format-code.sh hook
+      cat > /home/devuser/.claude/hooks/format-code.sh << 'FORMAT_CODE_HOOK'
+  #!/bin/bash
+  # Auto-formatting hook - formats code based on file extension
+  
+  # Read JSON input from stdin
+  json_input=$(cat)
+  
+  # Extract file path from tool input
+  file_path=$(echo "$json_input" | jq -r '.tool_input.file_path // .tool_input.path // ""')
+  
+  if [ -z "$file_path" ] || [ ! -f "$file_path" ]; then
+    # No valid file path found or file doesn't exist
+    exit 0
+  fi
+  
+  # Log formatting attempt
+  echo "$(date -Iseconds) [INFO] Auto-formatting: $file_path" >> ~/workspace/JOURNAL.md
+  
+  # Get file extension
+  extension="${file_path##*.}"
+  
+  # Format based on extension
+  case "$extension" in
+    py)
+      # Python - use black if available
+      if command -v black >/dev/null 2>&1; then
+        black "$file_path" 2>/dev/null || true
+      fi
+      ;;
+    js|jsx|ts|tsx)
+      # JavaScript/TypeScript - use prettier if available
+      if command -v prettier >/dev/null 2>&1; then
+        prettier --write "$file_path" 2>/dev/null || true
+      fi
+      ;;
+    go)
+      # Go - use gofmt
+      if command -v gofmt >/dev/null 2>&1; then
+        gofmt -w "$file_path" 2>/dev/null || true
+      fi
+      ;;
+    rs)
+      # Rust - use rustfmt if available
+      if command -v rustfmt >/dev/null 2>&1; then
+        rustfmt "$file_path" 2>/dev/null || true
+      fi
+      ;;
+    java)
+      # Java - use google-java-format if available
+      if command -v google-java-format >/dev/null 2>&1; then
+        google-java-format -i "$file_path" 2>/dev/null || true
+      fi
+      ;;
+  esac
+  
+  exit 0
+  FORMAT_CODE_HOOK
+      
+      # Create notification.sh hook
+      cat > /home/devuser/.claude/hooks/notification.sh << 'NOTIFICATION_HOOK'
+  #!/bin/bash
+  # Custom notification hook
+  
+  # Read JSON input from stdin
+  json_input=$(cat)
+  
+  # Extract notification details
+  message=$(echo "$json_input" | jq -r '.message // "Claude Code notification"')
+  title=$(echo "$json_input" | jq -r '.title // "Claude Code"')
+  
+  # Log to journal
+  echo "$(date -Iseconds) [NOTIFICATION] $title: $message" >> ~/workspace/JOURNAL.md
+  
+  # Try different notification methods
+  # 1. Try notify-send (if available in container)
+  if command -v notify-send >/dev/null 2>&1; then
+    notify-send "$title" "$message" 2>/dev/null || true
+  fi
+  
+  # 2. Write to a notification file that could be monitored
+  echo "$(date -Iseconds) | $title | $message" >> ~/workspace/.notifications.log
+  
+  # 3. If running in a terminal, use terminal bell
+  if [ -t 1 ]; then
+    echo -e "\a"  # Terminal bell
+    echo "🔔 $title: $message"
+  fi
+  
+  # Always exit successfully
+  exit 0
+  NOTIFICATION_HOOK
+      
+      # Make all hooks executable
+      chmod 755 /home/devuser/.claude/hooks/*.sh
+      
+      echo "Created default hook scripts"
   fi
   
   # Copy settings.json from template if it exists

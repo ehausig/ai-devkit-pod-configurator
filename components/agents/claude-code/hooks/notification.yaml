@@ -1,0 +1,42 @@
+# Hook definition for custom notifications
+id: notification
+name: Custom Notifier
+description: Sends desktop notifications when Claude Code needs attention
+events:
+  - Notification
+configuration:
+  matcher: ""
+  hook:
+    type: command
+    command: "/home/devuser/.claude/hooks/notification.sh"
+script: |
+  #!/bin/bash
+  # Custom notification hook
+  
+  # Read JSON input from stdin
+  json_input=$(cat)
+  
+  # Extract notification details
+  message=$(echo "$json_input" | jq -r '.message // "Claude Code notification"')
+  title=$(echo "$json_input" | jq -r '.title // "Claude Code"')
+  
+  # Log to journal
+  echo "$(date -Iseconds) [NOTIFICATION] $title: $message" >> ~/workspace/JOURNAL.md
+  
+  # Try different notification methods
+  # 1. Try notify-send (if available in container)
+  if command -v notify-send >/dev/null 2>&1; then
+      notify-send "$title" "$message" 2>/dev/null || true
+  fi
+  
+  # 2. Write to a notification file that could be monitored
+  echo "$(date -Iseconds) | $title | $message" >> ~/workspace/.notifications.log
+  
+  # 3. If running in a terminal, use terminal bell
+  if [ -t 1 ]; then
+      echo -e "\a"  # Terminal bell
+      echo "🔔 $title: $message"
+  fi
+  
+  # Always exit successfully
+  exit 0
