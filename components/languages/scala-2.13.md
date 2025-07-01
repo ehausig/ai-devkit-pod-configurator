@@ -17,8 +17,16 @@ sbt new scala/scala-seed.g8
 
 # Manual setup
 mkdir -p src/{main,test}/scala project
-echo 'scalaVersion := "2.13.12"' > build.sbt
-echo 'sbt.version=1.9.7' > project/build.properties
+```
+
+Create build.sbt:
+```scala
+scalaVersion := "2.13.12"
+```
+
+Create project/build.properties:
+```
+sbt.version=1.9.7
 ```
 
 **Dependencies**
@@ -38,8 +46,13 @@ sbt dependencyTree
 **Format & Lint**
 ```bash
 # Scalafmt setup
-echo 'version = "3.7.17"' > .scalafmt.conf
+```
+Create .scalafmt.conf:
+```
+version = "3.7.17"
+```
 
+```bash
 # Add to project/plugins.sbt
 addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.5.2")
 

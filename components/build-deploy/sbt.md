@@ -6,8 +6,11 @@
 sbt --version
 
 # Configure JVM options
-echo "-Xmx2G" >> .sbtopts
-echo "-XX:+UseG1GC" >> .sbtopts
+```
+Create .sbtopts file:
+```
+-Xmx2G
+-XX:+UseG1GC
 ```
 
 **Project Init**
@@ -18,7 +21,11 @@ sbt new playframework/play-scala-seed.g8
 
 # Manual setup
 mkdir -p src/{main,test}/{scala,resources}
-echo 'scalaVersion := "3.3.1"' > build.sbt
+```
+
+Create build.sbt:
+```scala
+scalaVersion := "3.3.1"
 ```
 
 **Dependencies**

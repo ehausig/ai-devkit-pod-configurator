@@ -18,14 +18,16 @@ mkdir -p src tests docs
 touch README.md requirements.txt .gitignore
 
 # Create requirements.txt
-cat > requirements.txt << 'EOF'
+```
+
+Create requirements.txt:
+```
 textual>=0.47.0      # TUI framework
 pytest>=8.0.0
 pytest-asyncio>=0.23.0
 pytest-cov>=4.1.0
 ruff>=0.1.0
 black>=23.0.0
-EOF
 ```
 
 **Dependencies**
@@ -153,8 +155,9 @@ pip list --outdated
 ```
 
 **Pre-commit Hooks (Local)**
+
+Create .pre-commit-config.yaml:
 ```yaml
-# .pre-commit-config.yaml
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.1.0
@@ -171,7 +174,9 @@ repos:
     hooks:
       - id: mypy
         additional_dependencies: [types-all]
+```
 
+```bash
 # Install and use locally:
 pip install pre-commit
 pre-commit install

@@ -20,7 +20,11 @@ mill init com.example.myapp
 
 # Manual SBT setup
 mkdir -p src/main/scala src/test/scala
-echo 'scalaVersion := "3.3.1"' > build.sbt
+```
+
+Create build.sbt:
+```scala
+scalaVersion := "3.3.1"
 ```
 
 **Dependencies**

@@ -17,7 +17,10 @@ mkdir -p src tests docs
 touch README.md requirements.txt .gitignore pyproject.toml
 
 # Modern pyproject.toml
-cat > pyproject.toml << 'EOF'
+```
+
+Create pyproject.toml:
+```toml
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
@@ -26,13 +29,15 @@ build-backend = "setuptools.build_meta"
 name = "myproject"
 version = "0.1.0"
 requires-python = ">=3.11"
-EOF
 ```
 
 **Dependencies**
 ```bash
 # Core dependencies for modern Python
-cat > requirements.txt << 'EOF'
+```
+
+Create requirements.txt:
+```
 # Async web
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
@@ -49,8 +54,9 @@ pytest-cov>=4.1.0
 black>=23.0.0
 ruff>=0.1.0
 mypy>=1.7.0
-EOF
+```
 
+```bash
 pip install -r requirements.txt
 ```
 

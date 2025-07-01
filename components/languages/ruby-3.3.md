@@ -49,7 +49,12 @@ bundle exec rubocop
 bundle exec rubocop -a  # Auto-correct
 
 # Configure in .rubocop.yml
-echo "AllCops:\n  NewCops: enable" > .rubocop.yml
+```
+
+Create .rubocop.yml:
+```yaml
+AllCops:
+  NewCops: enable
 ```
 
 **Testing**

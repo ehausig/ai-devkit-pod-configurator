@@ -18,8 +18,17 @@ mkdir -p src tests docs
 touch README.md requirements.txt .gitignore setup.py
 
 # Basic .gitignore
-echo ".venv/\n__pycache__/\n*.pyc\n.coverage" > .gitignore
+```
 
+Create .gitignore:
+```
+.venv/
+__pycache__/
+*.pyc
+.coverage
+```
+
+```bash
 # Initialize as package
 touch src/__init__.py
 ```
