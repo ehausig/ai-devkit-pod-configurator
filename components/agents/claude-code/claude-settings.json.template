@@ -90,6 +90,7 @@
       "Bash(printenv:*)",
       "Bash(ps:*)",
       "Bash(pwd:*)",
+      "Bash(pytest:*)",
       "Bash(python:*)",
       "Bash(python3:*)",
       "Bash(ruby:*)",
