@@ -114,14 +114,13 @@ def test_hello():
     assert 1 + 1 == 2
 ```
 
-2. Run pytest (it might not be installed, that's ok):
+2. Install pytest with pip, if it isn't already installed
+
+3. Run pytest:
    pytest tests/unit/test_app.py
 
-3. Try running with coverage:
+4. Try running with coverage:
    pytest --cov=src tests/
-
-4. For Node.js style:
-   npm test
 
 Show me the JOURNAL.md to see the test tracking.
 
@@ -143,7 +142,7 @@ Let's intentionally cause some errors to test error tracking:
 
 ## 8. Test Project Lifecycle - GitHub Operations
 
-Try to create a GitHub repository (this might fail if not authenticated, which is fine for testing):
+Try to create a GitHub repository:
 
 gh repo create hook-test --public --description "Testing hooks"
 
@@ -167,18 +166,12 @@ Create bad_format.js:
 function greet(name){console.log("Hello "+name);if(name==="World"){console.log("Welcome!")}}
 ```
 
-After creating these, check JOURNAL.md for auto-formatting attempts.
-
 ## 10. Test Notification Hook
 
-Let's trigger a notification by trying to write to a protected location:
+Let's trigger a notification by trying to write to a protected location.
+Create the following file:
 
-sudo echo "test" > /etc/test.txt
-
-Or try to access the .claude directory:
-cat ~/.claude/settings.json > /tmp/settings-backup.json
-
-Then check both JOURNAL.md and ~/.notifications.log
+/etc/test.txt
 
 ## 11. Comprehensive Verification
 
@@ -202,5 +195,3 @@ Now let's do a final check of all the hooks:
 ## 12. Test Stop Hook
 
 Great! All the hooks seem to be working. Let's end this session now to test the Stop hook. When I start a new session, we can check if the session completion was logged.
-
-Goodbye!
