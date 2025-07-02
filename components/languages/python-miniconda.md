@@ -4,11 +4,7 @@
 ```bash
 # Create and activate environment
 conda create -n myproject python=3.11 -y
-eval "$(conda shell.bash hook)"
 conda activate myproject
-
-# Common activation fix if needed
-eval "$(conda shell.bash hook)" && conda activate myproject
 ```
 
 **Project Init**
