@@ -320,6 +320,14 @@ else
     echo "No custom slash commands configured" >> "$TEMP_DIR/claude-commands/.placeholder"
 fi
 
+# Copy the prepare-next-work.sh script to hooks directory
+if [[ -f "$SCRIPT_DIR/claude-code/hooks/prepare-next-work.sh" ]]; then
+    log "Copying prepare-next-work.sh script..."
+    cp "$SCRIPT_DIR/claude-code/hooks/prepare-next-work.sh" "$TEMP_DIR/claude-hooks/"
+    chmod +x "$TEMP_DIR/claude-hooks/prepare-next-work.sh"
+    success "Copied prepare-next-work.sh"
+fi
+
 # Process hooks if they exist
 HOOKS_DIR="$SCRIPT_DIR/claude-code/hooks"
 if [[ -d "$HOOKS_DIR" ]]; then

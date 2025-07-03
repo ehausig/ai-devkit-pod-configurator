@@ -130,6 +130,13 @@
       "Bash(/home/devuser/.claude/personas/reviewer/reviewer-handoff.sh)",
       "Bash(/home/devuser/.claude/personas/merger/merger-init.sh)",
       "Bash(/home/devuser/.claude/personas/merger/merger-handoff.sh)",
+      "Bash(/tmp/execute-next-work.sh)",
+      "Bash(/home/devuser/.claude/hooks/prepare-next-work.sh)",
+      "Bash(work-status.sh:*)",
+      "Bash(journal-query:*)",
+      "Bash(journal-stats:*)",
+      "Bash(work-tracker:*)",
+      "Bash(get-context-window:*)",
       "Edit(~/workspace/*)",
       "Glob(~/workspace/*)",
       "Grep(~/workspace/*)",
@@ -275,6 +282,10 @@
           {
             "type": "command",
             "command": "/home/devuser/.claude/hooks/bash-logger.sh"
+          },
+          {
+            "type": "command",
+            "command": "/home/devuser/.claude/hooks/work-queue-monitor.sh"
           },
           {
             "type": "command",

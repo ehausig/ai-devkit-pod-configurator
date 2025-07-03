@@ -2880,6 +2880,22 @@ create_custom_dockerfile() {
         echo "# No hooks configured" >> "$TEMP_DIR/claude-hooks/.placeholder.sh"
         chmod +x "$TEMP_DIR/claude-hooks/.placeholder.sh"
     fi
+
+    # Ensure work directories exist and have proper permissions
+    mkdir -p "$TEMP_DIR/work-scripts"
+    echo "#!/bin/bash" > "$TEMP_DIR/work-scripts/.placeholder"
+    echo "# Placeholder for work scripts" >> "$TEMP_DIR/work-scripts/.placeholder"
+    chmod 755 "$TEMP_DIR/work-scripts/.placeholder"
+    
+    # Ensure all hook scripts are executable
+    if [ -d "$TEMP_DIR/claude-hooks" ]; then
+        find "$TEMP_DIR/claude-hooks" -name "*.sh" -exec chmod +x {} \;
+    fi
+    
+    # Ensure all persona scripts are executable  
+    if [ -d "$TEMP_DIR/claude-personas" ]; then
+        find "$TEMP_DIR/claude-personas" -name "*.sh" -exec chmod +x {} \;
+    fi
     
     # First, generate the base entrypoint.sh in TEMP_DIR
     log "Generating custom entrypoint.sh..."

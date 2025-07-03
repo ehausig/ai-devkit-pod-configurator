@@ -377,7 +377,25 @@ entrypoint_setup: |
   else
       echo "No personas configured - using single-persona mode"
   fi
+ 
+  # Install journal query scripts if they exist
+  if [ -d /tmp/claude-scripts ]; then
+      echo "Installing journal scripts..."
+      for script in journal-query.sh get-context-window.sh work-tracker.sh journal-stats.sh work-status.sh; do
+          if [ -f "/tmp/claude-scripts/$script" ]; then
+              cp "/tmp/claude-scripts/$script" "/usr/local/bin/${script%.sh}"
+              chmod 755 "/usr/local/bin/${script%.sh}"
+              echo "  - Installed: ${script%.sh}"
+          fi
+      done
+      echo "Journal scripts installed successfully"
+  fi
   
+  # Ensure work directories exist with proper permissions
+  mkdir -p /tmp/work-scripts
+  chown devuser:devuser /tmp/work-scripts
+  chmod 755 /tmp/work-scripts
+
   # Copy settings.json from template if it exists
   echo "Checking for settings.json..."
   if [ -f /tmp/claude-settings.json.template ]; then
@@ -422,6 +440,24 @@ entrypoint_setup: |
       done
       echo "Journal scripts installed successfully"
   fi
+
+  # Install work status script if it exists
+  if [ -f /tmp/claude-scripts/work-status.sh ]; then
+      echo "Installing work-status script..."
+      cp /tmp/claude-scripts/work-status.sh /usr/local/bin/work-status
+      chmod 755 /usr/local/bin/work-status
+      echo "  - Installed: work-status"
+  fi
+
+  # Ensure the prepare-next-work.sh script is accessible
+  if [ -f /home/devuser/.claude/hooks/prepare-next-work.sh ]; then
+      echo "Verifying prepare-next-work.sh is executable..."
+      chmod 755 /home/devuser/.claude/hooks/prepare-next-work.sh
+  fi
+
+  # Create a directory for work scripts
+  mkdir -p /tmp/work-scripts
+  chown devuser:devuser /tmp/work-scripts
   
   # Ensure proper ownership
   chown -R devuser:devuser /home/devuser/.claude 2>/dev/null || true

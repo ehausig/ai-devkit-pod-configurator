@@ -157,20 +157,13 @@ echo -e "${BLUE}=== Handoff Complete ===${NC}"
 echo ""
 echo -e "${YELLOW}DEVELOPER should now:${NC}"
 echo "1. Run: /home/devuser/.claude/personas/developer/developer-init.sh"
-echo "2. Review pending work items with: journal-query pending-work DEVELOPER"
+echo "2. Review pending work items"
 echo "3. Start implementing with TDD approach"
 echo ""
 
-# Auto-continue to next persona
-echo -e "${GREEN}=== Activating DEVELOPER persona ===${NC}"
-echo ""
-sleep 2  # Brief pause to let the output be visible
+# Signal that work is ready for DEVELOPER
+echo "DEVELOPER" > /tmp/persona-work-ready
 
-# Explicit instruction for Claude
-echo -e "${YELLOW}Claude, please continue as DEVELOPER by:${NC}"
-echo "1. Reading the pending work items from the journal"
-echo "2. Creating the feature branch"
-echo "3. Starting implementation with TDD"
+echo -e "${GREEN}✓ Work queue signaled for DEVELOPER${NC}"
 echo ""
-
-/home/devuser/.claude/personas/developer/developer-init.sh
+echo "The work queue monitor will prepare the first executable task."

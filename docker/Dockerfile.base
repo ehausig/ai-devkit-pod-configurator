@@ -250,6 +250,12 @@ COPY *.md /tmp/
 COPY claude-commands /tmp/claude-commands/
 COPY claude-hooks /tmp/claude-hooks/
 
+# Create work directories that will be used by the work queue system
+RUN mkdir -p /tmp/work-scripts && \
+    chmod 1777 /tmp/work-scripts && \
+    mkdir -p /var/run/work-queue && \
+    chmod 755 /var/run/work-queue
+
 # Set environment variables for runtime if proxies are configured
 ENV PIP_INDEX_URL=${PIP_INDEX_URL}
 ENV PIP_TRUSTED_HOST=${PIP_TRUSTED_HOST}

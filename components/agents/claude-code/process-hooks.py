@@ -104,6 +104,16 @@ def generate_hooks_config(hooks_dir, scripts_dir):
                 os.chmod(script_path, 0o755)
                 print(f"  Created script: {script_filename}", file=sys.stderr)
             
+            # Special handling for work-queue-monitor hook
+            if hook_data['id'] == 'work-queue-monitor':
+                # Ensure prepare-next-work.sh is also copied
+                prepare_script = Path(hooks_dir).parent / 'hooks' / 'prepare-next-work.sh'
+                if prepare_script.exists():
+                    dest_script = Path(scripts_dir) / 'prepare-next-work.sh'
+                    dest_script.write_text(prepare_script.read_text())
+                    os.chmod(dest_script, 0o755)
+                    print(f"  Also copied: prepare-next-work.sh", file=sys.stderr)
+            
             # Add to hooks configuration for each event
             for event in hook_data['events']:
                 if event not in hooks_config:

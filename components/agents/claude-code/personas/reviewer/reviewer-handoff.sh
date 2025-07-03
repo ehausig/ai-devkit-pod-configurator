@@ -222,26 +222,13 @@ echo -e "${BLUE}=== Handoff Complete ===${NC}"
 echo ""
 echo -e "${YELLOW}$NEXT_PERSONA should now:${NC}"
 echo "1. Run: /home/devuser/.claude/personas/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')-init.sh"
-echo "2. Review pending work: journal-query pending-work $NEXT_PERSONA"
+echo "2. Review pending work items"
 echo "3. Start with the first work item"
 echo ""
 
-# Auto-continue
-echo -e "${GREEN}=== Activating $NEXT_PERSONA persona ===${NC}"
-echo ""
-sleep 2
+# Signal that work is ready for next persona
+echo "$NEXT_PERSONA" > /tmp/persona-work-ready
 
-# Explicit instruction
-echo -e "${YELLOW}Claude, please continue as $NEXT_PERSONA by:${NC}"
-if [ "$NEXT_PERSONA" = "MERGER" ]; then
-    echo "1. Verifying CI/CD status"
-    echo "2. Running final tests"
-    echo "3. Merging the approved code"
-else
-    echo "1. Reviewing the required changes"
-    echo "2. Implementing fixes"
-    echo "3. Running tests locally"
-fi
+echo -e "${GREEN}✓ Work queue signaled for $NEXT_PERSONA${NC}"
 echo ""
-
-/home/devuser/.claude/personas/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')-init.sh
+echo "The work queue monitor will prepare the first executable task."

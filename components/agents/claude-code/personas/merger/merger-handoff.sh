@@ -165,14 +165,19 @@ if [ -n "$NEXT_PERSONA" ]; then
     echo -e "${YELLOW}To continue development:${NC}"
     echo "1. Run: /home/devuser/.claude/personas/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')-init.sh"
     echo "2. $NEXT_ACTION"
-else
-    echo -e "${GREEN}=== Development Cycle Complete ===${NC}"
     echo ""
-    echo "Congratulations! The full development cycle has completed successfully."
+    
+    # Signal work ready for next persona
+    echo "$NEXT_PERSONA" > /tmp/persona-work-ready
+    
+    echo -e "${GREEN}✓ Work queue signaled for $NEXT_PERSONA${NC}"
+    echo ""
+    echo "The work queue monitor will prepare the first executable task."
+else
+    echo -e "${GREEN}Development cycle complete. No automatic handoff needed.${NC}"
     echo ""
     echo "To start a new cycle:"
-    echo "• For new feature: /home/devuser/.claude/personas/architect/architect-init.sh"
-    echo "• For bug fix: /home/devuser/.claude/personas/developer/developer-init.sh"
-    echo ""
-    echo "Use /journal-summary to see the overall system state."
+    echo "1. Choose your starting persona based on the work type"
+    echo "2. Run the corresponding init script"
+    echo "3. Follow the persona workflow"
 fi

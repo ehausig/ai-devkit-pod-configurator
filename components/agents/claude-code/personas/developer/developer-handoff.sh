@@ -225,20 +225,13 @@ echo -e "${BLUE}=== Handoff Complete ===${NC}"
 echo ""
 echo -e "${YELLOW}QA should now:${NC}"
 echo "1. Run: /home/devuser/.claude/personas/qa/qa-init.sh"
-echo "2. Review pending work: journal-query pending-work QA"
+echo "2. Review pending work items"
 echo "3. Start testing with real services"
 echo ""
 
-# Auto-continue
-echo -e "${GREEN}=== Activating QA persona ===${NC}"
-echo ""
-sleep 2
+# Signal that work is ready for QA
+echo "QA" > /tmp/persona-work-ready
 
-# Explicit instruction
-echo -e "${YELLOW}Claude, please continue as QA by:${NC}"
-echo "1. Setting up the test environment"
-echo "2. Running all test suites"
-echo "3. Testing against real services"
+echo -e "${GREEN}✓ Work queue signaled for QA${NC}"
 echo ""
-
-/home/devuser/.claude/personas/qa/qa-init.sh
+echo "The work queue monitor will prepare the first executable task."
