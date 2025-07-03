@@ -1,0 +1,41 @@
+# Hook definition for journal context queries
+id: journal-context
+name: Journal Context Manager
+description: Provides utilities for querying and managing journal-based virtual context
+events:
+  - PreToolUse
+configuration:
+  matcher: "Bash"
+  hook:
+    type: command
+    command: "/home/devuser/.claude/hooks/journal-context.sh"
+script: |
+  #!/bin/bash
+  # Journal context management hook
+  
+  # Read JSON input from stdin
+  json_input=$(cat)
+  
+  # Extract command
+  command=$(echo "$json_input" | jq -r '.tool_input.command // ""')
+  
+  # Check if this is a context query command
+  if [[ "$command" =~ grep.*JOURNAL\.md ]] || [[ "$command" =~ "show-context" ]]; then
+    # Log that context is being reconstructed
+    journal-log "PERSONA:CONTEXT" "Reconstructing context from journal" 2>/dev/null || echo "$(date -Iseconds) [PERSONA:CONTEXT] Reconstructing context from journal" >> ~/workspace/JOURNAL.md
+  fi
+  
+  # Check for journal archiving
+  if [[ "$command" =~ "archive.*JOURNAL" ]] || [[ "$command" =~ "rotate.*JOURNAL" ]]; then
+    # Create archive with timestamp
+    archive_name="JOURNAL-$(date +%Y%m%d-%H%M%S).md"
+    journal-log "SYSTEM:ARCHIVE" "Archiving journal to $archive_name" 2>/dev/null || echo "$(date -Iseconds) [SYSTEM:ARCHIVE] Archiving journal to $archive_name" >> ~/workspace/JOURNAL.md
+  fi
+  
+  # Track important context saves
+  if [[ "$command" =~ "PERSONA:MEMORY" ]]; then
+    journal-log "SYSTEM:MEMORY" "Critical information saved to persistent memory" 2>/dev/null || echo "$(date -Iseconds) [SYSTEM:MEMORY] Critical information saved to persistent memory" >> ~/workspace/JOURNAL.md
+  fi
+  
+  # Always allow execution
+  exit 0

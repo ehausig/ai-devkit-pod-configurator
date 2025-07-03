@@ -29,22 +29,22 @@ script: |
     # Detect project type based on file
     case "$file_path" in
       */package.json)
-        echo "$(date -Iseconds) [DECISION] Project type: Node.js/JavaScript chosen" >> ~/workspace/JOURNAL.md
+        journal-log "DECISION" "Project type: Node.js/JavaScript chosen" 2>/dev/null || echo "$(date -Iseconds) [DECISION] Project type: Node.js/JavaScript chosen" >> ~/workspace/JOURNAL.md
         ;;
       */requirements.txt|*/setup.py|*/pyproject.toml)
-        echo "$(date -Iseconds) [DECISION] Project type: Python chosen" >> ~/workspace/JOURNAL.md
+        journal-log "DECISION" "Project type: Python chosen" 2>/dev/null || echo "$(date -Iseconds) [DECISION] Project type: Python chosen" >> ~/workspace/JOURNAL.md
         ;;
       */Cargo.toml)
-        echo "$(date -Iseconds) [DECISION] Project type: Rust chosen" >> ~/workspace/JOURNAL.md
+        journal-log "DECISION" "Project type: Rust chosen" 2>/dev/null || echo "$(date -Iseconds) [DECISION] Project type: Rust chosen" >> ~/workspace/JOURNAL.md
         ;;
       */go.mod)
-        echo "$(date -Iseconds) [DECISION] Project type: Go chosen" >> ~/workspace/JOURNAL.md
+        journal-log "DECISION" "Project type: Go chosen" 2>/dev/null || echo "$(date -Iseconds) [DECISION] Project type: Go chosen" >> ~/workspace/JOURNAL.md
         ;;
       */pom.xml|*/build.gradle)
-        echo "$(date -Iseconds) [DECISION] Project type: Java chosen" >> ~/workspace/JOURNAL.md
+        journal-log "DECISION" "Project type: Java chosen" 2>/dev/null || echo "$(date -Iseconds) [DECISION] Project type: Java chosen" >> ~/workspace/JOURNAL.md
         ;;
       */Gemfile)
-        echo "$(date -Iseconds) [DECISION] Project type: Ruby chosen" >> ~/workspace/JOURNAL.md
+        journal-log "DECISION" "Project type: Ruby chosen" 2>/dev/null || echo "$(date -Iseconds) [DECISION] Project type: Ruby chosen" >> ~/workspace/JOURNAL.md
         ;;
     esac
     
@@ -53,32 +53,32 @@ script: |
       # Web frameworks
       if echo "$content" | grep -qE "(express|fastapi|flask|gin|actix|rails|spring)"; then
         framework=$(echo "$content" | grep -oE "(express|fastapi|flask|gin|actix|rails|spring)" | head -1)
-        echo "$(date -Iseconds) [DECISION] Web framework: $framework chosen" >> ~/workspace/JOURNAL.md
+        journal-log "DECISION" "Web framework: $framework chosen" 2>/dev/null || echo "$(date -Iseconds) [DECISION] Web framework: $framework chosen" >> ~/workspace/JOURNAL.md
       fi
       
       # Testing frameworks
       if echo "$content" | grep -qE "(jest|pytest|cargo test|go test|junit|rspec)"; then
         test_framework=$(echo "$content" | grep -oE "(jest|pytest|cargo test|go test|junit|rspec)" | head -1)
-        echo "$(date -Iseconds) [DECISION] Testing framework: $test_framework chosen" >> ~/workspace/JOURNAL.md
+        journal-log "DECISION" "Testing framework: $test_framework chosen" 2>/dev/null || echo "$(date -Iseconds) [DECISION] Testing framework: $test_framework chosen" >> ~/workspace/JOURNAL.md
       fi
       
       # Database decisions
       if echo "$content" | grep -qE "(postgres|mysql|mongodb|redis|sqlite)"; then
         database=$(echo "$content" | grep -oE "(postgres|mysql|mongodb|redis|sqlite)" | head -1)
-        echo "$(date -Iseconds) [DECISION] Database: $database chosen" >> ~/workspace/JOURNAL.md
+        journal-log "DECISION" "Database: $database chosen" 2>/dev/null || echo "$(date -Iseconds) [DECISION] Database: $database chosen" >> ~/workspace/JOURNAL.md
       fi
     fi
     
     # Architecture files
     case "$file_path" in
       */Dockerfile)
-        echo "$(date -Iseconds) [DECISION] Containerization: Docker chosen" >> ~/workspace/JOURNAL.md
+        journal-log "DECISION" "Containerization: Docker chosen" 2>/dev/null || echo "$(date -Iseconds) [DECISION] Containerization: Docker chosen" >> ~/workspace/JOURNAL.md
         ;;
       */.github/workflows/*.yml|*/.github/workflows/*.yaml)
-        echo "$(date -Iseconds) [DECISION] CI/CD: GitHub Actions configured" >> ~/workspace/JOURNAL.md
+        journal-log "DECISION" "CI/CD: GitHub Actions configured" 2>/dev/null || echo "$(date -Iseconds) [DECISION] CI/CD: GitHub Actions configured" >> ~/workspace/JOURNAL.md
         ;;
       */docker-compose.yml|*/docker-compose.yaml)
-        echo "$(date -Iseconds) [DECISION] Multi-container setup: Docker Compose configured" >> ~/workspace/JOURNAL.md
+        journal-log "DECISION" "Multi-container setup: Docker Compose configured" 2>/dev/null || echo "$(date -Iseconds) [DECISION] Multi-container setup: Docker Compose configured" >> ~/workspace/JOURNAL.md
         ;;
     esac
   fi

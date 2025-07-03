@@ -72,6 +72,7 @@
       "Bash(htop:*)",
       "Bash(id:*)",
       "Bash(java:*)",
+      "Bash(journal-log:*)",
       "Bash(jq:*)",
       "Bash(kill:*)",
       "Bash(killall:*)",
@@ -119,6 +120,16 @@
       "Bash(yarn:*)",
       "Bash(yq:*)",
       "Bash(zip:*)",
+      "Bash(/home/devuser/.claude/personas/architect/architect-init.sh)",
+      "Bash(/home/devuser/.claude/personas/architect/architect-handoff.sh)",
+      "Bash(/home/devuser/.claude/personas/developer/developer-init.sh)",
+      "Bash(/home/devuser/.claude/personas/developer/developer-handoff.sh)",
+      "Bash(/home/devuser/.claude/personas/qa/qa-init.sh)",
+      "Bash(/home/devuser/.claude/personas/qa/qa-handoff.sh)",
+      "Bash(/home/devuser/.claude/personas/reviewer/reviewer-init.sh)",
+      "Bash(/home/devuser/.claude/personas/reviewer/reviewer-handoff.sh)",
+      "Bash(/home/devuser/.claude/personas/merger/merger-init.sh)",
+      "Bash(/home/devuser/.claude/personas/merger/merger-handoff.sh)",
       "Edit(~/workspace/*)",
       "Glob(~/workspace/*)",
       "Grep(~/workspace/*)",
@@ -236,6 +247,14 @@
           {
             "type": "command",
             "command": "/home/devuser/.claude/hooks/session-tracker.sh"
+          },
+          {
+            "type": "command",
+            "command": "/home/devuser/.claude/hooks/persona-manager.sh"
+          },
+          {
+            "type": "command",
+            "command": "/home/devuser/.claude/hooks/journal-context.sh"
           }
         ]
       },

@@ -29,6 +29,12 @@ installation:
     - source: claude-hooks/
       destination: /tmp/claude-hooks/
       permissions: 755
+    - source: claude-personas/
+      destination: /tmp/claude-personas/
+      permissions: 755
+    - source: scripts/
+      destination: /tmp/claude-scripts/
+      permissions: 755
 entrypoint_setup: |
   # Claude Code specific setup
   echo "Setting up Claude Code environment..."
@@ -346,6 +352,32 @@ entrypoint_setup: |
       echo "Created default hook scripts"
   fi
   
+  # Install personas if they exist
+  if [ -d /tmp/claude-personas ]; then
+      echo "Installing Claude Code personas..."
+      mkdir -p /home/devuser/.claude/personas
+      
+      # Copy all persona files
+      cp -r /tmp/claude-personas/* /home/devuser/.claude/personas/ 2>/dev/null || true
+      
+      # Set proper permissions
+      find /home/devuser/.claude/personas -type f -name "*.sh" -exec chmod 755 {} \;
+      find /home/devuser/.claude/personas -type f -name "*.md" -exec chmod 644 {} \;
+      find /home/devuser/.claude/personas -type d -exec chmod 755 {} \;
+      
+      # List installed personas
+      echo "Installed personas:"
+      for persona_dir in /home/devuser/.claude/personas/*/; do
+          if [ -d "$persona_dir" ]; then
+              echo "  - $(basename "$persona_dir")"
+          fi
+      done
+      
+      echo "Claude Code personas installed successfully"
+  else
+      echo "No personas configured - using single-persona mode"
+  fi
+  
   # Copy settings.json from template if it exists
   echo "Checking for settings.json..."
   if [ -f /tmp/claude-settings.json.template ]; then
@@ -363,6 +395,20 @@ entrypoint_setup: |
   
   # Note: user-CLAUDE.md is handled in the main entrypoint.sh script
   # along with appending component imports
+  
+  # Install utility scripts if they exist
+  if [ -d /tmp/claude-scripts ]; then
+      echo "Installing utility scripts..."
+      for script in /tmp/claude-scripts/*.sh; do
+          if [ -f "$script" ]; then
+              script_name=$(basename "$script")
+              cp "$script" /usr/local/bin/"${script_name%.sh}"
+              chmod 755 /usr/local/bin/"${script_name%.sh}"
+              echo "  - Installed: ${script_name%.sh}"
+          fi
+      done
+      echo "Utility scripts installed successfully"
+  fi
   
   # Ensure proper ownership
   chown -R devuser:devuser /home/devuser/.claude 2>/dev/null || true

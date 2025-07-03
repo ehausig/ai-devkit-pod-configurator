@@ -37,7 +37,7 @@ script: |
   fi
   
   # Create the journal entry
-  echo "$(date -Iseconds) [$type] Session $session_id completed - $message" >> ~/workspace/JOURNAL.md
+  journal-log "$type" "Session $session_id completed - $message" 2>/dev/null || echo "$(date -Iseconds) [$type] Session $session_id completed - $message" >> ~/workspace/JOURNAL.md
   
   # Return success
   exit 0

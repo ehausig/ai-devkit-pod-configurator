@@ -1,6 +1,6 @@
 #!/bin/bash
 # Claude Code pre-build script
-# Generates component imports, handles file copying, and processes hooks
+# Generates component imports, handles file copying, processes hooks, and sets up personas
 
 # Standard arguments
 TEMP_DIR="$1"
@@ -415,6 +415,50 @@ else
     echo '#!/bin/bash' > "$TEMP_DIR/claude-hooks/.placeholder.sh"
     echo '# No hooks configured' >> "$TEMP_DIR/claude-hooks/.placeholder.sh"
     chmod +x "$TEMP_DIR/claude-hooks/.placeholder.sh"
+fi
+
+# Process personas if they exist
+PERSONAS_DIR="$SCRIPT_DIR/claude-code/personas"
+if [[ -d "$PERSONAS_DIR" ]]; then
+    log "Processing Claude Code personas..."
+    
+    # Create personas directory structure in temp
+    mkdir -p "$TEMP_DIR/claude-personas"
+    
+    # Copy entire personas directory structure
+    cp -r "$PERSONAS_DIR"/* "$TEMP_DIR/claude-personas/" 2>/dev/null || true
+    
+    # Make all init and handoff scripts executable
+    find "$TEMP_DIR/claude-personas" -name "*-init.sh" -o -name "*-handoff.sh" | while read script; do
+        chmod +x "$script"
+        success "Made executable: $(basename "$script")"
+    done
+    
+    # Count personas
+    persona_count=$(find "$TEMP_DIR/claude-personas" -maxdepth 1 -type d | grep -v "^$TEMP_DIR/claude-personas$" | wc -l)
+    success "Processed $persona_count personas"
+else
+    info "No personas directory found - using single-persona mode"
+    # Create placeholder to ensure directory exists
+    mkdir -p "$TEMP_DIR/claude-personas"
+    echo "# Single Persona Mode" > "$TEMP_DIR/claude-personas/README.md"
+fi
+
+# Copy scripts if they exist
+SCRIPTS_DIR="$SCRIPT_DIR/claude-code/scripts"
+if [[ -d "$SCRIPTS_DIR" ]]; then
+    log "Copying utility scripts..."
+    mkdir -p "$TEMP_DIR/scripts"
+    
+    for script in "$SCRIPTS_DIR"/*.sh; do
+        if [[ -f "$script" ]]; then
+            cp "$script" "$TEMP_DIR/scripts/"
+            chmod +x "$TEMP_DIR/scripts/$(basename "$script")"
+            success "Copied script: $(basename "$script")"
+        fi
+    done
+else
+    info "No scripts directory found"
 fi
 
 log "Claude Code pre-build completed successfully"

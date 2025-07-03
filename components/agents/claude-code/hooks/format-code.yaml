@@ -28,7 +28,7 @@ script: |
     fi
     
     # Log formatting attempt
-    echo "$(date -Iseconds) [INFO] Auto-formatting: $file_path" >> ~/workspace/JOURNAL.md
+    journal-log "INFO" "Auto-formatting: $file_path" 2>/dev/null || echo "$(date -Iseconds) [INFO] Auto-formatting: $file_path" >> ~/workspace/JOURNAL.md
     
     # Get file extension
     extension="${file_path##*.}"

@@ -73,12 +73,12 @@ script: |
     [[ "$command" =~ ^make[[:space:]] ]] && type="BUILD"
     
     if [ "$success" = "true" ]; then
-      echo "$(date -Iseconds) [$type] $command" >> ~/workspace/JOURNAL.md
+      journal-log "$type" "$command" 2>/dev/null || echo "$(date -Iseconds) [$type] $command" >> ~/workspace/JOURNAL.md
     else
-      echo "$(date -Iseconds) [ERROR] Failed: $command - $description" >> ~/workspace/JOURNAL.md
+      journal-log "ERROR" "Failed: $command - $description" 2>/dev/null || echo "$(date -Iseconds) [ERROR] Failed: $command - $description" >> ~/workspace/JOURNAL.md
       # Log stderr if present
       if [ -n "$stderr" ]; then
-        echo "$(date -Iseconds) [ERROR] stderr: $stderr" >> ~/workspace/JOURNAL.md
+        journal-log "ERROR" "stderr: $stderr" 2>/dev/null || echo "$(date -Iseconds) [ERROR] stderr: $stderr" >> ~/workspace/JOURNAL.md
       fi
     fi
   else
@@ -89,10 +89,10 @@ script: |
     # Only log certain pre-execution events
     case "$command" in
       "rm -rf"*|"sudo"*)
-        echo "$(date -Iseconds) [WARNING] Preparing dangerous command: $command" >> ~/workspace/JOURNAL.md
+        journal-log "WARNING" "Preparing dangerous command: $command" 2>/dev/null || echo "$(date -Iseconds) [WARNING] Preparing dangerous command: $command" >> ~/workspace/JOURNAL.md
         ;;
       *"production"*|*"deploy"*)
-        echo "$(date -Iseconds) [WARNING] Production operation pending: $command" >> ~/workspace/JOURNAL.md
+        journal-log "WARNING" "Production operation pending: $command" 2>/dev/null || echo "$(date -Iseconds) [WARNING] Production operation pending: $command" >> ~/workspace/JOURNAL.md
         ;;
     esac
   fi

@@ -35,12 +35,12 @@ script: |
       # Replace ~ with $HOME, not concatenate
       target_dir="${target_dir/#\~/$HOME}"
     fi
-    echo "$(date -Iseconds) [INFO] Working directory: $target_dir" >> ~/workspace/JOURNAL.md
+    journal-log "INFO" "Working directory: $target_dir" 2>/dev/null || echo "$(date -Iseconds) [INFO] Working directory: $target_dir" >> ~/workspace/JOURNAL.md
   fi
   
   # Track workspace initialization
   if [[ "$command" =~ mkdir.*workspace ]]; then
-    echo "$(date -Iseconds) [INFO] Initializing workspace structure" >> ~/workspace/JOURNAL.md
+    journal-log "INFO" "Initializing workspace structure" 2>/dev/null || echo "$(date -Iseconds) [INFO] Initializing workspace structure" >> ~/workspace/JOURNAL.md
   fi
   
   # Always allow execution

@@ -21,7 +21,7 @@ script: |
   title=$(echo "$json_input" | jq -r '.title // "Claude Code"')
   
   # Log to journal
-  echo "$(date -Iseconds) [NOTIFICATION] $title: $message" >> ~/workspace/JOURNAL.md
+  journal-log "NOTIFICATION" "$title: $message" 2>/dev/null || echo "$(date -Iseconds) [NOTIFICATION] $title: $message" >> ~/workspace/JOURNAL.md
   
   # Try different notification methods
   # 1. Try notify-send (if available in container)
