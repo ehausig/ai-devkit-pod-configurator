@@ -15,9 +15,9 @@ echo ""
 echo -e "${YELLOW}Analyzing test results...${NC}"
 
 # Count test results from journal
-PASSED=$(journal-query.sh recent-context QA | grep -c "QA:PASSED" || echo "0")
-FAILED=$(journal-query.sh recent-context QA | grep -c "QA:FAILED" || echo "0")
-ISSUES=$(journal-query.sh recent-context QA | grep -c "QA:ISSUE" || echo "0")
+PASSED=$(journal-query recent-context QA | grep -c "QA:PASSED" || echo "0")
+FAILED=$(journal-query recent-context QA | grep -c "QA:FAILED" || echo "0")
+ISSUES=$(journal-query recent-context QA | grep -c "QA:ISSUE" || echo "0")
 
 echo "Test Summary:"
 echo "- Tests passed: $PASSED"
@@ -39,7 +39,7 @@ fi
 # Check for pending work
 echo ""
 echo -e "${YELLOW}Checking for pending work...${NC}"
-PENDING_CHECK=$(journal-query.sh handoff-ready QA)
+PENDING_CHECK=$(journal-query handoff-ready QA)
 HANDOFF_READY=$?
 
 if [ $HANDOFF_READY -ne 0 ]; then
@@ -57,7 +57,7 @@ READY=true
 MISSING=""
 
 # Check for unit test execution
-if journal-query.sh recent-context QA | grep -q -E "(unit test|Unit test)"; then
+if journal-query recent-context QA | grep -q -E "(unit test|Unit test)"; then
     echo -e "${GREEN}✓${NC} Unit tests executed"
 else
     echo -e "${YELLOW}⚠${NC} No unit test execution logged"
@@ -65,7 +65,7 @@ else
 fi
 
 # Check for integration test execution
-if journal-query.sh recent-context QA | grep -q -E "(integration test|Integration test)"; then
+if journal-query recent-context QA | grep -q -E "(integration test|Integration test)"; then
     echo -e "${GREEN}✓${NC} Integration tests executed"
 else
     echo -e "${YELLOW}⚠${NC} No integration test execution logged"
@@ -73,7 +73,7 @@ else
 fi
 
 # Check for real service testing
-if journal-query.sh recent-context QA | grep -q -E "(real.*service|service.*real|running.*backend|backend.*running)"; then
+if journal-query recent-context QA | grep -q -E "(real.*service|service.*real|running.*backend|backend.*running)"; then
     echo -e "${GREEN}✓${NC} Tested against real services"
 else
     echo -e "${RED}✗${NC} No evidence of real service testing"
@@ -99,8 +99,8 @@ echo ""
 echo -e "${YELLOW}Creating test report...${NC}"
 
 # Get test details
-TEST_DETAILS=$(journal-query.sh recent-context QA | grep -E "(PASSED|FAILED|ISSUE)")
-COVERAGE_INFO=$(journal-query.sh recent-context QA | grep -i "coverage" | tail -1)
+TEST_DETAILS=$(journal-query recent-context QA | grep -E "(PASSED|FAILED|ISSUE)")
+COVERAGE_INFO=$(journal-query recent-context QA | grep -i "coverage" | tail -1)
 
 cat > TEST_REPORT.md << EOF
 # QA Test Report
@@ -115,22 +115,22 @@ cat > TEST_REPORT.md << EOF
 
 ## Test Execution
 ### Unit Tests
-$(journal-query.sh recent-context QA | grep -E "unit.*test" | sed 's/.*\] /- /' | tail -5 || echo "- No unit test results logged")
+$(journal-query recent-context QA | grep -E "unit.*test" | sed 's/.*\] /- /' | tail -5 || echo "- No unit test results logged")
 
 ### Integration Tests
-$(journal-query.sh recent-context QA | grep -E "integration.*test" | sed 's/.*\] /- /' | tail -5 || echo "- No integration test results logged")
+$(journal-query recent-context QA | grep -E "integration.*test" | sed 's/.*\] /- /' | tail -5 || echo "- No integration test results logged")
 
 ### User Simulation Tests
-$(journal-query.sh recent-context QA | grep -E "(simulation|user|TUI|e2e)" | sed 's/.*\] /- /' | tail -5 || echo "- No user simulation results logged")
+$(journal-query recent-context QA | grep -E "(simulation|user|TUI|e2e)" | sed 's/.*\] /- /' | tail -5 || echo "- No user simulation results logged")
 
 ## Test Coverage
 $([ -n "$COVERAGE_INFO" ] && echo "$COVERAGE_INFO" | sed 's/.*\] //' || echo "Coverage information not available")
 
 ## Issues Found
-$(journal-query.sh recent-context QA | grep "QA:ISSUE" | sed 's/.*\[QA:ISSUE\] /- /' || echo "No issues found")
+$(journal-query recent-context QA | grep "QA:ISSUE" | sed 's/.*\[QA:ISSUE\] /- /' || echo "No issues found")
 
 ## Failed Tests
-$(journal-query.sh recent-context QA | grep "QA:FAILED" | sed 's/.*\[QA:FAILED\] /- /' || echo "No test failures")
+$(journal-query recent-context QA | grep "QA:FAILED" | sed 's/.*\[QA:FAILED\] /- /' || echo "No test failures")
 
 ## Testing Environment
 - Real services were used for integration testing
@@ -161,7 +161,7 @@ else
     # Create specific work items for DEVELOPER based on failures
     if [ $FAILED -gt 0 ]; then
         # Analyze failures and create work items
-        journal-query.sh recent-context QA | grep "QA:FAILED" | while read -r failure; do
+        journal-query recent-context QA | grep "QA:FAILED" | while read -r failure; do
             failure_desc=$(echo "$failure" | sed 's/.*\[QA:FAILED\] //')
             journal-log "WORK:PENDING" "DEVELOPER: Fix failing test - $failure_desc"
         done
@@ -169,7 +169,7 @@ else
     
     if [ $ISSUES -gt 0 ]; then
         # Create work items for each issue
-        journal-query.sh recent-context QA | grep "QA:ISSUE" | while read -r issue; do
+        journal-query recent-context QA | grep "QA:ISSUE" | while read -r issue; do
             issue_desc=$(echo "$issue" | sed 's/.*\[QA:ISSUE\] //')
             journal-log "WORK:PENDING" "DEVELOPER: Address issue - $issue_desc"
         done
@@ -179,7 +179,7 @@ else
     journal-log "WORK:PENDING" "DEVELOPER: Run all tests locally to verify fixes"
     journal-log "WORK:PENDING" "DEVELOPER: Update PR with fixes"
     
-    WORK_COUNT=$(journal-query.sh pending-work DEVELOPER | wc -l)
+    WORK_COUNT=$(journal-query pending-work DEVELOPER | wc -l)
     cp TEST_REPORT.md HANDOFF_TO_DEVELOPER.md
 fi
 
@@ -194,8 +194,8 @@ echo ""
 echo -e "${BLUE}=== Handoff Complete ===${NC}"
 echo ""
 echo -e "${YELLOW}$NEXT_PERSONA should now:${NC}"
-echo "1. Run: /home/devuser/.claude/personas/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')-init.sh"
-echo "2. Review pending work: journal-query.sh pending-work $NEXT_PERSONA"
+echo "1. Run: /home/devuser/.claude/personas/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')-init"
+echo "2. Review pending work: journal-query pending-work $NEXT_PERSONA"
 echo "3. Start with the first work item"
 echo ""
 
@@ -217,4 +217,4 @@ else
 fi
 echo ""
 
-/home/devuser/.claude/personas/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')-init.sh
+/home/devuser/.claude/personas/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')-init

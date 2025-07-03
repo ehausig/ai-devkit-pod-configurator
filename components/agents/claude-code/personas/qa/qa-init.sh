@@ -15,7 +15,7 @@ echo ""
 journal-log "QA:INIT" "Starting QA persona"
 
 # Safety check
-SAFETY_STATUS=$(journal-query.sh safety-check QA)
+SAFETY_STATUS=$(journal-query safety-check QA)
 echo "Safety Status: $SAFETY_STATUS"
 
 if echo "$SAFETY_STATUS" | grep -q "WARNING: High iteration count"; then
@@ -32,7 +32,7 @@ echo ""
 
 # Check for pending work
 echo -e "${YELLOW}Checking for pending work...${NC}"
-PENDING_WORK=$(journal-query.sh pending-work QA)
+PENDING_WORK=$(journal-query pending-work QA)
 PENDING_COUNT=$(echo "$PENDING_WORK" | grep -c "WORK:PENDING" || echo "0")
 
 if [ $PENDING_COUNT -gt 0 ]; then
@@ -65,7 +65,7 @@ fi
 echo ""
 
 # Check recent test results
-RECENT_TESTS=$(journal-query.sh recent-context QA | grep -E "(PASSED|FAILED)" | tail -5)
+RECENT_TESTS=$(journal-query recent-context QA | grep -E "(PASSED|FAILED)" | tail -5)
 if [ -n "$RECENT_TESTS" ]; then
     echo -e "${YELLOW}Recent test results:${NC}"
     echo "$RECENT_TESTS" | sed 's/.*\[\(QA:.*\)\] /[\1] /'
@@ -139,13 +139,13 @@ if [ $PENDING_COUNT -gt 0 ]; then
     echo "5. Continue with next items"
     echo ""
     echo "6. When all testing done:"
-    echo "   qa-handoff.sh"
+    echo "   qa-handoff"
 else
     echo "No pending work. Options:"
     echo "1. Check recent handoffs:"
-    echo "   journal-query.sh handoff-chain"
+    echo "   journal-query handoff-chain"
     echo ""
-    echo "2. Run qa-handoff.sh if testing is complete"
+    echo "2. Run qa-handoff if testing is complete"
 fi
 
 echo ""
@@ -157,10 +157,10 @@ echo "• NO mocking in integration tests"
 echo ""
 
 echo -e "${BLUE}Testing Commands:${NC}"
-echo "• View work: journal-query.sh pending-work QA"
-echo "• Track item: work-tracker.sh '<test-pattern>'"
-echo "• Check all: journal-query.sh work-summary QA"
-echo "• Get context: get-context-window.sh QA"
+echo "• View work: journal-query pending-work QA"
+echo "• Track item: work-tracker '<test-pattern>'"
+echo "• Check all: journal-query work-summary QA"
+echo "• Get context: get-context-window QA"
 echo ""
 
 # Display protocol if needed

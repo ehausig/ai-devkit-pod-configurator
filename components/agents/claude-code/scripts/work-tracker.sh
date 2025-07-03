@@ -1,13 +1,13 @@
 #!/bin/bash
 # Track work item lifecycle through the journal
-# Usage: work-tracker.sh <work-pattern> [persona]
+# Usage: work-tracker <work-pattern> [persona]
 
 work_pattern="$1"
 persona="${2:-ALL}"
 
 if [ -z "$work_pattern" ]; then
-    echo "Usage: work-tracker.sh <work-pattern> [persona]"
-    echo "Example: work-tracker.sh 'greeter module' DEVELOPER"
+    echo "Usage: work-tracker <work-pattern> [persona]"
+    echo "Example: work-tracker 'greeter module' DEVELOPER"
     exit 1
 fi
 
@@ -35,63 +35,67 @@ $0 ~ pattern {
     # Parse event type and persona
     if ($0 ~ /WORK:PENDING/) {
         if (target_persona == "ALL" || $0 ~ target_persona) {
-            # Extract work description
-            match($0, /WORK:PENDING\] (.+)/, arr)
-            work_desc = arr[1]
-            
-            # Extract persona from description
-            if (match(work_desc, /^([A-Z]+): (.+)/, parts)) {
-                persona = parts[1]
-                task = parts[2]
-            } else {
-                persona = "UNKNOWN"
-                task = work_desc
+            # Extract work description using index/substr instead of match with array
+            if (match($0, /WORK:PENDING\] /)) {
+                work_desc = substr($0, RSTART + RLENGTH)
+                
+                # Extract persona from description
+                if (match(work_desc, /^[A-Z]+: /)) {
+                    persona = substr(work_desc, 1, RSTART + RLENGTH - 3)
+                    task = substr(work_desc, RSTART + RLENGTH)
+                } else {
+                    persona = "UNKNOWN"
+                    task = work_desc
+                }
+                
+                # Generate work ID
+                work_id = substr(work_desc, 1, 50)
+                
+                # Store pending state
+                pending[work_id] = timestamp
+                pending_persona[work_id] = persona
+                
+                print YELLOW "⋄ PENDING" RESET " [" timestamp "] " persona ": " task
             }
-            
-            # Generate work ID
-            work_id = substr(work_desc, 1, 50)
-            
-            # Store pending state
-            pending[work_id] = timestamp
-            pending_persona[work_id] = persona
-            
-            print YELLOW "⋄ PENDING" RESET " [" timestamp "] " persona ": " task
         }
     }
     else if ($0 ~ /WORK:STARTED/) {
-        match($0, /WORK:STARTED\] (.+)/, arr)
-        work_desc = arr[1]
-        work_id = substr(work_desc, 1, 50)
-        
-        if (work_id in pending) {
-            started[work_id] = timestamp
-            print BLUE "→ STARTED" RESET " [" timestamp "] " work_desc
+        if (match($0, /WORK:STARTED\] /)) {
+            work_desc = substr($0, RSTART + RLENGTH)
+            work_id = substr(work_desc, 1, 50)
+            
+            if (work_id in pending) {
+                started[work_id] = timestamp
+                print BLUE "→ STARTED" RESET " [" timestamp "] " work_desc
+            }
         }
     }
     else if ($0 ~ /WORK:COMPLETED/) {
-        match($0, /WORK:COMPLETED\] (.+)/, arr)
-        work_desc = arr[1]
-        work_id = substr(work_desc, 1, 50)
-        
-        if (work_id in pending) {
-            completed[work_id] = timestamp
-            print GREEN "✓ COMPLETED" RESET " [" timestamp "] " work_desc
+        if (match($0, /WORK:COMPLETED\] /)) {
+            work_desc = substr($0, RSTART + RLENGTH)
+            work_id = substr(work_desc, 1, 50)
             
-            # Calculate duration if started time exists
-            if (work_id in started) {
-                # Simple time display (would need proper date parsing for duration)
-                print "  Duration: " started[work_id] " → " timestamp
+            if (work_id in pending) {
+                completed[work_id] = timestamp
+                print GREEN "✓ COMPLETED" RESET " [" timestamp "] " work_desc
+                
+                # Calculate duration if started time exists
+                if (work_id in started) {
+                    # Simple time display (would need proper date parsing for duration)
+                    print "  Duration: " started[work_id] " → " timestamp
+                }
             }
         }
     }
     else if ($0 ~ /WORK:BLOCKED/) {
-        match($0, /WORK:BLOCKED\] (.+)/, arr)
-        work_desc = arr[1]
-        work_id = substr(work_desc, 1, 50)
-        
-        if (work_id in pending) {
-            blocked[work_id] = timestamp
-            print RED "✗ BLOCKED" RESET " [" timestamp "] " work_desc
+        if (match($0, /WORK:BLOCKED\] /)) {
+            work_desc = substr($0, RSTART + RLENGTH)
+            work_id = substr(work_desc, 1, 50)
+            
+            if (work_id in pending) {
+                blocked[work_id] = timestamp
+                print RED "✗ BLOCKED" RESET " [" timestamp "] " work_desc
+            }
         }
     }
 }

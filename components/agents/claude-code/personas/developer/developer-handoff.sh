@@ -16,7 +16,7 @@ journal-log "HANDOFF:REQUEST" "DEVELOPER requesting handoff to QA"
 
 # Check for pending work
 echo -e "${YELLOW}Checking for pending work...${NC}"
-PENDING_CHECK=$(journal-query.sh handoff-ready DEVELOPER)
+PENDING_CHECK=$(journal-query handoff-ready DEVELOPER)
 HANDOFF_READY=$?
 
 if [ $HANDOFF_READY -ne 0 ]; then
@@ -122,7 +122,7 @@ echo ""
 echo -e "${YELLOW}Creating work items for QA...${NC}"
 
 # Get implementation summary
-COMPLETED_WORK=$(journal-query.sh recent-context DEVELOPER | grep "WORK:COMPLETED" | tail -10)
+COMPLETED_WORK=$(journal-query recent-context DEVELOPER | grep "WORK:COMPLETED" | tail -10)
 WORK_COUNT=$(echo "$COMPLETED_WORK" | wc -l)
 
 # Create QA work items based on what was implemented
@@ -137,7 +137,7 @@ journal-log "WORK:PENDING" "QA: Document any bugs or issues found"
 journal-log "WORK:PENDING" "QA: Create test report with pass/fail decision"
 
 # Count QA work items
-QA_WORK_ITEMS=$(journal-query.sh pending-work QA | wc -l)
+QA_WORK_ITEMS=$(journal-query pending-work QA | wc -l)
 
 # Get summary statistics
 COMMITS=$(git rev-list --count HEAD ^main 2>/dev/null || echo "0")
@@ -182,7 +182,7 @@ cat > HANDOFF_TO_QA.md << EOF
 Implementation is complete with all tests passing. Ready for comprehensive QA testing.
 
 ## Work Items for QA
-$(journal-query.sh pending-work QA | sed 's/.*WORK:PENDING\] QA: /- /')
+$(journal-query pending-work QA | sed 's/.*WORK:PENDING\] QA: /- /')
 
 ## Implementation Details
 - Branch: $CURRENT_BRANCH
@@ -207,11 +207,11 @@ $(echo "$COMPLETED_WORK" | sed 's/.*WORK:COMPLETED\] DEVELOPER: /- /')
 5. Validate security measures
 
 ## Known Issues
-$(journal-query.sh errors DEVELOPER 5 | sed 's/.*\[\(.*\)\] /- [\1] /' || echo "None reported")
+$(journal-query errors DEVELOPER 5 | sed 's/.*\[\(.*\)\] /- [\1] /' || echo "None reported")
 
 ## QA Focus Areas
 Based on the implementation, pay special attention to:
-$(journal-query.sh decisions ARCHITECT 3 | grep -E "(critical|important|security)" | sed 's/.*DECISION\] /- /' || echo "- Standard testing procedures apply")
+$(journal-query decisions ARCHITECT 3 | grep -E "(critical|important|security)" | sed 's/.*DECISION\] /- /' || echo "- Standard testing procedures apply")
 EOF
 
 echo -e "${GREEN}Created HANDOFF_TO_QA.md${NC}"
@@ -224,8 +224,8 @@ echo ""
 echo -e "${BLUE}=== Handoff Complete ===${NC}"
 echo ""
 echo -e "${YELLOW}QA should now:${NC}"
-echo "1. Run: /home/devuser/.claude/personas/qa/qa-init.sh"
-echo "2. Review pending work: journal-query.sh pending-work QA"
+echo "1. Run: /home/devuser/.claude/personas/qa/qa-init"
+echo "2. Review pending work: journal-query pending-work QA"
 echo "3. Start testing with real services"
 echo ""
 
@@ -241,4 +241,4 @@ echo "2. Running all test suites"
 echo "3. Testing against real services"
 echo ""
 
-/home/devuser/.claude/personas/qa/qa-init.sh
+/home/devuser/.claude/personas/qa/qa-init

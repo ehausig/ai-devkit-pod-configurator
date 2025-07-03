@@ -15,7 +15,7 @@ echo ""
 journal-log "REVIEWER:INIT" "Starting REVIEWER persona"
 
 # Safety check
-SAFETY_STATUS=$(journal-query.sh safety-check REVIEWER)
+SAFETY_STATUS=$(journal-query safety-check REVIEWER)
 echo "Safety Status: $SAFETY_STATUS"
 
 if echo "$SAFETY_STATUS" | grep -q "WARNING: High iteration count"; then
@@ -27,7 +27,7 @@ echo ""
 
 # Check for pending work
 echo -e "${YELLOW}Checking for pending work...${NC}"
-PENDING_WORK=$(journal-query.sh pending-work REVIEWER)
+PENDING_WORK=$(journal-query pending-work REVIEWER)
 PENDING_COUNT=$(echo "$PENDING_WORK" | grep -c "WORK:PENDING" || echo "0")
 
 if [ $PENDING_COUNT -gt 0 ]; then
@@ -81,7 +81,7 @@ echo ""
 
 # Load architectural context
 echo -e "${YELLOW}Loading architectural decisions...${NC}"
-ARCH_DECISIONS=$(journal-query.sh decisions ARCHITECT 5)
+ARCH_DECISIONS=$(journal-query decisions ARCHITECT 5)
 if [ -n "$ARCH_DECISIONS" ]; then
     echo -e "${GREEN}Key architectural decisions to check against:${NC}"
     echo "$ARCH_DECISIONS" | sed 's/.*\[.*:DECISION\] /- /'
@@ -140,14 +140,14 @@ if [ $PENDING_COUNT -gt 0 ]; then
     fi
     echo ""
     echo "5. Continue with remaining items"
-    echo "6. Run reviewer-handoff.sh when all complete"
+    echo "6. Run reviewer-handoff when all complete"
 else
     echo "No pending review items. Options:"
     echo "1. Check for recent handoffs:"
-    echo "   journal-query.sh handoff-chain"
+    echo "   journal-query handoff-chain"
     echo ""
     echo "2. If review is complete, run:"
-    echo "   reviewer-handoff.sh"
+    echo "   reviewer-handoff"
 fi
 
 echo ""
@@ -161,11 +161,11 @@ echo "□ Documentation is complete"
 echo ""
 
 echo -e "${BLUE}Review Commands:${NC}"
-echo "• View work: journal-query.sh pending-work REVIEWER"
+echo "• View work: journal-query pending-work REVIEWER"
 echo "• Log issue: journal-log 'REVIEWER:ISSUE' 'description'"
 echo "• Log feedback: journal-log 'REVIEWER:FEEDBACK' 'suggestion'"
 echo "• Approve: journal-log 'REVIEWER:APPROVED' 'component'"
-echo "• Check progress: journal-query.sh work-summary REVIEWER"
+echo "• Check progress: journal-query work-summary REVIEWER"
 echo ""
 
 # Display protocol if needed

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Core journal query script - provides ephemeral views of journal data
-# Usage: journal-query.sh <query-type> [persona] [limit] [options]
+# Usage: journal-query <query-type> [persona] [limit] [options]
 
 # Get parameters
 query_type=$1
@@ -25,7 +25,7 @@ case "$query_type" in
                 work_hash=$(echo "$work_desc" | md5sum | cut -c1-8)
                 
                 # Check if this exact work was completed
-                if ! grep -q "WORK:COMPLETED.*${work_hash}" "$JOURNAL_FILE" 2>/dev/null; then
+                if ! grep -q "WORK:COMPLETED.*$work_desc" "$JOURNAL_FILE" 2>/dev/null; then
                     echo "$line"
                 fi
             done | tail -$limit
@@ -38,13 +38,13 @@ case "$query_type" in
         
     "handoff-ready")
         # Check if ready for handoff
-        pending=$(journal-query.sh pending-work "$persona" | wc -l)
+        pending=$(journal-query pending-work "$persona" | wc -l)
         if [ $pending -eq 0 ]; then
             echo "Ready for handoff - no pending work"
             exit 0
         else
             echo "Not ready - $pending items pending:"
-            journal-query.sh pending-work "$persona" | sed 's/.*WORK:PENDING\] /  - /'
+            journal-query pending-work "$persona" | sed 's/.*WORK:PENDING\] /  - /'
             exit 1
         fi
         ;;
@@ -86,7 +86,7 @@ case "$query_type" in
         # Show work progression for an item
         work_pattern="$4"
         if [ -z "$work_pattern" ]; then
-            echo "Usage: journal-query.sh work-history <persona> <limit> <work-pattern>"
+            echo "Usage: journal-query work-history <persona> <limit> <work-pattern>"
             exit 1
         fi
         grep -E "(PENDING|STARTED|COMPLETED|BLOCKED).*$work_pattern" "$JOURNAL_FILE" 2>/dev/null
@@ -113,7 +113,7 @@ case "$query_type" in
         ;;
         
     *)
-        echo "Usage: journal-query.sh <query-type> [persona] [limit] [options]"
+        echo "Usage: journal-query <query-type> [persona] [limit] [options]"
         echo ""
         echo "Query types:"
         echo "  pending-work     - Show pending work items"

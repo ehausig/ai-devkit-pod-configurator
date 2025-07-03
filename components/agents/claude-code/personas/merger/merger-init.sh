@@ -15,7 +15,7 @@ echo ""
 journal-log "MERGER:INIT" "Starting MERGER persona"
 
 # Safety check
-SAFETY_STATUS=$(journal-query.sh safety-check MERGER)
+SAFETY_STATUS=$(journal-query safety-check MERGER)
 echo "Safety Status: $SAFETY_STATUS"
 
 if echo "$SAFETY_STATUS" | grep -q "WARNING: High iteration count"; then
@@ -27,7 +27,7 @@ echo ""
 
 # Check for pending work
 echo -e "${YELLOW}Checking for pending work...${NC}"
-PENDING_WORK=$(journal-query.sh pending-work MERGER)
+PENDING_WORK=$(journal-query pending-work MERGER)
 PENDING_COUNT=$(echo "$PENDING_WORK" | grep -c "WORK:PENDING" || echo "0")
 
 if [ $PENDING_COUNT -gt 0 ]; then
@@ -163,17 +163,17 @@ if [ $PENDING_COUNT -gt 0 ]; then
     fi
     echo ""
     echo "4. Continue with remaining tasks"
-    echo "5. Run merger-handoff.sh when all complete"
+    echo "5. Run merger-handoff when all complete"
 else
     echo "No pending merge tasks. Options:"
     echo "1. Check for approved PRs:"
     echo "   gh pr list --search 'review:approved'"
     echo ""
     echo "2. Check recent handoffs:"
-    echo "   journal-query.sh handoff-chain"
+    echo "   journal-query handoff-chain"
     echo ""
     echo "3. If merge cycle is complete:"
-    echo "   merger-handoff.sh"
+    echo "   merger-handoff"
 fi
 
 echo ""
@@ -187,11 +187,11 @@ echo "□ Documentation updated"
 echo ""
 
 echo -e "${BLUE}Merge Commands:${NC}"
-echo "• View tasks: journal-query.sh pending-work MERGER"
+echo "• View tasks: journal-query pending-work MERGER"
 echo "• Check PR: gh pr checks $PR_NUMBER"
 echo "• Merge PR: gh pr merge $PR_NUMBER --merge --no-squash"
 echo "• Tag release: git tag -a v1.0.0 -m 'Release version 1.0.0'"
-echo "• Check progress: journal-query.sh work-summary MERGER"
+echo "• Check progress: journal-query work-summary MERGER"
 echo ""
 
 echo -e "${YELLOW}Remember:${NC}"

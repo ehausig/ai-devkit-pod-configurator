@@ -1,8 +1,8 @@
 #!/bin/bash
 # Get context window for a persona - shows relevant events since last handoff
-# Usage: get-context-window.sh <persona> [window-size]
+# Usage: get-context-window <persona> [window-size]
 
-persona=${1:-$(journal-query.sh current-persona)}
+persona=${1:-$(journal-query current-persona)}
 window_size=${2:-50}
 
 JOURNAL_FILE="$HOME/workspace/JOURNAL.md"
@@ -56,4 +56,4 @@ fi
 
 echo ""
 echo "=== Summary ==="
-journal-query.sh work-summary "$persona"
+journal-query work-summary "$persona"

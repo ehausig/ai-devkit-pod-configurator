@@ -16,7 +16,7 @@ journal-log "HANDOFF:REQUEST" "ARCHITECT requesting handoff to DEVELOPER"
 
 # Check for pending work first
 echo -e "${YELLOW}Checking for pending work...${NC}"
-PENDING_CHECK=$(journal-query.sh handoff-ready ARCHITECT)
+PENDING_CHECK=$(journal-query handoff-ready ARCHITECT)
 HANDOFF_READY=$?
 
 if [ $HANDOFF_READY -ne 0 ]; then
@@ -42,7 +42,7 @@ for doc in ARCHITECTURE.md API_DESIGN.md DATA_MODELS.md TESTING_STRATEGY.md; do
 done
 
 # Check for architectural decisions in journal
-DECISIONS=$(journal-query.sh decisions ARCHITECT | wc -l)
+DECISIONS=$(journal-query decisions ARCHITECT | wc -l)
 if [ "$DECISIONS" -gt 0 ]; then
     echo -e "${GREEN}✓${NC} $DECISIONS architectural decisions logged"
 else
@@ -95,7 +95,7 @@ journal-log "WORK:PENDING" "DEVELOPER: Add comprehensive error handling"
 journal-log "WORK:PENDING" "DEVELOPER: Create pull request when all tests pass"
 
 # Count work items created
-WORK_ITEMS=$(journal-query.sh pending-work DEVELOPER | wc -l)
+WORK_ITEMS=$(journal-query pending-work DEVELOPER | wc -l)
 
 # Summarize handoff
 echo -e "${GREEN}Created $WORK_ITEMS work items for DEVELOPER${NC}"
@@ -105,8 +105,8 @@ echo ""
 echo -e "${YELLOW}Preparing handoff summary...${NC}"
 
 # Get key decisions and memories
-KEY_DECISIONS=$(journal-query.sh decisions ARCHITECT 5)
-KEY_MEMORIES=$(journal-query.sh memory ARCHITECT 5)
+KEY_DECISIONS=$(journal-query decisions ARCHITECT 5)
+KEY_MEMORIES=$(journal-query memory ARCHITECT 5)
 
 # Create handoff summary file
 cat > HANDOFF_TO_DEVELOPER.md << EOF
@@ -118,7 +118,7 @@ cat > HANDOFF_TO_DEVELOPER.md << EOF
 The architecture phase is complete. All design documents have been created and technical decisions have been made.
 
 ## Work Items Created
-$(journal-query.sh pending-work DEVELOPER | sed 's/.*WORK:PENDING\] DEVELOPER: /- /')
+$(journal-query pending-work DEVELOPER | sed 's/.*WORK:PENDING\] DEVELOPER: /- /')
 
 ## Key Architectural Decisions
 $(echo "$KEY_DECISIONS" | sed 's/.*\[.*:DECISION\] /- /')
@@ -156,8 +156,8 @@ echo ""
 echo -e "${BLUE}=== Handoff Complete ===${NC}"
 echo ""
 echo -e "${YELLOW}DEVELOPER should now:${NC}"
-echo "1. Run: /home/devuser/.claude/personas/developer/developer-init.sh"
-echo "2. Review pending work items with: journal-query.sh pending-work DEVELOPER"
+echo "1. Run: /home/devuser/.claude/personas/developer/developer-init"
+echo "2. Review pending work items with: journal-query pending-work DEVELOPER"
 echo "3. Start implementing with TDD approach"
 echo ""
 
@@ -173,4 +173,4 @@ echo "2. Creating the feature branch"
 echo "3. Starting implementation with TDD"
 echo ""
 
-/home/devuser/.claude/personas/developer/developer-init.sh
+/home/devuser/.claude/personas/developer/developer-init

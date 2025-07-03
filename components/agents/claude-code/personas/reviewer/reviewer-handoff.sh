@@ -15,9 +15,9 @@ echo ""
 echo -e "${YELLOW}Analyzing review findings...${NC}"
 
 # Count review outcomes
-ISSUES=$(journal-query.sh recent-context REVIEWER | grep -c "REVIEWER:ISSUE" || echo "0")
-FEEDBACK=$(journal-query.sh recent-context REVIEWER | grep -c "REVIEWER:FEEDBACK" || echo "0")
-APPROVED=$(journal-query.sh recent-context REVIEWER | grep -c "REVIEWER:APPROVED" || echo "0")
+ISSUES=$(journal-query recent-context REVIEWER | grep -c "REVIEWER:ISSUE" || echo "0")
+FEEDBACK=$(journal-query recent-context REVIEWER | grep -c "REVIEWER:FEEDBACK" || echo "0")
+APPROVED=$(journal-query recent-context REVIEWER | grep -c "REVIEWER:APPROVED" || echo "0")
 
 echo "Review Summary:"
 echo "- Critical issues found: $ISSUES"
@@ -41,7 +41,7 @@ fi
 # Check for pending work
 echo ""
 echo -e "${YELLOW}Checking for pending work...${NC}"
-PENDING_CHECK=$(journal-query.sh handoff-ready REVIEWER)
+PENDING_CHECK=$(journal-query handoff-ready REVIEWER)
 HANDOFF_READY=$?
 
 if [ $HANDOFF_READY -ne 0 ]; then
@@ -58,7 +58,7 @@ echo -e "${YELLOW}Validating review coverage...${NC}"
 READY=true
 
 # Check if key areas were reviewed
-REVIEW_CONTEXT=$(journal-query.sh recent-context REVIEWER)
+REVIEW_CONTEXT=$(journal-query recent-context REVIEWER)
 
 if echo "$REVIEW_CONTEXT" | grep -q -E "(quality|style|standard)"; then
     echo -e "${GREEN}✓${NC} Code quality reviewed"
@@ -89,9 +89,9 @@ echo ""
 echo -e "${YELLOW}Creating review report...${NC}"
 
 # Get review details
-ISSUES_LIST=$(journal-query.sh recent-context REVIEWER | grep "REVIEWER:ISSUE" | sed 's/.*\[REVIEWER:ISSUE\] //')
-FEEDBACK_LIST=$(journal-query.sh recent-context REVIEWER | grep "REVIEWER:FEEDBACK" | sed 's/.*\[REVIEWER:FEEDBACK\] //')
-APPROVED_LIST=$(journal-query.sh recent-context REVIEWER | grep "REVIEWER:APPROVED" | sed 's/.*\[REVIEWER:APPROVED\] //')
+ISSUES_LIST=$(journal-query recent-context REVIEWER | grep "REVIEWER:ISSUE" | sed 's/.*\[REVIEWER:ISSUE\] //')
+FEEDBACK_LIST=$(journal-query recent-context REVIEWER | grep "REVIEWER:FEEDBACK" | sed 's/.*\[REVIEWER:FEEDBACK\] //')
+APPROVED_LIST=$(journal-query recent-context REVIEWER | grep "REVIEWER:APPROVED" | sed 's/.*\[REVIEWER:APPROVED\] //')
 
 cat > REVIEW_REPORT.md << EOF
 # Code Review Report
@@ -178,7 +178,7 @@ else
     journal-log "WORK:PENDING" "DEVELOPER: Update PR with review fixes"
     journal-log "WORK:PENDING" "DEVELOPER: Request re-review when complete"
     
-    WORK_COUNT=$(journal-query.sh pending-work DEVELOPER | wc -l)
+    WORK_COUNT=$(journal-query pending-work DEVELOPER | wc -l)
     cp REVIEW_REPORT.md HANDOFF_TO_DEVELOPER.md
 fi
 
@@ -221,8 +221,8 @@ echo ""
 echo -e "${BLUE}=== Handoff Complete ===${NC}"
 echo ""
 echo -e "${YELLOW}$NEXT_PERSONA should now:${NC}"
-echo "1. Run: /home/devuser/.claude/personas/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')-init.sh"
-echo "2. Review pending work: journal-query.sh pending-work $NEXT_PERSONA"
+echo "1. Run: /home/devuser/.claude/personas/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')-init"
+echo "2. Review pending work: journal-query pending-work $NEXT_PERSONA"
 echo "3. Start with the first work item"
 echo ""
 
@@ -244,4 +244,4 @@ else
 fi
 echo ""
 
-/home/devuser/.claude/personas/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')-init.sh
+/home/devuser/.claude/personas/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')-init

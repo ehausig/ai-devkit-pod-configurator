@@ -16,7 +16,7 @@ journal-log "HANDOFF:REQUEST" "MERGER requesting cycle completion"
 
 # Check for pending work
 echo -e "${YELLOW}Checking for pending work...${NC}"
-PENDING_CHECK=$(journal-query.sh handoff-ready MERGER)
+PENDING_CHECK=$(journal-query handoff-ready MERGER)
 HANDOFF_READY=$?
 
 if [ $HANDOFF_READY -ne 0 ]; then
@@ -30,9 +30,9 @@ echo -e "${GREEN}✓${NC} All merge tasks completed"
 # Count merge activities
 echo ""
 echo -e "${YELLOW}Merge Summary:${NC}"
-MERGED=$(journal-query.sh recent-context MERGER | grep -c "MERGER:MERGED" || echo "0")
-RELEASES=$(journal-query.sh recent-context MERGER | grep -c "MERGER:RELEASE" || echo "0")
-ISSUES=$(journal-query.sh recent-context MERGER | grep -c "MERGER:ISSUE" || echo "0")
+MERGED=$(journal-query recent-context MERGER | grep -c "MERGER:MERGED" || echo "0")
+RELEASES=$(journal-query recent-context MERGER | grep -c "MERGER:RELEASE" || echo "0")
+ISSUES=$(journal-query recent-context MERGER | grep -c "MERGER:ISSUE" || echo "0")
 
 echo "- Branches merged: $MERGED"
 echo "- Releases created: $RELEASES"
@@ -57,8 +57,8 @@ echo ""
 echo -e "${YELLOW}Creating merge report...${NC}"
 
 # Get merge details
-MERGE_DETAILS=$(journal-query.sh recent-context MERGER | grep "MERGER:MERGED")
-COMPLETED_WORK=$(journal-query.sh recent-context MERGER | grep "WORK:COMPLETED")
+MERGE_DETAILS=$(journal-query recent-context MERGER | grep "MERGER:MERGED")
+COMPLETED_WORK=$(journal-query recent-context MERGER | grep "WORK:COMPLETED")
 
 cat > MERGE_REPORT.md << EOF
 # Merge Completion Report
@@ -78,7 +78,7 @@ $(echo "$COMPLETED_WORK" | sed 's/.*WORK:COMPLETED\] MERGER: /- /' | tail -10)
 $(echo "$MERGE_DETAILS" | sed 's/.*\[MERGER:MERGED\] /- /' || echo "No merges logged")
 
 ## Releases Created
-$(journal-query.sh recent-context MERGER | grep "MERGER:RELEASE" | sed 's/.*\[MERGER:RELEASE\] /- /' || echo "No releases created")
+$(journal-query recent-context MERGER | grep "MERGER:RELEASE" | sed 's/.*\[MERGER:RELEASE\] /- /' || echo "No releases created")
 
 ## Repository Status
 - Main branch: Up to date ✓
@@ -149,21 +149,21 @@ echo ""
 
 # Show journey through personas
 echo "Journey completed:"
-PERSONA_FLOW=$(journal-query.sh recent-context | grep "PERSONA:INIT" | tail -10 | sed 's/.*\[\(.*\):INIT\].*/  → \1/')
+PERSONA_FLOW=$(journal-query recent-context | grep "PERSONA:INIT" | tail -10 | sed 's/.*\[\(.*\):INIT\].*/  → \1/')
 echo "$PERSONA_FLOW"
 echo ""
 
 # Show work completed
 echo "Total work items completed:"
 for persona in ARCHITECT DEVELOPER QA REVIEWER MERGER; do
-    count=$(journal-query.sh recent-context $persona | grep -c "WORK:COMPLETED" || echo "0")
+    count=$(journal-query recent-context $persona | grep -c "WORK:COMPLETED" || echo "0")
     [ $count -gt 0 ] && echo "  $persona: $count items"
 done
 echo ""
 
 if [ -n "$NEXT_PERSONA" ]; then
     echo -e "${YELLOW}To continue development:${NC}"
-    echo "1. Run: /home/devuser/.claude/personas/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')-init.sh"
+    echo "1. Run: /home/devuser/.claude/personas/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')-init"
     echo "2. $NEXT_ACTION"
 else
     echo -e "${GREEN}=== Development Cycle Complete ===${NC}"
@@ -171,8 +171,8 @@ else
     echo "Congratulations! The full development cycle has completed successfully."
     echo ""
     echo "To start a new cycle:"
-    echo "• For new feature: /home/devuser/.claude/personas/architect/architect-init.sh"
-    echo "• For bug fix: /home/devuser/.claude/personas/developer/developer-init.sh"
+    echo "• For new feature: /home/devuser/.claude/personas/architect/architect-init"
+    echo "• For bug fix: /home/devuser/.claude/personas/developer/developer-init"
     echo ""
     echo "Use /journal-summary to see the overall system state."
 fi

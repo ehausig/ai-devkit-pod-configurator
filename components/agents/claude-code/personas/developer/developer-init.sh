@@ -15,7 +15,7 @@ echo ""
 journal-log "DEVELOPER:INIT" "Starting DEVELOPER persona"
 
 # Safety check
-SAFETY_STATUS=$(journal-query.sh safety-check DEVELOPER)
+SAFETY_STATUS=$(journal-query safety-check DEVELOPER)
 echo "Safety Status: $SAFETY_STATUS"
 
 # Check if safety limits exceeded
@@ -33,7 +33,7 @@ echo ""
 
 # Check for pending work
 echo -e "${YELLOW}Checking for pending work...${NC}"
-PENDING_WORK=$(journal-query.sh pending-work DEVELOPER)
+PENDING_WORK=$(journal-query pending-work DEVELOPER)
 PENDING_COUNT=$(echo "$PENDING_WORK" | grep -c "WORK:PENDING" || echo "0")
 
 if [ $PENDING_COUNT -gt 0 ]; then
@@ -57,7 +57,7 @@ fi
 
 # Get architectural context
 echo -e "${YELLOW}Loading architectural context...${NC}"
-ARCH_DECISIONS=$(journal-query.sh decisions ARCHITECT 5)
+ARCH_DECISIONS=$(journal-query decisions ARCHITECT 5)
 if [ -n "$ARCH_DECISIONS" ]; then
     echo -e "${GREEN}Key architectural decisions:${NC}"
     echo "$ARCH_DECISIONS" | sed 's/.*\[.*:DECISION\] /- /'
@@ -65,7 +65,7 @@ if [ -n "$ARCH_DECISIONS" ]; then
 fi
 
 # Check for unresolved issues
-ERRORS=$(journal-query.sh errors DEVELOPER 5)
+ERRORS=$(journal-query errors DEVELOPER 5)
 if [ -n "$ERRORS" ]; then
     echo -e "${RED}Recent issues:${NC}"
     echo "$ERRORS" | sed 's/.*\[\(.*\)\] /[\1] /'
@@ -140,20 +140,20 @@ if [ $PENDING_COUNT -gt 0 ]; then
     echo "   journal-log 'WORK:COMPLETED' 'DEVELOPER: $FIRST_WORK'"
     echo ""
     echo "4. Check next work item:"
-    echo "   journal-query.sh pending-work DEVELOPER"
+    echo "   journal-query pending-work DEVELOPER"
     echo ""
     echo "5. When all work is done:"
-    echo "   developer-handoff.sh"
+    echo "   developer-handoff"
 else
     echo "No pending work found. Options:"
     echo "1. Check for recent handoffs:"
-    echo "   journal-query.sh handoff-chain"
+    echo "   journal-query handoff-chain"
     echo ""
     echo "2. Check work summary:"
-    echo "   journal-query.sh work-summary DEVELOPER"
+    echo "   journal-query work-summary DEVELOPER"
     echo ""
     echo "3. If implementation is complete, run:"
-    echo "   developer-handoff.sh"
+    echo "   developer-handoff"
 fi
 
 echo ""
@@ -168,10 +168,10 @@ echo ""
 
 # Create work tracking alias for convenience
 echo -e "${BLUE}Helpful commands:${NC}"
-echo "• View pending work: journal-query.sh pending-work DEVELOPER"
-echo "• Track work item: work-tracker.sh '<work-pattern>'"
-echo "• Check progress: journal-query.sh work-summary DEVELOPER"
-echo "• View context: get-context-window.sh DEVELOPER"
+echo "• View pending work: journal-query pending-work DEVELOPER"
+echo "• Track work item: work-tracker '<work-pattern>'"
+echo "• Check progress: journal-query work-summary DEVELOPER"
+echo "• View context: get-context-window DEVELOPER"
 echo ""
 
 # Display the protocol if first time or explicitly requested
