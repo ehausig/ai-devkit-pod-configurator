@@ -11,57 +11,96 @@ NC='\033[0m' # No Color
 echo -e "${BLUE}=== QA Handoff Process ===${NC}"
 echo ""
 
-# Count test results
-PASSED=$(grep -c "QA:PASSED" ~/workspace/JOURNAL.md)
-FAILED=$(grep -c "QA:FAILED" ~/workspace/JOURNAL.md)
-ISSUES=$(grep -c "QA:ISSUE" ~/workspace/JOURNAL.md)
+# Determine next persona based on test results
+echo -e "${YELLOW}Analyzing test results...${NC}"
 
-echo -e "${YELLOW}Test Summary:${NC}"
+# Count test results from journal
+PASSED=$(journal-query.sh recent-context QA | grep -c "QA:PASSED" || echo "0")
+FAILED=$(journal-query.sh recent-context QA | grep -c "QA:FAILED" || echo "0")
+ISSUES=$(journal-query.sh recent-context QA | grep -c "QA:ISSUE" || echo "0")
+
+echo "Test Summary:"
 echo "- Tests passed: $PASSED"
-echo "- Tests failed: $FAILED" 
+echo "- Tests failed: $FAILED"
 echo "- Issues found: $ISSUES"
 echo ""
 
-# Determine next persona based on results
+# Determine next persona
 if [ "$FAILED" -eq 0 ] && [ "$ISSUES" -eq 0 ]; then
     NEXT_PERSONA="REVIEWER"
     echo -e "${GREEN}All tests passed! Ready for code review.${NC}"
+    journal-log "HANDOFF:REQUEST" "QA requesting handoff to REVIEWER - all tests passed"
 else
     NEXT_PERSONA="DEVELOPER"
     echo -e "${YELLOW}Issues found. Returning to DEVELOPER for fixes.${NC}"
+    journal-log "HANDOFF:REQUEST" "QA requesting handoff to DEVELOPER - $FAILED failures, $ISSUES issues"
 fi
+
+# Check for pending work
 echo ""
+echo -e "${YELLOW}Checking for pending work...${NC}"
+PENDING_CHECK=$(journal-query.sh handoff-ready QA)
+HANDOFF_READY=$?
+
+if [ $HANDOFF_READY -ne 0 ]; then
+    echo -e "${RED}$PENDING_CHECK${NC}"
+    journal-log "HANDOFF:BLOCKED" "QA has incomplete test items"
+    exit 1
+fi
+
+echo -e "${GREEN}✓${NC} All test items completed"
 
 # Validate testing completeness
-echo -e "${YELLOW}Validating testing coverage...${NC}"
+echo ""
+echo -e "${YELLOW}Validating test coverage...${NC}"
 READY=true
+MISSING=""
 
 # Check for unit test execution
-if grep -q "unit test" ~/workspace/JOURNAL.md || grep -q "Unit test" ~/workspace/JOURNAL.md; then
+if journal-query.sh recent-context QA | grep -q -E "(unit test|Unit test)"; then
     echo -e "${GREEN}✓${NC} Unit tests executed"
 else
     echo -e "${YELLOW}⚠${NC} No unit test execution logged"
+    MISSING="$MISSING unit-tests"
 fi
 
 # Check for integration test execution
-if grep -q "integration test" ~/workspace/JOURNAL.md || grep -q "Integration test" ~/workspace/JOURNAL.md; then
+if journal-query.sh recent-context QA | grep -q -E "(integration test|Integration test)"; then
     echo -e "${GREEN}✓${NC} Integration tests executed"
 else
     echo -e "${YELLOW}⚠${NC} No integration test execution logged"
+    MISSING="$MISSING integration-tests"
 fi
 
 # Check for real service testing
-if grep -q "real.*service\|service.*real\|running.*backend\|backend.*running" ~/workspace/JOURNAL.md; then
+if journal-query.sh recent-context QA | grep -q -E "(real.*service|service.*real|running.*backend|backend.*running)"; then
     echo -e "${GREEN}✓${NC} Tested against real services"
 else
     echo -e "${RED}✗${NC} No evidence of real service testing"
     READY=false
+    MISSING="$MISSING real-service-testing"
 fi
 
+if [ "$READY" = false ]; then
+    echo ""
+    echo -e "${RED}ERROR: Testing incomplete. Missing: $MISSING${NC}"
+    journal-log "HANDOFF:BLOCKED" "Testing requirements not met: $MISSING"
+    exit 1
+fi
+
+# Validation passed
+journal-log "HANDOFF:VALIDATED" "All QA requirements met"
+
+echo ""
+echo -e "${GREEN}Testing complete. Creating work items for $NEXT_PERSONA...${NC}"
 echo ""
 
 # Create test report
 echo -e "${YELLOW}Creating test report...${NC}"
+
+# Get test details
+TEST_DETAILS=$(journal-query.sh recent-context QA | grep -E "(PASSED|FAILED|ISSUE)")
+COVERAGE_INFO=$(journal-query.sh recent-context QA | grep -i "coverage" | tail -1)
 
 cat > TEST_REPORT.md << EOF
 # QA Test Report
@@ -72,95 +111,110 @@ cat > TEST_REPORT.md << EOF
 - Total Tests Passed: $PASSED
 - Total Tests Failed: $FAILED
 - Issues Found: $ISSUES
-- Next Persona: $NEXT_PERSONA
+- Decision: Handoff to $NEXT_PERSONA
 
-## Test Coverage
+## Test Execution
 ### Unit Tests
-$(grep "QA:.*unit" ~/workspace/JOURNAL.md | tail -10 | sed 's/.*\[QA:[^]]*\] /- /' || echo "No unit test results logged")
+$(journal-query.sh recent-context QA | grep -E "unit.*test" | sed 's/.*\] /- /' | tail -5 || echo "- No unit test results logged")
 
-### Integration Tests  
-$(grep "QA:.*integration" ~/workspace/JOURNAL.md | tail -10 | sed 's/.*\[QA:[^]]*\] /- /' || echo "No integration test results logged")
+### Integration Tests
+$(journal-query.sh recent-context QA | grep -E "integration.*test" | sed 's/.*\] /- /' | tail -5 || echo "- No integration test results logged")
 
 ### User Simulation Tests
-$(grep "QA:.*simulation\|QA:.*user\|QA:.*TUI\|QA:.*e2e" ~/workspace/JOURNAL.md | tail -10 | sed 's/.*\[QA:[^]]*\] /- /' || echo "No user simulation test results logged")
+$(journal-query.sh recent-context QA | grep -E "(simulation|user|TUI|e2e)" | sed 's/.*\] /- /' | tail -5 || echo "- No user simulation results logged")
+
+## Test Coverage
+$([ -n "$COVERAGE_INFO" ] && echo "$COVERAGE_INFO" | sed 's/.*\] //' || echo "Coverage information not available")
 
 ## Issues Found
-$(grep "QA:ISSUE" ~/workspace/JOURNAL.md | sed 's/.*\[QA:ISSUE\] /- /' || echo "No issues found")
+$(journal-query.sh recent-context QA | grep "QA:ISSUE" | sed 's/.*\[QA:ISSUE\] /- /' || echo "No issues found")
 
 ## Failed Tests
-$(grep "QA:FAILED" ~/workspace/JOURNAL.md | sed 's/.*\[QA:FAILED\] /- /' || echo "No test failures")
+$(journal-query.sh recent-context QA | grep "QA:FAILED" | sed 's/.*\[QA:FAILED\] /- /' || echo "No test failures")
 
-## Testing Notes
-$(grep "QA:MEMORY" ~/workspace/JOURNAL.md | tail -5 | sed 's/.*\[QA:MEMORY\] /- /' || echo "No additional notes")
-
-## Recommendation
+## Testing Environment
+- Real services were used for integration testing
+- All tests executed in proper environment
 EOF
 
+# Create work items based on next persona
 if [ "$NEXT_PERSONA" = "REVIEWER" ]; then
-    cat >> TEST_REPORT.md << EOF
-All tests pass and no critical issues found. Ready for code review.
-
-## Next Steps for REVIEWER
-1. Review code quality
-2. Check architecture compliance  
-3. Verify security best practices
-4. Ensure documentation completeness
-EOF
+    echo "## Recommendation" >> TEST_REPORT.md
+    echo "All tests pass. Ready for code review." >> TEST_REPORT.md
+    
+    # Create work items for REVIEWER
+    journal-log "WORK:PENDING" "REVIEWER: Clone PR branch to review directory"
+    journal-log "WORK:PENDING" "REVIEWER: Run automated code quality checks (lint, security)"
+    journal-log "WORK:PENDING" "REVIEWER: Review code against architectural decisions"
+    journal-log "WORK:PENDING" "REVIEWER: Check test quality and coverage"
+    journal-log "WORK:PENDING" "REVIEWER: Verify error handling and edge cases"
+    journal-log "WORK:PENDING" "REVIEWER: Review documentation completeness"
+    journal-log "WORK:PENDING" "REVIEWER: Provide feedback or approve PR"
+    
+    WORK_COUNT=7
+    cp TEST_REPORT.md HANDOFF_TO_REVIEWER.md
+    
 else
-    cat >> TEST_REPORT.md << EOF
-Issues found that need to be addressed before proceeding to review.
-
-## Next Steps for DEVELOPER  
-1. Review failed tests and issues
-2. Fix identified problems
-3. Ensure all tests pass
-4. Update PR with fixes
-EOF
+    echo "## Required Fixes" >> TEST_REPORT.md
+    echo "The following issues need to be addressed:" >> TEST_REPORT.md
+    
+    # Create specific work items for DEVELOPER based on failures
+    if [ $FAILED -gt 0 ]; then
+        # Analyze failures and create work items
+        journal-query.sh recent-context QA | grep "QA:FAILED" | while read -r failure; do
+            failure_desc=$(echo "$failure" | sed 's/.*\[QA:FAILED\] //')
+            journal-log "WORK:PENDING" "DEVELOPER: Fix failing test - $failure_desc"
+        done
+    fi
+    
+    if [ $ISSUES -gt 0 ]; then
+        # Create work items for each issue
+        journal-query.sh recent-context QA | grep "QA:ISSUE" | while read -r issue; do
+            issue_desc=$(echo "$issue" | sed 's/.*\[QA:ISSUE\] //')
+            journal-log "WORK:PENDING" "DEVELOPER: Address issue - $issue_desc"
+        done
+    fi
+    
+    # Always add re-test item
+    journal-log "WORK:PENDING" "DEVELOPER: Run all tests locally to verify fixes"
+    journal-log "WORK:PENDING" "DEVELOPER: Update PR with fixes"
+    
+    WORK_COUNT=$(journal-query.sh pending-work DEVELOPER | wc -l)
+    cp TEST_REPORT.md HANDOFF_TO_DEVELOPER.md
 fi
 
 echo -e "${GREEN}Created TEST_REPORT.md${NC}"
+echo -e "${GREEN}Created $WORK_COUNT work items for $NEXT_PERSONA${NC}"
+
+# Complete handoff
+journal-log "HANDOFF:COMPLETED" "Handed off to $NEXT_PERSONA with $WORK_COUNT work items"
+journal-log "QA:CONTEXT" "Testing complete. $PASSED passed, $FAILED failed, $ISSUES issues found"
+
 echo ""
-
-# Log handoff
-if [ "$NEXT_PERSONA" = "REVIEWER" ]; then
-    journal-log "QA:CONTEXT" "Testing complete. All tests pass, no critical issues."
-    journal-log "QA:HANDOFF" "Ready for REVIEWER. All quality gates passed."
-    
-    # Create handoff file for reviewer
-    cp TEST_REPORT.md HANDOFF_TO_REVIEWER.md
-    echo "" >> HANDOFF_TO_REVIEWER.md
-    echo "## Additional Context for Review" >> HANDOFF_TO_REVIEWER.md
-    echo "- Branch tested: $(git branch --show-current)" >> HANDOFF_TO_REVIEWER.md
-    echo "- Services were running during tests" >> HANDOFF_TO_REVIEWER.md
-    echo "- All integration tests used real backends" >> HANDOFF_TO_REVIEWER.md
-else
-    journal-log "QA:CONTEXT" "Testing revealed $ISSUES issues and $FAILED test failures."
-    journal-log "QA:HANDOFF" "Returning to DEVELOPER for fixes. See TEST_REPORT.md"
-    
-    # Create handoff file for developer
-    cp TEST_REPORT.md HANDOFF_TO_DEVELOPER.md
-    echo "" >> HANDOFF_TO_DEVELOPER.md
-    echo "## Priority Fixes" >> HANDOFF_TO_DEVELOPER.md
-    grep "QA:FAILED" ~/workspace/JOURNAL.md | head -5 | sed 's/.*\[QA:FAILED\] /- /' >> HANDOFF_TO_DEVELOPER.md
-fi
-
-# Display next steps
 echo -e "${BLUE}=== Handoff Complete ===${NC}"
 echo ""
-echo "Next steps:"
+echo -e "${YELLOW}$NEXT_PERSONA should now:${NC}"
+echo "1. Run: /home/devuser/.claude/personas/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')-init.sh"
+echo "2. Review pending work: journal-query.sh pending-work $NEXT_PERSONA"
+echo "3. Start with the first work item"
+echo ""
+
+# Auto-continue
+echo -e "${GREEN}=== Activating $NEXT_PERSONA persona ===${NC}"
+echo ""
+sleep 2
+
+# Explicit instruction
+echo -e "${YELLOW}Claude, please continue as $NEXT_PERSONA by:${NC}"
 if [ "$NEXT_PERSONA" = "REVIEWER" ]; then
-    echo "1. REVIEWER should run: /home/devuser/.claude/personas/reviewer/reviewer-init.sh"
-    echo "2. REVIEWER should review HANDOFF_TO_REVIEWER.md"
-    echo "3. REVIEWER should perform code review"
+    echo "1. Cloning the PR to review directory"
+    echo "2. Running code quality checks"
+    echo "3. Reviewing against architecture"
 else
-    echo "1. DEVELOPER should run: /home/devuser/.claude/personas/developer/developer-init.sh"  
-    echo "2. DEVELOPER should review HANDOFF_TO_DEVELOPER.md"
-    echo "3. DEVELOPER should fix identified issues"
+    echo "1. Reviewing the test failures"
+    echo "2. Fixing the identified issues"
+    echo "3. Running tests locally"
 fi
 echo ""
 
-# Auto-continue to next persona
-echo -e "${GREEN}=== Auto-continuing to $NEXT_PERSONA persona ===${NC}"
-echo ""
-sleep 2  # Brief pause to let the output be visible
 /home/devuser/.claude/personas/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')-init.sh

@@ -5,6 +5,7 @@
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 echo -e "${BLUE}=== Initializing REVIEWER Persona ===${NC}"
@@ -13,20 +14,38 @@ echo ""
 # Log initialization
 journal-log "REVIEWER:INIT" "Starting REVIEWER persona"
 
-# Check for pending handoffs
+# Safety check
+SAFETY_STATUS=$(journal-query.sh safety-check REVIEWER)
+echo "Safety Status: $SAFETY_STATUS"
+
+if echo "$SAFETY_STATUS" | grep -q "WARNING: High iteration count"; then
+    echo -e "${RED}Safety limit exceeded${NC}"
+    journal-log "SAFETY:LIMIT" "REVIEWER exceeded safe iteration count"
+    exit 1
+fi
+echo ""
+
+# Check for pending work
 echo -e "${YELLOW}Checking for pending work...${NC}"
-PENDING=$(grep "HANDOFF.*REVIEWER" ~/workspace/JOURNAL.md | tail -5)
-if [ -n "$PENDING" ]; then
-    echo -e "${GREEN}Found pending handoffs:${NC}"
-    echo "$PENDING"
+PENDING_WORK=$(journal-query.sh pending-work REVIEWER)
+PENDING_COUNT=$(echo "$PENDING_WORK" | grep -c "WORK:PENDING" || echo "0")
+
+if [ $PENDING_COUNT -gt 0 ]; then
+    echo -e "${GREEN}Found $PENDING_COUNT pending review items:${NC}"
+    echo "$PENDING_WORK" | nl | sed 's/.*WORK:PENDING\] REVIEWER: /    /'
     echo ""
+    
+    # Get first work item
+    FIRST_WORK=$(echo "$PENDING_WORK" | head -1 | sed 's/.*WORK:PENDING\] REVIEWER: //')
+else
+    echo "No pending review items found."
+    FIRST_WORK=""
 fi
 
-# Check for handoff file
+# Check for handoff document
 if [ -f "HANDOFF_TO_REVIEWER.md" ]; then
     echo -e "${GREEN}Found handoff document:${NC}"
-    head -20 HANDOFF_TO_REVIEWER.md
-    echo "..."
+    grep -E "^##|^- " HANDOFF_TO_REVIEWER.md | head -15
     echo ""
 fi
 
@@ -44,30 +63,28 @@ if command -v gh >/dev/null 2>&1; then
     if [ -n "$OPEN_PRS" ] && [ "$OPEN_PRS" != "[]" ]; then
         echo -e "${GREEN}Open pull requests:${NC}"
         echo "$OPEN_PRS" | jq -r '.[] | "PR #\(.number): \(.title) (\(.branch))"'
-        echo ""
+        
+        # Store first PR info
+        PR_NUMBER=$(echo "$OPEN_PRS" | jq -r '.[0].number' 2>/dev/null || echo "")
+        PR_BRANCH=$(echo "$OPEN_PRS" | jq -r '.[0].branch' 2>/dev/null || echo "")
     else
         echo "No open pull requests found"
-        echo ""
+        PR_NUMBER=""
+        PR_BRANCH=""
     fi
 else
     echo "GitHub CLI not available"
-    echo ""
+    PR_NUMBER=""
+    PR_BRANCH=""
 fi
+echo ""
 
 # Load architectural context
 echo -e "${YELLOW}Loading architectural decisions...${NC}"
-ARCH_DECISIONS=$(grep "ARCHITECT:DECISION" ~/workspace/JOURNAL.md | tail -5)
+ARCH_DECISIONS=$(journal-query.sh decisions ARCHITECT 5)
 if [ -n "$ARCH_DECISIONS" ]; then
-    echo -e "${GREEN}Key architectural decisions:${NC}"
-    echo "$ARCH_DECISIONS" | sed 's/.*\[ARCHITECT:DECISION\] /- /'
-    echo ""
-fi
-
-# Check previous reviews
-PREVIOUS_REVIEWS=$(grep "REVIEWER:FEEDBACK" ~/workspace/JOURNAL.md | tail -5)
-if [ -n "$PREVIOUS_REVIEWS" ]; then
-    echo -e "${GREEN}Previous review feedback:${NC}"
-    echo "$PREVIOUS_REVIEWS" | sed 's/.*\[REVIEWER:FEEDBACK\] /- /'
+    echo -e "${GREEN}Key architectural decisions to check against:${NC}"
+    echo "$ARCH_DECISIONS" | sed 's/.*\[.*:DECISION\] /- /'
     echo ""
 fi
 
@@ -80,58 +97,80 @@ for file in .eslintrc* .prettierrc* .rubocop.yml rustfmt.toml .flake8 pyproject.
 done
 echo ""
 
-# Log context understanding
-journal-log "REVIEWER:CONTEXT" "Initialized with review context"
+# Log context
+journal-log "REVIEWER:CONTEXT" "Initialized with $PENDING_COUNT review items"
 
-# Display review checklist
-echo -e "${BLUE}=== Review Checklist ===${NC}"
-echo ""
-echo "Code Quality:"
-echo "  □ Follows coding standards"
-echo "  □ Clear naming conventions"
-echo "  □ Proper error handling"
-echo "  □ No code duplication"
-echo ""
-echo "Architecture:"
-echo "  □ Matches design documents"
-echo "  □ Proper separation of concerns"
-echo "  □ Dependency direction correct"
-echo ""
-echo "Security:"
-echo "  □ Input validation present"
-echo "  □ No hardcoded secrets"
-echo "  □ SQL injection prevention"
-echo ""
-echo "Testing:"
-echo "  □ Adequate test coverage"
-echo "  □ Tests are meaningful"
-echo "  □ Integration tests use real services"
+# Display work instructions
+echo -e "${BLUE}=== REVIEWER Work Instructions ===${NC}"
 echo ""
 
-# Display next steps
-echo -e "${BLUE}=== REVIEWER Persona Ready ===${NC}"
+if [ $PENDING_COUNT -gt 0 ]; then
+    echo "You have $PENDING_COUNT review items. Your immediate task:"
+    echo ""
+    echo -e "${GREEN}→ $FIRST_WORK${NC}"
+    echo ""
+    
+    # Provide specific instructions based on first task
+    if [[ "$FIRST_WORK" == *"Clone PR"* ]]; then
+        echo "Action plan:"
+        echo "1. Mark work started:"
+        echo "   journal-log 'WORK:STARTED' 'REVIEWER: $FIRST_WORK'"
+        echo ""
+        echo "2. Clone to review directory:"
+        if [ -n "$PR_BRANCH" ]; then
+            echo "   cd $REVIEW_DIR"
+            echo "   git clone ~/workspace/$(basename $(pwd)) $(basename $(pwd))-review"
+            echo "   cd $(basename $(pwd))-review"
+            echo "   git checkout $PR_BRANCH"
+        else
+            echo "   # Follow instructions in first work item"
+        fi
+        echo ""
+        echo "3. Mark complete and continue:"
+        echo "   journal-log 'WORK:COMPLETED' 'REVIEWER: $FIRST_WORK'"
+    else
+        echo "Action plan:"
+        echo "1. Start work: journal-log 'WORK:STARTED' 'REVIEWER: $FIRST_WORK'"
+        echo "2. Perform the review task"
+        echo "3. Log findings:"
+        echo "   journal-log 'REVIEWER:ISSUE' 'Problem description' (for issues)"
+        echo "   journal-log 'REVIEWER:FEEDBACK' 'Suggestion' (for improvements)"
+        echo "   journal-log 'REVIEWER:APPROVED' 'Component name' (for approvals)"
+        echo "4. Complete: journal-log 'WORK:COMPLETED' 'REVIEWER: $FIRST_WORK'"
+    fi
+    echo ""
+    echo "5. Continue with remaining items"
+    echo "6. Run reviewer-handoff.sh when all complete"
+else
+    echo "No pending review items. Options:"
+    echo "1. Check for recent handoffs:"
+    echo "   journal-query.sh handoff-chain"
+    echo ""
+    echo "2. If review is complete, run:"
+    echo "   reviewer-handoff.sh"
+fi
+
 echo ""
-echo "Next steps:"
-echo "1. Clone PR to review directory"
-echo "2. Run automated checks (lint, security scan)"
-echo "3. Review code systematically"
-echo "4. Check architecture compliance"
-echo "5. Verify test quality"
-echo "6. Document feedback"
-echo "7. Run reviewer-handoff.sh when complete"
+echo -e "${BLUE}Review Checklist:${NC}"
+echo "□ Code follows project standards"
+echo "□ Architecture matches design docs"
+echo "□ Tests are comprehensive"
+echo "□ Error handling is robust"
+echo "□ No security vulnerabilities"
+echo "□ Documentation is complete"
 echo ""
 
-# Create prompt reminder
-echo -e "${YELLOW}Remember to log all findings:${NC}"
-echo 'journal-log "REVIEWER:CONTEXT" "Reviewing: [what]"'
-echo 'journal-log "REVIEWER:ISSUE" "Problem: [description]"'
-echo 'journal-log "REVIEWER:FEEDBACK" "Suggestion: [improvement]"'
-echo 'journal-log "REVIEWER:APPROVED" "Approved: [component]"'
+echo -e "${BLUE}Review Commands:${NC}"
+echo "• View work: journal-query.sh pending-work REVIEWER"
+echo "• Log issue: journal-log 'REVIEWER:ISSUE' 'description'"
+echo "• Log feedback: journal-log 'REVIEWER:FEEDBACK' 'suggestion'"
+echo "• Approve: journal-log 'REVIEWER:APPROVED' 'component'"
+echo "• Check progress: journal-query.sh work-summary REVIEWER"
 echo ""
 
-# Display the full protocol inline
-echo -e "${BLUE}=== REVIEWER PROTOCOL ===${NC}"
-echo ""
-cat ~/.claude/personas/reviewer/REVIEWER-PROTOCOL.md
-echo ""
-echo -e "${YELLOW}The above protocol defines your responsibilities as REVIEWER.${NC}"
+# Display protocol if needed
+if [ $PENDING_COUNT -eq 0 ] || [ "$1" = "--show-protocol" ]; then
+    echo -e "${BLUE}=== REVIEWER PROTOCOL ===${NC}"
+    echo ""
+    cat ~/.claude/personas/reviewer/REVIEWER-PROTOCOL.md
+fi

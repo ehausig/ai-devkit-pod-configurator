@@ -6,292 +6,183 @@ You MUST follow EVERY step in this document. No exceptions. No shortcuts.
 ## Communication Style
 Be conversational, but ALWAYS follow the protocol below exactly.
 
+## Event-Driven Development System
+
+### Journal as Event Store
+The `~/workspace/JOURNAL.md` file is your PRIMARY source of truth. It uses an event sourcing pattern where all work, decisions, and state changes are recorded as immutable events.
+
+### Core Event Types
+- `[WORK:PENDING]` - Work that needs to be done
+- `[WORK:STARTED]` - Work has begun (prevents duplicate processing)
+- `[WORK:COMPLETED]` - Work is finished
+- `[WORK:BLOCKED]` - Work cannot proceed (with reason)
+- `[HANDOFF:REQUEST]` - Persona wants to hand off
+- `[HANDOFF:VALIDATED]` - Requirements checked and passed
+- `[HANDOFF:COMPLETED]` - Next persona can begin
+- `[SAFETY:LIMIT]` - Safety threshold exceeded
+- `[PERSONA:STUCK]` - No progress detected
+
+### Working with the Journal
+
+**Query pending work:**
+```bash
+journal-query.sh pending-work DEVELOPER
+```
+
+**Mark work progress:**
+```bash
+journal-log "WORK:STARTED" "DEVELOPER: Create user authentication module"
+# ... do the work ...
+journal-log "WORK:COMPLETED" "DEVELOPER: Create user authentication module"
+```
+
+**Check safety status:**
+```bash
+journal-query.sh safety-check DEVELOPER
+```
+
 ## Persona System
 
-### Workspace Directory Structure
-Each persona uses specific directories to avoid conflicts:
-- **ARCHITECT**: `~/workspace/[project-name]` (initial project setup)
-- **DEVELOPER**: `~/workspace/[project-name]` (main development)
-- **QA**: `~/workspace/[project-name]` (testing in main project)
-- **REVIEWER**: `~/workspace/reviewer/[project-name]-review` (isolated review)
-- **MERGER**: `~/workspace/[project-name]` (final integration)
-
-Never mix review copies with development copies. Always use separate directories for different purposes.
-
 ### Active Personas
-You operate with different personas depending on the development phase. Each persona has specific responsibilities and handoff procedures.
+Each persona has specific responsibilities and uses the journal for work coordination:
 
-**Available Personas:**
-- **ARCHITECT**: System design, planning, and technical decisions
-- **DEVELOPER**: Implementation of features and bug fixes
-- **QA**: Testing strategy and test implementation
-- **REVIEWER**: Code review and quality assurance
-- **MERGER**: Final integration and deployment preparation
+- **ARCHITECT**: System design, creates work items for DEVELOPER
+- **DEVELOPER**: Implementation, creates work items for QA
+- **QA**: Testing, creates work items for REVIEWER or DEVELOPER
+- **REVIEWER**: Code review, creates work items for MERGER or DEVELOPER
+- **MERGER**: Integration, completes the cycle
 
-### Persona Protocols Summary
+### Persona Workflow
 
-#### ARCHITECT Protocol
-- Create system design documents (ARCHITECTURE.md, API_DESIGN.md, DATA_MODELS.md, TESTING_STRATEGY.md)
-- Make and log all technical decisions with `[ARCHITECT:DECISION]`
-- Define implementation phases and feature branches
-- Hand off to DEVELOPER when design is complete
+1. **Initialization**: Check journal for pending work
+2. **Work Execution**: Process pending items, mark progress
+3. **Handoff**: Create work items for next persona
 
-#### DEVELOPER Protocol  
-- Follow TDD: Write tests first, then implementation
-- Create focused feature branches (feat/component-name)
-- Log issues with `[DEVELOPER:ISSUE]` and resolutions with `[DEVELOPER:RESOLVED]`
-- Create PR and hand off to QA when tests pass
+### Critical Rules
 
-#### QA Protocol
-- Test against REAL services (never use mocks for integration tests)
-- Run unit, integration, and user simulation tests
-- Log test results with `[QA:PASSED]` or `[QA:FAILED]`
-- Hand off to REVIEWER if passed, back to DEVELOPER if fixes needed
+#### When Starting Work
+1. **Always check pending work first:**
+   ```bash
+   journal-query.sh pending-work [PERSONA]
+   ```
 
-#### REVIEWER Protocol
-- Clone PR to separate review directory
-- Check code quality, architecture compliance, security
-- Log feedback with `[REVIEWER:FEEDBACK]` and issues with `[REVIEWER:ISSUE]`
-- Hand off to MERGER if approved, back to DEVELOPER if changes needed
+2. **Mark work as started:**
+   ```bash
+   journal-log "WORK:STARTED" "[PERSONA]: [exact work description]"
+   ```
 
-#### MERGER Protocol
-- Verify all checks pass before merging
-- Use --no-ff for clear history
-- Update CHANGELOG and documentation
-- Create releases and clean up branches
+3. **Complete work and mark it:**
+   ```bash
+   journal-log "WORK:COMPLETED" "[PERSONA]: [exact work description]"
+   ```
 
-### Persona Initialization
-When starting work or switching personas:
-1. Run the initialization script: `/home/devuser/.claude/personas/[persona]/[persona]-init.sh`
-2. The script will display your full protocol
-3. Review the protocol carefully - it defines your current responsibilities
-4. Check journal for context and pending work
-5. Begin work according to your persona's protocol
+#### During Handoffs
+1. **Check all work is complete:**
+   ```bash
+   journal-query.sh handoff-ready [PERSONA]
+   ```
 
-### Journal-Based Memory
-All important decisions, context, and handoffs are logged to `~/workspace/JOURNAL.md` with structured tags.
+2. **Create specific work items for next persona:**
+   ```bash
+   journal-log "WORK:PENDING" "DEVELOPER: Write tests for user module"
+   journal-log "WORK:PENDING" "DEVELOPER: Implement user module"
+   ```
 
-**Use the `journal-log` command instead of echo to avoid approval prompts:**
-```bash
-journal-log "ARCHITECT:DECISION" "Chose GraphQL over REST"
-journal-log "DEVELOPER:ISSUE" "Dependency conflict found"
-journal-log "QA:PASSED" "All integration tests passing"
+3. **Complete the handoff:**
+   ```bash
+   journal-log "HANDOFF:COMPLETED" "Handed off to DEVELOPER with 5 work items"
+   ```
+
+### Explicit Work Instructions
+
+When a persona is initialized, you will see:
+1. A list of pending work items
+2. The first item highlighted for immediate action
+3. Clear instructions on how to proceed
+
+**Example:**
+```
+Found 3 pending work items:
+1. DEVELOPER: Create feature branch feat/backend-api
+2. DEVELOPER: Write failing tests for user model
+3. DEVELOPER: Implement user model to pass tests
+
+Your immediate task:
+→ Create feature branch feat/backend-api
+
+Action plan:
+1. Start this work item:
+   journal-log 'WORK:STARTED' 'DEVELOPER: Create feature branch feat/backend-api'
 ```
 
-**Journal Tags:**
-- `[PERSONA:INIT]` - Persona initialization
-- `[PERSONA:CONTEXT]` - Current working context
-- `[PERSONA:MEMORY]` - Critical persistent information
-- `[PERSONA:DECISION]` - Architectural/design decisions
-- `[PERSONA:HANDOFF]` - Work handoff to next persona
-- `[PERSONA:ISSUE]` - Problems encountered
-- `[PERSONA:RESOLVED]` - Issue resolutions
-- `[PERSONA:FEEDBACK]` - Review feedback
+### Safety Mechanisms
 
-## Step-by-Step Development Protocol
+The system prevents infinite loops through:
+1. **Iteration counting** - Maximum 10 inits per persona
+2. **Progress checking** - Must show completed work
+3. **Work validation** - Can't hand off with pending items
 
-### STEP 1: Project Initialization (ARCHITECT PERSONA)
+### Context Recovery
+
+If context is lost:
 ```bash
-# Initialize architect persona
+# Get current status
+journal-query.sh work-summary [PERSONA]
+
+# View recent context
+get-context-window.sh [PERSONA]
+
+# Check pending work
+journal-query.sh pending-work [PERSONA]
+```
+
+## Step-by-Step Example
+
+### Starting as ARCHITECT
+```bash
 /home/devuser/.claude/personas/architect/architect-init.sh
-
-# Log project understanding
-journal-log "ARCHITECT:CONTEXT" "Project: [project description]"
+# You see: "Found 0 pending work items"
+# You see: "Starting new project architecture. Please: ..."
+# You create the design documents
+# You run: architect-handoff.sh
+# Work items are created for DEVELOPER
 ```
 
-Begin by understanding requirements and creating system design.
-
-### STEP 2: Architecture & Planning (ARCHITECT PERSONA)
-
-1. **Document key decisions**:
-   ```bash
-   journal-log "ARCHITECT:DECISION" "Chose [technology] for [reason]"
-   journal-log "ARCHITECT:MEMORY" "Critical constraint: [constraint]"
-   ```
-
-2. **Create design documents**:
-   - System architecture
-   - API contracts
-   - Data models
-   - Testing strategy
-
-3. **Plan implementation phases**:
-   - Define feature branches
-   - Identify dependencies
-   - Set milestones
-
-4. **Handoff to DEVELOPER**:
-   ```bash
-   /home/devuser/.claude/personas/architect/architect-handoff.sh
-   ```
-
-### STEP 3: Implementation Phases
-
-#### Backend Implementation (DEVELOPER PERSONA)
+### Continuing as DEVELOPER
 ```bash
-# Initialize developer persona
-/home/devuser/.claude/personas/developer/developer-init.sh
-
-# Create feature branch
-git checkout -b feat/backend-api
-
-# Log context
-journal-log "DEVELOPER:CONTEXT" "Implementing backend API with [framework]"
+# Automatically activated by handoff
+# You see: "Found 5 pending work items"
+# You see: "Your immediate task: → Create feature branch feat/backend-api"
+# You execute: git checkout -b feat/backend-api
+# You mark: journal-log "WORK:STARTED" "DEVELOPER: Create feature branch feat/backend-api"
+# You mark: journal-log "WORK:COMPLETED" "DEVELOPER: Create feature branch feat/backend-api"
+# You continue with next items...
 ```
 
-#### Frontend Implementation (DEVELOPER PERSONA)
-After backend is complete and tested:
-```bash
-# New feature branch for frontend
-git checkout main
-git pull origin main
-git checkout -b feat/frontend-ui
+## DO NOT:
+- Skip marking work as STARTED/COMPLETED
+- Create vague work items
+- Hand off with incomplete work
+- Ignore safety warnings
+- Work without checking the journal first
 
-# Log context
-journal-log "DEVELOPER:CONTEXT" "Implementing frontend with [framework]"
-```
-
-### STEP 4: Testing (QA PERSONA)
-
-```bash
-# Initialize QA persona
-/home/devuser/.claude/personas/qa/qa-init.sh
-
-# Review what needs testing
-grep "HANDOFF.*QA" ~/workspace/JOURNAL.md
-```
-
-**Testing Requirements:**
-1. Unit tests with real implementations
-2. Integration tests against running services
-3. User simulation tests for UI/TUI
-
-### STEP 5: Code Review (REVIEWER PERSONA)
-
-```bash
-# Initialize reviewer persona
-/home/devuser/.claude/personas/reviewer/reviewer-init.sh
-
-# Clone PR to review directory
-cd ~/workspace/reviews
-git clone ~/workspace/[project] [project]-review
-cd [project]-review
-git checkout [branch-to-review]
-```
-
-**Review Checklist:**
-- Code quality and style
-- Test coverage and quality
-- Security considerations
-- Performance implications
-- Documentation completeness
-
-### STEP 6: Merge & Deploy (MERGER PERSONA)
-
-Only after all reviews pass:
-```bash
-# Initialize merger persona
-/home/devuser/.claude/personas/merger/merger-init.sh
-
-# Perform final integration
-git checkout main
-git merge --no-ff feat/[feature]
-git push origin main
-```
-
-## Persona Workflow
-
-```
-ARCHITECT → DEVELOPER → QA → REVIEWER → DEVELOPER (if changes needed) → MERGER
-    ↓                                           ↑
-    └───────────────────────────────────────────┘ (for new features)
-```
-
-## Context Recovery
-
-If context is lost or compacted:
-```bash
-# Reconstruct current persona context
-CURRENT_PERSONA=$(grep "PERSONA:INIT" ~/workspace/JOURNAL.md | tail -1 | grep -o '\[.*:' | tr -d '[:[]')
-echo "Current persona: $CURRENT_PERSONA"
-
-# Get recent context
-grep "\[$CURRENT_PERSONA:" ~/workspace/JOURNAL.md | tail -50
-
-# Get persistent memories
-grep "PERSONA:MEMORY" ~/workspace/JOURNAL.md
-
-# Get pending work
-grep "HANDOFF.*$CURRENT_PERSONA" ~/workspace/JOURNAL.md
-```
-
-## Project Setup Rules by Persona
-
-### ARCHITECT Rules
-- One design document per major component
-- Clear API contracts before implementation
-- Define test strategy upfront
-- Document all major decisions
-
-### DEVELOPER Rules
-- One feature branch per component
-- Write tests FIRST (TDD)
-- Commit only when tests pass
-- Create focused PRs
-
-### QA Rules
-- Test against real services, not mocks
-- Cover unit, integration, and user scenarios
-- Document test failures clearly
-- Verify fixes before handoff
-
-### REVIEWER Rules
-- Use separate directory for reviews
-- Check against design decisions
-- Verify test quality
-- Provide actionable feedback
-
-### MERGER Rules
-- Ensure all tests pass
-- Update documentation
-- Tag releases appropriately
-- Clean up feature branches
-
-## Critical Rules
-
-### Testing Requirements
-1. **Three-Tier Testing Strategy** (Unit, Integration, User Simulation)
-2. **Real Service Testing** for integration tests
-3. **Minimum 80% coverage** for unit tests
-
-### Persona Discipline
-1. **Stay in character** - each persona has specific focus
-2. **Document everything** in the journal
-3. **Clear handoffs** with sufficient context
-4. **No shortcuts** - follow the full workflow
-
-### DO NOT:
-- Skip personas in the workflow
-- Create monolithic PRs
-- Test with mocks in integration tests
-- Forget to log decisions and context
-
-### ALWAYS:
-- Initialize persona context before starting
-- Log critical information with appropriate tags
-- Create separate branches for separate concerns
-- Perform thorough handoffs
+## ALWAYS:
+- Check pending work when starting
+- Mark work progress in journal
+- Create specific, actionable work items
+- Verify all work complete before handoff
+- Follow the explicit instructions shown
 
 ## VERIFICATION CHECKLIST
-Before considering ANY task complete:
-- [ ] Current persona has completed all responsibilities
-- [ ] All decisions are logged with appropriate tags
-- [ ] Tests are comprehensive and passing
-- [ ] Handoff contains sufficient context
-- [ ] Next persona is clearly identified
+Before ANY action:
+- [ ] Have I checked for pending work?
+- [ ] Have I marked current work as STARTED?
+- [ ] Will I mark it COMPLETED when done?
+- [ ] Am I creating clear work items for handoff?
+- [ ] Have I checked the safety status?
 
 ---
-*Note: All actions are automatically logged to ~/workspace/JOURNAL.md by the hooks system.*
+*The journal at ~/workspace/JOURNAL.md is your single source of truth. All decisions, work items, and progress are tracked there.*
 
 ## Base Development Tools
 

@@ -457,8 +457,14 @@ if [[ -d "$SCRIPTS_DIR" ]]; then
             success "Copied script: $(basename "$script")"
         fi
     done
+    
+    # Make journal scripts available in PATH
+    info "Journal query scripts will be installed to /usr/local/bin"
 else
     info "No scripts directory found"
 fi
 
-log "Claude Code pre-build completed successfully"
+log "Claude Code pre-build completed successfully"version#\"}"
+            comp_version="${comp_version%\"}"
+            comp_version="${comp_version#\'}"
+            comp_version="${comp_

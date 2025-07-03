@@ -5,6 +5,7 @@
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 echo -e "${BLUE}=== Initializing QA Persona ===${NC}"
@@ -13,20 +14,43 @@ echo ""
 # Log initialization
 journal-log "QA:INIT" "Starting QA persona"
 
-# Check for pending handoffs
-echo -e "${YELLOW}Checking for pending work...${NC}"
-PENDING=$(grep "HANDOFF.*QA" ~/workspace/JOURNAL.md | tail -5)
-if [ -n "$PENDING" ]; then
-    echo -e "${GREEN}Found pending handoffs:${NC}"
-    echo "$PENDING"
-    echo ""
+# Safety check
+SAFETY_STATUS=$(journal-query.sh safety-check QA)
+echo "Safety Status: $SAFETY_STATUS"
+
+if echo "$SAFETY_STATUS" | grep -q "WARNING: High iteration count"; then
+    echo -e "${RED}Safety limit exceeded${NC}"
+    journal-log "SAFETY:LIMIT" "QA exceeded safe iteration count"
+    exit 1
 fi
 
-# Check for handoff file
+if echo "$SAFETY_STATUS" | grep -q "WARNING: No recent progress"; then
+    echo -e "${YELLOW}Warning: No recent progress detected${NC}"
+    echo "Check for blocking issues or environment problems"
+fi
+echo ""
+
+# Check for pending work
+echo -e "${YELLOW}Checking for pending work...${NC}"
+PENDING_WORK=$(journal-query.sh pending-work QA)
+PENDING_COUNT=$(echo "$PENDING_WORK" | grep -c "WORK:PENDING" || echo "0")
+
+if [ $PENDING_COUNT -gt 0 ]; then
+    echo -e "${GREEN}Found $PENDING_COUNT pending work items:${NC}"
+    echo "$PENDING_WORK" | nl | sed 's/.*WORK:PENDING\] QA: /    /'
+    echo ""
+    
+    # Get first work item
+    FIRST_WORK=$(echo "$PENDING_WORK" | head -1 | sed 's/.*WORK:PENDING\] QA: //')
+else
+    echo "No pending work items found."
+    FIRST_WORK=""
+fi
+
+# Check for handoff document
 if [ -f "HANDOFF_TO_QA.md" ]; then
     echo -e "${GREEN}Found handoff document:${NC}"
-    head -20 HANDOFF_TO_QA.md
-    echo "..."
+    grep -E "^##|^- " HANDOFF_TO_QA.md | head -15
     echo ""
 fi
 
@@ -34,25 +58,17 @@ fi
 echo -e "${YELLOW}Loading testing strategy...${NC}"
 if [ -f "TESTING_STRATEGY.md" ]; then
     echo -e "${GREEN}Testing strategy found${NC}"
-    grep -E "^##|^- " TESTING_STRATEGY.md | head -10
-    echo ""
+    grep -E "^##|^###" TESTING_STRATEGY.md | head -10
 else
     echo -e "${YELLOW}No testing strategy document found${NC}"
 fi
+echo ""
 
-# Check recent QA activities
-RECENT_QA=$(grep "\[QA:" ~/workspace/JOURNAL.md | tail -10)
-if [ -n "$RECENT_QA" ]; then
-    echo -e "${GREEN}Recent QA activities:${NC}"
-    echo "$RECENT_QA" | tail -5
-    echo ""
-fi
-
-# Check for previous test failures
-FAILURES=$(grep "QA:FAILED" ~/workspace/JOURNAL.md | tail -5)
-if [ -n "$FAILURES" ]; then
-    echo -e "${YELLOW}Previous test failures:${NC}"
-    echo "$FAILURES" | sed 's/.*\[QA:FAILED\] /- /'
+# Check recent test results
+RECENT_TESTS=$(journal-query.sh recent-context QA | grep -E "(PASSED|FAILED)" | tail -5)
+if [ -n "$RECENT_TESTS" ]; then
+    echo -e "${YELLOW}Recent test results:${NC}"
+    echo "$RECENT_TESTS" | sed 's/.*\[\(QA:.*\)\] /[\1] /'
     echo ""
 fi
 
@@ -61,9 +77,11 @@ echo -e "${YELLOW}Checking project state...${NC}"
 if [ -d .git ]; then
     echo "Current branch: $(git branch --show-current)"
     echo "Available branches:"
-    git branch -a | grep -E "(feat/|fix/)" | head -10
-    echo ""
+    git branch -a | grep -E "(feat/|fix/)" | head -5
+else
+    echo "No git repository found"
 fi
+echo ""
 
 # Check for test directories
 echo -e "${YELLOW}Checking test structure...${NC}"
@@ -77,47 +95,77 @@ echo ""
 
 # Check for running services
 echo -e "${YELLOW}Checking for running services...${NC}"
-if lsof -i :8080 >/dev/null 2>&1; then
-    echo -e "${GREEN}✓${NC} Service running on port 8080"
+SERVICE_CHECK=false
+
+# Common ports to check
+for port in 8080 3000 5000 8000; do
+    if lsof -i :$port >/dev/null 2>&1; then
+        echo -e "${GREEN}✓${NC} Service running on port $port"
+        SERVICE_CHECK=true
+    fi
+done
+
+if [ "$SERVICE_CHECK" = false ]; then
+    echo -e "${RED}⚠ No services detected on common ports${NC}"
+    echo "Remember: Integration tests must use REAL services!"
+fi
+echo ""
+
+# Log context
+journal-log "QA:CONTEXT" "Initialized with $PENDING_COUNT pending test items"
+
+# Display work instructions
+echo -e "${BLUE}=== QA Work Instructions ===${NC}"
+echo ""
+
+if [ $PENDING_COUNT -gt 0 ]; then
+    echo "You have $PENDING_COUNT test items. Your immediate task:"
+    echo ""
+    echo -e "${GREEN}→ $FIRST_WORK${NC}"
+    echo ""
+    echo "Action plan:"
+    echo "1. Start this test:"
+    echo "   journal-log 'WORK:STARTED' 'QA: $FIRST_WORK'"
+    echo ""
+    echo "2. Execute the test"
+    echo ""
+    echo "3. Log result:"
+    echo "   journal-log 'QA:PASSED' 'Test description' OR"
+    echo "   journal-log 'QA:FAILED' 'Test description - reason'"
+    echo ""
+    echo "4. Complete the work item:"
+    echo "   journal-log 'WORK:COMPLETED' 'QA: $FIRST_WORK'"
+    echo ""
+    echo "5. Continue with next items"
+    echo ""
+    echo "6. When all testing done:"
+    echo "   qa-handoff.sh"
 else
-    echo -e "${YELLOW}⚠${NC} No service on port 8080"
+    echo "No pending work. Options:"
+    echo "1. Check recent handoffs:"
+    echo "   journal-query.sh handoff-chain"
+    echo ""
+    echo "2. Run qa-handoff.sh if testing is complete"
 fi
 
-if lsof -i :3000 >/dev/null 2>&1; then
-    echo -e "${GREEN}✓${NC} Service running on port 3000"
-else
-    echo -e "${YELLOW}⚠${NC} No service on port 3000"
+echo ""
+echo -e "${RED}CRITICAL: Test Against REAL Services${NC}"
+echo "• Start actual backend services"
+echo "• Use real databases, not mocks"
+echo "• Test actual API endpoints"
+echo "• NO mocking in integration tests"
+echo ""
+
+echo -e "${BLUE}Testing Commands:${NC}"
+echo "• View work: journal-query.sh pending-work QA"
+echo "• Track item: work-tracker.sh '<test-pattern>'"
+echo "• Check all: journal-query.sh work-summary QA"
+echo "• Get context: get-context-window.sh QA"
+echo ""
+
+# Display protocol if needed
+if [ $PENDING_COUNT -eq 0 ] || [ "$1" = "--show-protocol" ]; then
+    echo -e "${BLUE}=== QA PROTOCOL ===${NC}"
+    echo ""
+    cat ~/.claude/personas/qa/QA-PROTOCOL.md
 fi
-echo ""
-
-# Log context understanding
-journal-log "QA:CONTEXT" "Initialized with testing context"
-
-# Display next steps
-echo -e "${BLUE}=== QA Persona Ready ===${NC}"
-echo ""
-echo "Next steps:"
-echo "1. Review TESTING_STRATEGY.md"
-echo "2. Pull branch mentioned in handoff"
-echo "3. Start backend/frontend services"
-echo "4. Run existing test suites"
-echo "5. Test against REAL services (no mocks!)"
-echo "6. Perform user simulation testing"
-echo "7. Document any bugs found"
-echo "8. Run qa-handoff.sh when complete"
-echo ""
-
-# Create prompt reminder
-echo -e "${YELLOW}Remember to log all testing:${NC}"
-echo 'journal-log "QA:CONTEXT" "Testing: [what]"'
-echo 'journal-log "QA:PASSED" "Test passed: [test]"'
-echo 'journal-log "QA:FAILED" "Test failed: [test] - [reason]"'
-echo 'journal-log "QA:ISSUE" "Bug found: [description]"'
-echo ""
-
-# Display the full protocol inline
-echo -e "${BLUE}=== QA PROTOCOL ===${NC}"
-echo ""
-cat ~/.claude/personas/qa/QA-PROTOCOL.md
-echo ""
-echo -e "${YELLOW}The above protocol defines your responsibilities as QA.${NC}"

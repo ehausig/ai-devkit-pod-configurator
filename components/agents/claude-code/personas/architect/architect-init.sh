@@ -5,6 +5,7 @@
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 echo -e "${BLUE}=== Initializing ARCHITECT Persona ===${NC}"
@@ -13,40 +14,46 @@ echo ""
 # Log initialization
 journal-log "ARCHITECT:INIT" "Starting ARCHITECT persona"
 
-# Check for pending handoffs
+# Safety check using journal query
+SAFETY_STATUS=$(journal-query.sh safety-check ARCHITECT)
+INIT_COUNT=$(echo "$SAFETY_STATUS" | grep -o "Iterations: [0-9]*" | cut -d' ' -f2)
+
+if [ $INIT_COUNT -gt 10 ]; then
+    echo -e "${RED}Safety limit exceeded: Too many ARCHITECT initializations${NC}"
+    journal-log "SAFETY:LIMIT" "ARCHITECT exceeded initialization limit: $INIT_COUNT"
+    exit 1
+fi
+
+# Check for pending work using journal query
 echo -e "${YELLOW}Checking for pending work...${NC}"
-PENDING=$(grep "HANDOFF.*ARCHITECT" ~/workspace/JOURNAL.md | tail -5)
-if [ -n "$PENDING" ]; then
-    echo -e "${GREEN}Found pending handoffs:${NC}"
-    echo "$PENDING"
+PENDING_WORK=$(journal-query.sh pending-work ARCHITECT)
+PENDING_COUNT=$(echo "$PENDING_WORK" | grep -c "WORK:PENDING" || echo "0")
+
+if [ $PENDING_COUNT -gt 0 ]; then
+    echo -e "${GREEN}Found $PENDING_COUNT pending work items:${NC}"
+    echo "$PENDING_WORK" | sed 's/.*WORK:PENDING\] ARCHITECT: /  - /' | head -10
     echo ""
 fi
 
-# Reconstruct context from journal
-echo -e "${YELLOW}Loading previous context...${NC}"
-
-# Get recent architect activities
-RECENT_CONTEXT=$(grep "\[ARCHITECT:" ~/workspace/JOURNAL.md | tail -20)
-if [ -n "$RECENT_CONTEXT" ]; then
-    echo -e "${GREEN}Recent ARCHITECT activities:${NC}"
-    echo "$RECENT_CONTEXT" | tail -10
+# Check for recent handoffs
+echo -e "${YELLOW}Checking for handoffs...${NC}"
+RECENT_HANDOFF=$(journal-query.sh handoff-chain | grep "to ARCHITECT" | tail -1)
+if [ -n "$RECENT_HANDOFF" ]; then
+    echo -e "${GREEN}Recent handoff:${NC}"
+    echo "$RECENT_HANDOFF" | sed 's/.*\[HANDOFF:COMPLETED\] /  /'
     echo ""
 fi
 
-# Get architectural decisions
-DECISIONS=$(grep "ARCHITECT:DECISION" ~/workspace/JOURNAL.md | tail -10)
-if [ -n "$DECISIONS" ]; then
-    echo -e "${GREEN}Previous architectural decisions:${NC}"
-    echo "$DECISIONS"
-    echo ""
-fi
+# Get context window
+echo -e "${YELLOW}Loading context...${NC}"
+get-context-window.sh ARCHITECT 20 | grep -E "(DECISION|MEMORY|HANDOFF)" | tail -10
 
-# Get persistent memories
-MEMORIES=$(grep "ARCHITECT:MEMORY" ~/workspace/JOURNAL.md | tail -10)
-if [ -n "$MEMORIES" ]; then
-    echo -e "${GREEN}Important constraints/requirements:${NC}"
-    echo "$MEMORIES"
+# Check for handoff document
+if [ -f "HANDOFF_TO_ARCHITECT.md" ]; then
     echo ""
+    echo -e "${GREEN}Found handoff document${NC}"
+    head -20 HANDOFF_TO_ARCHITECT.md
+    echo "..."
 fi
 
 # Check current project state
@@ -54,14 +61,13 @@ echo -e "${YELLOW}Checking project state...${NC}"
 if [ -d .git ]; then
     echo "Current branch: $(git branch --show-current)"
     echo "Repository status:"
-    git status --short
+    git status --short | head -5
 else
     echo "No git repository found in current directory"
 fi
-echo ""
 
 # Look for existing design documents
-echo -e "${YELLOW}Checking for existing design documents...${NC}"
+echo -e "${YELLOW}Checking for design documents...${NC}"
 for doc in ARCHITECTURE.md API_DESIGN.md DATA_MODELS.md TESTING_STRATEGY.md; do
     if [ -f "$doc" ]; then
         echo -e "${GREEN}Found:${NC} $doc"
@@ -71,43 +77,40 @@ for doc in ARCHITECTURE.md API_DESIGN.md DATA_MODELS.md TESTING_STRATEGY.md; do
 done
 echo ""
 
-# Log context understanding
-journal-log "ARCHITECT:CONTEXT" "Initialized with context from journal"
-
-# Create active persona context file for Claude to read
-echo "Creating active persona context..."
-cat > ~/.claude/ACTIVE_PERSONA.md << EOF
-# Active Persona: ARCHITECT
-
-You are currently operating as the ARCHITECT persona.
-
-## Your Protocol
-$(cat ~/.claude/personas/architect/ARCHITECT-PROTOCOL.md)
-
-## Current Context
-$(grep "\[ARCHITECT:" ~/workspace/JOURNAL.md | tail -20)
-
-## Pending Work
-$(grep "HANDOFF.*ARCHITECT" ~/workspace/JOURNAL.md | tail -5)
-EOF
-
-journal-log "ARCHITECT:CONTEXT" "Created ACTIVE_PERSONA.md for Claude reference"
-
-# Display next steps
-echo -e "${BLUE}=== ARCHITECT Persona Ready ===${NC}"
-echo ""
-echo "Next steps:"
-echo "1. Review project requirements"
-echo "2. Create/update design documents"
-echo "3. Make architectural decisions"
-echo "4. Plan implementation phases"
-echo "5. Run architect-handoff.sh when complete"
-echo ""
-echo -e "${GREEN}📖 Read your full protocol: @~/.claude/ACTIVE_PERSONA.md${NC}"
+# Display work instructions based on context
+echo -e "${BLUE}=== ARCHITECT Work Instructions ===${NC}"
 echo ""
 
-# Create prompt reminder
+if [ $PENDING_COUNT -gt 0 ]; then
+    echo "You have pending work items. Please:"
+    echo "1. Complete the pending items listed above"
+    echo "2. Mark each as completed with: journal-log 'WORK:COMPLETED' 'ARCHITECT: [work description]'"
+    echo "3. Run architect-handoff.sh when all work is complete"
+elif [ ! -f "ARCHITECTURE.md" ]; then
+    echo "Starting new project architecture. Please:"
+    echo "1. Create ARCHITECTURE.md with system design"
+    echo "2. Create API_DESIGN.md with API specifications"
+    echo "3. Create DATA_MODELS.md with data structures"
+    echo "4. Create TESTING_STRATEGY.md with test approach"
+    echo "5. Log key decisions with: journal-log 'ARCHITECT:DECISION' '[decision]'"
+    echo "6. Run architect-handoff.sh when complete"
+else
+    echo "Design documents exist. Please:"
+    echo "1. Review and update if needed"
+    echo "2. Check for any new requirements"
+    echo "3. Run architect-handoff.sh to proceed"
+fi
+
+echo ""
 echo -e "${YELLOW}Remember to log all decisions:${NC}"
 echo 'journal-log "ARCHITECT:DECISION" "Decision description"'
 echo 'journal-log "ARCHITECT:MEMORY" "Critical constraint"'
 echo ""
+
+# Log context understanding
+journal-log "ARCHITECT:CONTEXT" "Initialized with $PENDING_COUNT pending items"
+
+# Display the full protocol inline
+echo -e "${BLUE}=== ARCHITECT PROTOCOL ===${NC}"
+echo ""
+cat ~/.claude/personas/architect/ARCHITECT-PROTOCOL.md

@@ -409,6 +409,19 @@ entrypoint_setup: |
       done
       echo "Utility scripts installed successfully"
   fi
+
+  # Install journal query scripts if they exist
+  if [ -d /tmp/claude-scripts ]; then
+      echo "Installing journal scripts..."
+      for script in journal-query.sh get-context-window.sh work-tracker.sh journal-stats.sh; do
+          if [ -f "/tmp/claude-scripts/$script" ]; then
+              cp "/tmp/claude-scripts/$script" "/usr/local/bin/${script%.sh}"
+              chmod 755 "/usr/local/bin/${script%.sh}"
+              echo "  - Installed: ${script%.sh}"
+          fi
+      done
+      echo "Journal scripts installed successfully"
+  fi
   
   # Ensure proper ownership
   chown -R devuser:devuser /home/devuser/.claude 2>/dev/null || true

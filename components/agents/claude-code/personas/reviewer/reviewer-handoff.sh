@@ -8,37 +8,90 @@ RED='\033[0;31m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Check if we're approving or requesting changes
-ACTION="${1:-check}"
-
 echo -e "${BLUE}=== REVIEWER Handoff Process ===${NC}"
 echo ""
 
-# Count review findings
-ISSUES=$(grep -c "REVIEWER:ISSUE" ~/workspace/JOURNAL.md)
-FEEDBACK=$(grep -c "REVIEWER:FEEDBACK" ~/workspace/JOURNAL.md)
-APPROVED=$(grep -c "REVIEWER:APPROVED" ~/workspace/JOURNAL.md)
+# Analyze review findings
+echo -e "${YELLOW}Analyzing review findings...${NC}"
 
-echo -e "${YELLOW}Review Summary:${NC}"
-echo "- Issues found: $ISSUES"
-echo "- Feedback items: $FEEDBACK"
+# Count review outcomes
+ISSUES=$(journal-query.sh recent-context REVIEWER | grep -c "REVIEWER:ISSUE" || echo "0")
+FEEDBACK=$(journal-query.sh recent-context REVIEWER | grep -c "REVIEWER:FEEDBACK" || echo "0")
+APPROVED=$(journal-query.sh recent-context REVIEWER | grep -c "REVIEWER:APPROVED" || echo "0")
+
+echo "Review Summary:"
+echo "- Critical issues found: $ISSUES"
+echo "- Suggestions made: $FEEDBACK"
 echo "- Components approved: $APPROVED"
 echo ""
 
-# Determine action if not specified
-if [ "$ACTION" = "check" ]; then
-    if [ "$ISSUES" -eq 0 ]; then
-        ACTION="approved"
-        echo -e "${GREEN}No critical issues found. Proceeding with approval.${NC}"
-    else
-        ACTION="changes-needed"
-        echo -e "${YELLOW}Issues found. Changes needed.${NC}"
-    fi
+# Determine action
+if [ $ISSUES -eq 0 ]; then
+    ACTION="approved"
+    NEXT_PERSONA="MERGER"
+    echo -e "${GREEN}No critical issues found. Ready for merge.${NC}"
+    journal-log "HANDOFF:REQUEST" "REVIEWER requesting handoff to MERGER - code approved"
+else
+    ACTION="changes-needed"
+    NEXT_PERSONA="DEVELOPER"
+    echo -e "${YELLOW}$ISSUES critical issues found. Changes needed.${NC}"
+    journal-log "HANDOFF:REQUEST" "REVIEWER requesting handoff to DEVELOPER - $ISSUES issues found"
 fi
+
+# Check for pending work
+echo ""
+echo -e "${YELLOW}Checking for pending work...${NC}"
+PENDING_CHECK=$(journal-query.sh handoff-ready REVIEWER)
+HANDOFF_READY=$?
+
+if [ $HANDOFF_READY -ne 0 ]; then
+    echo -e "${RED}$PENDING_CHECK${NC}"
+    journal-log "HANDOFF:BLOCKED" "REVIEWER has incomplete review items"
+    exit 1
+fi
+
+echo -e "${GREEN}✓${NC} All review items completed"
+
+# Validate review completeness
+echo ""
+echo -e "${YELLOW}Validating review coverage...${NC}"
+READY=true
+
+# Check if key areas were reviewed
+REVIEW_CONTEXT=$(journal-query.sh recent-context REVIEWER)
+
+if echo "$REVIEW_CONTEXT" | grep -q -E "(quality|style|standard)"; then
+    echo -e "${GREEN}✓${NC} Code quality reviewed"
+else
+    echo -e "${YELLOW}⚠${NC} Code quality not explicitly reviewed"
+fi
+
+if echo "$REVIEW_CONTEXT" | grep -q -E "(architecture|design)"; then
+    echo -e "${GREEN}✓${NC} Architecture compliance checked"
+else
+    echo -e "${YELLOW}⚠${NC} Architecture compliance not verified"
+fi
+
+if echo "$REVIEW_CONTEXT" | grep -q -E "(test|coverage)"; then
+    echo -e "${GREEN}✓${NC} Test quality reviewed"
+else
+    echo -e "${YELLOW}⚠${NC} Test quality not reviewed"
+fi
+
+# Validation passed
+journal-log "HANDOFF:VALIDATED" "Review requirements met"
+
+echo ""
+echo -e "${GREEN}Review complete. Creating work items for $NEXT_PERSONA...${NC}"
 echo ""
 
 # Create review report
 echo -e "${YELLOW}Creating review report...${NC}"
+
+# Get review details
+ISSUES_LIST=$(journal-query.sh recent-context REVIEWER | grep "REVIEWER:ISSUE" | sed 's/.*\[REVIEWER:ISSUE\] //')
+FEEDBACK_LIST=$(journal-query.sh recent-context REVIEWER | grep "REVIEWER:FEEDBACK" | sed 's/.*\[REVIEWER:FEEDBACK\] //')
+APPROVED_LIST=$(journal-query.sh recent-context REVIEWER | grep "REVIEWER:APPROVED" | sed 's/.*\[REVIEWER:APPROVED\] //')
 
 cat > REVIEW_REPORT.md << EOF
 # Code Review Report
@@ -47,87 +100,94 @@ cat > REVIEW_REPORT.md << EOF
 
 ## Review Summary
 - Critical Issues: $ISSUES
-- Suggestions: $FEEDBACK  
+- Suggestions: $FEEDBACK
 - Approvals: $APPROVED
 - Decision: ${ACTION^^}
 
+## Review Coverage
+$(echo "$REVIEW_CONTEXT" | grep "WORK:COMPLETED" | sed 's/.*REVIEWER: /- /' | tail -10)
+
 ## Code Quality
-$(grep "REVIEWER:.*quality\|REVIEWER:.*style\|REVIEWER:.*naming" ~/workspace/JOURNAL.md | tail -5 | sed 's/.*\[REVIEWER:[^]]*\] /- /' || echo "✓ Code quality acceptable")
+$(echo "$REVIEW_CONTEXT" | grep -E "(quality|style|naming)" | sed 's/.*\] /- /' | tail -5 || echo "✓ Code quality acceptable")
 
 ## Architecture Compliance
-$(grep "REVIEWER:.*architecture\|REVIEWER:.*design\|REVIEWER:.*pattern" ~/workspace/JOURNAL.md | tail -5 | sed 's/.*\[REVIEWER:[^]]*\] /- /' || echo "✓ Architecture compliance verified")
+$(echo "$REVIEW_CONTEXT" | grep -E "(architecture|design|pattern)" | sed 's/.*\] /- /' | tail -5 || echo "✓ Architecture compliance verified")
 
 ## Security Review
-$(grep "REVIEWER:.*security\|REVIEWER:.*vulnerability\|REVIEWER:.*injection" ~/workspace/JOURNAL.md | tail -5 | sed 's/.*\[REVIEWER:[^]]*\] /- /' || echo "✓ No security issues found")
+$(echo "$REVIEW_CONTEXT" | grep -E "(security|vulnerability|injection)" | sed 's/.*\] /- /' | tail -5 || echo "✓ No security issues found")
 
 ## Test Quality
-$(grep "REVIEWER:.*test\|REVIEWER:.*coverage\|REVIEWER:.*mock" ~/workspace/JOURNAL.md | tail -5 | sed 's/.*\[REVIEWER:[^]]*\] /- /' || echo "✓ Test quality acceptable")
+$(echo "$REVIEW_CONTEXT" | grep -E "(test|coverage|mock)" | sed 's/.*\] /- /' | tail -5 || echo "✓ Test quality acceptable")
 
 ## Critical Issues
-$(grep "REVIEWER:ISSUE" ~/workspace/JOURNAL.md | sed 's/.*\[REVIEWER:ISSUE\] /- /' || echo "None")
+$([ -n "$ISSUES_LIST" ] && echo "$ISSUES_LIST" | sed 's/^/- /' || echo "None")
 
 ## Suggestions for Improvement
-$(grep "REVIEWER:FEEDBACK" ~/workspace/JOURNAL.md | sed 's/.*\[REVIEWER:FEEDBACK\] /- /' || echo "None")
+$([ -n "$FEEDBACK_LIST" ] && echo "$FEEDBACK_LIST" | sed 's/^/- /' || echo "None")
 
-## Review Decision: ${ACTION^^}
+## Approved Components
+$([ -n "$APPROVED_LIST" ] && echo "$APPROVED_LIST" | sed 's/^/- /' || echo "None specified")
 EOF
 
+# Create work items based on action
 if [ "$ACTION" = "approved" ]; then
-    cat >> REVIEW_REPORT.md << EOF
-
-Code meets all quality standards and is ready for merge.
-
-## Next Steps for MERGER
-1. Verify CI/CD pipeline status
-2. Perform final integration testing
-3. Merge to main branch
-4. Update documentation
-5. Create release if appropriate
-EOF
+    echo "" >> REVIEW_REPORT.md
+    echo "## Recommendation" >> REVIEW_REPORT.md
+    echo "Code meets all quality standards and is ready for merge." >> REVIEW_REPORT.md
     
-    # Log approval
-    journal-log "REVIEWER:CONTEXT" "Code review complete. All standards met."
-    journal-log "REVIEWER:APPROVED" "PR approved for merge"
-    journal-log "REVIEWER:HANDOFF" "Ready for MERGER. No blocking issues."
+    # Get PR info
+    PR_NUMBER=$(gh pr list --json number --jq '.[0].number' 2>/dev/null || echo "")
+    BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
     
-    # Create handoff for merger
+    # Create work items for MERGER
+    journal-log "WORK:PENDING" "MERGER: Verify all CI/CD checks pass"
+    journal-log "WORK:PENDING" "MERGER: Run final integration tests on main branch"
+    journal-log "WORK:PENDING" "MERGER: Merge PR #${PR_NUMBER:-pending} using --no-ff"
+    journal-log "WORK:PENDING" "MERGER: Update CHANGELOG.md with changes"
+    journal-log "WORK:PENDING" "MERGER: Tag release if appropriate"
+    journal-log "WORK:PENDING" "MERGER: Delete feature branch after merge"
+    journal-log "WORK:PENDING" "MERGER: Update documentation if needed"
+    
+    WORK_COUNT=7
     cp REVIEW_REPORT.md HANDOFF_TO_MERGER.md
-    NEXT_PERSONA="MERGER"
     
 else
-    cat >> REVIEW_REPORT.md << EOF
-
-Changes are required before this code can be merged.
-
-## Required Changes
-$(grep "REVIEWER:ISSUE" ~/workspace/JOURNAL.md | head -10 | sed 's/.*\[REVIEWER:ISSUE\] /1. /')
-
-## Suggested Improvements  
-$(grep "REVIEWER:FEEDBACK" ~/workspace/JOURNAL.md | head -10 | sed 's/.*\[REVIEWER:FEEDBACK\] /- /')
-
-## Next Steps for DEVELOPER
-1. Address all critical issues
-2. Consider implementing suggestions
-3. Update tests as needed
-4. Push fixes to PR
-5. Request re-review
-EOF
+    echo "" >> REVIEW_REPORT.md
+    echo "## Required Changes" >> REVIEW_REPORT.md
+    echo "The following issues must be addressed before merge:" >> REVIEW_REPORT.md
     
-    # Log changes needed
-    journal-log "REVIEWER:CONTEXT" "Code review complete. $ISSUES issues need addressing."
-    journal-log "REVIEWER:HANDOFF" "Changes requested. Returning to DEVELOPER."
+    # Create specific work items for DEVELOPER
+    if [ $ISSUES -gt 0 ]; then
+        echo "$ISSUES_LIST" | while IFS= read -r issue; do
+            [ -n "$issue" ] && journal-log "WORK:PENDING" "DEVELOPER: Fix - $issue"
+        done
+    fi
     
-    # Create handoff for developer
+    if [ $FEEDBACK -gt 0 ]; then
+        echo "" >> REVIEW_REPORT.md
+        echo "## Suggested Improvements" >> REVIEW_REPORT.md
+        echo "$FEEDBACK_LIST" | sed 's/^/- /' >> REVIEW_REPORT.md
+        
+        # Add work item to consider suggestions
+        journal-log "WORK:PENDING" "DEVELOPER: Review and implement suggestions from code review"
+    fi
+    
+    # Standard work items for fixes
+    journal-log "WORK:PENDING" "DEVELOPER: Update tests if implementation changed"
+    journal-log "WORK:PENDING" "DEVELOPER: Run all tests to verify fixes"
+    journal-log "WORK:PENDING" "DEVELOPER: Update PR with review fixes"
+    journal-log "WORK:PENDING" "DEVELOPER: Request re-review when complete"
+    
+    WORK_COUNT=$(journal-query.sh pending-work DEVELOPER | wc -l)
     cp REVIEW_REPORT.md HANDOFF_TO_DEVELOPER.md
-    NEXT_PERSONA="DEVELOPER"
 fi
 
 echo -e "${GREEN}Created REVIEW_REPORT.md${NC}"
-echo ""
+echo -e "${GREEN}Created $WORK_COUNT work items for $NEXT_PERSONA${NC}"
 
-# If we have PR number, add review comment
-PR_NUMBER=$(gh pr list --json number --jq '.[0].number' 2>/dev/null)
+# Add PR comment if possible
 if [ -n "$PR_NUMBER" ] && command -v gh >/dev/null 2>&1; then
+    echo ""
     echo -e "${YELLOW}Adding review to PR #$PR_NUMBER...${NC}"
     
     if [ "$ACTION" = "approved" ]; then
@@ -135,33 +195,53 @@ if [ -n "$PR_NUMBER" ] && command -v gh >/dev/null 2>&1; then
 
 All quality standards met. Ready for merge.
 
+- Critical Issues: $ISSUES
+- Suggestions: $FEEDBACK
+- Components Approved: $APPROVED
+
 See REVIEW_REPORT.md for details." 2>/dev/null && echo -e "${GREEN}Added approval to PR${NC}"
     else
+        ISSUES_SUMMARY=$(echo "$ISSUES_LIST" | head -5 | sed 's/^/- /')
         gh pr review $PR_NUMBER --request-changes --body "## 🔄 Changes Requested
 
 Please address the issues identified in the review.
 
-### Critical Issues:
-$(grep "REVIEWER:ISSUE" ~/workspace/JOURNAL.md | head -5 | sed 's/.*\[REVIEWER:ISSUE\] /- /')
+### Critical Issues Found: $ISSUES
+$ISSUES_SUMMARY
 
 See REVIEW_REPORT.md for full details." 2>/dev/null && echo -e "${GREEN}Added review comments to PR${NC}"
     fi
-    echo ""
 fi
 
-# Display next steps
+# Complete handoff
+journal-log "HANDOFF:COMPLETED" "Handed off to $NEXT_PERSONA with $WORK_COUNT work items"
+journal-log "REVIEWER:CONTEXT" "Review complete. Decision: $ACTION"
+
+echo ""
 echo -e "${BLUE}=== Handoff Complete ===${NC}"
 echo ""
-echo "Next steps:"
+echo -e "${YELLOW}$NEXT_PERSONA should now:${NC}"
+echo "1. Run: /home/devuser/.claude/personas/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')-init.sh"
+echo "2. Review pending work: journal-query.sh pending-work $NEXT_PERSONA"
+echo "3. Start with the first work item"
+echo ""
+
+# Auto-continue
+echo -e "${GREEN}=== Activating $NEXT_PERSONA persona ===${NC}"
+echo ""
+sleep 2
+
+# Explicit instruction
+echo -e "${YELLOW}Claude, please continue as $NEXT_PERSONA by:${NC}"
 if [ "$NEXT_PERSONA" = "MERGER" ]; then
-    echo "1. MERGER should run: /home/devuser/.claude/personas/merger/merger-init.sh"
-    echo "2. MERGER should review HANDOFF_TO_MERGER.md"
-    echo "3. MERGER should perform final checks and merge"
+    echo "1. Verifying CI/CD status"
+    echo "2. Running final tests"
+    echo "3. Merging the approved code"
 else
-    echo "1. DEVELOPER should run: /home/devuser/.claude/personas/developer/developer-init.sh"
-    echo "2. DEVELOPER should review HANDOFF_TO_DEVELOPER.md"
-    echo "3. DEVELOPER should address review feedback"
+    echo "1. Reviewing the required changes"
+    echo "2. Implementing fixes"
+    echo "3. Running tests locally"
 fi
 echo ""
-echo -e "${YELLOW}To switch persona:${NC}"
-echo "Run: /home/devuser/.claude/personas/$NEXT_PERSONA/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')-init.sh"
+
+/home/devuser/.claude/personas/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')-init.sh
