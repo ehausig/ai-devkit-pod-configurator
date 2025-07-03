@@ -163,7 +163,7 @@ echo ""
 
 if [ -n "$NEXT_PERSONA" ]; then
     echo -e "${YELLOW}To continue development:${NC}"
-    echo "1. Run: /home/devuser/.claude/personas/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')-init"
+    echo "1. Run: /home/devuser/.claude/personas/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')-init.sh"
     echo "2. $NEXT_ACTION"
 else
     echo -e "${GREEN}=== Development Cycle Complete ===${NC}"
@@ -171,8 +171,8 @@ else
     echo "Congratulations! The full development cycle has completed successfully."
     echo ""
     echo "To start a new cycle:"
-    echo "• For new feature: /home/devuser/.claude/personas/architect/architect-init"
-    echo "• For bug fix: /home/devuser/.claude/personas/developer/developer-init"
+    echo "• For new feature: /home/devuser/.claude/personas/architect/architect-init.sh"
+    echo "• For bug fix: /home/devuser/.claude/personas/developer/developer-init.sh"
     echo ""
     echo "Use /journal-summary to see the overall system state."
 fi

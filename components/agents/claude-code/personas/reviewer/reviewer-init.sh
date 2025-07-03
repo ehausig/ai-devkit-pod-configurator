@@ -140,14 +140,14 @@ if [ $PENDING_COUNT -gt 0 ]; then
     fi
     echo ""
     echo "5. Continue with remaining items"
-    echo "6. Run reviewer-handoff when all complete"
+    echo "6. Run /home/devuser/.claude/personas/reviewer/reviewer-handoff.sh when all complete"
 else
     echo "No pending review items. Options:"
     echo "1. Check for recent handoffs:"
     echo "   journal-query handoff-chain"
     echo ""
     echo "2. If review is complete, run:"
-    echo "   reviewer-handoff"
+    echo "   /home/devuser/.claude/personas/reviewer/reviewer-handoff.sh"
 fi
 
 echo ""

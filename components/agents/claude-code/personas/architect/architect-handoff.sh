@@ -156,7 +156,7 @@ echo ""
 echo -e "${BLUE}=== Handoff Complete ===${NC}"
 echo ""
 echo -e "${YELLOW}DEVELOPER should now:${NC}"
-echo "1. Run: /home/devuser/.claude/personas/developer/developer-init"
+echo "1. Run: /home/devuser/.claude/personas/developer/developer-init.sh"
 echo "2. Review pending work items with: journal-query pending-work DEVELOPER"
 echo "3. Start implementing with TDD approach"
 echo ""
@@ -173,4 +173,4 @@ echo "2. Creating the feature branch"
 echo "3. Starting implementation with TDD"
 echo ""
 
-/home/devuser/.claude/personas/developer/developer-init
+/home/devuser/.claude/personas/developer/developer-init.sh

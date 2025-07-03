@@ -163,7 +163,7 @@ if [ $PENDING_COUNT -gt 0 ]; then
     fi
     echo ""
     echo "4. Continue with remaining tasks"
-    echo "5. Run merger-handoff when all complete"
+    echo "5. Run /home/devuser/.claude/personas/merger/merger-handoff.sh when all complete"
 else
     echo "No pending merge tasks. Options:"
     echo "1. Check for approved PRs:"
@@ -173,7 +173,7 @@ else
     echo "   journal-query handoff-chain"
     echo ""
     echo "3. If merge cycle is complete:"
-    echo "   merger-handoff"
+    echo "   /home/devuser/.claude/personas/merger/merger-handoff.sh"
 fi
 
 echo ""

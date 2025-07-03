@@ -143,7 +143,7 @@ if [ $PENDING_COUNT -gt 0 ]; then
     echo "   journal-query pending-work DEVELOPER"
     echo ""
     echo "5. When all work is done:"
-    echo "   developer-handoff"
+    echo "   /home/devuser/.claude/personas/developer/developer-handoff.sh"
 else
     echo "No pending work found. Options:"
     echo "1. Check for recent handoffs:"
@@ -153,7 +153,7 @@ else
     echo "   journal-query work-summary DEVELOPER"
     echo ""
     echo "3. If implementation is complete, run:"
-    echo "   developer-handoff"
+    echo "   /home/devuser/.claude/personas/developer/developer-handoff.sh"
 fi
 
 echo ""

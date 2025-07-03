@@ -224,7 +224,7 @@ echo ""
 echo -e "${BLUE}=== Handoff Complete ===${NC}"
 echo ""
 echo -e "${YELLOW}QA should now:${NC}"
-echo "1. Run: /home/devuser/.claude/personas/qa/qa-init"
+echo "1. Run: /home/devuser/.claude/personas/qa/qa-init.sh"
 echo "2. Review pending work: journal-query pending-work QA"
 echo "3. Start testing with real services"
 echo ""
@@ -241,4 +241,4 @@ echo "2. Running all test suites"
 echo "3. Testing against real services"
 echo ""
 
-/home/devuser/.claude/personas/qa/qa-init
+/home/devuser/.claude/personas/qa/qa-init.sh
