@@ -464,7 +464,4 @@ else
     info "No scripts directory found"
 fi
 
-log "Claude Code pre-build completed successfully"version#\"}"
-            comp_version="${comp_version%\"}"
-            comp_version="${comp_version#\'}"
-            comp_version="${comp_
+log "Claude Code pre-build completed successfully"
