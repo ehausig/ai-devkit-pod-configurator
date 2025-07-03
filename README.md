@@ -26,13 +26,14 @@ AI DevKit Pod Configurator provides a beautiful TUI (Terminal User Interface) fo
 
 - 🎨 **Beautiful TUI** - Interactive component selection with theme support
 - 🧩 **Modular Architecture** - Add only what you need: languages, tools, AI assistants
-- 🤖 **AI Assistant Support** - Optional Claude Code integration
+- 🤖 **AI Assistant Support** - Advanced Claude Code integration with multi-persona workflow
 - 🔧 **Language Support** - Python, Java, Go, Rust, Ruby, Scala, Kotlin, and more
 - 📦 **Build Tools** - Maven, Gradle, SBT with optional Nexus proxy support
 - 🧪 **TUI Testing** - Microsoft TUI Test pre-installed for testing terminal apps
 - 💾 **Persistent Storage** - Your code and configuration persist across restarts
 - 🌐 **Web File Manager** - Built-in Filebrowser for easy file management
 - 🔒 **Secure** - Runs as non-root user with proper isolation
+- 📊 **Advanced Claude Features** - Journal-based memory system, custom hooks, and personas
 
 ## 📸 Screenshots
 
@@ -111,6 +112,57 @@ The selector shows:
 - Dependencies and conflicts
 - Real-time build status with animations
 
+## 🤖 Claude Code Integration
+
+### Advanced AI Assistant Features
+
+The AI DevKit includes deep integration with Claude Code, featuring:
+
+#### Multi-Persona Development System
+Simulate a complete development team with specialized AI personas:
+- **ARCHITECT** - System design and technical planning
+- **DEVELOPER** - Implementation with TDD practices
+- **QA** - Comprehensive testing and quality assurance
+- **REVIEWER** - Code review and standards compliance
+- **MERGER** - Integration and release management
+
+#### Journal-Based Memory System
+- Persistent memory across sessions using event sourcing
+- Work tracking and handoff between personas
+- Safety mechanisms to prevent infinite loops
+- Context recovery from journal entries
+
+#### Custom Hooks and Automation
+- **Bash Logger** - Intelligent command categorization
+- **Decision Tracker** - Records architectural decisions
+- **Error Recovery** - Tracks and helps resolve issues
+- **File Milestone** - Tracks project progress
+- **Format Code** - Auto-formats on save
+- **Test Tracker** - Monitors test execution
+
+#### Slash Commands
+Custom commands for Claude Code:
+- `/journal-summary` - View work status across all personas
+- `/switch-persona` - Change development role
+- `/show-context` - Display current context
+- `/list-handoffs` - Show pending work transitions
+
+### Using Claude Code Personas
+
+```bash
+# After deployment, SSH into your container
+ssh devuser@localhost -p 2222
+
+# Switch to ARCHITECT persona to design a system
+/home/devuser/.claude/personas/architect/architect-init.sh
+
+# The persona will guide you through the design process
+# When complete, it automatically hands off to DEVELOPER
+
+# Work is tracked in the journal
+cat ~/workspace/JOURNAL.md
+```
+
 ## 🔐 Git Configuration
 
 Configure git credentials once on your host machine:
@@ -142,6 +194,42 @@ Access the built-in Filebrowser at [http://localhost:8090](http://localhost:8090
 - Default credentials: admin/admin (change after first login!)
 - Upload/download files through the web interface
 - Edit files directly in the browser
+
+## 🧩 Available Components
+
+### Programming Languages
+- **Python** - System, 3.11, or Miniconda versions
+- **Java** - OpenJDK or Adoptium (11, 17, 21)
+- **Go** - Versions 1.21 and 1.22
+- **Rust** - Stable and nightly channels
+- **Ruby** - System or 3.3
+- **Scala** - 2.13 and 3.x
+- **Kotlin** - Latest version
+
+### Build Tools
+- **Maven** - Java project management
+- **Gradle** - Build automation
+- **SBT** - Scala build tool
+
+### AI Assistants
+- **Claude Code** - Advanced AI coding assistant with:
+  - Multi-persona workflow system
+  - Journal-based persistent memory
+  - Custom hooks for automation
+  - Integrated development workflow
+
+## 🎨 Theme Support
+
+The TUI supports multiple themes to match your preference:
+
+```bash
+# Use built-in themes
+AI_DEVKIT_THEME=matrix ./build-and-deploy.sh
+AI_DEVKIT_THEME=ocean ./build-and-deploy.sh
+AI_DEVKIT_THEME=neon ./build-and-deploy.sh
+```
+
+Available themes: `default`, `dark`, `matrix`, `ocean`, `minimal`, `neon`
 
 ## 🧹 Disk Management
 
@@ -209,6 +297,40 @@ Components can include markdown documentation that gets injected into LLM system
 my-tool --help
 ```
 
+## 🛠️ Advanced Features
+
+### Nexus Repository Proxy
+
+If you have a Nexus repository manager running locally, the build system automatically detects and configures package managers to use it:
+
+```bash
+# Start Nexus (optional)
+docker run -d -p 8081:8081 --name nexus sonatype/nexus3
+
+# Build will auto-detect and use Nexus for:
+# - npm packages
+# - Python packages (pip)
+# - Maven artifacts
+# - Go modules
+# - APT packages
+```
+
+### Pre-build Scripts
+
+Components can include pre-build scripts for complex setup:
+- Generate configuration files
+- Download additional resources
+- Create documentation aggregates
+- Set up component-specific structures
+
+### Dependency Management
+
+The build system includes:
+- Topological sorting of components by dependencies
+- Mutual exclusion groups (e.g., only one Python version)
+- Automatic dependency validation
+- Clear error messages for conflicts
+
 ## 🤝 Contributing
 
 We welcome contributions! Please see our [Developer Guide](docs/developer.md) for information on:
@@ -218,6 +340,31 @@ We welcome contributions! Please see our [Developer Guide](docs/developer.md) fo
 - Submitting pull requests
 
 For maintainers, see the [Maintainer Guide](docs/maintainer.md) for release procedures.
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+1. **Permission Denied**: Make scripts executable with `chmod +x *.sh`
+2. **Kubernetes Connection**: Ensure your cluster is running and `kubectl` is configured
+3. **Build Failures**: Check `build-and-deploy.log` for detailed error messages
+4. **Disk Space**: Use `cleanup-colima.sh` to free up space in Colima
+
+See the [Troubleshooting Guide](docs/troubleshooting.md) for comprehensive solutions.
+
+## 📋 System Requirements
+
+### Minimum Requirements
+- 4 CPU cores
+- 8GB RAM
+- 20GB disk space
+- Kubernetes 1.20+
+
+### Recommended
+- 6+ CPU cores
+- 12GB+ RAM
+- 50GB+ disk space
+- Fast internet connection for package downloads
 
 ## 💖 Support This Project
 
