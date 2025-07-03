@@ -126,6 +126,8 @@ Simulate a complete development team with specialized AI personas:
 - **REVIEWER** - Code review and standards compliance
 - **MERGER** - Integration and release management
 
+📖 **[Detailed Persona System Documentation](components/agents/claude-code/personas/README.md)** - In-depth guide to using the multi-persona workflow
+
 #### Journal-Based Memory System
 - Persistent memory across sessions using event sourcing
 - Work tracking and handoff between personas
