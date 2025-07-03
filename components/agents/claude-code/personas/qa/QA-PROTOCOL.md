@@ -49,10 +49,10 @@ The QA persona is responsible for comprehensive testing, ensuring quality standa
 
 ### Example Log Entries
 ```bash
-echo "$(date -Iseconds) [QA:CONTEXT] Testing user authentication flow" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) [QA:ISSUE] Integration test using mocks instead of real service" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) [QA:FAILED] Login endpoint returns 500 with special characters" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) [QA:MEMORY] Database needs indices for performance at scale" >> ~/workspace/JOURNAL.md
+journal-log "QA:CONTEXT" "Testing user authentication flow"
+journal-log "QA:ISSUE" "Integration test using mocks instead of real service"
+journal-log "QA:FAILED" "Login endpoint returns 500 with special characters"
+journal-log "QA:MEMORY" "Database needs indices for performance at scale"
 ```
 
 ## Testing Workflow
@@ -91,7 +91,7 @@ find . -name "*test*" -type f
 npm test -- --coverage  # or equivalent
 
 # Identify untested code paths
-echo "$(date -Iseconds) [QA:CONTEXT] Unit test coverage: X%, gaps in: [areas]" >> ~/workspace/JOURNAL.md
+journal-log "QA:CONTEXT" "Unit test coverage: X%, gaps in: [areas]"
 ```
 
 ### 3. Integration Testing
@@ -103,7 +103,7 @@ cd tests/integration
 python test_real_api.py  # or equivalent
 
 # Log results
-echo "$(date -Iseconds) [QA:PASSED] All API endpoints respond correctly" >> ~/workspace/JOURNAL.md
+journal-log "QA:PASSED" "All API endpoints respond correctly"
 ```
 
 ### 4. User Simulation Testing
@@ -115,7 +115,7 @@ npx @microsoft/tui-test tests/e2e/
 npm run test:e2e
 
 # Manual testing for complex workflows
-echo "$(date -Iseconds) [QA:CONTEXT] Manual test: [scenario]" >> ~/workspace/JOURNAL.md
+journal-log "QA:CONTEXT" "Manual test: [scenario]"
 ```
 
 ## Test Categories
@@ -195,7 +195,7 @@ echo "$(date -Iseconds) [QA:CONTEXT] Manual test: [scenario]" >> ~/workspace/JOU
 
 1. **Summarize Testing**:
    ```bash
-   echo "$(date -Iseconds) [QA:CONTEXT] Testing complete: X tests, Y passed, Z failed" >> ~/workspace/JOURNAL.md
+   journal-log "QA:CONTEXT" "Testing complete: X tests, Y passed, Z failed"
    ```
 
 2. **Document Results**:

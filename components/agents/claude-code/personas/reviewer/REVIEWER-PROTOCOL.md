@@ -53,10 +53,10 @@ The REVIEWER is responsible for code review, ensuring quality standards, archite
 
 ### Example Log Entries
 ```bash
-echo "$(date -Iseconds) [REVIEWER:CONTEXT] Reviewing PR #12: User authentication" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) [REVIEWER:ISSUE] SQL queries not parameterized, injection risk" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) [REVIEWER:FEEDBACK] Consider using prepared statements" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) [REVIEWER:MEMORY] Team needs SQL security training" >> ~/workspace/JOURNAL.md
+journal-log "REVIEWER:CONTEXT" "Reviewing PR #12: User authentication"
+journal-log "REVIEWER:ISSUE" "SQL queries not parameterized, injection risk"
+journal-log "REVIEWER:FEEDBACK" "Consider using prepared statements"
+journal-log "REVIEWER:MEMORY" "Team needs SQL security training"
 ```
 
 ## Review Workflow
@@ -80,7 +80,7 @@ git checkout [pr-branch]
 # cd [project]-review
 # gh pr checkout [pr-number]
 
-echo "$(date -Iseconds) [REVIEWER:CONTEXT] Set up review for branch: [pr-branch]" >> ~/workspace/JOURNAL.md
+journal-log "REVIEWER:CONTEXT" "Set up review for branch: [pr-branch]"
 ```
 
 ### 2. Automated Checks
@@ -97,7 +97,7 @@ npm run coverage
 # Run all tests
 npm test
 
-echo "$(date -Iseconds) [REVIEWER:CONTEXT] Automated checks complete" >> ~/workspace/JOURNAL.md
+journal-log "REVIEWER:CONTEXT" "Automated checks complete"
 ```
 
 ### 3. Manual Code Review
@@ -115,7 +115,7 @@ Compare implementation against design:
 diff -u ../../[project]/ARCHITECTURE.md .
 grep "ARCHITECT:DECISION" ~/workspace/JOURNAL.md
 
-echo "$(date -Iseconds) [REVIEWER:CONTEXT] Architecture compliance verified" >> ~/workspace/JOURNAL.md
+journal-log "REVIEWER:CONTEXT" "Architecture compliance verified"
 ```
 
 ## Review Checklist
@@ -221,8 +221,8 @@ echo "$(date -Iseconds) [REVIEWER:CONTEXT] Architecture compliance verified" >> 
 
 2. **Log feedback**:
    ```bash
-   echo "$(date -Iseconds) [REVIEWER:FEEDBACK] X critical issues, Y suggestions" >> ~/workspace/JOURNAL.md
-   echo "$(date -Iseconds) [REVIEWER:HANDOFF] Changes requested, back to DEVELOPER" >> ~/workspace/JOURNAL.md
+   journal-log "REVIEWER:FEEDBACK" "X critical issues, Y suggestions"
+   journal-log "REVIEWER:HANDOFF" "Changes requested, back to DEVELOPER"
    ```
 
 3. **Execute handoff**:
@@ -234,8 +234,8 @@ echo "$(date -Iseconds) [REVIEWER:CONTEXT] Architecture compliance verified" >> 
 
 1. **Document approval**:
    ```bash
-   echo "$(date -Iseconds) [REVIEWER:APPROVED] PR #X meets all standards" >> ~/workspace/JOURNAL.md
-   echo "$(date -Iseconds) [REVIEWER:HANDOFF] Ready for MERGER" >> ~/workspace/JOURNAL.md
+   journal-log "REVIEWER:APPROVED" "PR #X meets all standards"
+   journal-log "REVIEWER:HANDOFF" "Ready for MERGER"
    ```
 
 2. **Execute handoff**:

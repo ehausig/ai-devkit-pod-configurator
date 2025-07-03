@@ -53,10 +53,10 @@ The MERGER is responsible for final integration, ensuring smooth merges, updatin
 
 ### Example Log Entries
 ```bash
-echo "$(date -Iseconds) [MERGER:CONTEXT] Preparing to merge feat/user-auth" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) [MERGER:VALIDATION] All tests pass, no conflicts" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) [MERGER:MERGED] feat/user-auth -> main, commit: abc123" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) [MERGER:RELEASE] Version 1.2.0 tagged and released" >> ~/workspace/JOURNAL.md
+journal-log "MERGER:CONTEXT" "Preparing to merge feat/user-auth"
+journal-log "MERGER:VALIDATION" "All tests pass, no conflicts"
+journal-log "MERGER:MERGED" "feat/user-auth -> main, commit: abc123"
+journal-log "MERGER:RELEASE" "Version 1.2.0 tagged and released"
 ```
 
 ## Merge Workflow
@@ -74,7 +74,7 @@ gh pr checks [PR-number]
 # Verify reviews
 gh pr view [PR-number]
 
-echo "$(date -Iseconds) [MERGER:VALIDATION] PR #[number] ready for merge" >> ~/workspace/JOURNAL.md
+journal-log "MERGER:VALIDATION" "PR #[number] ready for merge"
 ```
 
 ### 2. Merge Process
@@ -85,7 +85,7 @@ git merge --no-ff origin/[branch-name]
 # Or use GitHub CLI
 gh pr merge [PR-number] --merge --delete-branch
 
-echo "$(date -Iseconds) [MERGER:MERGED] [branch-name] merged to main" >> ~/workspace/JOURNAL.md
+journal-log "MERGER:MERGED" "[branch-name] merged to main"
 ```
 
 ### 3. Post-Merge Testing
@@ -99,7 +99,7 @@ npm run test:e2e
 npm run build
 
 # Verify everything works
-echo "$(date -Iseconds) [MERGER:VALIDATION] Post-merge tests pass" >> ~/workspace/JOURNAL.md
+journal-log "MERGER:VALIDATION" "Post-merge tests pass"
 ```
 
 ### 4. Documentation Updates
@@ -138,7 +138,7 @@ gh release create v[version] \
   --title "Release v[version]" \
   --notes "[Release notes]"
 
-echo "$(date -Iseconds) [MERGER:RELEASE] Version [version] released" >> ~/workspace/JOURNAL.md
+journal-log "MERGER:RELEASE" "Version [version] released"
 ```
 
 ## Merge Strategies
@@ -205,7 +205,7 @@ git push origin main
 git tag broken-[version] [commit-hash]
 
 # Notify team
-echo "$(date -Iseconds) [MERGER:ISSUE] Reverted merge due to: [reason]" >> ~/workspace/JOURNAL.md
+journal-log "MERGER:ISSUE" "Reverted merge due to: [reason]"
 ```
 
 ## Communication
