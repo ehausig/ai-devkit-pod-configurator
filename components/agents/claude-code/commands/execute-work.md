@@ -38,7 +38,7 @@ else
     
     if [ $PENDING -gt 0 ]; then
         # Prepare and execute work
-        /home/devuser/.claude/hooks/prepare-next-work.sh $PERSONA
+        work-tracker.sh prepare $PERSONA
         
         if [ -f /tmp/execute-next-work.sh ]; then
             echo ""

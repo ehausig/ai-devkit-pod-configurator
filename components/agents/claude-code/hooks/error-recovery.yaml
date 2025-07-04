@@ -6,74 +6,8 @@ events:
   - PostToolUse
 configuration:
   matcher: "Bash"
-  hook:
-    type: command
-    command: "/home/devuser/.claude/hooks/error-recovery.sh"
+  command: "/home/devuser/.claude/hooks/error-recovery.sh"
 script: |
   #!/bin/bash
-  # Error and recovery tracking hook
-  # Fixed to work with Claude Code's actual JSON structure
-  
-  # Read JSON input from stdin
-  json_input=$(cat)
-  
-  # Extract command details
-  command=$(echo "$json_input" | jq -r '.tool_input.command // ""')
-  description=$(echo "$json_input" | jq -r '.tool_input.description // ""')
-  
-  # Check if this is PostToolUse
-  if echo "$json_input" | jq -e '.tool_response' > /dev/null 2>&1; then
-    # Determine success from Claude Code's response structure
-    interrupted=$(echo "$json_input" | jq -r '.tool_response.interrupted // false')
-    stderr=$(echo "$json_input" | jq -r '.tool_response.stderr // ""')
-    
-    # Consider it successful if not interrupted and no stderr
-    if [ "$interrupted" = "false" ] && [ -z "$stderr" ]; then
-      success="true"
-    else
-      success="false"
-    fi
-    
-    # Log failed commands
-    if [ "$success" = "false" ]; then
-      journal-log.sh "ERROR" "Command failed: $command - $description" 2>/dev/null || echo "$(date -Iseconds) [ERROR] Command failed: $command - $description" >> ~/workspace/JOURNAL.md
-      
-      # Log stderr if available
-      if [ -n "$stderr" ]; then
-        journal-log.sh "ERROR" "Error output: $stderr" 2>/dev/null || echo "$(date -Iseconds) [ERROR] Error output: $stderr" >> ~/workspace/JOURNAL.md
-      fi
-      
-      # Track specific error types
-      case "$command" in
-        *"git"*)
-          journal-log.sh "ERROR" "Git operation failed - may need conflict resolution" 2>/dev/null || echo "$(date -Iseconds) [ERROR] Git operation failed - may need conflict resolution" >> ~/workspace/JOURNAL.md
-          ;;
-        *"npm install"*|*"pip install"*)
-          journal-log.sh "ERROR" "Dependency installation failed - check requirements" 2>/dev/null || echo "$(date -Iseconds) [ERROR] Dependency installation failed - check requirements" >> ~/workspace/JOURNAL.md
-          ;;
-        *"docker"*)
-          journal-log.sh "ERROR" "Docker operation failed - check Docker daemon" 2>/dev/null || echo "$(date -Iseconds) [ERROR] Docker operation failed - check Docker daemon" >> ~/workspace/JOURNAL.md
-          ;;
-      esac
-    fi
-    
-    # Track recovery actions
-    if [ "$success" = "true" ]; then
-      # Git conflict resolution
-      if [[ "$command" =~ git[[:space:]]checkout[[:space:]]--theirs ]] || [[ "$command" =~ git[[:space:]]checkout[[:space:]]--ours ]]; then
-        journal-log.sh "RECOVERY" "Resolved git conflict using checkout strategy" 2>/dev/null || echo "$(date -Iseconds) [RECOVERY] Resolved git conflict using checkout strategy" >> ~/workspace/JOURNAL.md
-      fi
-      
-      # Force operations (recovery attempts)
-      if [[ "$command" =~ --force ]] || [[ "$command" =~ -f[[:space:]] ]]; then
-        journal-log.sh "RECOVERY" "Used force flag to overcome issue" 2>/dev/null || echo "$(date -Iseconds) [RECOVERY] Used force flag to overcome issue" >> ~/workspace/JOURNAL.md
-      fi
-      
-      # Retry patterns
-      if [[ "$description" =~ [Rr]etry ]] || [[ "$description" =~ again ]]; then
-        journal-log.sh "RECOVERY" "Retrying previous operation" 2>/dev/null || echo "$(date -Iseconds) [RECOVERY] Retrying previous operation" >> ~/workspace/JOURNAL.md
-      fi
-    fi
-  fi
-  
-  exit 0
+  # Error and recovery tracking hook - uses hook framework
+  exec /usr/local/bin/hook-framework.sh error-recovery

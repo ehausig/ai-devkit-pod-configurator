@@ -113,7 +113,7 @@ entrypoint_setup: |
   fi
   
   # Create the journal entry
-  echo "$(date -Iseconds) [$type] Session $session_id completed - $message" >> ~/workspace/JOURNAL.md
+  journal-log.sh "$type" "Session $session_id completed - $message"
   
   # Return success
   exit 0
@@ -146,12 +146,12 @@ entrypoint_setup: |
       # Replace ~ with $HOME, not concatenate
       target_dir="${target_dir/#\~/$HOME}"
     fi
-    echo "$(date -Iseconds) [INFO] Working directory: $target_dir" >> ~/workspace/JOURNAL.md
+    journal-log.sh "INFO" "Working directory: $target_dir"
   fi
   
   # Track workspace initialization
   if [[ "$command" =~ mkdir.*workspace ]]; then
-    echo "$(date -Iseconds) [INFO] Initializing workspace structure" >> ~/workspace/JOURNAL.md
+    journal-log.sh "INFO" "Initializing workspace structure"
   fi
   
   # Always allow execution
@@ -161,189 +161,22 @@ entrypoint_setup: |
       # Create bash-logger.sh hook
       cat > /home/devuser/.claude/hooks/bash-logger.sh << 'BASH_LOGGER_HOOK'
   #!/bin/bash
-  # Enhanced bash command logging hook with intelligent categorization
-  # Fixed to work with Claude Code's actual JSON structure
-  
-  # Read JSON input from stdin
-  json_input=$(cat)
-  
-  # Extract relevant fields
-  tool_name=$(echo "$json_input" | jq -r '.tool_name // ""')
-  session_id=$(echo "$json_input" | jq -r '.session_id // "unknown"')
-  
-  # Determine if this is pre or post execution based on presence of tool_response
-  if echo "$json_input" | jq -e '.tool_response' > /dev/null 2>&1; then
-    # PostToolUse - command was executed
-    command=$(echo "$json_input" | jq -r '.tool_input.command // ""')
-    description=$(echo "$json_input" | jq -r '.tool_input.description // "No description"')
-    
-    # Determine success from Claude Code's response structure
-    interrupted=$(echo "$json_input" | jq -r '.tool_response.interrupted // false')
-    stderr=$(echo "$json_input" | jq -r '.tool_response.stderr // ""')
-    
-    # Consider it successful if not interrupted and no stderr
-    if [ "$interrupted" = "false" ] && [ -z "$stderr" ]; then
-      success="true"
-    else
-      success="false"
-    fi
-    
-    # Intelligent categorization based on command
-    type="INFO"
-    
-    # File operations
-    [[ "$command" =~ ^(touch|mkdir|cp|mv|rm) ]] && type="STRUCTURE"
-    
-    # Git operations
-    [[ "$command" =~ ^git[[:space:]] ]] && type="GIT"
-    [[ "$command" =~ ^gh[[:space:]] ]] && type="GITHUB"
-    
-    # Package management
-    [[ "$command" =~ ^(npm|yarn|pnpm)[[:space:]] ]] && type="NPM"
-    [[ "$command" =~ ^(pip|pipenv|poetry)[[:space:]] ]] && type="PIP"
-    [[ "$command" =~ ^cargo[[:space:]] ]] && type="CARGO"
-    [[ "$command" =~ ^go[[:space:]] ]] && type="GO"
-    [[ "$command" =~ ^(bundle|gem)[[:space:]] ]] && type="RUBY"
-    [[ "$command" =~ ^(mvn|gradle)[[:space:]] ]] && type="JAVA"
-    
-    # Testing
-    [[ "$command" =~ test ]] && type="TEST"
-    [[ "$command" =~ coverage ]] && type="COVERAGE"
-    
-    # Docker
-    [[ "$command" =~ ^docker[[:space:]] ]] && type="DOCKER"
-    [[ "$command" =~ ^docker-compose[[:space:]] ]] && type="COMPOSE"
-    
-    # Environment
-    [[ "$command" =~ ^(export|source|eval) ]] && type="ENV"
-    
-    # Build tools
-    [[ "$command" =~ ^make[[:space:]] ]] && type="BUILD"
-    
-    if [ "$success" = "true" ]; then
-      echo "$(date -Iseconds) [$type] $command" >> ~/workspace/JOURNAL.md
-    else
-      echo "$(date -Iseconds) [ERROR] Failed: $command - $description" >> ~/workspace/JOURNAL.md
-      # Log stderr if present
-      if [ -n "$stderr" ]; then
-        echo "$(date -Iseconds) [ERROR] stderr: $stderr" >> ~/workspace/JOURNAL.md
-      fi
-    fi
-  else
-    # PreToolUse - only log significant operations we want to track before execution
-    command=$(echo "$json_input" | jq -r '.tool_input.command // ""')
-    description=$(echo "$json_input" | jq -r '.tool_input.description // "No description"')
-    
-    # Only log certain pre-execution events
-    case "$command" in
-      "rm -rf"*|"sudo"*)
-        echo "$(date -Iseconds) [WARNING] Preparing dangerous command: $command" >> ~/workspace/JOURNAL.md
-        ;;
-      *"production"*|*"deploy"*)
-        echo "$(date -Iseconds) [WARNING] Production operation pending: $command" >> ~/workspace/JOURNAL.md
-        ;;
-    esac
-  fi
-  
-  # Always allow execution
-  exit 0
+  # Bash command logging hook - uses hook framework
+  exec /usr/local/bin/hook-framework.sh bash-logger
   BASH_LOGGER_HOOK
       
       # Create format-code.sh hook
       cat > /home/devuser/.claude/hooks/format-code.sh << 'FORMAT_CODE_HOOK'
   #!/bin/bash
   # Auto-formatting hook - formats code based on file extension
-  # Fixed to work with Claude Code's actual JSON structure
-  
-  # Read JSON input from stdin
-  json_input=$(cat)
-  
-  # Check if this is PostToolUse (has tool_response)
-  if echo "$json_input" | jq -e '.tool_response' > /dev/null 2>&1; then
-    # Extract file path from tool input
-    file_path=$(echo "$json_input" | jq -r '.tool_input.file_path // .tool_input.path // ""')
-    
-    if [ -z "$file_path" ] || [ ! -f "$file_path" ]; then
-      # No valid file path found or file doesn't exist
-      exit 0
-    fi
-    
-    # Log formatting attempt
-    echo "$(date -Iseconds) [INFO] Auto-formatting: $file_path" >> ~/workspace/JOURNAL.md
-    
-    # Get file extension
-    extension="${file_path##*.}"
-    
-    # Format based on extension
-    case "$extension" in
-      py)
-        # Python - use black if available
-        if command -v black >/dev/null 2>&1; then
-          black "$file_path" 2>/dev/null || true
-        fi
-        ;;
-      js|jsx|ts|tsx)
-        # JavaScript/TypeScript - use prettier if available
-        if command -v prettier >/dev/null 2>&1; then
-          prettier --write "$file_path" 2>/dev/null || true
-        fi
-        ;;
-      go)
-        # Go - use gofmt
-        if command -v gofmt >/dev/null 2>&1; then
-          gofmt -w "$file_path" 2>/dev/null || true
-        fi
-        ;;
-      rs)
-        # Rust - use rustfmt if available
-        if command -v rustfmt >/dev/null 2>&1; then
-          rustfmt "$file_path" 2>/dev/null || true
-        fi
-        ;;
-      java)
-        # Java - use google-java-format if available
-        if command -v google-java-format >/dev/null 2>&1; then
-          google-java-format -i "$file_path" 2>/dev/null || true
-        fi
-        ;;
-    esac
-  fi
-  
-  exit 0
+  exec /usr/local/bin/hook-framework.sh format-code
   FORMAT_CODE_HOOK
       
       # Create notification.sh hook
       cat > /home/devuser/.claude/hooks/notification.sh << 'NOTIFICATION_HOOK'
   #!/bin/bash
   # Custom notification hook
-  
-  # Read JSON input from stdin
-  json_input=$(cat)
-  
-  # Extract notification details
-  message=$(echo "$json_input" | jq -r '.message // "Claude Code notification"')
-  title=$(echo "$json_input" | jq -r '.title // "Claude Code"')
-  
-  # Log to journal
-  echo "$(date -Iseconds) [NOTIFICATION] $title: $message" >> ~/workspace/JOURNAL.md
-  
-  # Try different notification methods
-  # 1. Try notify-send (if available in container)
-  if command -v notify-send >/dev/null 2>&1; then
-    notify-send "$title" "$message" 2>/dev/null || true
-  fi
-  
-  # 2. Write to a notification file that could be monitored
-  echo "$(date -Iseconds) | $title | $message" >> ~/workspace/.notifications.log
-  
-  # 3. If running in a terminal, use terminal bell
-  if [ -t 1 ]; then
-    echo -e "\a"  # Terminal bell
-    echo "🔔 $title: $message"
-  fi
-  
-  # Always exit successfully
-  exit 0
+  exec /usr/local/bin/hook-framework.sh notification
   NOTIFICATION_HOOK
       
       # Make all hooks executable
@@ -381,13 +214,44 @@ entrypoint_setup: |
   # Install journal query scripts if they exist - KEEP .sh extensions
   if [ -d /tmp/claude-scripts ]; then
       echo "Installing journal scripts..."
-      for script in journal-query.sh get-context-window.sh work-tracker.sh journal-stats.sh work-status.sh; do
+      
+      # Install core framework and common scripts first
+      for script in claude-code-common.sh hook-framework.sh; do
           if [ -f "/tmp/claude-scripts/$script" ]; then
               cp "/tmp/claude-scripts/$script" "/usr/local/bin/$script"
               chmod 755 "/usr/local/bin/$script"
               echo "  - Installed: $script"
           fi
       done
+      
+      # Install main utility scripts
+      for script in journal-query.sh journal-log.sh work-tracker.sh get-context-window.sh; do
+          if [ -f "/tmp/claude-scripts/$script" ]; then
+              cp "/tmp/claude-scripts/$script" "/usr/local/bin/$script"
+              chmod 755 "/usr/local/bin/$script"
+              echo "  - Installed: $script"
+          fi
+      done
+      
+      # Install backward compatibility wrappers
+      for script in journal-stats.sh work-status.sh prepare-next-work.sh; do
+          if [ -f "/tmp/claude-scripts/$script" ]; then
+              cp "/tmp/claude-scripts/$script" "/usr/local/bin/$script"
+              chmod 755 "/usr/local/bin/$script"
+              echo "  - Installed: $script (wrapper)"
+          fi
+      done
+      
+      # Install hook logic scripts
+      for script in /tmp/claude-scripts/*-hook.sh; do
+          if [ -f "$script" ]; then
+              script_name=$(basename "$script")
+              cp "$script" "/usr/local/bin/$script_name"
+              chmod 755 "/usr/local/bin/$script_name"
+              echo "  - Installed: $script_name"
+          fi
+      done
+      
       echo "Journal scripts installed successfully"
   fi
   
@@ -411,37 +275,6 @@ entrypoint_setup: |
       echo "No /tmp/claude-settings.json.template found in image"
   fi
   
-  # Note: user-CLAUDE.md is handled in the main entrypoint.sh script
-  # along with appending component imports
-  
-  # Install utility scripts if they exist - KEEP .sh extensions
-  if [ -d /tmp/claude-scripts ]; then
-      echo "Installing utility scripts..."
-      for script in /tmp/claude-scripts/*.sh; do
-          if [ -f "$script" ]; then
-              script_name=$(basename "$script")
-              cp "$script" /usr/local/bin/"$script_name"
-              chmod 755 /usr/local/bin/"$script_name"
-              echo "  - Installed: $script_name"
-          fi
-      done
-      echo "Utility scripts installed successfully"
-  fi
-
-  # Install journal log script if it exists
-  if [ -f /tmp/claude-scripts/journal-log.sh ]; then
-      echo "Installing journal-log.sh script..."
-      cp /tmp/claude-scripts/journal-log.sh /usr/local/bin/journal-log.sh
-      chmod 755 /usr/local/bin/journal-log.sh
-      echo "  - Installed: journal-log.sh"
-  fi
-
-  # Ensure the prepare-next-work.sh script is accessible
-  if [ -f /home/devuser/.claude/hooks/prepare-next-work.sh ]; then
-      echo "Verifying prepare-next-work.sh is executable..."
-      chmod 755 /home/devuser/.claude/hooks/prepare-next-work.sh
-  fi
-
   # Create a directory for work scripts
   mkdir -p /tmp/work-scripts
   chown devuser:devuser /tmp/work-scripts

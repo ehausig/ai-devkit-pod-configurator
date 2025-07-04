@@ -6,49 +6,8 @@ events:
   - PreToolUse
 configuration:
   matcher: "Bash"
-  hook:
-    type: command
-    command: "/home/devuser/.claude/hooks/persona-manager.sh"
+  command: "/home/devuser/.claude/hooks/persona-manager.sh"
 script: |
   #!/bin/bash
-  # Persona management hook - tracks persona switches and context
-  
-  # Read JSON input from stdin
-  json_input=$(cat)
-  
-  # Extract command
-  command=$(echo "$json_input" | jq -r '.tool_input.command // ""')
-  
-  # Check if this is a persona initialization command
-  if [[ "$command" =~ personas/([^/]+)/\1-init\.sh ]]; then
-    persona="${BASH_REMATCH[1]^^}"  # Convert to uppercase
-    journal-log.sh "PERSONA:SWITCH" "Switching to $persona persona" 2>/dev/null || echo "$(date -Iseconds) [PERSONA:SWITCH] Switching to $persona persona" >> ~/workspace/JOURNAL.md
-    
-    # Log the transition context
-    case "$persona" in
-      ARCHITECT)
-        journal-log.sh "PERSONA:CONTEXT" "Starting system design phase" 2>/dev/null || echo "$(date -Iseconds) [PERSONA:CONTEXT] Starting system design phase" >> ~/workspace/JOURNAL.md
-        ;;
-      DEVELOPER)
-        journal-log.sh "PERSONA:CONTEXT" "Starting implementation phase" 2>/dev/null || echo "$(date -Iseconds) [PERSONA:CONTEXT] Starting implementation phase" >> ~/workspace/JOURNAL.md
-        ;;
-      QA)
-        journal-log.sh "PERSONA:CONTEXT" "Starting testing phase" 2>/dev/null || echo "$(date -Iseconds) [PERSONA:CONTEXT] Starting testing phase" >> ~/workspace/JOURNAL.md
-        ;;
-      REVIEWER)
-        journal-log.sh "PERSONA:CONTEXT" "Starting code review phase" 2>/dev/null || echo "$(date -Iseconds) [PERSONA:CONTEXT] Starting code review phase" >> ~/workspace/JOURNAL.md
-        ;;
-      MERGER)
-        journal-log.sh "PERSONA:CONTEXT" "Starting integration phase" 2>/dev/null || echo "$(date -Iseconds) [PERSONA:CONTEXT] Starting integration phase" >> ~/workspace/JOURNAL.md
-        ;;
-    esac
-  fi
-  
-  # Check for handoff commands
-  if [[ "$command" =~ personas/([^/]+)/\1-handoff\.sh ]]; then
-    persona="${BASH_REMATCH[1]^^}"
-    journal-log.sh "PERSONA:HANDOFF" "$persona completing handoff" 2>/dev/null || echo "$(date -Iseconds) [PERSONA:HANDOFF] $persona completing handoff" >> ~/workspace/JOURNAL.md
-  fi
-  
-  # Always allow execution
-  exit 0
+  # Persona management hook - uses hook framework
+  exec /usr/local/bin/hook-framework.sh persona-manager

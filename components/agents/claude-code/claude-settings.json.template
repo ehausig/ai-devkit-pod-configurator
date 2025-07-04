@@ -11,7 +11,7 @@
     "DISABLE_NON_ESSENTIAL_MODEL_CALLS": "0",
     "DISABLE_TELEMETRY": "1"
   },
-"permissions": {
+  "permissions": {
     "defaultMode": "acceptEdits",
     "allow": [
       "Bash(*)",
@@ -131,12 +131,12 @@
       "Bash(/home/devuser/.claude/personas/merger/merger-init.sh)",
       "Bash(/home/devuser/.claude/personas/merger/merger-handoff.sh)",
       "Bash(/tmp/execute-next-work.sh)",
-      "Bash(/home/devuser/.claude/hooks/prepare-next-work.sh)",
       "Bash(work-status.sh:*)",
-      "Bash(journal-query:*)",
-      "Bash(journal-stats:*)",
-      "Bash(work-tracker:*)",
-      "Bash(get-context-window:*)",
+      "Bash(journal-query.sh:*)",
+      "Bash(journal-stats.sh:*)",
+      "Bash(work-tracker.sh:*)",
+      "Bash(get-context-window.sh:*)",
+      "Bash(journal-log.sh:*)",
       "Edit(~/workspace/*)",
       "Glob(~/workspace/*)",
       "Grep(~/workspace/*)",
@@ -258,10 +258,6 @@
           {
             "type": "command",
             "command": "/home/devuser/.claude/hooks/persona-manager.sh"
-          },
-          {
-            "type": "command",
-            "command": "/home/devuser/.claude/hooks/journal-context.sh"
           }
         ]
       },

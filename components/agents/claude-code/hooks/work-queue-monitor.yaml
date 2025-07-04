@@ -6,51 +6,8 @@ events:
   - PostToolUse
 configuration:
   matcher: "Bash"
-  hook:
-    type: command
-    command: "/home/devuser/.claude/hooks/work-queue-monitor.sh"
+  command: "/home/devuser/.claude/hooks/work-queue-monitor.sh"
 script: |
   #!/bin/bash
-  # Work queue monitor hook - creates executable scripts for pending work
-  
-  # Read JSON input from stdin
-  json_input=$(cat)
-  
-  # Extract command
-  command=$(echo "$json_input" | jq -r '.tool_input.command // ""')
-  
-  # Check if a work signal file exists (created by handoff scripts)
-  if [ -f /tmp/persona-work-ready ]; then
-    NEXT_PERSONA=$(cat /tmp/persona-work-ready)
-    rm -f /tmp/persona-work-ready
-    
-    # Log that we detected a handoff
-    journal-log.sh "WORK:QUEUE" "Detected work ready for $NEXT_PERSONA" 2>/dev/null || \
-      echo "$(date -Iseconds) [WORK:QUEUE] Detected work ready for $NEXT_PERSONA" >> ~/workspace/JOURNAL.md
-    
-    # Prepare the next work item
-    /home/devuser/.claude/hooks/prepare-next-work.sh "$NEXT_PERSONA"
-  fi
-  
-  # Also check if command indicates work completion
-  if [[ "$command" =~ "WORK:COMPLETED" ]]; then
-    # Extract persona from the command
-    if [[ "$command" =~ journal-log.*WORK:COMPLETED.*([A-Z]+): ]]; then
-      PERSONA="${BASH_REMATCH[1]}"
-      
-      # Check if more work exists for this persona
-      PENDING_COUNT=$(journal-query.sh pending-work "$PERSONA" 2>/dev/null | wc -l)
-      
-      if [ "$PENDING_COUNT" -gt 0 ]; then
-        # Prepare next work item
-        /home/devuser/.claude/hooks/prepare-next-work.sh "$PERSONA"
-      else
-        # Check if this persona should hand off
-        journal-log.sh "WORK:QUEUE" "No more work for $PERSONA, checking for handoff" 2>/dev/null || \
-          echo "$(date -Iseconds) [WORK:QUEUE] No more work for $PERSONA, checking for handoff" >> ~/workspace/JOURNAL.md
-      fi
-    fi
-  fi
-  
-  # Always allow execution
-  exit 0
+  # Work queue monitor hook - uses hook framework
+  exec /usr/local/bin/hook-framework.sh work-queue-monitor

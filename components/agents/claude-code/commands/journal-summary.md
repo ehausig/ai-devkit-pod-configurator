@@ -23,7 +23,7 @@ Display the current state of the journal-based work system.
 
 ```bash
 # Overall statistics
-journal-stats.sh 1
+journal-query.sh stats "" 1
 
 # Check each persona's pending work
 echo "=== Pending Work by Persona ==="
