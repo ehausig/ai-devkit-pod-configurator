@@ -22,24 +22,24 @@ script: |
   # Check if this is a persona initialization command
   if [[ "$command" =~ personas/([^/]+)/\1-init\.sh ]]; then
     persona="${BASH_REMATCH[1]^^}"  # Convert to uppercase
-    journal-log "PERSONA:SWITCH" "Switching to $persona persona" 2>/dev/null || echo "$(date -Iseconds) [PERSONA:SWITCH] Switching to $persona persona" >> ~/workspace/JOURNAL.md
+    journal-log.sh "PERSONA:SWITCH" "Switching to $persona persona" 2>/dev/null || echo "$(date -Iseconds) [PERSONA:SWITCH] Switching to $persona persona" >> ~/workspace/JOURNAL.md
     
     # Log the transition context
     case "$persona" in
       ARCHITECT)
-        journal-log "PERSONA:CONTEXT" "Starting system design phase" 2>/dev/null || echo "$(date -Iseconds) [PERSONA:CONTEXT] Starting system design phase" >> ~/workspace/JOURNAL.md
+        journal-log.sh "PERSONA:CONTEXT" "Starting system design phase" 2>/dev/null || echo "$(date -Iseconds) [PERSONA:CONTEXT] Starting system design phase" >> ~/workspace/JOURNAL.md
         ;;
       DEVELOPER)
-        journal-log "PERSONA:CONTEXT" "Starting implementation phase" 2>/dev/null || echo "$(date -Iseconds) [PERSONA:CONTEXT] Starting implementation phase" >> ~/workspace/JOURNAL.md
+        journal-log.sh "PERSONA:CONTEXT" "Starting implementation phase" 2>/dev/null || echo "$(date -Iseconds) [PERSONA:CONTEXT] Starting implementation phase" >> ~/workspace/JOURNAL.md
         ;;
       QA)
-        journal-log "PERSONA:CONTEXT" "Starting testing phase" 2>/dev/null || echo "$(date -Iseconds) [PERSONA:CONTEXT] Starting testing phase" >> ~/workspace/JOURNAL.md
+        journal-log.sh "PERSONA:CONTEXT" "Starting testing phase" 2>/dev/null || echo "$(date -Iseconds) [PERSONA:CONTEXT] Starting testing phase" >> ~/workspace/JOURNAL.md
         ;;
       REVIEWER)
-        journal-log "PERSONA:CONTEXT" "Starting code review phase" 2>/dev/null || echo "$(date -Iseconds) [PERSONA:CONTEXT] Starting code review phase" >> ~/workspace/JOURNAL.md
+        journal-log.sh "PERSONA:CONTEXT" "Starting code review phase" 2>/dev/null || echo "$(date -Iseconds) [PERSONA:CONTEXT] Starting code review phase" >> ~/workspace/JOURNAL.md
         ;;
       MERGER)
-        journal-log "PERSONA:CONTEXT" "Starting integration phase" 2>/dev/null || echo "$(date -Iseconds) [PERSONA:CONTEXT] Starting integration phase" >> ~/workspace/JOURNAL.md
+        journal-log.sh "PERSONA:CONTEXT" "Starting integration phase" 2>/dev/null || echo "$(date -Iseconds) [PERSONA:CONTEXT] Starting integration phase" >> ~/workspace/JOURNAL.md
         ;;
     esac
   fi
@@ -47,7 +47,7 @@ script: |
   # Check for handoff commands
   if [[ "$command" =~ personas/([^/]+)/\1-handoff\.sh ]]; then
     persona="${BASH_REMATCH[1]^^}"
-    journal-log "PERSONA:HANDOFF" "$persona completing handoff" 2>/dev/null || echo "$(date -Iseconds) [PERSONA:HANDOFF] $persona completing handoff" >> ~/workspace/JOURNAL.md
+    journal-log.sh "PERSONA:HANDOFF" "$persona completing handoff" 2>/dev/null || echo "$(date -Iseconds) [PERSONA:HANDOFF] $persona completing handoff" >> ~/workspace/JOURNAL.md
   fi
   
   # Always allow execution

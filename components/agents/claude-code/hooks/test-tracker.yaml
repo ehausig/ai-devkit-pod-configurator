@@ -31,43 +31,43 @@ script: |
       # Track test executions
       case "$command" in
         *"npm test"*|*"npm run test"*)
-          journal-log "INFO" "Running unit tests (npm)" 2>/dev/null || echo "$(date -Iseconds) [INFO] Running unit tests (npm)" >> ~/workspace/JOURNAL.md
+          journal-log.sh "INFO" "Running unit tests (npm)" 2>/dev/null || echo "$(date -Iseconds) [INFO] Running unit tests (npm)" >> ~/workspace/JOURNAL.md
           ;;
         *"pytest"*|*"python -m pytest"*)
-          journal-log "INFO" "Running unit tests (pytest)" 2>/dev/null || echo "$(date -Iseconds) [INFO] Running unit tests (pytest)" >> ~/workspace/JOURNAL.md
+          journal-log.sh "INFO" "Running unit tests (pytest)" 2>/dev/null || echo "$(date -Iseconds) [INFO] Running unit tests (pytest)" >> ~/workspace/JOURNAL.md
           ;;
         *"cargo test"*)
-          journal-log "INFO" "Running unit tests (cargo)" 2>/dev/null || echo "$(date -Iseconds) [INFO] Running unit tests (cargo)" >> ~/workspace/JOURNAL.md
+          journal-log.sh "INFO" "Running unit tests (cargo)" 2>/dev/null || echo "$(date -Iseconds) [INFO] Running unit tests (cargo)" >> ~/workspace/JOURNAL.md
           ;;
         *"go test"*)
-          journal-log "INFO" "Running unit tests (go)" 2>/dev/null || echo "$(date -Iseconds) [INFO] Running unit tests (go)" >> ~/workspace/JOURNAL.md
+          journal-log.sh "INFO" "Running unit tests (go)" 2>/dev/null || echo "$(date -Iseconds) [INFO] Running unit tests (go)" >> ~/workspace/JOURNAL.md
           ;;
         *"mvn test"*|*"gradle test"*)
-          journal-log "INFO" "Running unit tests (Java)" 2>/dev/null || echo "$(date -Iseconds) [INFO] Running unit tests (Java)" >> ~/workspace/JOURNAL.md
+          journal-log.sh "INFO" "Running unit tests (Java)" 2>/dev/null || echo "$(date -Iseconds) [INFO] Running unit tests (Java)" >> ~/workspace/JOURNAL.md
           ;;
         *"rspec"*|*"bundle exec rspec"*)
-          journal-log "INFO" "Running unit tests (RSpec)" 2>/dev/null || echo "$(date -Iseconds) [INFO] Running unit tests (RSpec)" >> ~/workspace/JOURNAL.md
+          journal-log.sh "INFO" "Running unit tests (RSpec)" 2>/dev/null || echo "$(date -Iseconds) [INFO] Running unit tests (RSpec)" >> ~/workspace/JOURNAL.md
           ;;
       esac
       
       # Track integration tests
       if [[ "$command" =~ (integration|e2e|end-to-end) ]]; then
-        journal-log "INFO" "Running integration tests" 2>/dev/null || echo "$(date -Iseconds) [INFO] Running integration tests" >> ~/workspace/JOURNAL.md
+        journal-log.sh "INFO" "Running integration tests" 2>/dev/null || echo "$(date -Iseconds) [INFO] Running integration tests" >> ~/workspace/JOURNAL.md
       fi
       
       # Track TUI tests
       if [[ "$command" =~ tui-test ]]; then
-        journal-log "INFO" "Running user simulation tests (TUI Test)" 2>/dev/null || echo "$(date -Iseconds) [INFO] Running user simulation tests (TUI Test)" >> ~/workspace/JOURNAL.md
+        journal-log.sh "INFO" "Running user simulation tests (TUI Test)" 2>/dev/null || echo "$(date -Iseconds) [INFO] Running user simulation tests (TUI Test)" >> ~/workspace/JOURNAL.md
       fi
       
       # Track test creation
       if [[ "$command" =~ mkdir.*test ]]; then
-        journal-log "INFO" "Creating test structure" 2>/dev/null || echo "$(date -Iseconds) [INFO] Creating test structure" >> ~/workspace/JOURNAL.md
+        journal-log.sh "INFO" "Creating test structure" 2>/dev/null || echo "$(date -Iseconds) [INFO] Creating test structure" >> ~/workspace/JOURNAL.md
       fi
       
       # Track coverage
       if [[ "$command" =~ coverage ]]; then
-        journal-log "INFO" "Running test coverage analysis" 2>/dev/null || echo "$(date -Iseconds) [INFO] Running test coverage analysis" >> ~/workspace/JOURNAL.md
+        journal-log.sh "INFO" "Running test coverage analysis" 2>/dev/null || echo "$(date -Iseconds) [INFO] Running test coverage analysis" >> ~/workspace/JOURNAL.md
       fi
     fi
   fi

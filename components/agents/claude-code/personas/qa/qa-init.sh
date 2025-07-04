@@ -12,15 +12,15 @@ echo -e "${BLUE}=== Initializing QA Persona ===${NC}"
 echo ""
 
 # Log initialization
-journal-log "QA:INIT" "Starting QA persona"
+journal-log.sh "QA:INIT" "Starting QA persona"
 
 # Safety check
-SAFETY_STATUS=$(journal-query safety-check QA)
+SAFETY_STATUS=$(journal-query.sh safety-check QA)
 echo "Safety Status: $SAFETY_STATUS"
 
 if echo "$SAFETY_STATUS" | grep -q "WARNING: High iteration count"; then
     echo -e "${RED}Safety limit exceeded${NC}"
-    journal-log "SAFETY:LIMIT" "QA exceeded safe iteration count"
+    journal-log.sh "SAFETY:LIMIT" "QA exceeded safe iteration count"
     exit 1
 fi
 
@@ -32,7 +32,7 @@ echo ""
 
 # Check for pending work
 echo -e "${YELLOW}Checking for pending work...${NC}"
-PENDING_WORK=$(journal-query pending-work QA)
+PENDING_WORK=$(journal-query.sh pending-work QA)
 PENDING_COUNT=$(echo "$PENDING_WORK" | grep -c "WORK:PENDING" || echo "0")
 
 if [ $PENDING_COUNT -gt 0 ]; then
@@ -65,7 +65,7 @@ fi
 echo ""
 
 # Check recent test results
-RECENT_TESTS=$(journal-query recent-context QA | grep -E "(PASSED|FAILED)" | tail -5)
+RECENT_TESTS=$(journal-query.sh recent-context QA | grep -E "(PASSED|FAILED)" | tail -5)
 if [ -n "$RECENT_TESTS" ]; then
     echo -e "${YELLOW}Recent test results:${NC}"
     echo "$RECENT_TESTS" | sed 's/.*\[\(QA:.*\)\] /[\1] /'
@@ -112,7 +112,7 @@ fi
 echo ""
 
 # Log context
-journal-log "QA:CONTEXT" "Initialized with $PENDING_COUNT pending test items"
+journal-log.sh "QA:CONTEXT" "Initialized with $PENDING_COUNT pending test items"
 
 # Display work instructions
 echo -e "${BLUE}=== QA Work Instructions ===${NC}"
@@ -125,16 +125,16 @@ if [ $PENDING_COUNT -gt 0 ]; then
     echo ""
     echo "Action plan:"
     echo "1. Start this test:"
-    echo "   journal-log 'WORK:STARTED' 'QA: $FIRST_WORK'"
+    echo "   journal-log.sh 'WORK:STARTED' 'QA: $FIRST_WORK'"
     echo ""
     echo "2. Execute the test"
     echo ""
     echo "3. Log result:"
-    echo "   journal-log 'QA:PASSED' 'Test description' OR"
-    echo "   journal-log 'QA:FAILED' 'Test description - reason'"
+    echo "   journal-log.sh 'QA:PASSED' 'Test description' OR"
+    echo "   journal-log.sh 'QA:FAILED' 'Test description - reason'"
     echo ""
     echo "4. Complete the work item:"
-    echo "   journal-log 'WORK:COMPLETED' 'QA: $FIRST_WORK'"
+    echo "   journal-log.sh 'WORK:COMPLETED' 'QA: $FIRST_WORK'"
     echo ""
     echo "5. Continue with next items"
     echo ""
@@ -143,7 +143,7 @@ if [ $PENDING_COUNT -gt 0 ]; then
 else
     echo "No pending work. Options:"
     echo "1. Check recent handoffs:"
-    echo "   journal-query handoff-chain"
+    echo "   journal-query.sh handoff-chain"
     echo ""
     echo "2. Run /home/devuser/.claude/personas/qa/qa-handoff.sh if testing is complete"
 fi
@@ -157,10 +157,10 @@ echo "• NO mocking in integration tests"
 echo ""
 
 echo -e "${BLUE}Testing Commands:${NC}"
-echo "• View work: journal-query pending-work QA"
-echo "• Track item: work-tracker '<test-pattern>'"
-echo "• Check all: journal-query work-summary QA"
-echo "• Get context: get-context-window QA"
+echo "• View work: journal-query.sh pending-work QA"
+echo "• Track item: work-tracker.sh '<test-pattern>'"
+echo "• Check all: journal-query.sh work-summary QA"
+echo "• Get context: get-context-window.sh QA"
 echo ""
 
 # Display protocol if needed

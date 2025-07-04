@@ -378,14 +378,14 @@ entrypoint_setup: |
       echo "No personas configured - using single-persona mode"
   fi
  
-  # Install journal query scripts if they exist
+  # Install journal query scripts if they exist - KEEP .sh extensions
   if [ -d /tmp/claude-scripts ]; then
       echo "Installing journal scripts..."
       for script in journal-query.sh get-context-window.sh work-tracker.sh journal-stats.sh work-status.sh; do
           if [ -f "/tmp/claude-scripts/$script" ]; then
-              cp "/tmp/claude-scripts/$script" "/usr/local/bin/${script%.sh}"
-              chmod 755 "/usr/local/bin/${script%.sh}"
-              echo "  - Installed: ${script%.sh}"
+              cp "/tmp/claude-scripts/$script" "/usr/local/bin/$script"
+              chmod 755 "/usr/local/bin/$script"
+              echo "  - Installed: $script"
           fi
       done
       echo "Journal scripts installed successfully"
@@ -414,39 +414,26 @@ entrypoint_setup: |
   # Note: user-CLAUDE.md is handled in the main entrypoint.sh script
   # along with appending component imports
   
-  # Install utility scripts if they exist
+  # Install utility scripts if they exist - KEEP .sh extensions
   if [ -d /tmp/claude-scripts ]; then
       echo "Installing utility scripts..."
       for script in /tmp/claude-scripts/*.sh; do
           if [ -f "$script" ]; then
               script_name=$(basename "$script")
-              cp "$script" /usr/local/bin/"${script_name%.sh}"
-              chmod 755 /usr/local/bin/"${script_name%.sh}"
-              echo "  - Installed: ${script_name%.sh}"
+              cp "$script" /usr/local/bin/"$script_name"
+              chmod 755 /usr/local/bin/"$script_name"
+              echo "  - Installed: $script_name"
           fi
       done
       echo "Utility scripts installed successfully"
   fi
 
-  # Install journal query scripts if they exist
-  if [ -d /tmp/claude-scripts ]; then
-      echo "Installing journal scripts..."
-      for script in journal-query.sh get-context-window.sh work-tracker.sh journal-stats.sh; do
-          if [ -f "/tmp/claude-scripts/$script" ]; then
-              cp "/tmp/claude-scripts/$script" "/usr/local/bin/${script%.sh}"
-              chmod 755 "/usr/local/bin/${script%.sh}"
-              echo "  - Installed: ${script%.sh}"
-          fi
-      done
-      echo "Journal scripts installed successfully"
-  fi
-
-  # Install work status script if it exists
-  if [ -f /tmp/claude-scripts/work-status.sh ]; then
-      echo "Installing work-status script..."
-      cp /tmp/claude-scripts/work-status.sh /usr/local/bin/work-status
-      chmod 755 /usr/local/bin/work-status
-      echo "  - Installed: work-status"
+  # Install journal log script if it exists
+  if [ -f /tmp/claude-scripts/journal-log.sh ]; then
+      echo "Installing journal-log.sh script..."
+      cp /tmp/claude-scripts/journal-log.sh /usr/local/bin/journal-log.sh
+      chmod 755 /usr/local/bin/journal-log.sh
+      echo "  - Installed: journal-log.sh"
   fi
 
   # Ensure the prepare-next-work.sh script is accessible

@@ -12,16 +12,16 @@ echo -e "${BLUE}=== DEVELOPER Handoff Process ===${NC}"
 echo ""
 
 # Log handoff request
-journal-log "HANDOFF:REQUEST" "DEVELOPER requesting handoff to QA"
+journal-log.sh "HANDOFF:REQUEST" "DEVELOPER requesting handoff to QA"
 
 # Check for pending work
 echo -e "${YELLOW}Checking for pending work...${NC}"
-PENDING_CHECK=$(journal-query handoff-ready DEVELOPER)
+PENDING_CHECK=$(journal-query.sh handoff-ready DEVELOPER)
 HANDOFF_READY=$?
 
 if [ $HANDOFF_READY -ne 0 ]; then
     echo -e "${RED}$PENDING_CHECK${NC}"
-    journal-log "HANDOFF:BLOCKED" "DEVELOPER has incomplete work items"
+    journal-log.sh "HANDOFF:BLOCKED" "DEVELOPER has incomplete work items"
     exit 1
 fi
 
@@ -89,7 +89,7 @@ if [ "$TEST_PASSED" = false ]; then
     # Log test failures
     if [ -f "test-output.log" ]; then
         FAILURES=$(grep -E "(FAIL|failed|✗)" test-output.log | head -5)
-        journal-log "DEVELOPER:TEST_FAILED" "Tests failing: $FAILURES"
+        journal-log.sh "DEVELOPER:TEST_FAILED" "Tests failing: $FAILURES"
     fi
 fi
 
@@ -107,12 +107,12 @@ fi
 if [ "$READY" = false ]; then
     echo ""
     echo -e "${RED}ERROR: Not ready for handoff. Issues: $MISSING${NC}"
-    journal-log "HANDOFF:BLOCKED" "Missing requirements: $MISSING"
+    journal-log.sh "HANDOFF:BLOCKED" "Missing requirements: $MISSING"
     exit 1
 fi
 
 # Validation passed
-journal-log "HANDOFF:VALIDATED" "All DEVELOPER requirements met"
+journal-log.sh "HANDOFF:VALIDATED" "All DEVELOPER requirements met"
 
 echo ""
 echo -e "${GREEN}All criteria met. Proceeding with handoff...${NC}"
@@ -122,22 +122,22 @@ echo ""
 echo -e "${YELLOW}Creating work items for QA...${NC}"
 
 # Get implementation summary
-COMPLETED_WORK=$(journal-query recent-context DEVELOPER | grep "WORK:COMPLETED" | tail -10)
+COMPLETED_WORK=$(journal-query.sh recent-context DEVELOPER | grep "WORK:COMPLETED" | tail -10)
 WORK_COUNT=$(echo "$COMPLETED_WORK" | wc -l)
 
 # Create QA work items based on what was implemented
-journal-log "WORK:PENDING" "QA: Pull branch $CURRENT_BRANCH and set up test environment"
-journal-log "WORK:PENDING" "QA: Run unit test suite and verify coverage"
-journal-log "WORK:PENDING" "QA: Start backend services for integration testing"
-journal-log "WORK:PENDING" "QA: Run integration tests against REAL services (no mocks)"
-journal-log "WORK:PENDING" "QA: Perform user simulation testing"
-journal-log "WORK:PENDING" "QA: Test error handling and edge cases"
-journal-log "WORK:PENDING" "QA: Check performance and resource usage"
-journal-log "WORK:PENDING" "QA: Document any bugs or issues found"
-journal-log "WORK:PENDING" "QA: Create test report with pass/fail decision"
+journal-log.sh "WORK:PENDING" "QA: Pull branch $CURRENT_BRANCH and set up test environment"
+journal-log.sh "WORK:PENDING" "QA: Run unit test suite and verify coverage"
+journal-log.sh "WORK:PENDING" "QA: Start backend services for integration testing"
+journal-log.sh "WORK:PENDING" "QA: Run integration tests against REAL services (no mocks)"
+journal-log.sh "WORK:PENDING" "QA: Perform user simulation testing"
+journal-log.sh "WORK:PENDING" "QA: Test error handling and edge cases"
+journal-log.sh "WORK:PENDING" "QA: Check performance and resource usage"
+journal-log.sh "WORK:PENDING" "QA: Document any bugs or issues found"
+journal-log.sh "WORK:PENDING" "QA: Create test report with pass/fail decision"
 
 # Count QA work items
-QA_WORK_ITEMS=$(journal-query pending-work QA | wc -l)
+QA_WORK_ITEMS=$(journal-query.sh pending-work QA | wc -l)
 
 # Get summary statistics
 COMMITS=$(git rev-list --count HEAD ^main 2>/dev/null || echo "0")
@@ -182,7 +182,7 @@ cat > HANDOFF_TO_QA.md << EOF
 Implementation is complete with all tests passing. Ready for comprehensive QA testing.
 
 ## Work Items for QA
-$(journal-query pending-work QA | sed 's/.*WORK:PENDING\] QA: /- /')
+$(journal-query.sh pending-work QA | sed 's/.*WORK:PENDING\] QA: /- /')
 
 ## Implementation Details
 - Branch: $CURRENT_BRANCH
@@ -207,18 +207,18 @@ $(echo "$COMPLETED_WORK" | sed 's/.*WORK:COMPLETED\] DEVELOPER: /- /')
 5. Validate security measures
 
 ## Known Issues
-$(journal-query errors DEVELOPER 5 | sed 's/.*\[\(.*\)\] /- [\1] /' || echo "None reported")
+$(journal-query.sh errors DEVELOPER 5 | sed 's/.*\[\(.*\)\] /- [\1] /' || echo "None reported")
 
 ## QA Focus Areas
 Based on the implementation, pay special attention to:
-$(journal-query decisions ARCHITECT 3 | grep -E "(critical|important|security)" | sed 's/.*DECISION\] /- /' || echo "- Standard testing procedures apply")
+$(journal-query.sh decisions ARCHITECT 3 | grep -E "(critical|important|security)" | sed 's/.*DECISION\] /- /' || echo "- Standard testing procedures apply")
 EOF
 
 echo -e "${GREEN}Created HANDOFF_TO_QA.md${NC}"
 
 # Complete handoff
-journal-log "HANDOFF:COMPLETED" "Handed off to QA with $QA_WORK_ITEMS work items"
-journal-log "DEVELOPER:CONTEXT" "Implementation complete, all tests passing, PR #${PR_NUMBER:-pending}"
+journal-log.sh "HANDOFF:COMPLETED" "Handed off to QA with $QA_WORK_ITEMS work items"
+journal-log.sh "DEVELOPER:CONTEXT" "Implementation complete, all tests passing, PR #${PR_NUMBER:-pending}"
 
 echo ""
 echo -e "${BLUE}=== Handoff Complete ===${NC}"
@@ -235,3 +235,4 @@ echo "QA" > /tmp/persona-work-ready
 echo -e "${GREEN}✓ Work queue signaled for QA${NC}"
 echo ""
 echo "The work queue monitor will prepare the first executable task."
+

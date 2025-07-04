@@ -12,21 +12,21 @@ echo -e "${BLUE}=== Initializing ARCHITECT Persona ===${NC}"
 echo ""
 
 # Log initialization
-journal-log "ARCHITECT:INIT" "Starting ARCHITECT persona"
+journal-log.sh "ARCHITECT:INIT" "Starting ARCHITECT persona"
 
 # Safety check using journal query
-SAFETY_STATUS=$(journal-query safety-check ARCHITECT)
+SAFETY_STATUS=$(journal-query.sh safety-check ARCHITECT)
 INIT_COUNT=$(echo "$SAFETY_STATUS" | grep -o "Iterations: [0-9]*" | cut -d' ' -f2)
 
 if [ $INIT_COUNT -gt 10 ]; then
     echo -e "${RED}Safety limit exceeded: Too many ARCHITECT initializations${NC}"
-    journal-log "SAFETY:LIMIT" "ARCHITECT exceeded initialization limit: $INIT_COUNT"
+    journal-log.sh "SAFETY:LIMIT" "ARCHITECT exceeded initialization limit: $INIT_COUNT"
     exit 1
 fi
 
 # Check for pending work using journal query
 echo -e "${YELLOW}Checking for pending work...${NC}"
-PENDING_WORK=$(journal-query pending-work ARCHITECT)
+PENDING_WORK=$(journal-query.sh pending-work ARCHITECT)
 PENDING_COUNT=$(echo "$PENDING_WORK" | grep -c "WORK:PENDING" || echo "0")
 
 if [ $PENDING_COUNT -gt 0 ]; then
@@ -37,7 +37,7 @@ fi
 
 # Check for recent handoffs
 echo -e "${YELLOW}Checking for handoffs...${NC}"
-RECENT_HANDOFF=$(journal-query handoff-chain | grep "to ARCHITECT" | tail -1)
+RECENT_HANDOFF=$(journal-query.sh handoff-chain | grep "to ARCHITECT" | tail -1)
 if [ -n "$RECENT_HANDOFF" ]; then
     echo -e "${GREEN}Recent handoff:${NC}"
     echo "$RECENT_HANDOFF" | sed 's/.*\[HANDOFF:COMPLETED\] /  /'
@@ -46,7 +46,7 @@ fi
 
 # Get context window
 echo -e "${YELLOW}Loading context...${NC}"
-get-context-window ARCHITECT 20 | grep -E "(DECISION|MEMORY|HANDOFF)" | tail -10
+get-context-window.sh ARCHITECT 20 | grep -E "(DECISION|MEMORY|HANDOFF)" | tail -10
 
 # Check for handoff document
 if [ -f "HANDOFF_TO_ARCHITECT.md" ]; then
@@ -84,7 +84,7 @@ echo ""
 if [ $PENDING_COUNT -gt 0 ]; then
     echo "You have pending work items. Please:"
     echo "1. Complete the pending items listed above"
-    echo "2. Mark each as completed with: journal-log 'WORK:COMPLETED' 'ARCHITECT: [work description]'"
+    echo "2. Mark each as completed with: journal-log.sh 'WORK:COMPLETED' 'ARCHITECT: [work description]'"
     echo "3. Run architect-handoff when all work is complete"
 elif [ ! -f "ARCHITECTURE.md" ]; then
     echo "Starting new project architecture. Please:"
@@ -92,7 +92,7 @@ elif [ ! -f "ARCHITECTURE.md" ]; then
     echo "2. Create API_DESIGN.md with API specifications"
     echo "3. Create DATA_MODELS.md with data structures"
     echo "4. Create TESTING_STRATEGY.md with test approach"
-    echo "5. Log key decisions with: journal-log 'ARCHITECT:DECISION' '[decision]'"
+    echo "5. Log key decisions with: journal-log.sh 'ARCHITECT:DECISION' '[decision]'"
     echo "6. Run architect-handoff when complete"
 else
     echo "Design documents exist. Please:"
@@ -103,12 +103,12 @@ fi
 
 echo ""
 echo -e "${YELLOW}Remember to log all decisions:${NC}"
-echo 'journal-log "ARCHITECT:DECISION" "Decision description"'
-echo 'journal-log "ARCHITECT:MEMORY" "Critical constraint"'
+echo 'journal-log.sh "ARCHITECT:DECISION" "Decision description"'
+echo 'journal-log.sh "ARCHITECT:MEMORY" "Critical constraint"'
 echo ""
 
 # Log context understanding
-journal-log "ARCHITECT:CONTEXT" "Initialized with $PENDING_COUNT pending items"
+journal-log.sh "ARCHITECT:CONTEXT" "Initialized with $PENDING_COUNT pending items"
 
 # Display the full protocol inline
 echo -e "${BLUE}=== ARCHITECT PROTOCOL ===${NC}"

@@ -12,22 +12,22 @@ echo -e "${BLUE}=== Initializing REVIEWER Persona ===${NC}"
 echo ""
 
 # Log initialization
-journal-log "REVIEWER:INIT" "Starting REVIEWER persona"
+journal-log.sh "REVIEWER:INIT" "Starting REVIEWER persona"
 
 # Safety check
-SAFETY_STATUS=$(journal-query safety-check REVIEWER)
+SAFETY_STATUS=$(journal-query.sh safety-check REVIEWER)
 echo "Safety Status: $SAFETY_STATUS"
 
 if echo "$SAFETY_STATUS" | grep -q "WARNING: High iteration count"; then
     echo -e "${RED}Safety limit exceeded${NC}"
-    journal-log "SAFETY:LIMIT" "REVIEWER exceeded safe iteration count"
+    journal-log.sh "SAFETY:LIMIT" "REVIEWER exceeded safe iteration count"
     exit 1
 fi
 echo ""
 
 # Check for pending work
 echo -e "${YELLOW}Checking for pending work...${NC}"
-PENDING_WORK=$(journal-query pending-work REVIEWER)
+PENDING_WORK=$(journal-query.sh pending-work REVIEWER)
 PENDING_COUNT=$(echo "$PENDING_WORK" | grep -c "WORK:PENDING" || echo "0")
 
 if [ $PENDING_COUNT -gt 0 ]; then
@@ -81,7 +81,7 @@ echo ""
 
 # Load architectural context
 echo -e "${YELLOW}Loading architectural decisions...${NC}"
-ARCH_DECISIONS=$(journal-query decisions ARCHITECT 5)
+ARCH_DECISIONS=$(journal-query.sh decisions ARCHITECT 5)
 if [ -n "$ARCH_DECISIONS" ]; then
     echo -e "${GREEN}Key architectural decisions to check against:${NC}"
     echo "$ARCH_DECISIONS" | sed 's/.*\[.*:DECISION\] /- /'
@@ -114,7 +114,7 @@ if [ $PENDING_COUNT -gt 0 ]; then
     if [[ "$FIRST_WORK" == *"Clone PR"* ]]; then
         echo "Action plan:"
         echo "1. Mark work started:"
-        echo "   journal-log 'WORK:STARTED' 'REVIEWER: $FIRST_WORK'"
+        echo "   journal-log.sh 'WORK:STARTED' 'REVIEWER: $FIRST_WORK'"
         echo ""
         echo "2. Clone to review directory:"
         if [ -n "$PR_BRANCH" ]; then
@@ -127,16 +127,16 @@ if [ $PENDING_COUNT -gt 0 ]; then
         fi
         echo ""
         echo "3. Mark complete and continue:"
-        echo "   journal-log 'WORK:COMPLETED' 'REVIEWER: $FIRST_WORK'"
+        echo "   journal-log.sh  'WORK:COMPLETED' 'REVIEWER: $FIRST_WORK'"
     else
         echo "Action plan:"
-        echo "1. Start work: journal-log 'WORK:STARTED' 'REVIEWER: $FIRST_WORK'"
+        echo "1. Start work: journal-log.sh  'WORK:STARTED' 'REVIEWER: $FIRST_WORK'"
         echo "2. Perform the review task"
         echo "3. Log findings:"
-        echo "   journal-log 'REVIEWER:ISSUE' 'Problem description' (for issues)"
-        echo "   journal-log 'REVIEWER:FEEDBACK' 'Suggestion' (for improvements)"
-        echo "   journal-log 'REVIEWER:APPROVED' 'Component name' (for approvals)"
-        echo "4. Complete: journal-log 'WORK:COMPLETED' 'REVIEWER: $FIRST_WORK'"
+        echo "   journal-log.sh  'REVIEWER:ISSUE' 'Problem description' (for issues)"
+        echo "   journal-log.sh  'REVIEWER:FEEDBACK' 'Suggestion' (for improvements)"
+        echo "   journal-log.sh  'REVIEWER:APPROVED' 'Component name' (for approvals)"
+        echo "4. Complete: journal-log.sh  'WORK:COMPLETED' 'REVIEWER: $FIRST_WORK'"
     fi
     echo ""
     echo "5. Continue with remaining items"
@@ -144,7 +144,7 @@ if [ $PENDING_COUNT -gt 0 ]; then
 else
     echo "No pending review items. Options:"
     echo "1. Check for recent handoffs:"
-    echo "   journal-query handoff-chain"
+    echo "   journal-query.sh  handoff-chain"
     echo ""
     echo "2. If review is complete, run:"
     echo "   /home/devuser/.claude/personas/reviewer/reviewer-handoff.sh"
@@ -161,11 +161,11 @@ echo "□ Documentation is complete"
 echo ""
 
 echo -e "${BLUE}Review Commands:${NC}"
-echo "• View work: journal-query pending-work REVIEWER"
-echo "• Log issue: journal-log 'REVIEWER:ISSUE' 'description'"
-echo "• Log feedback: journal-log 'REVIEWER:FEEDBACK' 'suggestion'"
-echo "• Approve: journal-log 'REVIEWER:APPROVED' 'component'"
-echo "• Check progress: journal-query work-summary REVIEWER"
+echo "• View work: journal-query.sh  pending-work REVIEWER"
+echo "• Log issue: journal-log.sh  'REVIEWER:ISSUE' 'description'"
+echo "• Log feedback: journal-log.sh  'REVIEWER:FEEDBACK' 'suggestion'"
+echo "• Approve: journal-log.sh  'REVIEWER:APPROVED' 'component'"
+echo "• Check progress: journal-query.sh  work-summary REVIEWER"
 echo ""
 
 # Display protocol if needed

@@ -12,16 +12,16 @@ echo -e "${BLUE}=== MERGER Handoff Process ===${NC}"
 echo ""
 
 # Log handoff request
-journal-log "HANDOFF:REQUEST" "MERGER requesting cycle completion"
+journal-log.sh "HANDOFF:REQUEST" "MERGER requesting cycle completion"
 
 # Check for pending work
 echo -e "${YELLOW}Checking for pending work...${NC}"
-PENDING_CHECK=$(journal-query handoff-ready MERGER)
+PENDING_CHECK=$(journal-query.sh handoff-ready MERGER)
 HANDOFF_READY=$?
 
 if [ $HANDOFF_READY -ne 0 ]; then
     echo -e "${RED}$PENDING_CHECK${NC}"
-    journal-log "HANDOFF:BLOCKED" "MERGER has incomplete tasks"
+    journal-log.sh "HANDOFF:BLOCKED" "MERGER has incomplete tasks"
     exit 1
 fi
 
@@ -30,9 +30,9 @@ echo -e "${GREEN}✓${NC} All merge tasks completed"
 # Count merge activities
 echo ""
 echo -e "${YELLOW}Merge Summary:${NC}"
-MERGED=$(journal-query recent-context MERGER | grep -c "MERGER:MERGED" || echo "0")
-RELEASES=$(journal-query recent-context MERGER | grep -c "MERGER:RELEASE" || echo "0")
-ISSUES=$(journal-query recent-context MERGER | grep -c "MERGER:ISSUE" || echo "0")
+MERGED=$(journal-query.sh recent-context MERGER | grep -c "MERGER:MERGED" || echo "0")
+RELEASES=$(journal-query.sh recent-context MERGER | grep -c "MERGER:RELEASE" || echo "0")
+ISSUES=$(journal-query.sh recent-context MERGER | grep -c "MERGER:ISSUE" || echo "0")
 
 echo "- Branches merged: $MERGED"
 echo "- Releases created: $RELEASES"
@@ -57,8 +57,8 @@ echo ""
 echo -e "${YELLOW}Creating merge report...${NC}"
 
 # Get merge details
-MERGE_DETAILS=$(journal-query recent-context MERGER | grep "MERGER:MERGED")
-COMPLETED_WORK=$(journal-query recent-context MERGER | grep "WORK:COMPLETED")
+MERGE_DETAILS=$(journal-query.sh recent-context MERGER | grep "MERGER:MERGED")
+COMPLETED_WORK=$(journal-query.sh recent-context MERGER | grep "WORK:COMPLETED")
 
 cat > MERGE_REPORT.md << EOF
 # Merge Completion Report
@@ -78,7 +78,7 @@ $(echo "$COMPLETED_WORK" | sed 's/.*WORK:COMPLETED\] MERGER: /- /' | tail -10)
 $(echo "$MERGE_DETAILS" | sed 's/.*\[MERGER:MERGED\] /- /' || echo "No merges logged")
 
 ## Releases Created
-$(journal-query recent-context MERGER | grep "MERGER:RELEASE" | sed 's/.*\[MERGER:RELEASE\] /- /' || echo "No releases created")
+$(journal-query.sh recent-context MERGER | grep "MERGER:RELEASE" | sed 's/.*\[MERGER:RELEASE\] /- /' || echo "No releases created")
 
 ## Repository Status
 - Main branch: Up to date ✓
@@ -113,8 +113,8 @@ EOF
 echo -e "${GREEN}Created MERGE_REPORT.md${NC}"
 
 # Log completion
-journal-log "HANDOFF:COMPLETED" "Development cycle complete. $MERGED merges, $RELEASES releases"
-journal-log "MERGER:CONTEXT" "Merge cycle complete. Version $CURRENT_VERSION"
+journal-log.sh "HANDOFF:COMPLETED" "Development cycle complete. $MERGED merges, $RELEASES releases"
+journal-log.sh "MERGER:CONTEXT" "Merge cycle complete. Version $CURRENT_VERSION"
 
 # Check if there are more PRs waiting
 PENDING_PRS=$(gh pr list --json number 2>/dev/null | jq '. | length' || echo "0")
@@ -125,8 +125,8 @@ if [ "$PENDING_PRS" -gt 0 ]; then
     echo "Creating work items for continued development..."
     
     # Create work items to continue
-    journal-log "WORK:PENDING" "DEVELOPER: Review open PRs and continue development"
-    journal-log "WORK:PENDING" "DEVELOPER: Address any post-merge issues"
+    journal-log.sh "WORK:PENDING" "DEVELOPER: Review open PRs and continue development"
+    journal-log.sh "WORK:PENDING" "DEVELOPER: Address any post-merge issues"
     
     NEXT_PERSONA="DEVELOPER"
     NEXT_ACTION="continue with open PRs"
@@ -149,14 +149,14 @@ echo ""
 
 # Show journey through personas
 echo "Journey completed:"
-PERSONA_FLOW=$(journal-query recent-context | grep "PERSONA:INIT" | tail -10 | sed 's/.*\[\(.*\):INIT\].*/  → \1/')
+PERSONA_FLOW=$(journal-query.sh recent-context | grep "PERSONA:INIT" | tail -10 | sed 's/.*\[\(.*\):INIT\].*/  → \1/')
 echo "$PERSONA_FLOW"
 echo ""
 
 # Show work completed
 echo "Total work items completed:"
 for persona in ARCHITECT DEVELOPER QA REVIEWER MERGER; do
-    count=$(journal-query recent-context $persona | grep -c "WORK:COMPLETED" || echo "0")
+    count=$(journal-query.sh recent-context $persona | grep -c "WORK:COMPLETED" || echo "0")
     [ $count -gt 0 ] && echo "  $persona: $count items"
 done
 echo ""

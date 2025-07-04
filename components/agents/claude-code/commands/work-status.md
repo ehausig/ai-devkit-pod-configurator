@@ -25,13 +25,13 @@ Where `[persona]` is optional (defaults to current persona).
 
 ```bash
 # Check current persona's work status
-work-status
+work-status.sh
 
 # Check specific persona's work status
-work-status DEVELOPER
+work-status.sh DEVELOPER
 
 # Alternative: Use the script directly
-/usr/local/bin/work-status
+/usr/local/bin/work-status.sh
 ```
 
 ## Output Includes

@@ -25,7 +25,7 @@ script: |
     rm -f /tmp/persona-work-ready
     
     # Log that we detected a handoff
-    journal-log "WORK:QUEUE" "Detected work ready for $NEXT_PERSONA" 2>/dev/null || \
+    journal-log.sh "WORK:QUEUE" "Detected work ready for $NEXT_PERSONA" 2>/dev/null || \
       echo "$(date -Iseconds) [WORK:QUEUE] Detected work ready for $NEXT_PERSONA" >> ~/workspace/JOURNAL.md
     
     # Prepare the next work item
@@ -39,14 +39,14 @@ script: |
       PERSONA="${BASH_REMATCH[1]}"
       
       # Check if more work exists for this persona
-      PENDING_COUNT=$(journal-query pending-work "$PERSONA" 2>/dev/null | wc -l)
+      PENDING_COUNT=$(journal-query.sh pending-work "$PERSONA" 2>/dev/null | wc -l)
       
       if [ "$PENDING_COUNT" -gt 0 ]; then
         # Prepare next work item
         /home/devuser/.claude/hooks/prepare-next-work.sh "$PERSONA"
       else
         # Check if this persona should hand off
-        journal-log "WORK:QUEUE" "No more work for $PERSONA, checking for handoff" 2>/dev/null || \
+        journal-log.sh "WORK:QUEUE" "No more work for $PERSONA, checking for handoff" 2>/dev/null || \
           echo "$(date -Iseconds) [WORK:QUEUE] No more work for $PERSONA, checking for handoff" >> ~/workspace/JOURNAL.md
       fi
     fi

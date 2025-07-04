@@ -12,16 +12,16 @@ echo -e "${BLUE}=== ARCHITECT Handoff Process ===${NC}"
 echo ""
 
 # Log handoff request
-journal-log "HANDOFF:REQUEST" "ARCHITECT requesting handoff to DEVELOPER"
+journal-log.sh "HANDOFF:REQUEST" "ARCHITECT requesting handoff to DEVELOPER"
 
 # Check for pending work first
 echo -e "${YELLOW}Checking for pending work...${NC}"
-PENDING_CHECK=$(journal-query handoff-ready ARCHITECT)
+PENDING_CHECK=$(journal-query.sh handoff-ready ARCHITECT)
 HANDOFF_READY=$?
 
 if [ $HANDOFF_READY -ne 0 ]; then
     echo -e "${RED}$PENDING_CHECK${NC}"
-    journal-log "HANDOFF:BLOCKED" "ARCHITECT has pending work items"
+    journal-log.sh "HANDOFF:BLOCKED" "ARCHITECT has pending work items"
     exit 1
 fi
 
@@ -42,7 +42,7 @@ for doc in ARCHITECTURE.md API_DESIGN.md DATA_MODELS.md TESTING_STRATEGY.md; do
 done
 
 # Check for architectural decisions in journal
-DECISIONS=$(journal-query decisions ARCHITECT | wc -l)
+DECISIONS=$(journal-query.sh decisions ARCHITECT | wc -l)
 if [ "$DECISIONS" -gt 0 ]; then
     echo -e "${GREEN}✓${NC} $DECISIONS architectural decisions logged"
 else
@@ -54,12 +54,12 @@ fi
 if [ "$READY" = false ]; then
     echo ""
     echo -e "${RED}ERROR: Not ready for handoff. Missing: $MISSING_ITEMS${NC}"
-    journal-log "HANDOFF:BLOCKED" "Missing requirements: $MISSING_ITEMS"
+    journal-log.sh "HANDOFF:BLOCKED" "Missing requirements: $MISSING_ITEMS"
     exit 1
 fi
 
 # Validation passed
-journal-log "HANDOFF:VALIDATED" "All ARCHITECT requirements met"
+journal-log.sh "HANDOFF:VALIDATED" "All ARCHITECT requirements met"
 
 echo ""
 echo -e "${GREEN}All criteria met. Proceeding with handoff...${NC}"
@@ -70,32 +70,32 @@ echo -e "${YELLOW}Creating work items for DEVELOPER...${NC}"
 
 # Analyze design to create specific work items
 if grep -q "backend" ARCHITECTURE.md 2>/dev/null || grep -q "API" API_DESIGN.md 2>/dev/null; then
-    journal-log "WORK:PENDING" "DEVELOPER: Create feature branch feat/backend-api"
-    journal-log "WORK:PENDING" "DEVELOPER: Set up project structure with src/ and tests/ directories"
-    journal-log "WORK:PENDING" "DEVELOPER: Write failing tests for core data models"
-    journal-log "WORK:PENDING" "DEVELOPER: Implement data models to pass tests"
+    journal-log.sh "WORK:PENDING" "DEVELOPER: Create feature branch feat/backend-api"
+    journal-log.sh "WORK:PENDING" "DEVELOPER: Set up project structure with src/ and tests/ directories"
+    journal-log.sh "WORK:PENDING" "DEVELOPER: Write failing tests for core data models"
+    journal-log.sh "WORK:PENDING" "DEVELOPER: Implement data models to pass tests"
 fi
 
 if grep -q "REST\|HTTP" API_DESIGN.md 2>/dev/null; then
-    journal-log "WORK:PENDING" "DEVELOPER: Write failing tests for REST API endpoints"
-    journal-log "WORK:PENDING" "DEVELOPER: Implement API endpoints to pass tests"
+    journal-log.sh "WORK:PENDING" "DEVELOPER: Write failing tests for REST API endpoints"
+    journal-log.sh "WORK:PENDING" "DEVELOPER: Implement API endpoints to pass tests"
 elif grep -q "GraphQL" API_DESIGN.md 2>/dev/null; then
-    journal-log "WORK:PENDING" "DEVELOPER: Write failing tests for GraphQL schema"
-    journal-log "WORK:PENDING" "DEVELOPER: Implement GraphQL resolvers to pass tests"
+    journal-log.sh "WORK:PENDING" "DEVELOPER: Write failing tests for GraphQL schema"
+    journal-log.sh "WORK:PENDING" "DEVELOPER: Implement GraphQL resolvers to pass tests"
 fi
 
 if grep -q "CLI\|command" ARCHITECTURE.md 2>/dev/null; then
-    journal-log "WORK:PENDING" "DEVELOPER: Write failing tests for CLI interface"
-    journal-log "WORK:PENDING" "DEVELOPER: Implement CLI commands to pass tests"
+    journal-log.sh "WORK:PENDING" "DEVELOPER: Write failing tests for CLI interface"
+    journal-log.sh "WORK:PENDING" "DEVELOPER: Implement CLI commands to pass tests"
 fi
 
 # Always add these standard items
-journal-log "WORK:PENDING" "DEVELOPER: Ensure 80% test coverage minimum"
-journal-log "WORK:PENDING" "DEVELOPER: Add comprehensive error handling"
-journal-log "WORK:PENDING" "DEVELOPER: Create pull request when all tests pass"
+journal-log.sh "WORK:PENDING" "DEVELOPER: Ensure 80% test coverage minimum"
+journal-log.sh "WORK:PENDING" "DEVELOPER: Add comprehensive error handling"
+journal-log.sh "WORK:PENDING" "DEVELOPER: Create pull request when all tests pass"
 
 # Count work items created
-WORK_ITEMS=$(journal-query pending-work DEVELOPER | wc -l)
+WORK_ITEMS=$(journal-query.sh pending-work DEVELOPER | wc -l)
 
 # Summarize handoff
 echo -e "${GREEN}Created $WORK_ITEMS work items for DEVELOPER${NC}"
@@ -105,8 +105,8 @@ echo ""
 echo -e "${YELLOW}Preparing handoff summary...${NC}"
 
 # Get key decisions and memories
-KEY_DECISIONS=$(journal-query decisions ARCHITECT 5)
-KEY_MEMORIES=$(journal-query memory ARCHITECT 5)
+KEY_DECISIONS=$(journal-query.sh decisions ARCHITECT 5)
+KEY_MEMORIES=$(journal-query.sh memory ARCHITECT 5)
 
 # Create handoff summary file
 cat > HANDOFF_TO_DEVELOPER.md << EOF
@@ -118,7 +118,7 @@ cat > HANDOFF_TO_DEVELOPER.md << EOF
 The architecture phase is complete. All design documents have been created and technical decisions have been made.
 
 ## Work Items Created
-$(journal-query pending-work DEVELOPER | sed 's/.*WORK:PENDING\] DEVELOPER: /- /')
+$(journal-query.sh pending-work DEVELOPER | sed 's/.*WORK:PENDING\] DEVELOPER: /- /')
 
 ## Key Architectural Decisions
 $(echo "$KEY_DECISIONS" | sed 's/.*\[.*:DECISION\] /- /')
@@ -149,8 +149,8 @@ EOF
 echo -e "${GREEN}Created HANDOFF_TO_DEVELOPER.md${NC}"
 
 # Complete handoff
-journal-log "HANDOFF:COMPLETED" "Handed off to DEVELOPER with $WORK_ITEMS work items"
-journal-log "ARCHITECT:CONTEXT" "Architecture phase complete. Design documents created, technology decisions made."
+journal-log.sh "HANDOFF:COMPLETED" "Handed off to DEVELOPER with $WORK_ITEMS work items"
+journal-log.sh "ARCHITECT:CONTEXT" "Architecture phase complete. Design documents created, technology decisions made."
 
 echo ""
 echo -e "${BLUE}=== Handoff Complete ===${NC}"
@@ -167,3 +167,4 @@ echo "DEVELOPER" > /tmp/persona-work-ready
 echo -e "${GREEN}✓ Work queue signaled for DEVELOPER${NC}"
 echo ""
 echo "The work queue monitor will prepare the first executable task."
+

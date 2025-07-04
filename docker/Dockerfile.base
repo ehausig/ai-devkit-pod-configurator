@@ -141,7 +141,7 @@ RUN mkdir /var/run/sshd && \
     echo "PrintMotd no" >> /etc/ssh/sshd_config && \
     echo "PrintLastLog no" >> /etc/ssh/sshd_config
 
-# Copy MOTD script
+# Copy MOTD script WITH .sh extension
 COPY scripts/motd-ai-devkit.sh /tmp/motd-ai-devkit.sh
 
 # Configure MOTD and remove default Ubuntu components
@@ -228,7 +228,7 @@ RUN if [ -f /tmp/VERSION ]; then \
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Copy git setup script for user convenience
+# Copy git setup script WITH .sh extension
 COPY scripts/setup-git.sh /usr/local/bin/setup-git.sh
 RUN chmod +x /usr/local/bin/setup-git.sh
 

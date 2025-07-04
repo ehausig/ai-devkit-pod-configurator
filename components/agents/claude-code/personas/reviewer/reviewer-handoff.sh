@@ -15,9 +15,9 @@ echo ""
 echo -e "${YELLOW}Analyzing review findings...${NC}"
 
 # Count review outcomes
-ISSUES=$(journal-query recent-context REVIEWER | grep -c "REVIEWER:ISSUE" || echo "0")
-FEEDBACK=$(journal-query recent-context REVIEWER | grep -c "REVIEWER:FEEDBACK" || echo "0")
-APPROVED=$(journal-query recent-context REVIEWER | grep -c "REVIEWER:APPROVED" || echo "0")
+ISSUES=$(journal-query.sh recent-context REVIEWER | grep -c "REVIEWER:ISSUE" || echo "0")
+FEEDBACK=$(journal-query.sh recent-context REVIEWER | grep -c "REVIEWER:FEEDBACK" || echo "0")
+APPROVED=$(journal-query.sh recent-context REVIEWER | grep -c "REVIEWER:APPROVED" || echo "0")
 
 echo "Review Summary:"
 echo "- Critical issues found: $ISSUES"
@@ -30,23 +30,23 @@ if [ $ISSUES -eq 0 ]; then
     ACTION="approved"
     NEXT_PERSONA="MERGER"
     echo -e "${GREEN}No critical issues found. Ready for merge.${NC}"
-    journal-log "HANDOFF:REQUEST" "REVIEWER requesting handoff to MERGER - code approved"
+    journal-log.sh "HANDOFF:REQUEST" "REVIEWER requesting handoff to MERGER - code approved"
 else
     ACTION="changes-needed"
     NEXT_PERSONA="DEVELOPER"
     echo -e "${YELLOW}$ISSUES critical issues found. Changes needed.${NC}"
-    journal-log "HANDOFF:REQUEST" "REVIEWER requesting handoff to DEVELOPER - $ISSUES issues found"
+    journal-log.sh "HANDOFF:REQUEST" "REVIEWER requesting handoff to DEVELOPER - $ISSUES issues found"
 fi
 
 # Check for pending work
 echo ""
 echo -e "${YELLOW}Checking for pending work...${NC}"
-PENDING_CHECK=$(journal-query handoff-ready REVIEWER)
+PENDING_CHECK=$(journal-query.sh handoff-ready REVIEWER)
 HANDOFF_READY=$?
 
 if [ $HANDOFF_READY -ne 0 ]; then
     echo -e "${RED}$PENDING_CHECK${NC}"
-    journal-log "HANDOFF:BLOCKED" "REVIEWER has incomplete review items"
+    journal-log.sh "HANDOFF:BLOCKED" "REVIEWER has incomplete review items"
     exit 1
 fi
 
@@ -58,7 +58,7 @@ echo -e "${YELLOW}Validating review coverage...${NC}"
 READY=true
 
 # Check if key areas were reviewed
-REVIEW_CONTEXT=$(journal-query recent-context REVIEWER)
+REVIEW_CONTEXT=$(journal-query.sh recent-context REVIEWER)
 
 if echo "$REVIEW_CONTEXT" | grep -q -E "(quality|style|standard)"; then
     echo -e "${GREEN}✓${NC} Code quality reviewed"
@@ -79,7 +79,7 @@ else
 fi
 
 # Validation passed
-journal-log "HANDOFF:VALIDATED" "Review requirements met"
+journal-log.sh "HANDOFF:VALIDATED" "Review requirements met"
 
 echo ""
 echo -e "${GREEN}Review complete. Creating work items for $NEXT_PERSONA...${NC}"
@@ -89,9 +89,9 @@ echo ""
 echo -e "${YELLOW}Creating review report...${NC}"
 
 # Get review details
-ISSUES_LIST=$(journal-query recent-context REVIEWER | grep "REVIEWER:ISSUE" | sed 's/.*\[REVIEWER:ISSUE\] //')
-FEEDBACK_LIST=$(journal-query recent-context REVIEWER | grep "REVIEWER:FEEDBACK" | sed 's/.*\[REVIEWER:FEEDBACK\] //')
-APPROVED_LIST=$(journal-query recent-context REVIEWER | grep "REVIEWER:APPROVED" | sed 's/.*\[REVIEWER:APPROVED\] //')
+ISSUES_LIST=$(journal-query.sh recent-context REVIEWER | grep "REVIEWER:ISSUE" | sed 's/.*\[REVIEWER:ISSUE\] //')
+FEEDBACK_LIST=$(journal-query.sh recent-context REVIEWER | grep "REVIEWER:FEEDBACK" | sed 's/.*\[REVIEWER:FEEDBACK\] //')
+APPROVED_LIST=$(journal-query.sh recent-context REVIEWER | grep "REVIEWER:APPROVED" | sed 's/.*\[REVIEWER:APPROVED\] //')
 
 cat > REVIEW_REPORT.md << EOF
 # Code Review Report
@@ -140,13 +140,13 @@ if [ "$ACTION" = "approved" ]; then
     BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
     
     # Create work items for MERGER
-    journal-log "WORK:PENDING" "MERGER: Verify all CI/CD checks pass"
-    journal-log "WORK:PENDING" "MERGER: Run final integration tests on main branch"
-    journal-log "WORK:PENDING" "MERGER: Merge PR #${PR_NUMBER:-pending} using --no-ff"
-    journal-log "WORK:PENDING" "MERGER: Update CHANGELOG.md with changes"
-    journal-log "WORK:PENDING" "MERGER: Tag release if appropriate"
-    journal-log "WORK:PENDING" "MERGER: Delete feature branch after merge"
-    journal-log "WORK:PENDING" "MERGER: Update documentation if needed"
+    journal-log.sh "WORK:PENDING" "MERGER: Verify all CI/CD checks pass"
+    journal-log.sh "WORK:PENDING" "MERGER: Run final integration tests on main branch"
+    journal-log.sh "WORK:PENDING" "MERGER: Merge PR #${PR_NUMBER:-pending} using --no-ff"
+    journal-log.sh "WORK:PENDING" "MERGER: Update CHANGELOG.md with changes"
+    journal-log.sh "WORK:PENDING" "MERGER: Tag release if appropriate"
+    journal-log.sh "WORK:PENDING" "MERGER: Delete feature branch after merge"
+    journal-log.sh "WORK:PENDING" "MERGER: Update documentation if needed"
     
     WORK_COUNT=7
     cp REVIEW_REPORT.md HANDOFF_TO_MERGER.md
@@ -169,16 +169,16 @@ else
         echo "$FEEDBACK_LIST" | sed 's/^/- /' >> REVIEW_REPORT.md
         
         # Add work item to consider suggestions
-        journal-log "WORK:PENDING" "DEVELOPER: Review and implement suggestions from code review"
+        journal-log.sh "WORK:PENDING" "DEVELOPER: Review and implement suggestions from code review"
     fi
     
     # Standard work items for fixes
-    journal-log "WORK:PENDING" "DEVELOPER: Update tests if implementation changed"
-    journal-log "WORK:PENDING" "DEVELOPER: Run all tests to verify fixes"
-    journal-log "WORK:PENDING" "DEVELOPER: Update PR with review fixes"
-    journal-log "WORK:PENDING" "DEVELOPER: Request re-review when complete"
+    journal-log.sh "WORK:PENDING" "DEVELOPER: Update tests if implementation changed"
+    journal-log.sh "WORK:PENDING" "DEVELOPER: Run all tests to verify fixes"
+    journal-log.sh "WORK:PENDING" "DEVELOPER: Update PR with review fixes"
+    journal-log.sh "WORK:PENDING" "DEVELOPER: Request re-review when complete"
     
-    WORK_COUNT=$(journal-query pending-work DEVELOPER | wc -l)
+    WORK_COUNT=$(journal-query.sh pending-work DEVELOPER | wc -l)
     cp REVIEW_REPORT.md HANDOFF_TO_DEVELOPER.md
 fi
 
@@ -214,8 +214,8 @@ See REVIEW_REPORT.md for full details." 2>/dev/null && echo -e "${GREEN}Added re
 fi
 
 # Complete handoff
-journal-log "HANDOFF:COMPLETED" "Handed off to $NEXT_PERSONA with $WORK_COUNT work items"
-journal-log "REVIEWER:CONTEXT" "Review complete. Decision: $ACTION"
+journal-log.sh "HANDOFF:COMPLETED" "Handed off to $NEXT_PERSONA with $WORK_COUNT work items"
+journal-log.sh "REVIEWER:CONTEXT" "Review complete. Decision: $ACTION"
 
 echo ""
 echo -e "${BLUE}=== Handoff Complete ===${NC}"

@@ -12,16 +12,16 @@ echo -e "${BLUE}=== Initializing DEVELOPER Persona ===${NC}"
 echo ""
 
 # Log initialization
-journal-log "DEVELOPER:INIT" "Starting DEVELOPER persona"
+journal-log.sh "DEVELOPER:INIT" "Starting DEVELOPER persona"
 
 # Safety check
-SAFETY_STATUS=$(journal-query safety-check DEVELOPER)
+SAFETY_STATUS=$(journal-query.sh safety-check DEVELOPER)
 echo "Safety Status: $SAFETY_STATUS"
 
 # Check if safety limits exceeded
 if echo "$SAFETY_STATUS" | grep -q "WARNING: High iteration count"; then
     echo -e "${RED}Safety limit exceeded${NC}"
-    journal-log "SAFETY:LIMIT" "DEVELOPER exceeded safe iteration count"
+    journal-log.sh "SAFETY:LIMIT" "DEVELOPER exceeded safe iteration count"
     exit 1
 fi
 
@@ -33,7 +33,7 @@ echo ""
 
 # Check for pending work
 echo -e "${YELLOW}Checking for pending work...${NC}"
-PENDING_WORK=$(journal-query pending-work DEVELOPER)
+PENDING_WORK=$(journal-query.sh pending-work DEVELOPER)
 PENDING_COUNT=$(echo "$PENDING_WORK" | grep -c "WORK:PENDING" || echo "0")
 
 if [ $PENDING_COUNT -gt 0 ]; then
@@ -57,7 +57,7 @@ fi
 
 # Get architectural context
 echo -e "${YELLOW}Loading architectural context...${NC}"
-ARCH_DECISIONS=$(journal-query decisions ARCHITECT 5)
+ARCH_DECISIONS=$(journal-query.sh decisions ARCHITECT 5)
 if [ -n "$ARCH_DECISIONS" ]; then
     echo -e "${GREEN}Key architectural decisions:${NC}"
     echo "$ARCH_DECISIONS" | sed 's/.*\[.*:DECISION\] /- /'
@@ -65,7 +65,7 @@ if [ -n "$ARCH_DECISIONS" ]; then
 fi
 
 # Check for unresolved issues
-ERRORS=$(journal-query errors DEVELOPER 5)
+ERRORS=$(journal-query.sh errors DEVELOPER 5)
 if [ -n "$ERRORS" ]; then
     echo -e "${RED}Recent issues:${NC}"
     echo "$ERRORS" | sed 's/.*\[\(.*\)\] /[\1] /'
@@ -116,7 +116,7 @@ fi
 echo ""
 
 # Log context
-journal-log "DEVELOPER:CONTEXT" "Initialized with $PENDING_COUNT pending work items"
+journal-log.sh "DEVELOPER:CONTEXT" "Initialized with $PENDING_COUNT pending work items"
 
 # Display work instructions
 echo -e "${BLUE}=== DEVELOPER Work Instructions ===${NC}"
@@ -129,7 +129,7 @@ if [ $PENDING_COUNT -gt 0 ]; then
     echo ""
     echo "Action plan:"
     echo "1. Start this work item:"
-    echo "   journal-log 'WORK:STARTED' 'DEVELOPER: $FIRST_WORK'"
+    echo "   journal-log.sh 'WORK:STARTED' 'DEVELOPER: $FIRST_WORK'"
     echo ""
     echo "2. Follow TDD approach:"
     echo "   - Write failing test first"
@@ -137,20 +137,20 @@ if [ $PENDING_COUNT -gt 0 ]; then
     echo "   - Refactor if needed"
     echo ""
     echo "3. When complete:"
-    echo "   journal-log 'WORK:COMPLETED' 'DEVELOPER: $FIRST_WORK'"
+    echo "   journal-log.sh 'WORK:COMPLETED' 'DEVELOPER: $FIRST_WORK'"
     echo ""
     echo "4. Check next work item:"
-    echo "   journal-query pending-work DEVELOPER"
+    echo "   journal-query.sh pending-work DEVELOPER"
     echo ""
     echo "5. When all work is done:"
     echo "   /home/devuser/.claude/personas/developer/developer-handoff.sh"
 else
     echo "No pending work found. Options:"
     echo "1. Check for recent handoffs:"
-    echo "   journal-query handoff-chain"
+    echo "   journal-query.sh handoff-chain"
     echo ""
     echo "2. Check work summary:"
-    echo "   journal-query work-summary DEVELOPER"
+    echo "   journal-query.sh work-summary DEVELOPER"
     echo ""
     echo "3. If implementation is complete, run:"
     echo "   /home/devuser/.claude/personas/developer/developer-handoff.sh"
@@ -168,10 +168,10 @@ echo ""
 
 # Create work tracking alias for convenience
 echo -e "${BLUE}Helpful commands:${NC}"
-echo "• View pending work: journal-query pending-work DEVELOPER"
-echo "• Track work item: work-tracker '<work-pattern>'"
-echo "• Check progress: journal-query work-summary DEVELOPER"
-echo "• View context: get-context-window DEVELOPER"
+echo "• View pending work: journal-query.sh pending-work DEVELOPER"
+echo "• Track work item: work-tracker.sh '<work-pattern>'"
+echo "• Check progress: journal-query.sh work-summary DEVELOPER"
+echo "• View context: get-context-window.sh DEVELOPER"
 echo ""
 
 # Display the protocol if first time or explicitly requested

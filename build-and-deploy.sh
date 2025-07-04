@@ -3163,13 +3163,16 @@ build_docker_image() {
     # Always build from TEMP_DIR since we now generate entrypoint.sh
     mkdir -p "$TEMP_DIR/scripts"
     mkdir -p "$TEMP_DIR/docker"
+    
+    # Copy scripts WITH .sh extensions
     cp scripts/setup-git.sh "$TEMP_DIR/scripts/" 2>/dev/null
     cp scripts/motd-ai-devkit.sh "$TEMP_DIR/scripts/" 2>/dev/null
+    
     cp docker/nodejs-base.md "$TEMP_DIR/docker/" 2>/dev/null
     cp -r config "$TEMP_DIR/" 2>/dev/null
     cp -r templates "$TEMP_DIR/" 2>/dev/null
 
-     # Ensure VERSION file exists in TEMP_DIR
+    # Ensure VERSION file exists in TEMP_DIR
     if [[ -f "VERSION" ]]; then
         cp VERSION "$TEMP_DIR/VERSION"
         echo "Copied VERSION file: $(cat $TEMP_DIR/VERSION)" >> "$LOG_FILE"

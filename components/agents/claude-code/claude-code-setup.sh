@@ -452,7 +452,7 @@ else
     echo "# Single Persona Mode" > "$TEMP_DIR/claude-personas/README.md"
 fi
 
-# Copy scripts if they exist
+# Copy scripts if they exist - KEEP .sh extensions
 SCRIPTS_DIR="$SCRIPT_DIR/claude-code/scripts"
 if [[ -d "$SCRIPTS_DIR" ]]; then
     log "Copying utility scripts..."
@@ -466,8 +466,8 @@ if [[ -d "$SCRIPTS_DIR" ]]; then
         fi
     done
     
-    # Make journal scripts available in PATH
-    info "Journal query scripts will be installed to /usr/local/bin"
+    # Scripts will be installed with .sh extensions in entrypoint
+    info "Scripts will be installed to /usr/local/bin with .sh extensions"
 else
     info "No scripts directory found"
 fi

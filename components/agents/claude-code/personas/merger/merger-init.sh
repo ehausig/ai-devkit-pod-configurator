@@ -12,22 +12,22 @@ echo -e "${BLUE}=== Initializing MERGER Persona ===${NC}"
 echo ""
 
 # Log initialization
-journal-log "MERGER:INIT" "Starting MERGER persona"
+journal-log.sh "MERGER:INIT" "Starting MERGER persona"
 
 # Safety check
-SAFETY_STATUS=$(journal-query safety-check MERGER)
+SAFETY_STATUS=$(journal-query.sh safety-check MERGER)
 echo "Safety Status: $SAFETY_STATUS"
 
 if echo "$SAFETY_STATUS" | grep -q "WARNING: High iteration count"; then
     echo -e "${RED}Safety limit exceeded${NC}"
-    journal-log "SAFETY:LIMIT" "MERGER exceeded safe iteration count"
+    journal-log.sh "SAFETY:LIMIT" "MERGER exceeded safe iteration count"
     exit 1
 fi
 echo ""
 
 # Check for pending work
 echo -e "${YELLOW}Checking for pending work...${NC}"
-PENDING_WORK=$(journal-query pending-work MERGER)
+PENDING_WORK=$(journal-query.sh pending-work MERGER)
 PENDING_COUNT=$(echo "$PENDING_WORK" | grep -c "WORK:PENDING" || echo "0")
 
 if [ $PENDING_COUNT -gt 0 ]; then
@@ -117,7 +117,7 @@ fi
 echo ""
 
 # Log context
-journal-log "MERGER:CONTEXT" "Initialized with $PENDING_COUNT merge tasks"
+journal-log.sh "MERGER:CONTEXT" "Initialized with $PENDING_COUNT merge tasks"
 
 # Display work instructions
 echo -e "${BLUE}=== MERGER Work Instructions ===${NC}"
@@ -132,7 +132,7 @@ if [ $PENDING_COUNT -gt 0 ]; then
     # Provide specific instructions based on task
     if [[ "$FIRST_WORK" == *"CI/CD"* ]]; then
         echo "Action plan:"
-        echo "1. Mark started: journal-log 'WORK:STARTED' 'MERGER: $FIRST_WORK'"
+        echo "1. Mark started: journal-log.sh 'WORK:STARTED' 'MERGER: $FIRST_WORK'"
         echo "2. Check CI/CD status:"
         if [ -n "$PR_NUMBER" ]; then
             echo "   gh pr checks $PR_NUMBER"
@@ -140,10 +140,10 @@ if [ $PENDING_COUNT -gt 0 ]; then
             echo "   # Check your CI/CD dashboard"
         fi
         echo "3. Wait for all checks to pass"
-        echo "4. Mark complete: journal-log 'WORK:COMPLETED' 'MERGER: $FIRST_WORK'"
+        echo "4. Mark complete: journal-log.sh 'WORK:COMPLETED' 'MERGER: $FIRST_WORK'"
     elif [[ "$FIRST_WORK" == *"Merge PR"* ]]; then
         echo "Action plan:"
-        echo "1. Mark started: journal-log 'WORK:STARTED' 'MERGER: $FIRST_WORK'"
+        echo "1. Mark started: journal-log.sh 'WORK:STARTED' 'MERGER: $FIRST_WORK'"
         echo "2. Switch to main branch:"
         echo "   git checkout main"
         echo "   git pull origin main"
@@ -153,13 +153,13 @@ if [ $PENDING_COUNT -gt 0 ]; then
         else
             echo "   git merge --no-ff $PR_BRANCH"
         fi
-        echo "4. Mark complete: journal-log 'WORK:COMPLETED' 'MERGER: $FIRST_WORK'"
-        echo "5. Log merge: journal-log 'MERGER:MERGED' 'Merged PR #$PR_NUMBER'"
+        echo "4. Mark complete: journal-log.sh 'WORK:COMPLETED' 'MERGER: $FIRST_WORK'"
+        echo "5. Log merge: journal-log.sh 'MERGER:MERGED' 'Merged PR #$PR_NUMBER'"
     else
         echo "Action plan:"
-        echo "1. Mark started: journal-log 'WORK:STARTED' 'MERGER: $FIRST_WORK'"
+        echo "1. Mark started: journal-log.sh 'WORK:STARTED' 'MERGER: $FIRST_WORK'"
         echo "2. Complete the task"
-        echo "3. Mark complete: journal-log 'WORK:COMPLETED' 'MERGER: $FIRST_WORK'"
+        echo "3. Mark complete: journal-log.sh 'WORK:COMPLETED' 'MERGER: $FIRST_WORK'"
     fi
     echo ""
     echo "4. Continue with remaining tasks"
@@ -170,7 +170,7 @@ else
     echo "   gh pr list --search 'review:approved'"
     echo ""
     echo "2. Check recent handoffs:"
-    echo "   journal-query handoff-chain"
+    echo "   journal-query.sh handoff-chain"
     echo ""
     echo "3. If merge cycle is complete:"
     echo "   /home/devuser/.claude/personas/merger/merger-handoff.sh"
@@ -187,11 +187,11 @@ echo "□ Documentation updated"
 echo ""
 
 echo -e "${BLUE}Merge Commands:${NC}"
-echo "• View tasks: journal-query pending-work MERGER"
+echo "• View tasks: journal-query.sh pending-work MERGER"
 echo "• Check PR: gh pr checks $PR_NUMBER"
 echo "• Merge PR: gh pr merge $PR_NUMBER --merge --no-squash"
 echo "• Tag release: git tag -a v1.0.0 -m 'Release version 1.0.0'"
-echo "• Check progress: journal-query work-summary MERGER"
+echo "• Check progress: journal-query.sh work-summary MERGER"
 echo ""
 
 echo -e "${YELLOW}Remember:${NC}"

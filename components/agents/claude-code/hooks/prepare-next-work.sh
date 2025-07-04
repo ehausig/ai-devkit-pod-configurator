@@ -2,7 +2,7 @@
 # Prepare next work item for execution
 # This script is called by the work-queue-monitor hook
 
-PERSONA="${1:-$(journal-query current-persona)}"
+PERSONA="${1:-$(journal-query.sh current-persona)}"
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -11,12 +11,31 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Get the next pending work item
-NEXT_WORK=$(journal-query pending-work "$PERSONA" | head -1)
+NEXT_WORK=$(journal-query.sh pending-work "$PERSONA" | head -1)
 
 if [ -z "$NEXT_WORK" ]; then
     echo "No pending work for $PERSONA"
     exit 0
 fi
+SCRIPT_CONTENT
+
+chmod +x /tmp/execute-next-work.sh
+
+# Create notification for Claude
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo -e "${GREEN}🚀 WORK READY FOR EXECUTION${NC}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo -e "${YELLOW}EXECUTE:${NC} /tmp/execute-next-work.sh"
+echo ""
+echo "This script will:"
+echo "1. Mark work as STARTED"
+echo "2. Execute: $(echo "$WORK_DESC" | head -c 50)..."
+echo "3. Mark work as COMPLETED"
+echo "4. Check for additional work"
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # Extract work description
 WORK_DESC=$(echo "$NEXT_WORK" | sed 's/.*WORK:PENDING\] //')
@@ -45,7 +64,7 @@ echo "Work: \$WORK_ITEM"
 echo ""
 
 # Mark work as started
-journal-log "WORK:STARTED" "\$WORK_ITEM"
+journal-log.sh "WORK:STARTED" "\$WORK_ITEM"
 
 # Execute based on work type
 case "\$WORK_ITEM" in
@@ -128,7 +147,7 @@ case "\$WORK_ITEM" in
         PR_NUMBER=\$(gh pr list --json number --jq '.[0].number' 2>/dev/null || echo "")
         if [ -n "\$PR_NUMBER" ]; then
             gh pr merge \$PR_NUMBER --merge --no-squash --delete-branch
-            journal-log "MERGER:MERGED" "Merged PR #\$PR_NUMBER"
+            journal-log.sh "MERGER:MERGED" "Merged PR #\$PR_NUMBER"
         fi
         RESULT=\$?
         ;;
@@ -144,20 +163,20 @@ esac
 # Mark work as completed or failed
 if [ \$RESULT -eq 0 ]; then
     echo -e "\n\${GREEN}✓ Work completed successfully\${NC}"
-    journal-log "WORK:COMPLETED" "\$WORK_ITEM"
+    journal-log.sh "WORK:COMPLETED" "\$WORK_ITEM"
 else
     echo -e "\n\${RED}✗ Work failed with exit code: \$RESULT\${NC}"
-    journal-log "WORK:FAILED" "\$WORK_ITEM - Exit code: \$RESULT"
+    journal-log.sh "WORK:FAILED" "\$WORK_ITEM - Exit code: \$RESULT"
 fi
 
 # Check for more work
-PENDING_COUNT=\$(journal-query pending-work "\$PERSONA" | wc -l)
+PENDING_COUNT=\$(journal-query.sh pending-work "\$PERSONA" | wc -l)
 echo ""
 if [ \$PENDING_COUNT -gt 0 ]; then
     echo -e "\${YELLOW}→ \$PENDING_COUNT more work items pending for \$PERSONA\${NC}"
     echo ""
     echo "Next work item:"
-    journal-query pending-work "\$PERSONA" | head -1 | sed 's/.*WORK:PENDING\] /  /'
+    journal-query.sh pending-work "\$PERSONA" | head -1 | sed 's/.*WORK:PENDING\] /  /'
     echo ""
     echo -e "\${BLUE}To continue, run:\${NC} /tmp/execute-next-work.sh"
     
@@ -168,24 +187,5 @@ else
     echo ""
     echo "Next steps:"
     echo "- Run handoff script if ready: /home/devuser/.claude/personas/\$(echo \$PERSONA | tr '[:upper:]' '[:lower:]')/\$(echo \$PERSONA | tr '[:upper:]' '[:lower:]')-handoff.sh"
-    echo "- Or check work summary: journal-query work-summary \$PERSONA"
+    echo "- Or check work summary: journal-query.sh work-summary \$PERSONA"
 fi
-SCRIPT_CONTENT
-
-chmod +x /tmp/execute-next-work.sh
-
-# Create notification for Claude
-echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e "${GREEN}🚀 WORK READY FOR EXECUTION${NC}"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
-echo -e "${YELLOW}EXECUTE:${NC} /tmp/execute-next-work.sh"
-echo ""
-echo "This script will:"
-echo "1. Mark work as STARTED"
-echo "2. Execute: $(echo "$WORK_DESC" | head -c 50)..."
-echo "3. Mark work as COMPLETED"
-echo "4. Check for additional work"
-echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
