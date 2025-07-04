@@ -26,14 +26,14 @@ AI DevKit Pod Configurator provides a beautiful TUI (Terminal User Interface) fo
 
 - 🎨 **Beautiful TUI** - Interactive component selection with theme support
 - 🧩 **Modular Architecture** - Add only what you need: languages, tools, AI assistants
-- 🤖 **AI Assistant Support** - Advanced Claude Code integration with multi-persona workflow
+- 🤖 **Autonomous AI Development** - Claude Code integration with self-directed multi-persona workflow
 - 🔧 **Language Support** - Python, Java, Go, Rust, Ruby, Scala, Kotlin, and more
 - 📦 **Build Tools** - Maven, Gradle, SBT with optional Nexus proxy support
 - 🧪 **TUI Testing** - Microsoft TUI Test pre-installed for testing terminal apps
 - 💾 **Persistent Storage** - Your code and configuration persist across restarts
 - 🌐 **Web File Manager** - Built-in Filebrowser for easy file management
 - 🔒 **Secure** - Runs as non-root user with proper isolation
-- 📊 **Advanced Claude Features** - Journal-based memory system, custom hooks, and personas
+- 📊 **Event-Sourced Memory** - Journal-based system for autonomous AI workflow
 
 ## 📸 Screenshots
 
@@ -114,55 +114,101 @@ The selector shows:
 
 ## 🤖 Claude Code Integration
 
-### Advanced AI Assistant Features
+### Autonomous AI Development System
 
-The AI DevKit includes deep integration with Claude Code, featuring:
+The AI DevKit includes deep integration with Claude Code, featuring a revolutionary autonomous development system that enables end-to-end software creation without human intervention.
 
-#### Multi-Persona Development System
-Simulate a complete development team with specialized AI personas:
+#### Event-Sourced Architecture
+The system uses `~/workspace/JOURNAL.md` as an event store, implementing event sourcing patterns where all work, decisions, and state changes are recorded as immutable events. This provides:
+- **Persistent Memory** - Survives context switches and session restarts
+- **Complete Audit Trail** - Every decision and action is traceable
+- **State Recovery** - Can reconstruct context from any point
+- **Work Coordination** - Enables autonomous persona transitions
+
+#### Autonomous Multi-Persona Workflow
+Simulates a complete development team that works autonomously:
 - **ARCHITECT** - System design and technical planning
 - **DEVELOPER** - Implementation with TDD practices
 - **QA** - Comprehensive testing and quality assurance
 - **REVIEWER** - Code review and standards compliance
 - **MERGER** - Integration and release management
 
-📖 **[Detailed Persona System Documentation](components/agents/claude-code/personas/README.md)** - In-depth guide to using the multi-persona workflow
+📖 **[Detailed Autonomous System Documentation](components/agents/claude-code/personas/README.md)** - In-depth guide to the autonomous workflow
 
-#### Journal-Based Memory System
-- Persistent memory across sessions using event sourcing
-- Work tracking and handoff between personas
-- Safety mechanisms to prevent infinite loops
-- Context recovery from journal entries
+#### Autonomous Operation
 
-#### Custom Hooks and Automation
-- **Bash Logger** - Intelligent command categorization
-- **Decision Tracker** - Records architectural decisions
-- **Error Recovery** - Tracks and helps resolve issues
-- **File Milestone** - Tracks project progress
-- **Format Code** - Auto-formats on save
-- **Test Tracker** - Monitors test execution
-
-#### Slash Commands
-Custom commands for Claude Code:
-- `/journal-summary` - View work status across all personas
-- `/switch-persona` - Change development role
-- `/show-context` - Display current context
-- `/list-handoffs` - Show pending work transitions
-
-### Using Claude Code Personas
+To start an autonomous development session:
 
 ```bash
-# After deployment, SSH into your container
+# SSH into your container
 ssh devuser@localhost -p 2222
 
-# Switch to ARCHITECT persona to design a system
+# Create a project prompt
+cat > ~/workspace/PROMPT.md << 'EOF'
+Create a REST API for a task management system with:
+- User authentication
+- CRUD operations for tasks
+- PostgreSQL database
+- Comprehensive tests
+- Full documentation
+EOF
+
+# Initialize ARCHITECT to start autonomous development
 /home/devuser/.claude/personas/architect/architect-init.sh
+```
 
-# The persona will guide you through the design process
-# When complete, it automatically hands off to DEVELOPER
+The system will autonomously:
+1. Design the architecture (ARCHITECT)
+2. Implement with TDD (DEVELOPER)
+3. Test against real services (QA)
+4. Review code quality (REVIEWER)
+5. Merge and release (MERGER)
 
-# Work is tracked in the journal
-cat ~/workspace/JOURNAL.md
+All without human intervention, using the journal for coordination.
+
+#### Key Event Types
+- `[WORK:PENDING]` - Work that needs to be done
+- `[WORK:STARTED]` - Work has begun (prevents duplicate processing)
+- `[WORK:COMPLETED]` - Work is finished
+- `[WORK:BLOCKED]` - Work cannot proceed (with reason)
+- `[HANDOFF:REQUEST]` - Persona wants to hand off
+- `[HANDOFF:VALIDATED]` - Requirements checked and passed
+- `[HANDOFF:COMPLETED]` - Next persona can begin
+- `[SAFETY:LIMIT]` - Safety threshold exceeded
+- `[PERSONA:STUCK]` - No progress detected
+
+#### Monitoring Autonomous Progress
+
+```bash
+# View real-time journal activity
+tail -f ~/workspace/JOURNAL.md
+
+# Check overall status
+journal-query.sh stats
+
+# View pending work across all personas
+journal-query.sh pending-work ALL
+
+# Check current active persona
+journal-query.sh current-persona
+```
+
+### Manual Persona Control
+
+While the system is designed for autonomous operation, you can also manually control personas:
+
+```bash
+# Switch to a specific persona
+/switch-persona developer
+
+# Check work status
+/work-status
+
+# Execute prepared work
+/execute-work
+
+# View journal summary
+/journal-summary
 ```
 
 ## 🔐 Git Configuration
@@ -215,10 +261,10 @@ Access the built-in Filebrowser at [http://localhost:8090](http://localhost:8090
 
 ### AI Assistants
 - **Claude Code** - Advanced AI coding assistant with:
-  - Multi-persona workflow system
-  - Journal-based persistent memory
+  - Autonomous multi-persona development system
+  - Event-sourced journal for persistent memory
   - Custom hooks for automation
-  - Integrated development workflow
+  - End-to-end software creation capability
 
 ## 🎨 Theme Support
 
