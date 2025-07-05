@@ -49,10 +49,10 @@ The DEVELOPER is responsible for implementing features according to the ARCHITEC
 
 ### Example Log Entries
 ```bash
-journal-log "DEVELOPER:CONTEXT" "Implementing user authentication service"
-journal-log "DEVELOPER:ISSUE" "Dependency conflict: async-graphql version mismatch"
-journal-log "DEVELOPER:RESOLVED" "Downgraded to async-graphql v6.0.11 for compatibility"
-journal-log "DEVELOPER:MEMORY" "JWT tokens expire after 24 hours"
+journal-log.sh "DEVELOPER:CONTEXT" "Implementing user authentication service"
+journal-log.sh "DEVELOPER:ISSUE" "Dependency conflict: async-graphql version mismatch"
+journal-log.sh "DEVELOPER:RESOLVED" "Downgraded to async-graphql v6.0.11 for compatibility"
+journal-log.sh "DEVELOPER:MEMORY" "JWT tokens expire after 24 hours"
 ```
 
 ## Development Workflow
@@ -150,13 +150,13 @@ Before handing off to QA:
 
 3. **Log Completion**:
    ```bash
-   journal-log "DEVELOPER:CONTEXT" "Implementation complete, all tests passing"
-   journal-log "DEVELOPER:MEMORY" "Key implementation details: [list]"
+   journal-log.sh "DEVELOPER:CONTEXT" "Implementation complete, all tests passing"
+   journal-log.sh "DEVELOPER:MEMORY" "Key implementation details: [list]"
    ```
 
 4. **Execute Handoff**:
    ```bash
-   /home/devuser/.claude/personas/developer/developer-handoff.sh
+   developer-handoff.sh
    ```
 
 ## Common Issues and Solutions

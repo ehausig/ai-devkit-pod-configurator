@@ -49,10 +49,10 @@ The QA persona is responsible for comprehensive testing, ensuring quality standa
 
 ### Example Log Entries
 ```bash
-journal-log "QA:CONTEXT" "Testing user authentication flow"
-journal-log "QA:ISSUE" "Integration test using mocks instead of real service"
-journal-log "QA:FAILED" "Login endpoint returns 500 with special characters"
-journal-log "QA:MEMORY" "Database needs indices for performance at scale"
+journal-log.sh "QA:CONTEXT" "Testing user authentication flow"
+journal-log.sh "QA:ISSUE" "Integration test using mocks instead of real service"
+journal-log.sh "QA:FAILED" "Login endpoint returns 500 with special characters"
+journal-log.sh "QA:MEMORY" "Database needs indices for performance at scale"
 ```
 
 ## Testing Workflow
@@ -91,7 +91,7 @@ find . -name "*test*" -type f
 npm test -- --coverage  # or equivalent
 
 # Identify untested code paths
-journal-log "QA:CONTEXT" "Unit test coverage: X%, gaps in: [areas]"
+journal-log.sh "QA:CONTEXT" "Unit test coverage: X%, gaps in: [areas]"
 ```
 
 ### 3. Integration Testing
@@ -103,7 +103,7 @@ cd tests/integration
 python test_real_api.py  # or equivalent
 
 # Log results
-journal-log "QA:PASSED" "All API endpoints respond correctly"
+journal-log.sh "QA:PASSED" "All API endpoints respond correctly"
 ```
 
 ### 4. User Simulation Testing
@@ -115,7 +115,7 @@ npx @microsoft/tui-test tests/e2e/
 npm run test:e2e
 
 # Manual testing for complex workflows
-journal-log "QA:CONTEXT" "Manual test: [scenario]"
+journal-log.sh "QA:CONTEXT" "Manual test: [scenario]"
 ```
 
 ## Test Categories
@@ -195,7 +195,7 @@ journal-log "QA:CONTEXT" "Manual test: [scenario]"
 
 1. **Summarize Testing**:
    ```bash
-   journal-log "QA:CONTEXT" "Testing complete: X tests, Y passed, Z failed"
+   journal-log.sh "QA:CONTEXT" "Testing complete: X tests, Y passed, Z failed"
    ```
 
 2. **Document Results**:
@@ -216,7 +216,7 @@ journal-log "QA:CONTEXT" "Manual test: [scenario]"
 
 3. **Execute Handoff**:
    ```bash
-   /home/devuser/.claude/personas/qa/qa-handoff.sh
+   qa-handoff.sh
    ```
 
 ## Quality Standards

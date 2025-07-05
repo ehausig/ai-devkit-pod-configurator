@@ -53,10 +53,10 @@ The REVIEWER is responsible for code review, ensuring quality standards, archite
 
 ### Example Log Entries
 ```bash
-journal-log "REVIEWER:CONTEXT" "Reviewing PR #12: User authentication"
-journal-log "REVIEWER:ISSUE" "SQL queries not parameterized, injection risk"
-journal-log "REVIEWER:FEEDBACK" "Consider using prepared statements"
-journal-log "REVIEWER:MEMORY" "Team needs SQL security training"
+journal-log.sh "REVIEWER:CONTEXT" "Reviewing PR #12: User authentication"
+journal-log.sh "REVIEWER:ISSUE" "SQL queries not parameterized, injection risk"
+journal-log.sh "REVIEWER:FEEDBACK" "Consider using prepared statements"
+journal-log.sh "REVIEWER:MEMORY" "Team needs SQL security training"
 ```
 
 ## Review Workflow
@@ -80,7 +80,7 @@ git checkout [pr-branch]
 # cd [project]-review
 # gh pr checkout [pr-number]
 
-journal-log "REVIEWER:CONTEXT" "Set up review for branch: [pr-branch]"
+journal-log.sh "REVIEWER:CONTEXT" "Set up review for branch: [pr-branch]"
 ```
 
 ### 2. Automated Checks
@@ -97,7 +97,7 @@ npm run coverage
 # Run all tests
 npm test
 
-journal-log "REVIEWER:CONTEXT" "Automated checks complete"
+journal-log.sh "REVIEWER:CONTEXT" "Automated checks complete"
 ```
 
 ### 3. Manual Code Review
@@ -115,7 +115,7 @@ Compare implementation against design:
 diff -u ../../[project]/ARCHITECTURE.md .
 grep "ARCHITECT:DECISION" ~/workspace/JOURNAL.md
 
-journal-log "REVIEWER:CONTEXT" "Architecture compliance verified"
+journal-log.sh "REVIEWER:CONTEXT" "Architecture compliance verified"
 ```
 
 ## Review Checklist
@@ -221,26 +221,26 @@ journal-log "REVIEWER:CONTEXT" "Architecture compliance verified"
 
 2. **Log feedback**:
    ```bash
-   journal-log "REVIEWER:FEEDBACK" "X critical issues, Y suggestions"
-   journal-log "REVIEWER:HANDOFF" "Changes requested, back to DEVELOPER"
+   journal-log.sh "REVIEWER:FEEDBACK" "X critical issues, Y suggestions"
+   journal-log.sh "REVIEWER:HANDOFF" "Changes requested, back to DEVELOPER"
    ```
 
 3. **Execute handoff**:
    ```bash
-   /home/devuser/.claude/personas/reviewer/reviewer-handoff.sh changes-needed
+   reviewer-handoff.sh changes-needed
    ```
 
 ### If Approved
 
 1. **Document approval**:
    ```bash
-   journal-log "REVIEWER:APPROVED" "PR #X meets all standards"
-   journal-log "REVIEWER:HANDOFF" "Ready for MERGER"
+   journal-log.sh "REVIEWER:APPROVED" "PR #X meets all standards"
+   journal-log.sh "REVIEWER:HANDOFF" "Ready for MERGER"
    ```
 
 2. **Execute handoff**:
    ```bash
-   /home/devuser/.claude/personas/reviewer/reviewer-handoff.sh approved
+   reviewer-handoff.sh approved
    ```
 
 ## Review Standards

@@ -31,9 +31,9 @@ journal-query.sh pending-work DEVELOPER
 
 **Mark work progress:**
 ```bash
-journal-log "WORK:STARTED" "DEVELOPER: Create user authentication module"
+journal-log.sh "WORK:STARTED" "DEVELOPER: Create user authentication module"
 # ... do the work ...
-journal-log "WORK:COMPLETED" "DEVELOPER: Create user authentication module"
+journal-log.sh "WORK:COMPLETED" "DEVELOPER: Create user authentication module"
 ```
 
 **Check safety status:**
@@ -68,12 +68,12 @@ Each persona has specific responsibilities and uses the journal for work coordin
 
 2. **Mark work as started:**
    ```bash
-   journal-log "WORK:STARTED" "[PERSONA]: [exact work description]"
+   journal-log.sh "WORK:STARTED" "[PERSONA]: [exact work description]"
    ```
 
 3. **Complete work and mark it:**
    ```bash
-   journal-log "WORK:COMPLETED" "[PERSONA]: [exact work description]"
+   journal-log.sh "WORK:COMPLETED" "[PERSONA]: [exact work description]"
    ```
 
 #### During Handoffs
@@ -84,13 +84,13 @@ Each persona has specific responsibilities and uses the journal for work coordin
 
 2. **Create specific work items for next persona:**
    ```bash
-   journal-log "WORK:PENDING" "DEVELOPER: Write tests for user module"
-   journal-log "WORK:PENDING" "DEVELOPER: Implement user module"
+   journal-log.sh "WORK:PENDING" "DEVELOPER: Write tests for user module"
+   journal-log.sh "WORK:PENDING" "DEVELOPER: Implement user module"
    ```
 
 3. **Complete the handoff:**
    ```bash
-   journal-log "HANDOFF:COMPLETED" "Handed off to DEVELOPER with 5 work items"
+   journal-log.sh "HANDOFF:COMPLETED" "Handed off to DEVELOPER with 5 work items"
    ```
 
 ### Explicit Work Instructions
@@ -112,7 +112,7 @@ Your immediate task:
 
 Action plan:
 1. Start this work item:
-   journal-log 'WORK:STARTED' 'DEVELOPER: Create feature branch feat/backend-api'
+   journal-log.sh 'WORK:STARTED' 'DEVELOPER: Create feature branch feat/backend-api'
 ```
 
 ### Safety Mechanisms
@@ -154,8 +154,8 @@ architect-init.sh
 # You see: "Found 5 pending work items"
 # You see: "Your immediate task: → Create feature branch feat/backend-api"
 # You execute: git checkout -b feat/backend-api
-# You mark: journal-log "WORK:STARTED" "DEVELOPER: Create feature branch feat/backend-api"
-# You mark: journal-log "WORK:COMPLETED" "DEVELOPER: Create feature branch feat/backend-api"
+# You mark: journal-log.sh "WORK:STARTED" "DEVELOPER: Create feature branch feat/backend-api"
+# You mark: journal-log.sh "WORK:COMPLETED" "DEVELOPER: Create feature branch feat/backend-api"
 # You continue with next items...
 ```
 
