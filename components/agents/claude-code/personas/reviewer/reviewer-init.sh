@@ -59,7 +59,7 @@ echo ""
 # Get PR information
 echo -e "${YELLOW}Checking for pull requests...${NC}"
 if command -v gh >/dev/null 2>&1; then
-    OPEN_PRS=$(gh pr list --json number,title,branch,mergeable 2>/dev/null)
+    OPEN_PRS=$(gh pr list --json number,title,branch,mergeable,statusCheckRollup 2>/dev/null)
     if [ -n "$OPEN_PRS" ] && [ "$OPEN_PRS" != "[]" ]; then
         echo -e "${GREEN}Open pull requests:${NC}"
         echo "$OPEN_PRS" | jq -r '.[] | "PR #\(.number): \(.title) (\(.branch))"'
@@ -140,14 +140,14 @@ if [ $PENDING_COUNT -gt 0 ]; then
     fi
     echo ""
     echo "5. Continue with remaining items"
-    echo "6. Run /home/devuser/.claude/personas/reviewer/reviewer-handoff.sh when all complete"
+    echo "6. Run reviewer-handoff.sh when all complete"
 else
     echo "No pending review items. Options:"
     echo "1. Check for recent handoffs:"
     echo "   journal-query.sh  handoff-chain"
     echo ""
     echo "2. If review is complete, run:"
-    echo "   /home/devuser/.claude/personas/reviewer/reviewer-handoff.sh"
+    echo "   reviewer-handoff.sh"
 fi
 
 echo ""

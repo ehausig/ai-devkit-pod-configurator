@@ -85,7 +85,7 @@ if [ $PENDING_COUNT -gt 0 ]; then
     echo "You have pending work items. Please:"
     echo "1. Complete the pending items listed above"
     echo "2. Mark each as completed with: journal-log.sh 'WORK:COMPLETED' 'ARCHITECT: [work description]'"
-    echo "3. Run architect-handoff when all work is complete"
+    echo "3. Run architect-handoff.sh when all work is complete"
 elif [ ! -f "ARCHITECTURE.md" ]; then
     echo "Starting new project architecture. Please:"
     echo "1. Create ARCHITECTURE.md with system design"
@@ -93,12 +93,12 @@ elif [ ! -f "ARCHITECTURE.md" ]; then
     echo "3. Create DATA_MODELS.md with data structures"
     echo "4. Create TESTING_STRATEGY.md with test approach"
     echo "5. Log key decisions with: journal-log.sh 'ARCHITECT:DECISION' '[decision]'"
-    echo "6. Run architect-handoff when complete"
+    echo "6. Run architect-handoff.sh when complete"
 else
     echo "Design documents exist. Please:"
     echo "1. Review and update if needed"
     echo "2. Check for any new requirements"
-    echo "3. Run architect-handoff to proceed"
+    echo "3. Run architect-handoff.sh to proceed"
 fi
 
 echo ""

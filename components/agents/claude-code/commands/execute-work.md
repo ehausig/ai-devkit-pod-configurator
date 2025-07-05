@@ -51,7 +51,7 @@ else
         echo "No pending work for $PERSONA"
         echo ""
         echo "Options:"
-        echo "1. Run handoff script if work is complete"
+        echo "1. Run handoff script if work is complete" 
         echo "2. Check work summary: journal-query.sh work-summary $PERSONA"
         echo "3. Switch persona: /switch-persona [persona]"
     fi

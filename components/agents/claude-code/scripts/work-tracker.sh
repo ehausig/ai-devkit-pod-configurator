@@ -218,7 +218,7 @@ case "$command" in
             echo "2. Then execute: /tmp/execute-next-work.sh"
         else
             echo "1. All work complete for $PERSONA"
-            echo "2. Run handoff: /home/devuser/.claude/personas/$(echo $PERSONA | tr '[:upper:]' '[:lower:]')/$(echo $PERSONA | tr '[:upper:]' '[:lower:]')-handoff.sh"
+            echo "2. Run handoff: $(echo $PERSONA | tr '[:upper:]' '[:lower:]')-handoff.sh"
         fi
         
         echo ""
@@ -429,7 +429,7 @@ else
     echo -e "\${GREEN}✓ All work completed for \$PERSONA\${NC}"
     echo ""
     echo "Next steps:"
-    echo "- Run handoff script if ready: /home/devuser/.claude/personas/\$(echo \$PERSONA | tr '[:upper:]' '[:lower:]')/\$(echo \$PERSONA | tr '[:upper:]' '[:lower:]')-handoff.sh"
+    echo "- Run handoff script if ready: \$(echo \$PERSONA | tr '[:upper:]' '[:lower:]')-handoff.sh"
     echo "- Or check work summary: journal-query.sh work-summary \$PERSONA"
 fi
 SCRIPT_CONTENT

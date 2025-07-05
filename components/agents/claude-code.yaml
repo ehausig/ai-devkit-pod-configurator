@@ -190,13 +190,29 @@ entrypoint_setup: |
       echo "Installing Claude Code personas..."
       mkdir -p /home/devuser/.claude/personas
       
-      # Copy all persona files
+      # Copy all persona files (maintaining structure for protocols)
       cp -r /tmp/claude-personas/* /home/devuser/.claude/personas/ 2>/dev/null || true
       
-      # Set proper permissions
-      find /home/devuser/.claude/personas -type f -name "*.sh" -exec chmod 755 {} \;
-      find /home/devuser/.claude/personas -type f -name "*.md" -exec chmod 644 {} \;
-      find /home/devuser/.claude/personas -type d -exec chmod 755 {} \;
+      # Install persona init/handoff scripts to /usr/local/bin
+      for persona_dir in /home/devuser/.claude/personas/*/; do
+          if [ -d "$persona_dir" ]; then
+              persona_name=$(basename "$persona_dir")
+              
+              # Copy init script if exists
+              if [ -f "$persona_dir/${persona_name}-init.sh" ]; then
+                  cp "$persona_dir/${persona_name}-init.sh" "/usr/local/bin/${persona_name}-init.sh"
+                  chmod 755 "/usr/local/bin/${persona_name}-init.sh"
+                  echo "  - Installed: ${persona_name}-init.sh"
+              fi
+              
+              # Copy handoff script if exists
+              if [ -f "$persona_dir/${persona_name}-handoff.sh" ]; then
+                  cp "$persona_dir/${persona_name}-handoff.sh" "/usr/local/bin/${persona_name}-handoff.sh"
+                  chmod 755 "/usr/local/bin/${persona_name}-handoff.sh"
+                  echo "  - Installed: ${persona_name}-handoff.sh"
+              fi
+          fi
+      done
       
       # List installed personas
       echo "Installed personas:"

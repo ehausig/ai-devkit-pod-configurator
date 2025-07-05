@@ -194,7 +194,7 @@ echo ""
 echo -e "${BLUE}=== Handoff Complete ===${NC}"
 echo ""
 echo -e "${YELLOW}$NEXT_PERSONA should now:${NC}"
-echo "1. Run: /home/devuser/.claude/personas/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')-init.sh"
+echo "1. Run: $(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')-init.sh"
 echo "2. Review pending work items"
 echo "3. Start with the first work item"
 echo ""
@@ -205,4 +205,3 @@ echo "$NEXT_PERSONA" > /tmp/persona-work-ready
 echo -e "${GREEN}✓ Work queue signaled for $NEXT_PERSONA${NC}"
 echo ""
 echo "The work queue monitor will prepare the first executable task."
-

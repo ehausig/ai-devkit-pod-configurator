@@ -61,7 +61,7 @@ fi
 # Check for approved PRs
 echo -e "${YELLOW}Checking for approved PRs...${NC}"
 if command -v gh >/dev/null 2>&1; then
-    APPROVED_PRS=$(gh pr list --json number,title,branch,reviews,mergeable,statusCheckRollup 2>/dev/null | \
+    APPROVED_PRS=$(gh pr list --json number,title,branch,mergeable,statusCheckRollup 2>/dev/null | \
         jq -r '.[] | select(.reviews[] | select(.state == "APPROVED")) | "PR #\(.number): \(.title) (\(.branch)) - Checks: \(.statusCheckRollup | length)"')
     
     if [ -n "$APPROVED_PRS" ]; then
@@ -77,7 +77,7 @@ if command -v gh >/dev/null 2>&1; then
         PR_BRANCH=""
     fi
 else
-    echo "GitHub CLI not available - check PRs manually"
+    echo "GitHub CLI not available"
     PR_NUMBER=""
     PR_BRANCH=""
 fi
@@ -163,7 +163,7 @@ if [ $PENDING_COUNT -gt 0 ]; then
     fi
     echo ""
     echo "4. Continue with remaining tasks"
-    echo "5. Run /home/devuser/.claude/personas/merger/merger-handoff.sh when all complete"
+    echo "5. Run merger-handoff.sh when all complete"
 else
     echo "No pending merge tasks. Options:"
     echo "1. Check for approved PRs:"
@@ -173,7 +173,7 @@ else
     echo "   journal-query.sh handoff-chain"
     echo ""
     echo "3. If merge cycle is complete:"
-    echo "   /home/devuser/.claude/personas/merger/merger-handoff.sh"
+    echo "   merger-handoff.sh"
 fi
 
 echo ""

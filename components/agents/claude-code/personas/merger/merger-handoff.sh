@@ -163,7 +163,7 @@ echo ""
 
 if [ -n "$NEXT_PERSONA" ]; then
     echo -e "${YELLOW}To continue development:${NC}"
-    echo "1. Run: /home/devuser/.claude/personas/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')/$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')-init.sh"
+    echo "1. Run: $(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')-init.sh"
     echo "2. $NEXT_ACTION"
     echo ""
     

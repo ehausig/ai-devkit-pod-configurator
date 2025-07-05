@@ -204,12 +204,21 @@ main() {
     assert_command_succeeds "work-tracker.sh prepare DEVELOPER" "Can prepare work script"
     assert_file_exists "/tmp/execute-next-work.sh" "Work script is created"
     
-    # Test 6: Persona Scripts
-    print_test_header "Persona Scripts"
+    # Test 6: Persona Scripts (Local)
+    print_test_header "Persona Scripts (Source Location)"
     for persona in architect developer qa reviewer merger; do
         assert_file_exists "/home/devuser/.claude/personas/$persona/$persona-init.sh" "$persona init script exists"
         assert_file_exists "/home/devuser/.claude/personas/$persona/$persona-handoff.sh" "$persona handoff script exists"
         assert_file_exists "/home/devuser/.claude/personas/$persona/$(echo $persona | tr '[:lower:]' '[:upper:]')-PROTOCOL.md" "$persona protocol exists"
+    done
+    
+    # Test 6b: Persona Scripts (Deployed to /usr/local/bin)
+    print_test_header "Persona Scripts (Deployed Location)"
+    for persona in architect developer qa reviewer merger; do
+        assert_command_exists "$persona-init.sh" "$persona-init.sh is available in PATH"
+        assert_command_exists "$persona-handoff.sh" "$persona-handoff.sh is available in PATH"
+        assert_file_exists "/usr/local/bin/$persona-init.sh" "$persona-init.sh exists in /usr/local/bin"
+        assert_file_exists "/usr/local/bin/$persona-handoff.sh" "$persona-handoff.sh exists in /usr/local/bin"
     done
     
     # Test 7: Hook Scripts
@@ -310,6 +319,15 @@ EOF
     assert_command_succeeds "work-tracker.sh status" "work-tracker status subcommand works"
     assert_command_succeeds "work-tracker.sh prepare" "work-tracker prepare subcommand works"
     assert_output_contains "work-tracker.sh track 2>&1" "Usage:" "work-tracker track requires pattern"
+    
+    # Test 15: Persona Script Integration
+    print_test_header "Persona Script Integration"
+    
+    # Test that init scripts can be executed (in a safe way - just check help/protocol display)
+    for persona in architect developer qa reviewer merger; do
+        # Running with --show-protocol should display the protocol without changing state
+        assert_output_contains "$persona-init.sh --show-protocol 2>&1" "PROTOCOL" "$persona-init.sh can display protocol"
+    done
     
     # Clean up test work script
     rm -f /tmp/execute-next-work.sh

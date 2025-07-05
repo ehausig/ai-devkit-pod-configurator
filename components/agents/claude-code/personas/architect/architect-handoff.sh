@@ -156,7 +156,7 @@ echo ""
 echo -e "${BLUE}=== Handoff Complete ===${NC}"
 echo ""
 echo -e "${YELLOW}DEVELOPER should now:${NC}"
-echo "1. Run: /home/devuser/.claude/personas/developer/developer-init.sh"
+echo "1. Run: developer-init.sh"
 echo "2. Review pending work items"
 echo "3. Start implementing with TDD approach"
 echo ""
@@ -167,4 +167,3 @@ echo "DEVELOPER" > /tmp/persona-work-ready
 echo -e "${GREEN}✓ Work queue signaled for DEVELOPER${NC}"
 echo ""
 echo "The work queue monitor will prepare the first executable task."
-

@@ -139,13 +139,13 @@ if [ $PENDING_COUNT -gt 0 ]; then
     echo "5. Continue with next items"
     echo ""
     echo "6. When all testing done:"
-    echo "   /home/devuser/.claude/personas/qa/qa-handoff.sh"
+    echo "   qa-handoff.sh"
 else
     echo "No pending work. Options:"
     echo "1. Check recent handoffs:"
     echo "   journal-query.sh handoff-chain"
     echo ""
-    echo "2. Run /home/devuser/.claude/personas/qa/qa-handoff.sh if testing is complete"
+    echo "2. Run qa-handoff.sh if testing is complete"
 fi
 
 echo ""

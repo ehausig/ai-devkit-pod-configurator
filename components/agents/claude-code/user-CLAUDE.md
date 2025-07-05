@@ -140,7 +140,7 @@ journal-query.sh pending-work [PERSONA]
 
 ### Starting as ARCHITECT
 ```bash
-/home/devuser/.claude/personas/architect/architect-init.sh
+architect-init.sh
 # You see: "Found 0 pending work items"
 # You see: "Starting new project architecture. Please: ..."
 # You create the design documents

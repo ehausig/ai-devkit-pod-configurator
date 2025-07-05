@@ -35,7 +35,7 @@ Where `[persona]` is one of:
 
 To switch to developer persona:
 ```bash
-/home/devuser/.claude/personas/developer/developer-init.sh
+developer-init.sh
 ```
 
 This will initialize the DEVELOPER persona and display the complete DEVELOPER protocol in the terminal for you to follow.
