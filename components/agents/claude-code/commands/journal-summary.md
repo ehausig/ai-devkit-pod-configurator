@@ -23,31 +23,31 @@ Display the current state of the journal-based work system.
 
 ```bash
 # Overall statistics
-journal-query.sh stats "" 1
+es-journal-query.sh stats "" 1
 
 # Check each persona's pending work
 echo "=== Pending Work by Persona ==="
 for persona in ARCHITECT DEVELOPER QA REVIEWER MERGER; do
     echo ""
     echo "$persona:"
-    journal-query.sh pending-work $persona | head -5
+    es-journal-query.sh pending-work $persona | head -5
 done
 
 # Recent handoff chain
 echo ""
 echo "=== Recent Handoffs ==="
-journal-query.sh handoff-chain | tail -5
+es-journal-query.sh handoff-chain | tail -5
 
 # Current active persona
 echo ""
 echo "=== Current Active Persona ==="
-journal-query.sh current-persona
+es-journal-query.sh current-persona
 
 # Safety status check
 echo ""
 echo "=== Safety Status ==="
 for persona in ARCHITECT DEVELOPER QA REVIEWER MERGER; do
     echo -n "$persona: "
-    journal-query.sh safety-check $persona
+    es-journal-query.sh safety-check $persona
 done
 ```

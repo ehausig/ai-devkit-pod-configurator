@@ -31,14 +31,14 @@ if [ -f /tmp/execute-next-work.sh ]; then
 else
     echo "Preparing work script..."
     # Get current persona
-    PERSONA=$(journal-query.sh current-persona)
+    PERSONA=$(es-journal-query.sh current-persona)
     
     # Check for pending work
-    PENDING=$(journal-query.sh pending-work $PERSONA | wc -l)
+    PENDING=$(es-journal-query.sh pending-work $PERSONA | wc -l)
     
     if [ $PENDING -gt 0 ]; then
         # Prepare and execute work
-        work-tracker.sh prepare $PERSONA
+        es-work-tracker.sh prepare $PERSONA
         
         if [ -f /tmp/execute-next-work.sh ]; then
             echo ""
@@ -52,7 +52,7 @@ else
         echo ""
         echo "Options:"
         echo "1. Run handoff script if work is complete" 
-        echo "2. Check work summary: journal-query.sh work-summary $PERSONA"
+        echo "2. Check work summary: es-journal-query.sh work-summary $PERSONA"
         echo "3. Switch persona: /switch-persona [persona]"
     fi
 fi

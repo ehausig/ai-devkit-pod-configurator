@@ -32,7 +32,7 @@ installation:
     - source: claude-personas/
       destination: /tmp/claude-personas/
       permissions: 755
-    - source: scripts/
+    - source: claude-scripts/
       destination: /tmp/claude-scripts/
       permissions: 755
 entrypoint_setup: |
@@ -65,201 +65,12 @@ entrypoint_setup: |
       echo "Claude Code slash commands installed successfully"
   fi
   
-  # Install hooks if they exist
-  if [ -d /tmp/claude-hooks ]; then
-      echo "Installing Claude Code hooks..."
-      mkdir -p /home/devuser/.claude/hooks
-      
-      # Copy all hook scripts
-      cp -r /tmp/claude-hooks/* /home/devuser/.claude/hooks/ 2>/dev/null || true
-      
-      # Set proper permissions (scripts need to be executable)
-      find /home/devuser/.claude/hooks -type f -name "*.sh" -exec chmod 755 {} \;
-      find /home/devuser/.claude/hooks -type d -exec chmod 755 {} \;
-      
-      # List installed hooks for verification
-      echo "Installed hook scripts:"
-      find /home/devuser/.claude/hooks -name "*.sh" -type f | while read hook; do
-          echo "  - $(basename "$hook" .sh)"
-      done
-      
-      echo "Claude Code hooks installed successfully"
-  else
-      echo "No /tmp/claude-hooks directory found, creating hooks manually..."
-      mkdir -p /home/devuser/.claude/hooks
-      
-      # Create journal.sh hook
-      cat > /home/devuser/.claude/hooks/journal.sh << 'JOURNAL_HOOK'
-  #!/bin/bash
-  # Journal hook script - logs entries to ~/workspace/JOURNAL.md
-  
-  # Read JSON input from stdin
-  json_input=$(cat)
-  
-  # Parse arguments from the transcript or use default values
-  # For Stop event, we'll log that the session completed
-  type="INFO"
-  message="Claude Code session completed"
-  
-  # Extract session_id if available
-  session_id=$(echo "$json_input" | jq -r '.session_id // "unknown"')
-  
-  # Check if this is a stop hook that's already active to prevent loops
-  stop_hook_active=$(echo "$json_input" | jq -r '.stop_hook_active // false')
-  
-  if [ "$stop_hook_active" = "true" ]; then
-    # Don't create recursive journal entries
-    exit 0
-  fi
-  
-  # Create the journal entry
-  journal-log.sh "$type" "Session $session_id completed - $message"
-  
-  # Return success
-  exit 0
-  JOURNAL_HOOK
-      
-      # Create session-tracker.sh hook  
-      cat > /home/devuser/.claude/hooks/session-tracker.sh << 'SESSION_TRACKER_HOOK'
-  #!/bin/bash
-  # Session tracking hook - logs session initialization and directory changes
-  # Fixed to work with Claude Code's actual JSON structure
-  
-  # Read JSON input from stdin
-  json_input=$(cat)
-  
-  # Extract command and description
-  command=$(echo "$json_input" | jq -r '.tool_input.command // ""')
-  description=$(echo "$json_input" | jq -r '.tool_input.description // "No description"')
-  session_id=$(echo "$json_input" | jq -r '.session_id // "unknown"')
-  
-  # Check if this is a cd command to track working directory
-  if [[ "$command" =~ ^cd[[:space:]] ]]; then
-    target_dir=$(echo "$command" | sed 's/^cd[[:space:]]*//')
-    # Handle complex cd commands (like cd ~/workspace && pwd)
-    # Using grep instead of bash regex to avoid syntax issues
-    if echo "$target_dir" | grep -q '[[:space:]]&&'; then
-      target_dir=$(echo "$target_dir" | sed 's/[[:space:]]&&.*//')
-    fi
-    # Resolve the full path
-    if [[ "$target_dir" =~ ^~ ]]; then
-      # Replace ~ with $HOME, not concatenate
-      target_dir="${target_dir/#\~/$HOME}"
-    fi
-    journal-log.sh "INFO" "Working directory: $target_dir"
-  fi
-  
-  # Track workspace initialization
-  if [[ "$command" =~ mkdir.*workspace ]]; then
-    journal-log.sh "INFO" "Initializing workspace structure"
-  fi
-  
-  # Always allow execution
-  exit 0
-  SESSION_TRACKER_HOOK
-      
-      # Create bash-logger.sh hook
-      cat > /home/devuser/.claude/hooks/bash-logger.sh << 'BASH_LOGGER_HOOK'
-  #!/bin/bash
-  # Bash command logging hook - uses hook framework
-  exec /usr/local/bin/hook-framework.sh bash-logger
-  BASH_LOGGER_HOOK
-      
-      # Create format-code.sh hook
-      cat > /home/devuser/.claude/hooks/format-code.sh << 'FORMAT_CODE_HOOK'
-  #!/bin/bash
-  # Auto-formatting hook - formats code based on file extension
-  exec /usr/local/bin/hook-framework.sh format-code
-  FORMAT_CODE_HOOK
-      
-      # Create notification.sh hook
-      cat > /home/devuser/.claude/hooks/notification.sh << 'NOTIFICATION_HOOK'
-  #!/bin/bash
-  # Custom notification hook
-  exec /usr/local/bin/hook-framework.sh notification
-  NOTIFICATION_HOOK
-      
-      # Make all hooks executable
-      chmod 755 /home/devuser/.claude/hooks/*.sh
-      
-      echo "Created default hook scripts"
-  fi
-  
-  # Install personas if they exist
-  if [ -d /tmp/claude-personas ]; then
-      echo "Installing Claude Code personas..."
-      mkdir -p /home/devuser/.claude/personas
-      
-      # Copy all persona files (maintaining structure for protocols)
-      cp -r /tmp/claude-personas/* /home/devuser/.claude/personas/ 2>/dev/null || true
-      
-      # Install persona init/handoff scripts to /usr/local/bin
-      for persona_dir in /home/devuser/.claude/personas/*/; do
-          if [ -d "$persona_dir" ]; then
-              persona_name=$(basename "$persona_dir")
-              
-              # Copy init script if exists
-              if [ -f "$persona_dir/${persona_name}-init.sh" ]; then
-                  cp "$persona_dir/${persona_name}-init.sh" "/usr/local/bin/${persona_name}-init.sh"
-                  chmod 755 "/usr/local/bin/${persona_name}-init.sh"
-                  echo "  - Installed: ${persona_name}-init.sh"
-              fi
-              
-              # Copy handoff script if exists
-              if [ -f "$persona_dir/${persona_name}-handoff.sh" ]; then
-                  cp "$persona_dir/${persona_name}-handoff.sh" "/usr/local/bin/${persona_name}-handoff.sh"
-                  chmod 755 "/usr/local/bin/${persona_name}-handoff.sh"
-                  echo "  - Installed: ${persona_name}-handoff.sh"
-              fi
-          fi
-      done
-      
-      # List installed personas
-      echo "Installed personas:"
-      for persona_dir in /home/devuser/.claude/personas/*/; do
-          if [ -d "$persona_dir" ]; then
-              echo "  - $(basename "$persona_dir")"
-          fi
-      done
-      
-      echo "Claude Code personas installed successfully"
-  else
-      echo "No personas configured - using single-persona mode"
-  fi
- 
-  # Install journal query scripts if they exist - KEEP .sh extensions
+  # Install all scripts to /usr/local/bin
   if [ -d /tmp/claude-scripts ]; then
-      echo "Installing journal scripts..."
+      echo "Installing Claude Code scripts..."
       
-      # Install core framework and common scripts first
-      for script in claude-code-common.sh hook-framework.sh; do
-          if [ -f "/tmp/claude-scripts/$script" ]; then
-              cp "/tmp/claude-scripts/$script" "/usr/local/bin/$script"
-              chmod 755 "/usr/local/bin/$script"
-              echo "  - Installed: $script"
-          fi
-      done
-      
-      # Install main utility scripts
-      for script in journal-query.sh journal-log.sh work-tracker.sh get-context-window.sh; do
-          if [ -f "/tmp/claude-scripts/$script" ]; then
-              cp "/tmp/claude-scripts/$script" "/usr/local/bin/$script"
-              chmod 755 "/usr/local/bin/$script"
-              echo "  - Installed: $script"
-          fi
-      done
-      
-      # Install backward compatibility wrappers
-      for script in journal-stats.sh work-status.sh prepare-next-work.sh; do
-          if [ -f "/tmp/claude-scripts/$script" ]; then
-              cp "/tmp/claude-scripts/$script" "/usr/local/bin/$script"
-              chmod 755 "/usr/local/bin/$script"
-              echo "  - Installed: $script (wrapper)"
-          fi
-      done
-      
-      # Install hook logic scripts
-      for script in /tmp/claude-scripts/*-hook.sh; do
+      # Install all scripts with proper permissions
+      for script in /tmp/claude-scripts/*.sh; do
           if [ -f "$script" ]; then
               script_name=$(basename "$script")
               cp "$script" "/usr/local/bin/$script_name"
@@ -268,9 +79,46 @@ entrypoint_setup: |
           fi
       done
       
-      echo "Journal scripts installed successfully"
+      echo "Claude Code scripts installed successfully"
   fi
   
+  # Install hook scripts if they exist
+  if [ -d /tmp/claude-hooks ]; then
+      echo "Installing Claude Code hooks..."
+      
+      # Copy all hook scripts to /usr/local/bin
+      for hook in /tmp/claude-hooks/*.sh; do
+          if [ -f "$hook" ]; then
+              hook_name=$(basename "$hook")
+              cp "$hook" "/usr/local/bin/$hook_name"
+              chmod 755 "/usr/local/bin/$hook_name"
+              echo "  - Installed hook: $hook_name"
+          fi
+      done
+      
+      echo "Claude Code hooks installed successfully"
+  fi
+  
+  # Install personas if they exist
+  if [ -d /tmp/claude-personas ]; then
+      echo "Installing Claude Code personas..."
+      mkdir -p /home/devuser/.claude/personas
+      
+      # Copy all persona protocol files
+      cp /tmp/claude-personas/*.md /home/devuser/.claude/personas/ 2>/dev/null || true
+      
+      # List installed personas
+      echo "Installed persona protocols:"
+      for protocol in /home/devuser/.claude/personas/*-PROTOCOL.md; do
+          if [ -f "$protocol" ]; then
+              persona=$(basename "$protocol" -PROTOCOL.md)
+              echo "  - $persona"
+          fi
+      done
+      
+      echo "Claude Code personas installed successfully"
+  fi
+ 
   # Ensure work directories exist with proper permissions
   mkdir -p /tmp/work-scripts
   chown devuser:devuser /tmp/work-scripts

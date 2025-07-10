@@ -26,19 +26,19 @@ The `~/workspace/JOURNAL.md` file is your PRIMARY source of truth. It uses an ev
 
 **Query pending work:**
 ```bash
-journal-query.sh pending-work DEVELOPER
+es-journal-query.sh pending-work DEVELOPER
 ```
 
 **Mark work progress:**
 ```bash
-journal-log.sh "WORK:STARTED" "DEVELOPER: Create user authentication module"
+es-journal-log.sh "WORK:STARTED" "DEVELOPER: Create user authentication module"
 # ... do the work ...
-journal-log.sh "WORK:COMPLETED" "DEVELOPER: Create user authentication module"
+es-journal-log.sh "WORK:COMPLETED" "DEVELOPER: Create user authentication module"
 ```
 
 **Check safety status:**
 ```bash
-journal-query.sh safety-check DEVELOPER
+es-journal-query.sh safety-check DEVELOPER
 ```
 
 ## Persona System
@@ -63,34 +63,34 @@ Each persona has specific responsibilities and uses the journal for work coordin
 #### When Starting Work
 1. **Always check pending work first:**
    ```bash
-   journal-query.sh pending-work [PERSONA]
+   es-journal-query.sh pending-work [PERSONA]
    ```
 
 2. **Mark work as started:**
    ```bash
-   journal-log.sh "WORK:STARTED" "[PERSONA]: [exact work description]"
+   es-journal-log.sh "WORK:STARTED" "[PERSONA]: [exact work description]"
    ```
 
 3. **Complete work and mark it:**
    ```bash
-   journal-log.sh "WORK:COMPLETED" "[PERSONA]: [exact work description]"
+   es-journal-log.sh "WORK:COMPLETED" "[PERSONA]: [exact work description]"
    ```
 
 #### During Handoffs
 1. **Check all work is complete:**
    ```bash
-   journal-query.sh handoff-ready [PERSONA]
+   es-journal-query.sh handoff-ready [PERSONA]
    ```
 
 2. **Create specific work items for next persona:**
    ```bash
-   journal-log.sh "WORK:PENDING" "DEVELOPER: Write tests for user module"
-   journal-log.sh "WORK:PENDING" "DEVELOPER: Implement user module"
+   es-journal-log.sh "WORK:PENDING" "DEVELOPER: Write tests for user module"
+   es-journal-log.sh "WORK:PENDING" "DEVELOPER: Implement user module"
    ```
 
 3. **Complete the handoff:**
    ```bash
-   journal-log.sh "HANDOFF:COMPLETED" "Handed off to DEVELOPER with 5 work items"
+   es-journal-log.sh "HANDOFF:COMPLETED" "Handed off to DEVELOPER with 5 work items"
    ```
 
 ### Explicit Work Instructions
@@ -112,7 +112,7 @@ Your immediate task:
 
 Action plan:
 1. Start this work item:
-   journal-log.sh 'WORK:STARTED' 'DEVELOPER: Create feature branch feat/backend-api'
+   es-journal-log.sh 'WORK:STARTED' 'DEVELOPER: Create feature branch feat/backend-api'
 ```
 
 ### Safety Mechanisms
@@ -127,24 +127,24 @@ The system prevents infinite loops through:
 If context is lost:
 ```bash
 # Get current status
-journal-query.sh work-summary [PERSONA]
+es-journal-query.sh work-summary [PERSONA]
 
 # View recent context
-get-context-window.sh [PERSONA]
+es-context-window.sh [PERSONA]
 
 # Check pending work
-journal-query.sh pending-work [PERSONA]
+es-journal-query.sh pending-work [PERSONA]
 ```
 
 ## Step-by-Step Example
 
 ### Starting as ARCHITECT
 ```bash
-architect-init.sh
+persona-architect-init.sh
 # You see: "Found 0 pending work items"
 # You see: "Starting new project architecture. Please: ..."
 # You create the design documents
-# You run: architect-handoff.sh
+# You run: persona-architect-handoff.sh
 # Work items are created for DEVELOPER
 ```
 
@@ -154,8 +154,8 @@ architect-init.sh
 # You see: "Found 5 pending work items"
 # You see: "Your immediate task: → Create feature branch feat/backend-api"
 # You execute: git checkout -b feat/backend-api
-# You mark: journal-log.sh "WORK:STARTED" "DEVELOPER: Create feature branch feat/backend-api"
-# You mark: journal-log.sh "WORK:COMPLETED" "DEVELOPER: Create feature branch feat/backend-api"
+# You mark: es-journal-log.sh "WORK:STARTED" "DEVELOPER: Create feature branch feat/backend-api"
+# You mark: es-journal-log.sh "WORK:COMPLETED" "DEVELOPER: Create feature branch feat/backend-api"
 # You continue with next items...
 ```
 

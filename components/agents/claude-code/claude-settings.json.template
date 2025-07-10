@@ -16,11 +16,11 @@
     "allow": [
       "Bash(*)",
       "Bash(*:*)",
-      "Bash(architect-init.sh)",
-      "Bash(architect-handoff.sh)",
+      "Bash(persona-architect-init.sh)",
+      "Bash(persona-architect-handoff.sh)",
       "Bash(autoexpect:*)",
       "Bash(awk:*)",
-      "Bash(bash-logger-hook.sh)",
+      "Bash(cc-hook-logic-bash-logger.sh)",
       "Bash(black:*)",
       "Bash(bundle:*)",
       "Bash(cargo:*)",
@@ -28,7 +28,7 @@
       "Bash(cat:*)",
       "Bash(cd:*)",
       "Bash(chmod:*)",
-      "Bash(claude-code-common.sh)",
+      "Bash(cc-common.sh)",
       "Bash(composer:*)",
       "Bash(conda:*)",
       "Bash(conda create:*)",
@@ -37,9 +37,9 @@
       "Bash(curl:*)",
       "Bash(cut:*)",
       "Bash(date:*)",
-      "Bash(decision-tracker-hook.sh)",
-      "Bash(developer-init.sh)",
-      "Bash(developer-handoff.sh)",
+      "Bash(cc-hook-logic-decision-tracker.sh)",
+      "Bash(persona-developer-init.sh)",
+      "Bash(persona-developer-handoff.sh)",
       "Bash(df:*)",
       "Bash(diff:*)",
       "Bash(docker:*)",
@@ -48,16 +48,16 @@
       "Bash(echo *)",
       "Bash(echo *:*)",
       "Bash(env:*)",
-      "Bash(error-recovery-hook.sh)",
+      "Bash(cc-hook-logic-error-recovery.sh)",
       "Bash(eval:*)",
       "Bash(expect:*)",
       "Bash(export:*)",
-      "Bash(file-milestone-hook.sh)",
+      "Bash(cc-hook-logic-file-milestone.sh)",
       "Bash(find:*)",
       "Bash(flake8:*)",
-      "Bash(format-code-hook.sh)",
+      "Bash(cc-hook-logic-format-code.sh)",
       "Bash(free:*)",
-      "Bash(get-context-window.sh:*)",
+      "Bash(es-context-window.sh:*)",
       "Bash(gh:*)",
       "Bash(gh pr create:*)",
       "Bash(gh pr merge:*)",
@@ -79,15 +79,14 @@
       "Bash(gunzip:*)",
       "Bash(gzip:*)",
       "Bash(head:*)",
-      "Bash(hook-framework.sh:*)",
+      "Bash(cc-hook-framework.sh:*)",
       "Bash(hostname:*)",
       "Bash(htop:*)",
       "Bash(id:*)",
       "Bash(java:*)",
-      "Bash(journal-hook.sh)",
-      "Bash(journal-log.sh:*)",
-      "Bash(journal-query.sh:*)",
-      "Bash(journal-stats.sh:*)",
+      "Bash(cc-hook-logic-journal.sh)",
+      "Bash(es-journal-log.sh:*)",
+      "Bash(es-journal-query.sh:*)",
       "Bash(jq:*)",
       "Bash(kill:*)",
       "Bash(killall:*)",
@@ -96,44 +95,43 @@
       "Bash(lsof:*)",
       "Bash(make:*)",
       "Bash(mamba:*)",
-      "Bash(merger-init.sh)",
-      "Bash(merger-handoff.sh)",
+      "Bash(persona-merger-init.sh)",
+      "Bash(persona-merger-handoff.sh)",
       "Bash(mkdir:*)",
       "Bash(mv:*)",
       "Bash(mvn:*)",
       "Bash(netstat:*)",
       "Bash(node:*)",
-      "Bash(notification-hook.sh)",
+      "Bash(cc-hook-logic-notification.sh)",
       "Bash(npm:*)",
       "Bash(patch:*)",
-      "Bash(persona-manager-hook.sh)",
+      "Bash(cc-hook-logic-persona-manager.sh)",
       "Bash(pip:*)",
       "Bash(pip install:*)",
       "Bash(pkill:*)",
-      "Bash(prepare-next-work.sh:*)",
       "Bash(printenv:*)",
-      "Bash(project-lifecycle-hook.sh)",
+      "Bash(cc-hook-logic-project-lifecycle.sh)",
       "Bash(ps:*)",
       "Bash(pwd:*)",
       "Bash(pytest:*)",
       "Bash(python:*)",
       "Bash(python3:*)",
-      "Bash(qa-init.sh)",
-      "Bash(qa-handoff.sh)",
-      "Bash(reviewer-init.sh)",
-      "Bash(reviewer-handoff.sh)",
+      "Bash(persona-qa-init.sh)",
+      "Bash(persona-qa-handoff.sh)",
+      "Bash(persona-reviewer-init.sh)",
+      "Bash(persona-reviewer-handoff.sh)",
       "Bash(ruby:*)",
       "Bash(rustc:*)",
       "Bash(sbt:*)",
       "Bash(sed:*)",
-      "Bash(session-tracker-hook.sh)",
+      "Bash(cc-hook-logic-session-tracker.sh)",
       "Bash(setup-git.sh)",
       "Bash(sort:*)",
       "Bash(source:*)",
       "Bash(ss:*)",
       "Bash(tail:*)",
       "Bash(tar:*)",
-      "Bash(test-tracker-hook.sh)",
+      "Bash(cc-hook-logic-test-tracker.sh)",
       "Bash(timeout:*)",
       "Bash(top:*)",
       "Bash(touch:*)",
@@ -145,9 +143,8 @@
       "Bash(whereis:*)",
       "Bash(which:*)",
       "Bash(whoami:*)",
-      "Bash(work-queue-monitor-hook.sh)",
-      "Bash(work-status.sh:*)",
-      "Bash(work-tracker.sh:*)",
+      "Bash(cc-hook-logic-work-queue-monitor.sh)",
+      "Bash(es-work-tracker.sh:*)",
       "Bash(xmllint:*)",
       "Bash(yarn:*)",
       "Bash(yq:*)",
@@ -243,7 +240,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/home/devuser/.claude/hooks/notification.sh"
+            "command": "cc-hook-notification.sh"
           }
         ]
       }
@@ -254,7 +251,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/home/devuser/.claude/hooks/journal.sh"
+            "command": "cc-hook-journal.sh"
           }
         ]
       }
@@ -265,15 +262,15 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/home/devuser/.claude/hooks/bash-logger.sh"
+            "command": "cc-hook-bash-logger.sh"
           },
           {
             "type": "command",
-            "command": "/home/devuser/.claude/hooks/session-tracker.sh"
+            "command": "cc-hook-session-tracker.sh"
           },
           {
             "type": "command",
-            "command": "/home/devuser/.claude/hooks/persona-manager.sh"
+            "command": "cc-hook-persona-manager.sh"
           }
         ]
       },
@@ -282,7 +279,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/home/devuser/.claude/hooks/decision-tracker.sh"
+            "command": "cc-hook-decision-tracker.sh"
           }
         ]
       }
@@ -293,23 +290,23 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/home/devuser/.claude/hooks/bash-logger.sh"
+            "command": "cc-hook-bash-logger.sh"
           },
           {
             "type": "command",
-            "command": "/home/devuser/.claude/hooks/work-queue-monitor.sh"
+            "command": "cc-hook-work-queue-monitor.sh"
           },
           {
             "type": "command",
-            "command": "/home/devuser/.claude/hooks/project-lifecycle.sh"
+            "command": "cc-hook-project-lifecycle.sh"
           },
           {
             "type": "command",
-            "command": "/home/devuser/.claude/hooks/test-tracker.sh"
+            "command": "cc-hook-test-tracker.sh"
           },
           {
             "type": "command",
-            "command": "/home/devuser/.claude/hooks/error-recovery.sh"
+            "command": "cc-hook-error-recovery.sh"
           }
         ]
       },
@@ -318,11 +315,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/home/devuser/.claude/hooks/format-code.sh"
+            "command": "cc-hook-format-code.sh"
           },
           {
             "type": "command",
-            "command": "/home/devuser/.claude/hooks/decision-tracker.sh"
+            "command": "cc-hook-decision-tracker.sh"
           }
         ]
       },
@@ -331,7 +328,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/home/devuser/.claude/hooks/file-milestone.sh"
+            "command": "cc-hook-file-milestone.sh"
           }
         ]
       }

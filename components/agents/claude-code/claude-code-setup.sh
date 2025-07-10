@@ -259,9 +259,10 @@ rm -f "$TEMP_CATEGORIES" "$TEMP_COMPONENTS" "$TEMP_ALL_COMPONENTS"
 
 success "Generated component imports for user CLAUDE.md"
 
-# Always create claude-commands and claude-hooks directories to prevent Docker COPY failures
+# Always create claude-commands, claude-hooks, and claude-scripts directories to prevent Docker COPY failures
 mkdir -p "$TEMP_DIR/claude-commands"
 mkdir -p "$TEMP_DIR/claude-hooks"
+mkdir -p "$TEMP_DIR/claude-scripts"
 
 # Copy user-CLAUDE.md
 log "Copying user-CLAUDE.md..."
@@ -320,106 +321,25 @@ else
     echo "No custom slash commands configured" >> "$TEMP_DIR/claude-commands/.placeholder"
 fi
 
-# Copy the prepare-next-work.sh script to hooks directory
-if [[ -f "$SCRIPT_DIR/claude-code/hooks/prepare-next-work.sh" ]]; then
-    log "Copying prepare-next-work.sh script..."
-    cp "$SCRIPT_DIR/claude-code/hooks/prepare-next-work.sh" "$TEMP_DIR/claude-hooks/"
-    chmod +x "$TEMP_DIR/claude-hooks/prepare-next-work.sh"
-    success "Copied prepare-next-work.sh"
-fi
-
-# Process hooks if they exist
-HOOKS_DIR="$SCRIPT_DIR/claude-code/hooks"
+# Copy hook scripts if they exist
+HOOKS_DIR="$SCRIPT_DIR/claude-code/hooks/scripts"
 if [[ -d "$HOOKS_DIR" ]]; then
-    log "Processing Claude Code hooks..."
+    log "Copying Claude Code hook scripts..."
     
-    # Create hooks directory in temp for scripts
-    mkdir -p "$TEMP_DIR/claude-hooks"
-    
-    # Function to extract script from YAML using awk
-    extract_script_from_yaml() {
-        local yaml_file="$1"
-        local output_file="$2"
-        
-        # Use awk to extract the script block more reliably
-        awk '
-            /^script: \|/ { 
-                in_script = 1
-                next
-            }
-            # Stop when we hit a non-indented line (new top-level key)
-            in_script && /^[a-zA-Z_]+:/ && !/^  / { 
-                exit
-            }
-            # Process script lines
-            in_script {
-                # Handle lines that start with exactly 2 spaces
-                if (/^  /) {
-                    # Remove first 2 spaces
-                    sub(/^  /, "")
-                    print
-                } else if (/^$/) {
-                    # Keep empty lines
-                    print
-                }
-            }
-        ' "$yaml_file" > "$output_file"
-    }
-    
-    # For each hook YAML file, extract the script content and create the .sh file
-    for hook_file in "$HOOKS_DIR"/*.yaml; do
+    # Copy all hook scripts
+    for hook_file in "$HOOKS_DIR"/*.sh; do
         if [[ -f "$hook_file" ]]; then
-            hook_basename=$(basename "$hook_file" .yaml)
-            info "Processing hook: $hook_basename"
-            
-            script_file="$TEMP_DIR/claude-hooks/${hook_basename}.sh"
-            
-            # Extract script using awk
-            extract_script_from_yaml "$hook_file" "$script_file"
-            
-            # Check if we got any content
-            if [[ -s "$script_file" ]]; then
-                chmod +x "$script_file"
-                success "Created hook script: ${hook_basename}.sh"
-                
-                # Debug: Show first few lines
-                info "  First 3 lines of ${hook_basename}.sh:"
-                head -3 "$script_file" | sed 's/^/    /'
-            else
-                warning "No script content found in ${hook_basename}.yaml"
-                rm -f "$script_file"
-            fi
+            hook_basename=$(basename "$hook_file")
+            cp "$hook_file" "$TEMP_DIR/claude-hooks/"
+            chmod +x "$TEMP_DIR/claude-hooks/$hook_basename"
+            success "Copied hook script: $hook_basename"
         fi
     done
     
-    # Count processed hooks
-    hook_count=$(find "$TEMP_DIR/claude-hooks" -name "*.sh" -type f 2>/dev/null | wc -l)
-    success "Created $hook_count hook scripts"
-    
-    # Verify hook scripts are complete by checking for key patterns
-    info "Verifying hook scripts..."
-    for hook_script in "$TEMP_DIR/claude-hooks"/*.sh; do
-        if [[ -f "$hook_script" ]]; then
-            basename_script=$(basename "$hook_script")
-            # Check if script has proper structure
-            if grep -q "#!/bin/bash" "$hook_script" && grep -q "exit 0" "$hook_script"; then
-                success "  $basename_script appears complete"
-            else
-                warning "  $basename_script may be incomplete"
-                # Show what we have
-                info "  Content preview:"
-                head -10 "$hook_script" | sed 's/^/    /'
-            fi
-        fi
-    done
-    
-    # Also process hooks configuration for settings.json
-    # For now, we're using a settings.json.template that already includes all hooks
-    # In the future, we could dynamically generate this from the YAML files
-    info "Hooks configuration is included in claude-settings.json.template"
+    success "All Claude Code hook scripts copied"
 else
-    warning "No hooks directory found at $HOOKS_DIR"
-    # Create placeholder files to ensure directory exists for Docker COPY
+    warning "No hooks scripts directory found"
+    # Create placeholder
     echo '#!/bin/bash' > "$TEMP_DIR/claude-hooks/.placeholder.sh"
     echo '# No hooks configured' >> "$TEMP_DIR/claude-hooks/.placeholder.sh"
     chmod +x "$TEMP_DIR/claude-hooks/.placeholder.sh"
@@ -433,17 +353,11 @@ if [[ -d "$PERSONAS_DIR" ]]; then
     # Create personas directory structure in temp
     mkdir -p "$TEMP_DIR/claude-personas"
     
-    # Copy entire personas directory structure
-    cp -r "$PERSONAS_DIR"/* "$TEMP_DIR/claude-personas/" 2>/dev/null || true
+    # Copy all persona protocol files and README
+    cp "$PERSONAS_DIR"/*.md "$TEMP_DIR/claude-personas/" 2>/dev/null || true
     
-    # Make all init and handoff scripts executable
-    find "$TEMP_DIR/claude-personas" -name "*-init.sh" -o -name "*-handoff.sh" | while read script; do
-        chmod +x "$script"
-        success "Made executable: $(basename "$script")"
-    done
-    
-    # Count personas
-    persona_count=$(find "$TEMP_DIR/claude-personas" -maxdepth 1 -type d | grep -v "^$TEMP_DIR/claude-personas$" | wc -l)
+    # Count personas (based on PROTOCOL files)
+    persona_count=$(ls -1 "$TEMP_DIR/claude-personas"/*-PROTOCOL.md 2>/dev/null | wc -l)
     success "Processed $persona_count personas"
 else
     info "No personas directory found - using single-persona mode"
@@ -452,24 +366,52 @@ else
     echo "# Single Persona Mode" > "$TEMP_DIR/claude-personas/README.md"
 fi
 
-# Copy scripts if they exist - KEEP .sh extensions
-SCRIPTS_DIR="$SCRIPT_DIR/claude-code/scripts"
-if [[ -d "$SCRIPTS_DIR" ]]; then
-    log "Copying utility scripts..."
-    mkdir -p "$TEMP_DIR/scripts"
-    
-    for script in "$SCRIPTS_DIR"/*.sh; do
+# Copy all scripts from new structure
+log "Copying all scripts..."
+mkdir -p "$TEMP_DIR/claude-scripts"
+
+# Copy event sourcing scripts
+if [[ -d "$SCRIPT_DIR/claude-code/scripts/event-sourcing" ]]; then
+    for script in "$SCRIPT_DIR/claude-code/scripts/event-sourcing"/*.sh; do
         if [[ -f "$script" ]]; then
-            cp "$script" "$TEMP_DIR/scripts/"
-            chmod +x "$TEMP_DIR/scripts/$(basename "$script")"
+            cp "$script" "$TEMP_DIR/claude-scripts/"
+            chmod +x "$TEMP_DIR/claude-scripts/$(basename "$script")"
             success "Copied script: $(basename "$script")"
         fi
     done
-    
-    # Scripts will be installed with .sh extensions in entrypoint
-    info "Scripts will be installed to /usr/local/bin with .sh extensions"
-else
-    info "No scripts directory found"
+fi
+
+# Copy persona scripts
+if [[ -d "$SCRIPT_DIR/claude-code/scripts/personas" ]]; then
+    for script in "$SCRIPT_DIR/claude-code/scripts/personas"/*.sh; do
+        if [[ -f "$script" ]]; then
+            cp "$script" "$TEMP_DIR/claude-scripts/"
+            chmod +x "$TEMP_DIR/claude-scripts/$(basename "$script")"
+            success "Copied script: $(basename "$script")"
+        fi
+    done
+fi
+
+# Copy common scripts
+if [[ -d "$SCRIPT_DIR/claude-code/scripts/common" ]]; then
+    for script in "$SCRIPT_DIR/claude-code/scripts/common"/*.sh; do
+        if [[ -f "$script" ]]; then
+            cp "$script" "$TEMP_DIR/claude-scripts/"
+            chmod +x "$TEMP_DIR/claude-scripts/$(basename "$script")"
+            success "Copied script: $(basename "$script")"
+        fi
+    done
+fi
+
+# Copy hook logic scripts
+if [[ -d "$SCRIPT_DIR/claude-code/hooks/logic" ]]; then
+    for script in "$SCRIPT_DIR/claude-code/hooks/logic"/*.sh; do
+        if [[ -f "$script" ]]; then
+            cp "$script" "$TEMP_DIR/claude-scripts/"
+            chmod +x "$TEMP_DIR/claude-scripts/$(basename "$script")"
+            success "Copied hook logic: $(basename "$script")"
+        fi
+    done
 fi
 
 log "Claude Code pre-build completed successfully"
