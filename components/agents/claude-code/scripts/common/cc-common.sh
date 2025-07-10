@@ -93,9 +93,20 @@ is_handoff_ready() {
     [ "$pending" -eq 0 ]
 }
 
-# Get next persona in workflow
+# Get next persona in workflow (now using centralized logic)
 get_next_persona() {
     local current="$1"
+    
+    # Use centralized should-handoff query if available
+    if command -v es-journal-query.sh >/dev/null 2>&1; then
+        local next_persona=$(es-journal-query.sh should-handoff "$current" 2>/dev/null)
+        if [ $? -eq 0 ] && [ -n "$next_persona" ]; then
+            echo "$next_persona"
+            return 0
+        fi
+    fi
+    
+    # Fallback to hardcoded logic
     case "$current" in
         ARCHITECT) echo "DEVELOPER" ;;
         DEVELOPER) 
@@ -229,7 +240,17 @@ detect_next_persona_automatically() {
         return 0
     fi
     
-    # Check for pending work across all personas
+    # Use centralized should-handoff logic
+    local current_persona=$(get_current_persona)
+    if [ -n "$current_persona" ] && [ "$current_persona" != "UNKNOWN" ]; then
+        local next_persona=$(es-journal-query.sh should-handoff "$current_persona" 2>/dev/null)
+        if [ $? -eq 0 ] && [ -n "$next_persona" ]; then
+            echo "$next_persona"
+            return 0
+        fi
+    fi
+    
+    # Fallback: Check for pending work across all personas
     for persona in ARCHITECT DEVELOPER QA REVIEWER MERGER; do
         local pending=$(get_pending_count "$persona")
         if [ "$pending" -gt 0 ]; then

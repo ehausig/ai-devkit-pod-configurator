@@ -12,6 +12,26 @@ fi
 
 # Log the session completion first
 log_hook_event "INFO" "Session $SESSION_ID completed - Claude Code session completed"
+log_hook_event "DEBUG" "Stop hook executing - checking for handoff signals"
+
+# Debug: Log what files exist and their contents
+if [ -f /tmp/force-session-end ]; then
+    FORCE_CONTENT=$(cat /tmp/force-session-end 2>/dev/null)
+    log_hook_event "DEBUG" "Found force-session-end file with content: '$FORCE_CONTENT'"
+else
+    log_hook_event "DEBUG" "No force-session-end file found"
+fi
+
+if [ -f /tmp/persona-work-ready ]; then
+    WORK_CONTENT=$(cat /tmp/persona-work-ready 2>/dev/null)
+    log_hook_event "DEBUG" "Found persona-work-ready file with content: '$WORK_CONTENT'"
+else
+    log_hook_event "DEBUG" "No persona-work-ready file found"
+fi
+
+# List all temp files for debugging
+TEMP_FILES=$(ls -la /tmp/*persona* /tmp/*force* /tmp/*work* 2>/dev/null || echo "No matching temp files")
+log_hook_event "DEBUG" "Temp files: $TEMP_FILES"
 
 # Priority 1: Check for forced session end (from handoff)
 if [ -f /tmp/force-session-end ]; then
@@ -28,12 +48,8 @@ if [ -f /tmp/force-session-end ]; then
         rm -f /tmp/persona-work-ready
         
         # CRITICAL: For Stop hooks with exit code 2, JSON must go to stderr
-        cat << EOF >&2
-{
-    "decision": "block",
-    "reason": "Automatically continuing with $NEXT_PERSONA persona after handoff. Please run: persona-$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')-init.sh"
-}
-EOF
+        # Use the exact format that works for Stop hooks
+        echo "{\"decision\": \"block\", \"reason\": \"Automatically continuing with $NEXT_PERSONA persona after handoff. Please run: persona-$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')-init.sh\"}" >&2
         exit 2
     fi
 fi
@@ -50,17 +66,12 @@ if [ -f /tmp/persona-work-ready ]; then
         rm -f /tmp/persona-work-ready
         
         # CRITICAL: For Stop hooks with exit code 2, JSON must go to stderr
-        cat << EOF >&2
-{
-    "decision": "block",
-    "reason": "Continuing automated workflow with $NEXT_PERSONA persona. Please run: persona-$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')-init.sh"
-}
-EOF
+        echo "{\"decision\": \"block\", \"reason\": \"Continuing automated workflow with $NEXT_PERSONA persona. Please run: persona-$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')-init.sh\"}" >&2
         exit 2
     fi
 fi
 
-# Priority 3: Fallback check for pending work items
+# Priority 3: Check for pending work items across all personas (deterministic)
 for persona in ARCHITECT DEVELOPER QA REVIEWER MERGER; do
     PENDING_COUNT=$(es-journal-query.sh pending-work "$persona" 2>/dev/null | wc -l || echo "0")
     
@@ -72,12 +83,7 @@ for persona in ARCHITECT DEVELOPER QA REVIEWER MERGER; do
         echo "$persona" > /tmp/persona-work-ready
         
         # CRITICAL: For Stop hooks with exit code 2, JSON must go to stderr
-        cat << EOF >&2
-{
-    "decision": "block",
-    "reason": "Detected $PENDING_COUNT pending work items for $persona. Please run: persona-$(echo $persona | tr '[:upper:]' '[:lower:]')-init.sh"
-}
-EOF
+        echo "{\"decision\": \"block\", \"reason\": \"Detected $PENDING_COUNT pending work items for $persona. Please run: persona-$(echo $persona | tr '[:upper:]' '[:lower:]')-init.sh\"}" >&2
         exit 2
     fi
 done

@@ -17,18 +17,24 @@ fi
 case "$query_type" in
     "pending-work")
         # Get pending work for persona
-        grep "WORK:PENDING.*${persona}:" "$JOURNAL_FILE" 2>/dev/null | \
-            while read -r line; do
-                # Extract work description after the tag
+        # Use a more robust approach to track pending vs completed work
+        
+        # First, get all WORK:PENDING entries for this persona
+        pending_items=$(grep "WORK:PENDING.*${persona}:" "$JOURNAL_FILE" 2>/dev/null)
+        
+        # For each pending item, check if it was completed
+        echo "$pending_items" | while IFS= read -r line; do
+            if [ -n "$line" ]; then
+                # Extract the work description (everything after WORK:PENDING] )
                 work_desc=$(echo "$line" | sed 's/.*WORK:PENDING\] //')
-                # Generate a short hash for the work item
-                work_hash=$(echo "$work_desc" | md5sum | cut -c1-8)
                 
-                # Check if this exact work was completed
-                if ! grep -q "WORK:COMPLETED.*$work_desc" "$JOURNAL_FILE" 2>/dev/null; then
+                # Check if this exact work description appears in a WORK:COMPLETED entry
+                # Use exact string matching to avoid partial matches
+                if ! grep -F "WORK:COMPLETED] $work_desc" "$JOURNAL_FILE" >/dev/null 2>&1; then
                     echo "$line"
                 fi
-            done | tail -$limit
+            fi
+        done | tail -$limit
         ;;
         
     "recent-context")
@@ -101,6 +107,62 @@ case "$query_type" in
         # Get the current active persona
         grep "PERSONA:INIT" "$JOURNAL_FILE" 2>/dev/null | tail -1 | \
             sed 's/.*\[\(.*\):INIT\].*/\1/'
+        ;;
+        
+    "work-completed-persona")
+        # Extract persona from most recent WORK:COMPLETED entry
+        # This handles various formats:
+        # - "DEVELOPER: Task description"
+        # - Direct persona extraction from work completion
+        grep "WORK:COMPLETED" "$JOURNAL_FILE" 2>/dev/null | tail -1 | \
+            sed 's/.*WORK:COMPLETED\] \([A-Z][A-Z]*\):.*/\1/' | \
+            grep -E '^(ARCHITECT|DEVELOPER|QA|REVIEWER|MERGER)$'
+        ;;
+        
+    "should-handoff")
+        # Determine if a persona should hand off and to whom
+        # Usage: es-journal-query.sh should-handoff [persona]
+        target_persona="${2:-$(es-journal-query.sh current-persona)}"
+        pending=$(es-journal-query.sh pending-work "$target_persona" | wc -l)
+        
+        if [ "$pending" -eq 0 ]; then
+            # No pending work, determine next persona based on current
+            case "$target_persona" in
+                ARCHITECT) echo "DEVELOPER" ;;
+                DEVELOPER) 
+                    # Check if going to QA or back from review
+                    if grep -q "changes requested\|REVIEWER:ISSUE" "$JOURNAL_FILE" 2>/dev/null | tail -10; then
+                        echo "QA"
+                    else
+                        echo "QA"
+                    fi
+                    ;;
+                QA)
+                    # Check if tests passed
+                    failed=$(grep "QA:FAILED" "$JOURNAL_FILE" 2>/dev/null | tail -10 | wc -l)
+                    if [ "$failed" -eq 0 ]; then
+                        echo "REVIEWER"
+                    else
+                        echo "DEVELOPER"
+                    fi
+                    ;;
+                REVIEWER)
+                    # Check if approved
+                    issues=$(grep "REVIEWER:ISSUE" "$JOURNAL_FILE" 2>/dev/null | tail -10 | wc -l)
+                    if [ "$issues" -eq 0 ]; then
+                        echo "MERGER"
+                    else
+                        echo "DEVELOPER"
+                    fi
+                    ;;
+                MERGER) echo "ARCHITECT" ;; # Start new cycle
+                *) echo "UNKNOWN" ;;
+            esac
+            exit 0
+        else
+            # Still has pending work, no handoff needed
+            exit 1
+        fi
         ;;
         
     "work-summary")
@@ -258,18 +320,20 @@ case "$query_type" in
         echo "Usage: es-journal-query.sh <query-type> [persona] [limit] [options]"
         echo ""
         echo "Query types:"
-        echo "  pending-work     - Show pending work items"
-        echo "  recent-context   - Show recent persona events"
-        echo "  handoff-ready    - Check if ready for handoff"
-        echo "  safety-check     - Check iteration limits"
-        echo "  decisions        - Show architectural decisions"
-        echo "  memory           - Show persistent memories"
-        echo "  errors           - Show recent errors/blocks"
-        echo "  work-history     - Show history for specific work"
-        echo "  handoff-chain    - Show handoff history"
-        echo "  current-persona  - Get current active persona"
-        echo "  work-summary     - Summary of work states"
-        echo "  stats            - Journal statistics (days-back as 4th param)"
+        echo "  pending-work          - Show pending work items"
+        echo "  recent-context        - Show recent persona events"
+        echo "  handoff-ready         - Check if ready for handoff"
+        echo "  safety-check          - Check iteration limits"
+        echo "  decisions             - Show architectural decisions"
+        echo "  memory                - Show persistent memories"
+        echo "  errors                - Show recent errors/blocks"
+        echo "  work-history          - Show history for specific work"
+        echo "  handoff-chain         - Show handoff history"
+        echo "  current-persona       - Get current active persona"
+        echo "  work-completed-persona - Get persona from most recent work completion"
+        echo "  should-handoff        - Check if persona should hand off and to whom"
+        echo "  work-summary          - Summary of work states"
+        echo "  stats                 - Journal statistics (days-back as 4th param)"
         exit 1
         ;;
 esac

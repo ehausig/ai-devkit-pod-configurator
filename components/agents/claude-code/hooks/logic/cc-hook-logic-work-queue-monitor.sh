@@ -26,72 +26,67 @@ fi
 
 # Check if command indicates work completion
 if [[ "$command" =~ "WORK:COMPLETED" ]]; then
-    # Extract persona from the command - handle multiple formats
-    PERSONA=""
+    # Use centralized journal query instead of regex parsing
+    PERSONA=$(es-journal-query.sh work-completed-persona)
     
-    # Try different regex patterns to extract persona
-    if [[ "$command" =~ es-journal-log.*WORK:COMPLETED.*[\'\"]*([A-Z]+):[[:space:]] ]]; then
-        PERSONA="${BASH_REMATCH[1]}"
-    elif [[ "$command" =~ "WORK:COMPLETED.*[\'\"]*([A-Z]+):" ]]; then
-        PERSONA="${BASH_REMATCH[1]}"
-    elif [[ "$command" =~ ([A-Z]+):[[:space:]] ]]; then
-        PERSONA="${BASH_REMATCH[1]}"
-    fi
-    
-    if [ -n "$PERSONA" ]; then
+    if [ -n "$PERSONA" ] && [[ "$PERSONA" =~ ^(ARCHITECT|DEVELOPER|QA|REVIEWER|MERGER)$ ]]; then
         log_hook_event "WORK:QUEUE" "Detected work completion for $PERSONA"
         
         # Check if more work exists for this persona
-        PENDING_COUNT=$(get_pending_count "$PERSONA")
+        PENDING_COUNT=$(es-journal-query.sh pending-work "$PERSONA" 2>/dev/null | wc -l)
+        
+        # Debug logging
+        log_hook_event "DEBUG" "Pending count for $PERSONA: $PENDING_COUNT"
         
         if [ "$PENDING_COUNT" -gt 0 ]; then
             # Prepare next work item
             log_hook_event "WORK:QUEUE" "Preparing next work item for $PERSONA ($PENDING_COUNT remaining)"
             es-work-tracker.sh prepare "$PERSONA"
+            
+            # Check if work script was created successfully
+            if [ -f /tmp/execute-next-work.sh ]; then
+                log_hook_event "WORK:QUEUE" "Work script prepared successfully for $PERSONA"
+                
+                # For PostToolUse hooks, provide feedback to Claude about the next action
+                if is_post_tool_use; then
+                    cat << EOF >&2
+{
+    "decision": "block",
+    "reason": "Next work item prepared for $PERSONA. Execute the prepared work script: /tmp/execute-next-work.sh"
+}
+EOF
+                    exit 2
+                fi
+            else
+                log_hook_event "WORK:QUEUE" "Failed to prepare work script for $PERSONA"
+            fi
         else
             # No more work - check if this persona should hand off
-            log_hook_event "WORK:QUEUE" "No more work for $PERSONA, triggering auto-handoff"
+            log_hook_event "WORK:QUEUE" "No more work for $PERSONA, checking for auto-handoff"
             
-            # CRITICAL: Auto-trigger handoff when all work is complete
-            case "$PERSONA" in
-                ARCHITECT)
-                    echo "DEVELOPER" > /tmp/force-session-end
-                    log_hook_event "AUTOMATION:AUTO_HANDOFF" "Auto-triggering ARCHITECT handoff to DEVELOPER"
-                    ;;
-                DEVELOPER)
-                    echo "QA" > /tmp/force-session-end
-                    log_hook_event "AUTOMATION:AUTO_HANDOFF" "Auto-triggering DEVELOPER handoff to QA"
-                    ;;
-                QA)
-                    # QA handoff logic depends on test results
-                    local failed=$(es-journal-query.sh recent-context QA | grep -c "QA:FAILED" || echo "0")
-                    if [ $failed -eq 0 ]; then
-                        echo "REVIEWER" > /tmp/force-session-end
-                        log_hook_event "AUTOMATION:AUTO_HANDOFF" "Auto-triggering QA handoff to REVIEWER"
-                    else
-                        echo "DEVELOPER" > /tmp/force-session-end
-                        log_hook_event "AUTOMATION:AUTO_HANDOFF" "Auto-triggering QA handoff to DEVELOPER (fixes needed)"
-                    fi
-                    ;;
-                REVIEWER)
-                    # REVIEWER handoff logic depends on review results
-                    local issues=$(es-journal-query.sh recent-context REVIEWER | grep -c "REVIEWER:ISSUE" || echo "0")
-                    if [ $issues -eq 0 ]; then
-                        echo "MERGER" > /tmp/force-session-end
-                        log_hook_event "AUTOMATION:AUTO_HANDOFF" "Auto-triggering REVIEWER handoff to MERGER"
-                    else
-                        echo "DEVELOPER" > /tmp/force-session-end
-                        log_hook_event "AUTOMATION:AUTO_HANDOFF" "Auto-triggering REVIEWER handoff to DEVELOPER (changes needed)"
-                    fi
-                    ;;
-                MERGER)
-                    # MERGER completes the cycle
-                    log_hook_event "AUTOMATION:CYCLE_COMPLETE" "Development cycle completed by MERGER"
-                    ;;
-            esac
+            # Use centralized handoff logic
+            NEXT_PERSONA=$(es-journal-query.sh should-handoff "$PERSONA")
+            HANDOFF_EXIT_CODE=$?
+            
+            if [ $HANDOFF_EXIT_CODE -eq 0 ] && [ -n "$NEXT_PERSONA" ]; then
+                # CRITICAL: Auto-trigger handoff when all work is complete
+                echo "$NEXT_PERSONA" > /tmp/force-session-end
+                
+                # Add backup file for debugging
+                echo "$NEXT_PERSONA" > "/tmp/force-session-end-backup-$(date +%s)"
+                
+                # Verify file was created
+                if [ -f /tmp/force-session-end ]; then
+                    log_hook_event "AUTOMATION:AUTO_HANDOFF" "Auto-triggering $PERSONA handoff to $NEXT_PERSONA (file created successfully)"
+                else
+                    log_hook_event "ERROR" "Failed to create force-session-end file for $NEXT_PERSONA"
+                fi
+            else
+                log_hook_event "WORK:QUEUE" "No handoff needed for $PERSONA (exit code: $HANDOFF_EXIT_CODE)"
+            fi
         fi
     else
-        log_hook_event "WORK:QUEUE" "Could not extract persona from command: $command"
+        log_hook_event "WORK:QUEUE" "Could not determine valid persona from recent work completion: '$PERSONA'"
     fi
 fi
 
