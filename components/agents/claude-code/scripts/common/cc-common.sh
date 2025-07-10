@@ -50,7 +50,16 @@ get_current_persona() {
 log_event() {
     local tag="$1"
     local message="$2"
-    es-journal-log.sh "$tag" "$message"
+    
+    # Ensure journal exists
+    ensure_journal
+    
+    # Use es-journal-log.sh if available, otherwise write directly
+    if command -v es-journal-log.sh >/dev/null 2>&1; then
+        es-journal-log.sh "$tag" "$message"
+    else
+        echo "$(date -Iseconds) [$tag] $message" >> "$JOURNAL_FILE"
+    fi
 }
 
 # Check if work item is completed
@@ -62,7 +71,19 @@ is_work_completed() {
 # Get pending work count for persona
 get_pending_count() {
     local persona="${1:-$(get_current_persona)}"
-    es-journal-query.sh pending-work "$persona" 2>/dev/null | wc -l
+    
+    if command -v es-journal-query.sh >/dev/null 2>&1; then
+        es-journal-query.sh pending-work "$persona" 2>/dev/null | wc -l
+    else
+        # Fallback: count pending work manually
+        grep "WORK:PENDING.*${persona}:" "$JOURNAL_FILE" 2>/dev/null | \
+            while read -r line; do
+                work_desc=$(echo "$line" | sed 's/.*WORK:PENDING\] //')
+                if ! grep -q "WORK:COMPLETED.*$work_desc" "$JOURNAL_FILE" 2>/dev/null; then
+                    echo "$line"
+                fi
+            done | wc -l
+    fi
 }
 
 # Check if persona is ready for handoff
@@ -79,28 +100,40 @@ get_next_persona() {
         ARCHITECT) echo "DEVELOPER" ;;
         DEVELOPER) 
             # Check if going to QA or back from review
-            if es-journal-query.sh recent-context DEVELOPER | grep -q "changes requested"; then
-                echo "QA"
+            if command -v es-journal-query.sh >/dev/null 2>&1; then
+                if es-journal-query.sh recent-context DEVELOPER | grep -q "changes requested"; then
+                    echo "QA"
+                else
+                    echo "QA"
+                fi
             else
                 echo "QA"
             fi
             ;;
         QA)
             # Check if tests passed
-            local failed=$(es-journal-query.sh recent-context QA | grep -c "QA:FAILED" || echo "0")
-            if [ $failed -eq 0 ]; then
-                echo "REVIEWER"
+            if command -v es-journal-query.sh >/dev/null 2>&1; then
+                local failed=$(es-journal-query.sh recent-context QA | grep -c "QA:FAILED" || echo "0")
+                if [ $failed -eq 0 ]; then
+                    echo "REVIEWER"
+                else
+                    echo "DEVELOPER"
+                fi
             else
-                echo "DEVELOPER"
+                echo "REVIEWER"
             fi
             ;;
         REVIEWER)
             # Check if approved
-            local issues=$(es-journal-query.sh recent-context REVIEWER | grep -c "REVIEWER:ISSUE" || echo "0")
-            if [ $issues -eq 0 ]; then
-                echo "MERGER"
+            if command -v es-journal-query.sh >/dev/null 2>&1; then
+                local issues=$(es-journal-query.sh recent-context REVIEWER | grep -c "REVIEWER:ISSUE" || echo "0")
+                if [ $issues -eq 0 ]; then
+                    echo "MERGER"
+                else
+                    echo "DEVELOPER"
+                fi
             else
-                echo "DEVELOPER"
+                echo "MERGER"
             fi
             ;;
         MERGER) echo "ARCHITECT" ;; # Start new cycle
@@ -118,12 +151,22 @@ format_work_item() {
 # Check safety limits
 check_safety_limits() {
     local persona="${1:-$(get_current_persona)}"
-    local result=$(es-journal-query.sh safety-check "$persona")
-    local exit_code=$?
     
-    if [ $exit_code -ne 0 ]; then
-        echo -e "${RED}Safety Check Failed:${NC} $result"
-        return 1
+    if command -v es-journal-query.sh >/dev/null 2>&1; then
+        local result=$(es-journal-query.sh safety-check "$persona")
+        local exit_code=$?
+        
+        if [ $exit_code -ne 0 ]; then
+            echo -e "${RED}Safety Check Failed:${NC} $result"
+            return 1
+        fi
+    else
+        # Fallback safety check
+        local init_count=$(grep -c "\[${persona}:INIT\]" "$JOURNAL_FILE" 2>/dev/null || echo "0")
+        if [ $init_count -gt 10 ]; then
+            echo -e "${RED}Safety Check Failed:${NC} Too many initializations ($init_count)"
+            return 1
+        fi
     fi
     return 0
 }
@@ -139,4 +182,62 @@ signal_work_ready() {
 hook_success_response() {
     # Always exit 0 for hooks to allow execution
     exit 0
+}
+
+# Check if we're in a hook context
+is_hook_context() {
+    [ -n "$HOOK_TYPE" ] || [ -n "$JSON_INPUT" ]
+}
+
+# Safe hook exit (for use in hooks)
+safe_hook_exit() {
+    local exit_code="${1:-0}"
+    local message="${2:-}"
+    
+    if [ -n "$message" ]; then
+        if [ $exit_code -eq 0 ]; then
+            echo "$message"
+        else
+            echo "$message" >&2
+        fi
+    fi
+    
+    exit $exit_code
+}
+
+# Get hook event name from JSON input
+get_hook_event_name() {
+    extract_json_field "$JSON_INPUT" '.hook_event_name'
+}
+
+# Check if this is a Stop event
+is_stop_event() {
+    [ "$(get_hook_event_name)" = "Stop" ] || [ "$(get_hook_event_name)" = "SubagentStop" ]
+}
+
+# Check if stop hook is already active (prevent recursion)
+is_stop_hook_active() {
+    local active=$(extract_json_field "$JSON_INPUT" '.stop_hook_active' 'false')
+    [ "$active" = "true" ]
+}
+
+# Enhanced persona detection for autonomous workflow
+detect_next_persona_automatically() {
+    # Check explicit signal first
+    if [ -f /tmp/persona-work-ready ]; then
+        cat /tmp/persona-work-ready
+        return 0
+    fi
+    
+    # Check for pending work across all personas
+    for persona in ARCHITECT DEVELOPER QA REVIEWER MERGER; do
+        local pending=$(get_pending_count "$persona")
+        if [ "$pending" -gt 0 ]; then
+            echo "$persona"
+            return 0
+        fi
+    done
+    
+    # No pending work found
+    return 1
 }

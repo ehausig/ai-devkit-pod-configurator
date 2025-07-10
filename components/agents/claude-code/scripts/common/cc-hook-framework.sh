@@ -24,6 +24,28 @@ TOOL_NAME=$(extract_json_field "$JSON_INPUT" '.tool_name')
 SESSION_ID=$(extract_json_field "$JSON_INPUT" '.session_id' 'unknown')
 HOOK_TYPE="${1:-unknown}"
 
+# Detect hook event type from JSON input
+HOOK_EVENT_NAME=$(extract_json_field "$JSON_INPUT" '.hook_event_name')
+if [ -n "$HOOK_EVENT_NAME" ]; then
+    case "$HOOK_EVENT_NAME" in
+        "Stop")
+            HOOK_TYPE="journal"
+            ;;
+        "PreToolUse")
+            # Keep existing hook type determination
+            ;;
+        "PostToolUse")
+            # Keep existing hook type determination
+            ;;
+        "Notification")
+            HOOK_TYPE="notification"
+            ;;
+        "SubagentStop")
+            HOOK_TYPE="journal"
+            ;;
+    esac
+fi
+
 # Check if this is pre or post execution
 is_post_tool_use() {
     echo "$JSON_INPUT" | jq -e '.tool_response' > /dev/null 2>&1
