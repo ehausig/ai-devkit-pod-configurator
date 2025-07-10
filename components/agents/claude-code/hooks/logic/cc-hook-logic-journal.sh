@@ -13,7 +13,32 @@ fi
 # Log the session completion first
 log_hook_event "INFO" "Session $SESSION_ID completed - Claude Code session completed"
 
-# Check for pending persona work
+# Priority 1: Check for forced session end (from handoff)
+if [ -f /tmp/force-session-end ]; then
+    NEXT_PERSONA=$(cat /tmp/force-session-end 2>/dev/null)
+    
+    if [ -n "$NEXT_PERSONA" ]; then
+        # Log the forced continuation
+        log_hook_event "AUTOMATION:FORCED_CONTINUE" "Forced continuation with $NEXT_PERSONA persona after handoff"
+        
+        # Clean up the force file
+        rm -f /tmp/force-session-end
+        
+        # Also clean up work-ready file if it exists
+        rm -f /tmp/persona-work-ready
+        
+        # CRITICAL: For Stop hooks with exit code 2, JSON must go to stderr
+        cat << EOF >&2
+{
+    "decision": "block",
+    "reason": "Automatically continuing with $NEXT_PERSONA persona after handoff. Please run: persona-$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')-init.sh"
+}
+EOF
+        exit 2
+    fi
+fi
+
+# Priority 2: Check for pending persona work signal
 if [ -f /tmp/persona-work-ready ]; then
     NEXT_PERSONA=$(cat /tmp/persona-work-ready 2>/dev/null)
     
@@ -24,8 +49,8 @@ if [ -f /tmp/persona-work-ready ]; then
         # Clean up the signal file
         rm -f /tmp/persona-work-ready
         
-        # Force continuation with JSON response and exit code 2
-        cat << EOF
+        # CRITICAL: For Stop hooks with exit code 2, JSON must go to stderr
+        cat << EOF >&2
 {
     "decision": "block",
     "reason": "Continuing automated workflow with $NEXT_PERSONA persona. Please run: persona-$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')-init.sh"
@@ -35,7 +60,7 @@ EOF
     fi
 fi
 
-# Fallback: Check if any persona has pending work items
+# Priority 3: Fallback check for pending work items
 for persona in ARCHITECT DEVELOPER QA REVIEWER MERGER; do
     PENDING_COUNT=$(es-journal-query.sh pending-work "$persona" 2>/dev/null | wc -l || echo "0")
     
@@ -46,8 +71,8 @@ for persona in ARCHITECT DEVELOPER QA REVIEWER MERGER; do
         # Signal this persona for continuation
         echo "$persona" > /tmp/persona-work-ready
         
-        # Force continuation with JSON response and exit code 2
-        cat << EOF
+        # CRITICAL: For Stop hooks with exit code 2, JSON must go to stderr
+        cat << EOF >&2
 {
     "decision": "block",
     "reason": "Detected $PENDING_COUNT pending work items for $persona. Please run: persona-$(echo $persona | tr '[:upper:]' '[:lower:]')-init.sh"

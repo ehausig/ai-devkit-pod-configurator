@@ -1,4 +1,3 @@
-# components/agents/claude-code.yaml
 id: CLAUDE_CODE
 name: Claude Code (AI Assistant)
 group: ai-agents
@@ -146,7 +145,44 @@ entrypoint_setup: |
   # Ensure proper ownership
   chown -R devuser:devuser /home/devuser/.claude 2>/dev/null || true
   
+  # Create symlinks in workspace for Claude Code script access
+  echo "Creating symlinks for persona and event sourcing scripts..."
+  mkdir -p /home/devuser/workspace
+  
+  # Create symlinks for event sourcing scripts
+  for script in es-journal-log.sh es-journal-query.sh es-context-window.sh es-work-tracker.sh; do
+      if [ -f "/usr/local/bin/$script" ]; then
+          ln -sf "/usr/local/bin/$script" "/home/devuser/workspace/$script"
+          echo "  - Created symlink: ~/workspace/$script -> /usr/local/bin/$script"
+      fi
+  done
+  
+  # Create symlinks for persona scripts
+  for script in persona-architect-init.sh persona-architect-handoff.sh \
+                persona-developer-init.sh persona-developer-handoff.sh \
+                persona-qa-init.sh persona-qa-handoff.sh \
+                persona-reviewer-init.sh persona-reviewer-handoff.sh \
+                persona-merger-init.sh persona-merger-handoff.sh; do
+      if [ -f "/usr/local/bin/$script" ]; then
+          ln -sf "/usr/local/bin/$script" "/home/devuser/workspace/$script"
+          echo "  - Created symlink: ~/workspace/$script -> /usr/local/bin/$script"
+      fi
+  done
+  
+  # Create symlinks for common utility scripts
+  for script in cc-common.sh setup-git.sh; do
+      if [ -f "/usr/local/bin/$script" ]; then
+          ln -sf "/usr/local/bin/$script" "/home/devuser/workspace/$script"
+          echo "  - Created symlink: ~/workspace/$script -> /usr/local/bin/$script"
+      fi
+  done
+  
+  # Ensure proper ownership of workspace and symlinks
+  chown -R devuser:devuser /home/devuser/workspace 2>/dev/null || true
+  
   # Verify installed components (only if expected)
   if command -v claude &> /dev/null 2>&1; then
       echo "Claude Code is available at: $(which claude)"
   fi
+  
+  echo "Claude Code symlinks created successfully"

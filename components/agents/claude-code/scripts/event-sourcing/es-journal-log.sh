@@ -1,12 +1,12 @@
 #!/bin/bash
 # Journal logging utility to avoid echo command approval issues
 
-# Usage: journal-log TAG MESSAGE
-# Example: journal-log "ARCHITECT:DECISION" "Chose Python with FastAPI"
+# Usage: es-journal-log.sh TAG MESSAGE
+# Example: es-journal-log.sh "ARCHITECT:DECISION" "Chose Python with FastAPI"
 
 if [ $# -lt 2 ]; then
-    echo "Usage: journal-log TAG MESSAGE"
-    echo "Example: journal-log 'ARCHITECT:DECISION' 'Chose Python with FastAPI'"
+    echo "Usage: es-journal-log.sh TAG MESSAGE"
+    echo "Example: es-journal-log.sh 'ARCHITECT:DECISION' 'Chose Python with FastAPI'"
     exit 1
 fi
 

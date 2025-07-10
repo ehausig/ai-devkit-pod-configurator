@@ -54,32 +54,43 @@ Each persona has specific responsibilities and uses the journal for work coordin
 
 ### Persona Workflow
 
-1. **Initialization**: Check journal for pending work
-2. **Work Execution**: Process pending items, mark progress
-3. **Handoff**: Create work items for next persona
+1. **Initialization Phase**
+   - Check journal for pending work
+   - Process pending items, mark progress
+   - Handoff: Create work items for next persona
+
+2. **Work Execution Phase**
+   - Process pending items systematically
+   - Mark each item as STARTED then COMPLETED
+   - Log all decisions and context
+
+3. **Handoff Phase**
+   - Verify all work complete
+   - Create specific work items for next persona
+   - Execute handoff script
 
 ### Critical Rules
 
 #### When Starting Work
 1. **Always check pending work first:**
    ```bash
-   es-journal-query.sh pending-work [PERSONA]
+   es-journal-query.sh pending-work ARCHITECT
    ```
 
 2. **Mark work as started:**
    ```bash
-   es-journal-log.sh "WORK:STARTED" "[PERSONA]: [exact work description]"
+   es-journal-log.sh "WORK:STARTED" "ARCHITECT: Create system architecture"
    ```
 
 3. **Complete work and mark it:**
    ```bash
-   es-journal-log.sh "WORK:COMPLETED" "[PERSONA]: [exact work description]"
+   es-journal-log.sh "WORK:COMPLETED" "ARCHITECT: Create system architecture"
    ```
 
 #### During Handoffs
 1. **Check all work is complete:**
    ```bash
-   es-journal-query.sh handoff-ready [PERSONA]
+   es-journal-query.sh handoff-ready ARCHITECT
    ```
 
 2. **Create specific work items for next persona:**
@@ -127,13 +138,13 @@ The system prevents infinite loops through:
 If context is lost:
 ```bash
 # Get current status
-es-journal-query.sh work-summary [PERSONA]
+es-journal-query.sh work-summary ARCHITECT
 
 # View recent context
-es-context-window.sh [PERSONA]
+es-context-window.sh ARCHITECT
 
 # Check pending work
-es-journal-query.sh pending-work [PERSONA]
+es-journal-query.sh pending-work ARCHITECT
 ```
 
 ## Step-by-Step Example
