@@ -5,26 +5,30 @@
 # Extract command
 command=$(get_command)
 
-# Check if a work signal file exists (created by handoff scripts)
+# Priority 1: Check if a work signal file exists (created by handoff scripts)
+# This should only trigger once per handoff and should NOT clean up files here
 if [ -f /tmp/persona-work-ready ]; then
     NEXT_PERSONA=$(cat /tmp/persona-work-ready)
-    rm -f /tmp/persona-work-ready
     
-    # Log that we detected a handoff
-    log_hook_event "WORK:QUEUE" "Detected work ready for $NEXT_PERSONA"
+    # Log that we detected a handoff signal
+    log_hook_event "WORK:QUEUE" "Detected work ready signal for $NEXT_PERSONA"
     
     # Prepare the next work item
     es-work-tracker.sh prepare "$NEXT_PERSONA"
     
-    # CRITICAL: Force session termination to trigger Stop hook
-    # This is done by creating a special marker file that the Stop hook will detect
-    echo "$NEXT_PERSONA" > /tmp/force-session-end
+    # CRITICAL: Create force session end marker for Stop hook
+    # Use atomic write to prevent race conditions
+    echo "$NEXT_PERSONA" > /tmp/force-session-end.tmp
+    mv /tmp/force-session-end.tmp /tmp/force-session-end
     
     # Log the forced termination
     log_hook_event "AUTOMATION:FORCE_END" "Forcing session end to trigger $NEXT_PERSONA handoff"
+    
+    # Do NOT clean up persona-work-ready here - let Stop hook handle it
+    # This prevents race conditions between PostToolUse and Stop hooks
 fi
 
-# Check if command indicates work completion
+# Priority 2: Check if command indicates work completion
 if [[ "$command" =~ "WORK:COMPLETED" ]]; then
     # Use centralized journal query instead of regex parsing
     PERSONA=$(es-journal-query.sh work-completed-persona)
@@ -70,9 +74,11 @@ EOF
             
             if [ $HANDOFF_EXIT_CODE -eq 0 ] && [ -n "$NEXT_PERSONA" ]; then
                 # CRITICAL: Auto-trigger handoff when all work is complete
-                echo "$NEXT_PERSONA" > /tmp/force-session-end
+                # Use atomic write operation
+                echo "$NEXT_PERSONA" > /tmp/force-session-end.tmp
+                mv /tmp/force-session-end.tmp /tmp/force-session-end
                 
-                # Add backup file for debugging
+                # Create backup for debugging
                 echo "$NEXT_PERSONA" > "/tmp/force-session-end-backup-$(date +%s)"
                 
                 # Verify file was created
@@ -90,19 +96,21 @@ EOF
     fi
 fi
 
-# Check for handoff completion commands
+# Priority 3: Check for handoff completion commands
 if [[ "$command" =~ "HANDOFF:COMPLETED" ]]; then
     # Extract the target persona from the handoff message
-    if [[ "$command" =~ "handed off to ([A-Z]+)" ]]; then
+    if [[ "$command" =~ "handed off to ([A-Z]+)" ]] || [[ "$command" =~ "Handed off to ([A-Z]+)" ]]; then
         TARGET_PERSONA="${BASH_REMATCH[1]}"
         
-        # Force session end after handoff
-        echo "$TARGET_PERSONA" > /tmp/force-session-end
+        # Force session end after handoff using atomic write
+        echo "$TARGET_PERSONA" > /tmp/force-session-end.tmp
+        mv /tmp/force-session-end.tmp /tmp/force-session-end
+        
         log_hook_event "AUTOMATION:FORCE_END" "Forcing session end after handoff to $TARGET_PERSONA"
     fi
 fi
 
-# Check for handoff blocked - this means we should continue working
+# Priority 4: Check for handoff blocked - this means we should continue working
 if [[ "$command" =~ "HANDOFF:BLOCKED" ]]; then
     # Extract the persona that was blocked
     if [[ "$command" =~ "([A-Z]+) has" ]]; then
@@ -113,6 +121,6 @@ if [[ "$command" =~ "HANDOFF:BLOCKED" ]]; then
         
         # Don't force session end - let the persona continue working
         # Remove any force-session-end marker
-        rm -f /tmp/force-session-end
+        rm -f /tmp/force-session-end /tmp/force-session-end.tmp
     fi
 fi

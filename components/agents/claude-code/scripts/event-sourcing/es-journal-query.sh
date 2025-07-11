@@ -16,8 +16,8 @@ fi
 
 case "$query_type" in
     "pending-work")
-        # Get pending work for persona
-        # Use a more robust approach to track pending vs completed work
+        # Get pending work for persona - FIXED: More robust pending work detection
+        # Use a more sophisticated approach to track pending vs completed work
         
         # First, get all WORK:PENDING entries for this persona
         pending_items=$(grep "WORK:PENDING.*${persona}:" "$JOURNAL_FILE" 2>/dev/null)
@@ -29,7 +29,7 @@ case "$query_type" in
                 work_desc=$(echo "$line" | sed 's/.*WORK:PENDING\] //')
                 
                 # Check if this exact work description appears in a WORK:COMPLETED entry
-                # Use exact string matching to avoid partial matches
+                # Use exact string matching with proper escaping for special characters
                 if ! grep -F "WORK:COMPLETED] $work_desc" "$JOURNAL_FILE" >/dev/null 2>&1; then
                     echo "$line"
                 fi
@@ -110,19 +110,35 @@ case "$query_type" in
         ;;
         
     "work-completed-persona")
-        # Extract persona from most recent WORK:COMPLETED entry
-        # This handles various formats:
-        # - "DEVELOPER: Task description"
-        # - Direct persona extraction from work completion
-        grep "WORK:COMPLETED" "$JOURNAL_FILE" 2>/dev/null | tail -1 | \
-            sed 's/.*WORK:COMPLETED\] \([A-Z][A-Z]*\):.*/\1/' | \
-            grep -E '^(ARCHITECT|DEVELOPER|QA|REVIEWER|MERGER)$'
+        # Extract persona from most recent WORK:COMPLETED entry - FIXED: More robust extraction
+        # This handles various formats and should be more reliable
+        recent_completed=$(grep "WORK:COMPLETED" "$JOURNAL_FILE" 2>/dev/null | tail -1)
+        
+        if [ -n "$recent_completed" ]; then
+            # Try multiple extraction patterns
+            # Pattern 1: "DEVELOPER: Task description"
+            if echo "$recent_completed" | grep -q "WORK:COMPLETED\] [A-Z][A-Z]*:"; then
+                echo "$recent_completed" | sed 's/.*WORK:COMPLETED\] \([A-Z][A-Z]*\):.*/\1/'
+            # Pattern 2: Look for persona names in the description
+            elif echo "$recent_completed" | grep -qE "(ARCHITECT|DEVELOPER|QA|REVIEWER|MERGER)"; then
+                echo "$recent_completed" | grep -oE "(ARCHITECT|DEVELOPER|QA|REVIEWER|MERGER)" | head -1
+            else
+                # Fallback: empty result
+                echo ""
+            fi
+        fi
         ;;
         
     "should-handoff")
-        # Determine if a persona should hand off and to whom
+        # Determine if a persona should hand off and to whom - FIXED: More robust logic
         # Usage: es-journal-query.sh should-handoff [persona]
         target_persona="${2:-$(es-journal-query.sh current-persona)}"
+        
+        # Ensure we have a valid persona
+        if [ -z "$target_persona" ] || [ "$target_persona" = "UNKNOWN" ]; then
+            exit 1
+        fi
+        
         pending=$(es-journal-query.sh pending-work "$target_persona" | wc -l)
         
         if [ "$pending" -eq 0 ]; then
@@ -130,25 +146,26 @@ case "$query_type" in
             case "$target_persona" in
                 ARCHITECT) echo "DEVELOPER" ;;
                 DEVELOPER) 
-                    # Check if going to QA or back from review
-                    if grep -q "changes requested\|REVIEWER:ISSUE" "$JOURNAL_FILE" 2>/dev/null | tail -10; then
-                        echo "QA"
+                    # Check recent context for review feedback
+                    if tail -50 "$JOURNAL_FILE" | grep -q "changes requested\|REVIEWER:ISSUE"; then
+                        echo "QA"  # Still go to QA first, even if coming back from review
                     else
                         echo "QA"
                     fi
                     ;;
                 QA)
-                    # Check if tests passed
-                    failed=$(grep "QA:FAILED" "$JOURNAL_FILE" 2>/dev/null | tail -10 | wc -l)
-                    if [ "$failed" -eq 0 ]; then
+                    # Check if tests passed based on recent QA context
+                    failed=$(tail -50 "$JOURNAL_FILE" | grep -c "QA:FAILED" || echo "0")
+                    issues=$(tail -50 "$JOURNAL_FILE" | grep -c "QA:ISSUE" || echo "0")
+                    if [ "$failed" -eq 0 ] && [ "$issues" -eq 0 ]; then
                         echo "REVIEWER"
                     else
                         echo "DEVELOPER"
                     fi
                     ;;
                 REVIEWER)
-                    # Check if approved
-                    issues=$(grep "REVIEWER:ISSUE" "$JOURNAL_FILE" 2>/dev/null | tail -10 | wc -l)
+                    # Check if approved based on recent reviewer context
+                    issues=$(tail -50 "$JOURNAL_FILE" | grep -c "REVIEWER:ISSUE" || echo "0")
                     if [ "$issues" -eq 0 ]; then
                         echo "MERGER"
                     else
@@ -166,9 +183,24 @@ case "$query_type" in
         ;;
         
     "work-summary")
-        # Summary of work items by state
+        # Summary of work items by state - FIXED: Use exact string matching
         echo "=== Work Summary for $persona ==="
-        echo "Pending: $(grep -c "WORK:PENDING.*${persona}:" "$JOURNAL_FILE" 2>/dev/null || echo "0")"
+        
+        # Count pending work more accurately
+        pending_count=0
+        pending_items=$(grep "WORK:PENDING.*${persona}:" "$JOURNAL_FILE" 2>/dev/null)
+        if [ -n "$pending_items" ]; then
+            while IFS= read -r line; do
+                if [ -n "$line" ]; then
+                    work_desc=$(echo "$line" | sed 's/.*WORK:PENDING\] //')
+                    if ! grep -F "WORK:COMPLETED] $work_desc" "$JOURNAL_FILE" >/dev/null 2>&1; then
+                        pending_count=$((pending_count + 1))
+                    fi
+                fi
+            done <<< "$pending_items"
+        fi
+        
+        echo "Pending: $pending_count"
         echo "Started: $(grep -c "WORK:STARTED.*${persona}:" "$JOURNAL_FILE" 2>/dev/null || echo "0")"
         echo "Completed: $(grep -c "WORK:COMPLETED.*${persona}:" "$JOURNAL_FILE" 2>/dev/null || echo "0")"
         echo "Blocked: $(grep -c "WORK:BLOCKED.*${persona}:" "$JOURNAL_FILE" 2>/dev/null || echo "0")"

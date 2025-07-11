@@ -168,8 +168,16 @@ case "$command" in
         # Show work status for persona
         PERSONA="${1:-$(es-journal-query.sh current-persona)}"
         
-        echo -e "${BLUE}=== Work Status for $PERSONA ===${NC}"
-        echo ""
+        # Detect if running in hook context
+        HOOK_CONTEXT=""
+        if [ -n "$HOOK_TYPE" ] || [ -n "$JSON_INPUT" ]; then
+            HOOK_CONTEXT="true"
+        fi
+        
+        if [ -z "$HOOK_CONTEXT" ]; then
+            echo -e "${BLUE}=== Work Status for $PERSONA ===${NC}"
+            echo ""
+        fi
         
         # Get pending work count
         PENDING_COUNT=$(es-journal-query.sh pending-work "$PERSONA" | wc -l)
@@ -187,84 +195,92 @@ case "$command" in
         fi
         
         # Display status
-        echo -e "Current Persona: ${CYAN}$PERSONA${NC}"
-        echo -e "Pending Work Items: ${YELLOW}$PENDING_COUNT${NC}"
-        echo -e "Recently Completed: ${GREEN}$RECENT_COMPLETED${NC}"
-        echo -e "Work Script Ready: $WORK_READY"
-        echo ""
+        if [ -z "$HOOK_CONTEXT" ]; then
+            echo -e "Current Persona: ${CYAN}$PERSONA${NC}"
+            echo -e "Pending Work Items: ${YELLOW}$PENDING_COUNT${NC}"
+            echo -e "Recently Completed: ${GREEN}$RECENT_COMPLETED${NC}"
+            echo -e "Work Script Ready: $WORK_READY"
+            echo ""
+        fi
         
         # Show pending work items
         if [ $PENDING_COUNT -gt 0 ]; then
-            echo -e "${YELLOW}Pending Work Items:${NC}"
+            if [ -z "$HOOK_CONTEXT" ]; then
+                echo -e "${YELLOW}Pending Work Items:${NC}"
+            fi
             es-journal-query.sh pending-work "$PERSONA" | nl | sed 's/.*WORK:PENDING\] /    /'
-            echo ""
+            if [ -z "$HOOK_CONTEXT" ]; then
+                echo ""
+            fi
         fi
         
         # Check for blocked work
         BLOCKED_COUNT=$(es-journal-query.sh recent-context "$PERSONA" | grep -c "WORK:BLOCKED" || echo "0")
-        if [ $BLOCKED_COUNT -gt 0 ]; then
+        if [ $BLOCKED_COUNT -gt 0 ] && [ -z "$HOOK_CONTEXT" ]; then
             echo -e "${RED}⚠ Blocked Work Items:${NC}"
             es-journal-query.sh recent-context "$PERSONA" | grep "WORK:BLOCKED" | tail -3 | sed 's/.*\[WORK:BLOCKED\] /  - /'
             echo ""
         fi
         
-        # Show next actions
-        echo -e "${BLUE}Next Actions:${NC}"
-        
-        if [ "$WORK_SCRIPT" = "Yes" ]; then
-            echo "1. Execute prepared work: /tmp/execute-next-work.sh"
-        elif [ $PENDING_COUNT -gt 0 ]; then
-            echo "1. Prepare work script: es-work-tracker.sh prepare $PERSONA"
-            echo "2. Then execute: /tmp/execute-next-work.sh"
-        else
-            echo "1. All work complete for $PERSONA"
-            echo "2. Run handoff: persona-$(echo $PERSONA | tr '[:upper:]' '[:lower:]')-handoff.sh"
-        fi
-        
-        echo ""
-        
-        # Check for handoff readiness
-        if [ $PENDING_COUNT -eq 0 ]; then
-            echo -e "${GREEN}✓ Ready for handoff${NC}"
+        # Show next actions (only in interactive mode)
+        if [ -z "$HOOK_CONTEXT" ]; then
+            echo -e "${BLUE}Next Actions:${NC}"
             
-            # Suggest next persona based on current
-            case "$PERSONA" in
-                ARCHITECT)
-                    echo "Next persona: DEVELOPER"
-                    ;;
-                DEVELOPER)
-                    echo "Next persona: QA"
-                    ;;
-                QA)
-                    # Check if tests passed
-                    FAILED=$(es-journal-query.sh recent-context QA | grep -c "QA:FAILED" || echo "0")
-                    if [ $FAILED -eq 0 ]; then
-                        echo "Next persona: REVIEWER (all tests passed)"
-                    else
-                        echo "Next persona: DEVELOPER (fixes needed)"
-                    fi
-                    ;;
-                REVIEWER)
-                    # Check if approved
-                    ISSUES=$(es-journal-query.sh recent-context REVIEWER | grep -c "REVIEWER:ISSUE" || echo "0")
-                    if [ $ISSUES -eq 0 ]; then
-                        echo "Next persona: MERGER (approved)"
-                    else
-                        echo "Next persona: DEVELOPER (changes requested)"
-                    fi
-                    ;;
-                MERGER)
-                    echo "Cycle complete. Choose next action based on needs."
-                    ;;
-            esac
-        fi
-        
-        # Show recent errors if any
-        RECENT_ERRORS=$(es-journal-query.sh errors "$PERSONA" 3)
-        if [ -n "$RECENT_ERRORS" ]; then
+            if [ "$WORK_SCRIPT" = "Yes" ]; then
+                echo "1. Execute prepared work: /tmp/execute-next-work.sh"
+            elif [ $PENDING_COUNT -gt 0 ]; then
+                echo "1. Prepare work script: es-work-tracker.sh prepare $PERSONA"
+                echo "2. Then execute: /tmp/execute-next-work.sh"
+            else
+                echo "1. All work complete for $PERSONA"
+                echo "2. Run handoff: persona-$(echo $PERSONA | tr '[:upper:]' '[:lower:]')-handoff.sh"
+            fi
+            
             echo ""
-            echo -e "${RED}Recent Errors:${NC}"
-            echo "$RECENT_ERRORS" | sed 's/.*\[\(.*\)\] /[\1] /'
+            
+            # Check for handoff readiness
+            if [ $PENDING_COUNT -eq 0 ]; then
+                echo -e "${GREEN}✓ Ready for handoff${NC}"
+                
+                # Suggest next persona based on current
+                case "$PERSONA" in
+                    ARCHITECT)
+                        echo "Next persona: DEVELOPER"
+                        ;;
+                    DEVELOPER)
+                        echo "Next persona: QA"
+                        ;;
+                    QA)
+                        # Check if tests passed
+                        FAILED=$(es-journal-query.sh recent-context QA | grep -c "QA:FAILED" || echo "0")
+                        if [ $FAILED -eq 0 ]; then
+                            echo "Next persona: REVIEWER (all tests passed)"
+                        else
+                            echo "Next persona: DEVELOPER (fixes needed)"
+                        fi
+                        ;;
+                    REVIEWER)
+                        # Check if approved
+                        ISSUES=$(es-journal-query.sh recent-context REVIEWER | grep -c "REVIEWER:ISSUE" || echo "0")
+                        if [ $ISSUES -eq 0 ]; then
+                            echo "Next persona: MERGER (approved)"
+                        else
+                            echo "Next persona: DEVELOPER (changes requested)"
+                        fi
+                        ;;
+                    MERGER)
+                        echo "Cycle complete. Choose next action based on needs."
+                        ;;
+                esac
+            fi
+            
+            # Show recent errors if any
+            RECENT_ERRORS=$(es-journal-query.sh errors "$PERSONA" 3)
+            if [ -n "$RECENT_ERRORS" ]; then
+                echo ""
+                echo -e "${RED}Recent Errors:${NC}"
+                echo "$RECENT_ERRORS" | sed 's/.*\[\(.*\)\] /[\1] /'
+            fi
         fi
         ;;
         
@@ -272,11 +288,19 @@ case "$command" in
         # Prepare next work item for execution
         PERSONA="${1:-$(es-journal-query.sh current-persona)}"
         
+        # Detect if running in hook context
+        HOOK_CONTEXT=""
+        if [ -n "$HOOK_TYPE" ] || [ -n "$JSON_INPUT" ]; then
+            HOOK_CONTEXT="true"
+        fi
+        
         # Get the next pending work item
         NEXT_WORK=$(es-journal-query.sh pending-work "$PERSONA" | head -1)
         
         if [ -z "$NEXT_WORK" ]; then
-            echo "No pending work for $PERSONA"
+            if [ -z "$HOOK_CONTEXT" ]; then
+                echo "No pending work for $PERSONA"
+            fi
             exit 0
         fi
         
@@ -288,12 +312,20 @@ case "$command" in
 #!/bin/bash
 # Auto-generated work execution script
 
-# Colors for output
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-RED='\033[0;31m'
-NC='\033[0m' # No Color
+# Colors for output (only if in terminal)
+if [ -t 1 ]; then
+    GREEN='\033[0;32m'
+    YELLOW='\033[1;33m'
+    BLUE='\033[0;34m'
+    RED='\033[0;31m'
+    NC='\033[0m'
+else
+    GREEN=''
+    YELLOW=''
+    BLUE=''
+    RED=''
+    NC=''
+fi
 
 SCRIPT_HEADER
         
@@ -436,21 +468,24 @@ SCRIPT_CONTENT
         
         chmod +x /tmp/execute-next-work.sh
         
-        # Create notification for Claude
-        echo ""
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo -e "${GREEN}🚀 WORK READY FOR EXECUTION${NC}"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo ""
-        echo -e "${YELLOW}EXECUTE:${NC} /tmp/execute-next-work.sh"
-        echo ""
-        echo "This script will:"
-        echo "1. Mark work as STARTED"
-        echo "2. Execute: $(echo "$WORK_DESC" | head -c 50)..."
-        echo "3. Mark work as COMPLETED"
-        echo "4. Check for additional work"
-        echo ""
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        # Only show the elaborate output if not in hook context
+        if [ -z "$HOOK_CONTEXT" ]; then
+            # Create notification for Claude (full interactive output)
+            echo ""
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo -e "${GREEN}🚀 WORK READY FOR EXECUTION${NC}"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo ""
+            echo -e "${YELLOW}EXECUTE:${NC} /tmp/execute-next-work.sh"
+            echo ""
+            echo "This script will:"
+            echo "1. Mark work as STARTED"
+            echo "2. Execute: $(echo "$WORK_DESC" | head -c 50)..."
+            echo "3. Mark work as COMPLETED"
+            echo "4. Check for additional work"
+            echo ""
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        fi
         ;;
         
     *)

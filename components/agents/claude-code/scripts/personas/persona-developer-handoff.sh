@@ -216,22 +216,27 @@ EOF
 
 echo -e "${GREEN}Created HANDOFF_TO_QA.md${NC}"
 
-# Complete handoff
+# Complete handoff - CRITICAL: Use exact format that works with work queue monitor
 es-journal-log.sh "HANDOFF:COMPLETED" "Handed off to QA with $QA_WORK_ITEMS work items"
 es-journal-log.sh "DEVELOPER:CONTEXT" "Implementation complete, all tests passing, PR #${PR_NUMBER:-pending}"
 
 echo ""
 echo -e "${BLUE}=== Handoff Complete ===${NC}"
 echo ""
-echo -e "${YELLOW}QA should now:${NC}"
-echo "1. Run: persona-qa-init.sh"
-echo "2. Review pending work items"
-echo "3. Start testing with real services"
+echo -e "${YELLOW}QA should now be triggered automatically...${NC}"
 echo ""
 
-# Signal that work is ready for QA
-echo "QA" > /tmp/persona-work-ready
+# CRITICAL: Signal that work is ready for QA using atomic write
+echo "QA" > /tmp/persona-work-ready.tmp
+mv /tmp/persona-work-ready.tmp /tmp/persona-work-ready
 
 echo -e "${GREEN}✓ Work queue signaled for QA${NC}"
 echo ""
-echo "The work queue monitor will prepare the first executable task."
+echo "The work queue monitor will detect this and trigger the handoff."
+
+# Add a small delay to ensure the hook system processes the handoff
+sleep 1
+
+echo ""
+echo "Handoff should be automatically processed by the hook system."
+echo "If automatic handoff fails, manually run: persona-qa-init.sh"

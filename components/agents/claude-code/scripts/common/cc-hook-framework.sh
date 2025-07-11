@@ -97,8 +97,14 @@ log_hook_event() {
     log_event "$tag" "$message"
 }
 
-# Export JSON for hook scripts
+# Export JSON and core variables for hook scripts
 export JSON_INPUT TOOL_NAME SESSION_ID HOOK_TYPE
+
+# Export hook context environment variables so persona scripts can detect hook execution
+export HOOK_TYPE
+export JSON_INPUT
+export TOOL_NAME
+export SESSION_ID
 
 # Allow hook scripts to use these functions
 export -f is_post_tool_use get_command get_description get_file_path
