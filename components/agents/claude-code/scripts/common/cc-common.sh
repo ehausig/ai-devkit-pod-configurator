@@ -1,5 +1,5 @@
 #!/bin/bash
-# Common functions and utilities for Claude Code scripts
+# Common functions and utilities for Claude Code scripts - UPDATED for pure event sourcing
 
 # Ensure /usr/local/bin is in PATH
 export PATH="/usr/local/bin:$PATH"
@@ -36,12 +36,16 @@ extract_json_field() {
     echo "$json" | jq -r "$field // \"$default\"" 2>/dev/null || echo "$default"
 }
 
-# Get current persona with fallback
+# Get current persona with fallback - UPDATED to use enhanced queries
 get_current_persona() {
     local persona=$(es-journal-query.sh current-persona 2>/dev/null)
     if [ -z "$persona" ] || [ "$persona" = "UNKNOWN" ]; then
-        # Try to extract from recent init
-        persona=$(grep "PERSONA:INIT" "$JOURNAL_FILE" 2>/dev/null | tail -1 | grep -o '\[.*:' | tr -d '[:[]' || echo "UNKNOWN")
+        # Try last-persona-init as fallback
+        persona=$(es-journal-query.sh last-persona-init 2>/dev/null)
+        if [ -z "$persona" ] || [ "$persona" = "UNKNOWN" ]; then
+            # Final fallback to grep
+            persona=$(grep "PERSONA:INIT" "$JOURNAL_FILE" 2>/dev/null | tail -1 | grep -o '\[.*:' | tr -d '[:[]' || echo "UNKNOWN")
+        fi
     fi
     echo "$persona"
 }
@@ -68,7 +72,7 @@ is_work_completed() {
     grep -q "WORK:COMPLETED.*$work_desc" "$JOURNAL_FILE" 2>/dev/null
 }
 
-# Get pending work count for persona
+# Get pending work count for persona - UPDATED to use enhanced queries
 get_pending_count() {
     local persona="${1:-$(get_current_persona)}"
     
@@ -86,14 +90,21 @@ get_pending_count() {
     fi
 }
 
-# Check if persona is ready for handoff
+# Check if persona is ready for handoff - UPDATED to use enhanced queries
 is_handoff_ready() {
     local persona="${1:-$(get_current_persona)}"
-    local pending=$(get_pending_count "$persona")
-    [ "$pending" -eq 0 ]
+    
+    if command -v es-journal-query.sh >/dev/null 2>&1; then
+        es-journal-query.sh handoff-ready "$persona" >/dev/null 2>&1
+        return $?
+    else
+        # Fallback logic
+        local pending=$(get_pending_count "$persona")
+        [ "$pending" -eq 0 ]
+    fi
 }
 
-# Get next persona in workflow (now using centralized logic)
+# Get next persona in workflow - UPDATED to use enhanced queries
 get_next_persona() {
     local current="$1"
     
@@ -106,21 +117,10 @@ get_next_persona() {
         fi
     fi
     
-    # Fallback to hardcoded logic
+    # Fallback to hardcoded logic (keep for compatibility)
     case "$current" in
         ARCHITECT) echo "DEVELOPER" ;;
-        DEVELOPER) 
-            # Check if going to QA or back from review
-            if command -v es-journal-query.sh >/dev/null 2>&1; then
-                if es-journal-query.sh recent-context DEVELOPER | grep -q "changes requested"; then
-                    echo "QA"
-                else
-                    echo "QA"
-                fi
-            else
-                echo "QA"
-            fi
-            ;;
+        DEVELOPER) echo "QA" ;;
         QA)
             # Check if tests passed
             if command -v es-journal-query.sh >/dev/null 2>&1; then
@@ -159,7 +159,7 @@ format_work_item() {
     echo "$work_item" | sed 's/.*WORK:PENDING\] //'
 }
 
-# Check safety limits
+# Check safety limits - UPDATED to use enhanced queries
 check_safety_limits() {
     local persona="${1:-$(get_current_persona)}"
     
@@ -182,12 +182,8 @@ check_safety_limits() {
     return 0
 }
 
-# Signal work ready for persona
-signal_work_ready() {
-    local persona="$1"
-    echo "$persona" > /tmp/persona-work-ready
-    log_event "WORK:QUEUE" "Work signaled ready for $persona"
-}
+# REMOVED: signal_work_ready function (no longer needed with pure event sourcing)
+# REMOVED: All file signaling functions
 
 # Common hook response
 hook_success_response() {
@@ -232,25 +228,18 @@ is_stop_hook_active() {
     [ "$active" = "true" ]
 }
 
-# Enhanced persona detection for autonomous workflow
+# Enhanced transition detection for autonomous workflow - UPDATED for pure event sourcing
 detect_next_persona_automatically() {
-    # Check explicit signal first
-    if [ -f /tmp/persona-work-ready ]; then
-        cat /tmp/persona-work-ready
-        return 0
-    fi
-    
-    # Use centralized should-handoff logic
-    local current_persona=$(get_current_persona)
-    if [ -n "$current_persona" ] && [ "$current_persona" != "UNKNOWN" ]; then
-        local next_persona=$(es-journal-query.sh should-handoff "$current_persona" 2>/dev/null)
+    # Use the new comprehensive transition-needed query
+    if command -v es-journal-query.sh >/dev/null 2>&1; then
+        local next_persona=$(es-journal-query.sh transition-needed 2>/dev/null)
         if [ $? -eq 0 ] && [ -n "$next_persona" ]; then
             echo "$next_persona"
             return 0
         fi
     fi
     
-    # Fallback: Check for pending work across all personas
+    # Fallback: Check for pending work across all personas (deterministic order)
     for persona in ARCHITECT DEVELOPER QA REVIEWER MERGER; do
         local pending=$(get_pending_count "$persona")
         if [ "$pending" -gt 0 ]; then
@@ -259,6 +248,88 @@ detect_next_persona_automatically() {
         fi
     done
     
-    # No pending work found
+    # No transition needed
     return 1
+}
+
+# NEW: Check for unprocessed handoffs
+check_unprocessed_handoffs() {
+    if command -v es-journal-query.sh >/dev/null 2>&1; then
+        local unprocessed=$(es-journal-query.sh recent-handoff-unprocessed 2>/dev/null)
+        if [ $? -eq 0 ] && [ -n "$unprocessed" ]; then
+            echo "$unprocessed"
+            return 0
+        fi
+    fi
+    return 1
+}
+
+# NEW: Validate persona name
+is_valid_persona() {
+    local persona="$1"
+    [[ "$persona" =~ ^(ARCHITECT|DEVELOPER|QA|REVIEWER|MERGER)$ ]]
+}
+
+# NEW: Get handoff processing status
+get_handoff_status() {
+    if command -v es-journal-query.sh >/dev/null 2>&1; then
+        es-journal-query.sh handoff-processing-complete 2>/dev/null
+    else
+        echo "unknown"
+    fi
+}
+
+# NEW: Enhanced logging with transition events
+log_transition_event() {
+    local event_type="$1"
+    local message="$2"
+    log_event "TRANSITION:$event_type" "$message"
+}
+
+# NEW: Check if journal query system is available
+is_enhanced_queries_available() {
+    command -v es-journal-query.sh >/dev/null 2>&1 && \
+    es-journal-query.sh recent-handoff-unprocessed >/dev/null 2>&1
+    return $?
+}
+
+# NEW: Journal state validation
+validate_journal_state() {
+    if [ ! -f "$JOURNAL_FILE" ]; then
+        echo "Journal file not found: $JOURNAL_FILE"
+        return 1
+    fi
+    
+    if [ ! -r "$JOURNAL_FILE" ]; then
+        echo "Journal file not readable: $JOURNAL_FILE"
+        return 1
+    fi
+    
+    # Check for basic journal format
+    if ! grep -q "Development Journal\|JOURNAL" "$JOURNAL_FILE" 2>/dev/null; then
+        echo "Journal file format appears invalid"
+        return 1
+    fi
+    
+    return 0
+}
+
+# NEW: Enhanced debug information
+debug_journal_state() {
+    local persona="${1:-$(get_current_persona)}"
+    
+    echo "=== Journal State Debug ==="
+    echo "Journal file: $JOURNAL_FILE"
+    echo "Current persona: $persona"
+    echo "Enhanced queries available: $(is_enhanced_queries_available && echo 'Yes' || echo 'No')"
+    
+    if command -v es-journal-query.sh >/dev/null 2>&1; then
+        echo "Pending work count: $(get_pending_count "$persona")"
+        echo "Handoff status: $(get_handoff_status)"
+        echo "Transition needed: $(es-journal-query.sh transition-needed 2>/dev/null || echo 'None')"
+    fi
+    
+    echo "Recent entries:"
+    tail -5 "$JOURNAL_FILE" 2>/dev/null | sed 's/^/  /'
+    echo "=========================="
 }

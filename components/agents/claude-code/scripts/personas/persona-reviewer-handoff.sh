@@ -1,5 +1,5 @@
 #!/bin/bash
-# REVIEWER Persona Handoff Script
+# REVIEWER Persona Handoff Script - CLEANED for pure event sourcing
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -31,11 +31,13 @@ if [ $ISSUES -eq 0 ]; then
     NEXT_PERSONA="MERGER"
     echo -e "${GREEN}No critical issues found. Ready for merge.${NC}"
     es-journal-log.sh "HANDOFF:REQUEST" "REVIEWER requesting handoff to MERGER - code approved"
+    es-journal-log.sh "TRANSITION:REQUESTED" "REVIEWER -> MERGER"
 else
     ACTION="changes-needed"
     NEXT_PERSONA="DEVELOPER"
     echo -e "${YELLOW}$ISSUES critical issues found. Changes needed.${NC}"
     es-journal-log.sh "HANDOFF:REQUEST" "REVIEWER requesting handoff to DEVELOPER - $ISSUES issues found"
+    es-journal-log.sh "TRANSITION:REQUESTED" "REVIEWER -> DEVELOPER"
 fi
 
 # Check for pending work
@@ -213,22 +215,22 @@ See REVIEW_REPORT.md for full details." 2>/dev/null && echo -e "${GREEN}Added re
     fi
 fi
 
-# Complete handoff
+# Complete handoff - PURE EVENT SOURCING: Only log to journal
 es-journal-log.sh "HANDOFF:COMPLETED" "Handed off to $NEXT_PERSONA with $WORK_COUNT work items"
 es-journal-log.sh "REVIEWER:CONTEXT" "Review complete. Decision: $ACTION"
 
 echo ""
 echo -e "${BLUE}=== Handoff Complete ===${NC}"
 echo ""
-echo -e "${YELLOW}$NEXT_PERSONA should now:${NC}"
-echo "1. Run: persona-$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')-init.sh"
-echo "2. Review pending work items"
-echo "3. Start with the first work item"
+echo -e "${YELLOW}$NEXT_PERSONA should now be automatically triggered via journal hook...${NC}"
 echo ""
 
-# Signal that work is ready for next persona
-echo "$NEXT_PERSONA" > /tmp/persona-work-ready
+# REMOVED: All file signaling logic
+# REMOVED: echo "$NEXT_PERSONA" > /tmp/persona-work-ready
+# REMOVED: Atomic file operations
 
-echo -e "${GREEN}✓ Work queue signaled for $NEXT_PERSONA${NC}"
+echo -e "${GREEN}✓ Handoff logged to journal${NC}"
 echo ""
-echo "The work queue monitor will prepare the first executable task."
+echo "The journal hook will detect the handoff and automatically trigger $NEXT_PERSONA initialization."
+echo ""
+echo "If automatic handoff fails, manually run: persona-$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')-init.sh"

@@ -8,7 +8,7 @@ persona=${2:-$(grep "PERSONA:INIT" ~/workspace/JOURNAL.md 2>/dev/null | tail -1 
 limit=${3:-20}
 
 # Ensure journal exists
-JOURNAL_FILE="$HOME/workspace/JOURNAL.md"
+JOURNAL_FILE="${JOURNAL_FILE:-$HOME/workspace/JOURNAL.md}"
 if [ ! -f "$JOURNAL_FILE" ]; then
     echo "No journal file found at $JOURNAL_FILE"
     exit 1
@@ -56,21 +56,33 @@ case "$query_type" in
         ;;
         
     "safety-check")
-        # Check iteration count and recent progress
-        init_count=$(grep -c "\[${persona}:INIT\]" "$JOURNAL_FILE" 2>/dev/null || echo "0")
-        recent_progress=$(tail -100 "$JOURNAL_FILE" 2>/dev/null | grep -c "WORK:COMPLETED.*${persona}" || echo "0")
+        # Check iteration count and recent progress - FIXED: Prevent double "0" output
+        init_count=$(grep -c "\[${persona}:INIT\]" "$JOURNAL_FILE" 2>/dev/null)
+        if [ -z "$init_count" ]; then
+            init_count=0
+        fi
+        
+        recent_progress=$(tail -100 "$JOURNAL_FILE" 2>/dev/null | grep -c "WORK:COMPLETED.*${persona}")
+        if [ -z "$recent_progress" ]; then
+            recent_progress=0
+        fi
+        
+        # Always output the current status to stdout
         echo "Iterations: $init_count, Recent completions: $recent_progress"
         
-        # Check for safety limits
-        if [ $init_count -gt 10 ]; then
-            echo "WARNING: High iteration count ($init_count)"
+        # Check for safety limits - FIXED: Send warnings to stderr and ensure proper exit codes
+        if [ "$init_count" -gt 10 ]; then
+            echo "WARNING: High iteration count ($init_count)" >&2
             exit 1
         fi
         
-        if [ $init_count -gt 3 ] && [ $recent_progress -eq 0 ]; then
-            echo "WARNING: No recent progress detected"
+        if [ "$init_count" -gt 3 ] && [ "$recent_progress" -eq 0 ]; then
+            echo "WARNING: No recent progress detected" >&2
             exit 2
         fi
+        
+        # Exit 0 for success (within limits)
+        exit 0
         ;;
         
     "decisions")
@@ -104,9 +116,16 @@ case "$query_type" in
         ;;
         
     "current-persona")
-        # Get the current active persona
-        grep "PERSONA:INIT" "$JOURNAL_FILE" 2>/dev/null | tail -1 | \
-            sed 's/.*\[\(.*\):INIT\].*/\1/'
+        # Get the current active persona - FIXED: More robust extraction
+        # Look for the most recent PERSONA:INIT entry
+        last_init=$(grep "PERSONA:INIT" "$JOURNAL_FILE" 2>/dev/null | tail -1)
+        
+        if [ -n "$last_init" ]; then
+            # Extract persona name from [PERSONA:INIT] format
+            echo "$last_init" | sed 's/.*\[\([A-Z]*\):INIT\].*/\1/'
+        else
+            echo "UNKNOWN"
+        fi
         ;;
         
     "work-completed-persona")
@@ -204,6 +223,170 @@ case "$query_type" in
         echo "Started: $(grep -c "WORK:STARTED.*${persona}:" "$JOURNAL_FILE" 2>/dev/null || echo "0")"
         echo "Completed: $(grep -c "WORK:COMPLETED.*${persona}:" "$JOURNAL_FILE" 2>/dev/null || echo "0")"
         echo "Blocked: $(grep -c "WORK:BLOCKED.*${persona}:" "$JOURNAL_FILE" 2>/dev/null || echo "0")"
+        ;;
+
+    "recent-handoff-unprocessed")
+        # NEW: Get the most recent handoff that hasn't been processed yet
+        # Look for HANDOFF:COMPLETED entries and check if target persona was subsequently initialized
+        
+        # Get all HANDOFF:COMPLETED entries with line numbers
+        handoffs=$(grep -n "HANDOFF:COMPLETED" "$JOURNAL_FILE" 2>/dev/null)
+        
+        if [ -z "$handoffs" ]; then
+            # No handoffs found
+            exit 1
+        fi
+        
+        # Process handoffs from most recent to oldest
+        echo "$handoffs" | tac | while IFS= read -r handoff_line; do
+            # Extract line number and content
+            line_num=$(echo "$handoff_line" | cut -d: -f1)
+            handoff_content=$(echo "$handoff_line" | cut -d: -f2-)
+            
+            # Extract target persona from handoff message
+            target=$(es-journal-query.sh extract-handoff-target "" "" "$handoff_content" 2>/dev/null)
+            
+            if [ -n "$target" ] && [[ "$target" =~ ^(ARCHITECT|DEVELOPER|QA|REVIEWER|MERGER)$ ]]; then
+                # Check if this target persona was initialized after this handoff
+                subsequent_init=$(sed -n "${line_num},\$p" "$JOURNAL_FILE" | grep "\[${target}:INIT\]" | head -1)
+                
+                if [ -z "$subsequent_init" ]; then
+                    # No subsequent initialization found - this handoff is unprocessed
+                    echo "$target"
+                    exit 0
+                fi
+            fi
+        done
+        
+        # No unprocessed handoffs found
+        exit 1
+        ;;
+        
+    "extract-handoff-target")
+        # NEW: Extract target persona from handoff message
+        # Usage: es-journal-query.sh extract-handoff-target "" "" "message content"
+        handoff_message="$4"
+        
+        if [ -z "$handoff_message" ]; then
+            exit 1
+        fi
+        
+        # Try multiple patterns to extract target persona
+        # Pattern 1: "Handed off to PERSONA with X work items"
+        if echo "$handoff_message" | grep -q "Handed off to [A-Z][A-Z]*"; then
+            echo "$handoff_message" | sed 's/.*Handed off to \([A-Z][A-Z]*\).*/\1/'
+            exit 0
+        fi
+        
+        # Pattern 2: "handed off to PERSONA with X work items" (lowercase)
+        if echo "$handoff_message" | grep -q "handed off to [A-Z][A-Z]*"; then
+            echo "$handoff_message" | sed 's/.*handed off to \([A-Z][A-Z]*\).*/\1/'
+            exit 0
+        fi
+        
+        # Pattern 3: Direct persona names in the message
+        for persona_name in ARCHITECT DEVELOPER QA REVIEWER MERGER; do
+            if echo "$handoff_message" | grep -q "$persona_name"; then
+                echo "$persona_name"
+                exit 0
+            fi
+        done
+        
+        # No target found
+        exit 1
+        ;;
+        
+    "handoff-processing-complete")
+        # NEW: Check if the most recent handoff was processed (has subsequent PERSONA:INIT)
+        # Usage: es-journal-query.sh handoff-processing-complete
+        
+        # Get the most recent handoff
+        recent_handoff=$(grep "HANDOFF:COMPLETED" "$JOURNAL_FILE" 2>/dev/null | tail -1)
+        
+        if [ -z "$recent_handoff" ]; then
+            # No handoffs found
+            echo "no-handoffs"
+            exit 0
+        fi
+        
+        # Extract target persona
+        target=$(es-journal-query.sh extract-handoff-target "" "" "$recent_handoff" 2>/dev/null)
+        
+        if [ -z "$target" ]; then
+            # Could not extract target
+            echo "extraction-failed"
+            exit 1
+        fi
+        
+        # Get line number of the handoff
+        handoff_line=$(grep -n "HANDOFF:COMPLETED" "$JOURNAL_FILE" | tail -1 | cut -d: -f1)
+        
+        # Check for subsequent PERSONA:INIT for the target
+        subsequent_init=$(sed -n "${handoff_line},\$p" "$JOURNAL_FILE" | grep "\[${target}:INIT\]" | head -1)
+        
+        if [ -n "$subsequent_init" ]; then
+            echo "processed"
+            exit 0
+        else
+            echo "unprocessed"
+            exit 1
+        fi
+        ;;
+        
+    "transition-needed")
+        # NEW: Comprehensive check if any transition is needed
+        # Returns the target persona if transition is needed, empty if not
+        
+        # Priority 1: Check for unprocessed handoffs
+        unprocessed_target=$(es-journal-query.sh recent-handoff-unprocessed 2>/dev/null)
+        if [ $? -eq 0 ] && [ -n "$unprocessed_target" ]; then
+            echo "$unprocessed_target"
+            exit 0
+        fi
+        
+        # Priority 2: Check for pending work across all personas (deterministic order)
+        for persona_check in ARCHITECT DEVELOPER QA REVIEWER MERGER; do
+            pending_count=$(es-journal-query.sh pending-work "$persona_check" 2>/dev/null | wc -l)
+            if [ "$pending_count" -gt 0 ]; then
+                echo "$persona_check"
+                exit 0
+            fi
+        done
+        
+        # Priority 3: Check if current persona should hand off
+        current_persona=$(es-journal-query.sh current-persona)
+        if [ -n "$current_persona" ] && [ "$current_persona" != "UNKNOWN" ]; then
+            next_persona=$(es-journal-query.sh should-handoff "$current_persona" 2>/dev/null)
+            if [ $? -eq 0 ] && [ -n "$next_persona" ]; then
+                echo "$next_persona"
+                exit 0
+            fi
+        fi
+        
+        # No transition needed
+        exit 1
+        ;;
+        
+    "last-persona-init")
+        # NEW: Get the most recent persona initialization entry - FIXED
+        # Returns the persona that was most recently initialized
+        
+        last_init=$(grep "\[.*:INIT\]" "$JOURNAL_FILE" 2>/dev/null | tail -1)
+        
+        if [ -n "$last_init" ]; then
+            # Extract persona name - handle different formats
+            # Look for [PERSONA:INIT] pattern and extract PERSONA part
+            if echo "$last_init" | grep -q "\[[A-Z]*:INIT\]"; then
+                echo "$last_init" | sed 's/.*\[\([A-Z]*\):INIT\].*/\1/'
+                exit 0
+            else
+                echo "UNKNOWN"
+                exit 1
+            fi
+        else
+            echo "UNKNOWN"
+            exit 1
+        fi
         ;;
         
     "stats")
@@ -352,20 +535,27 @@ case "$query_type" in
         echo "Usage: es-journal-query.sh <query-type> [persona] [limit] [options]"
         echo ""
         echo "Query types:"
-        echo "  pending-work          - Show pending work items"
-        echo "  recent-context        - Show recent persona events"
-        echo "  handoff-ready         - Check if ready for handoff"
-        echo "  safety-check          - Check iteration limits"
-        echo "  decisions             - Show architectural decisions"
-        echo "  memory                - Show persistent memories"
-        echo "  errors                - Show recent errors/blocks"
-        echo "  work-history          - Show history for specific work"
-        echo "  handoff-chain         - Show handoff history"
-        echo "  current-persona       - Get current active persona"
-        echo "  work-completed-persona - Get persona from most recent work completion"
-        echo "  should-handoff        - Check if persona should hand off and to whom"
-        echo "  work-summary          - Summary of work states"
-        echo "  stats                 - Journal statistics (days-back as 4th param)"
+        echo "  pending-work               - Show pending work items"
+        echo "  recent-context             - Show recent persona events"
+        echo "  handoff-ready              - Check if ready for handoff"
+        echo "  safety-check               - Check iteration limits"
+        echo "  decisions                  - Show architectural decisions"
+        echo "  memory                     - Show persistent memories"
+        echo "  errors                     - Show recent errors/blocks"
+        echo "  work-history               - Show history for specific work"
+        echo "  handoff-chain              - Show handoff history"
+        echo "  current-persona            - Get current active persona"
+        echo "  work-completed-persona     - Get persona from most recent work completion"
+        echo "  should-handoff             - Check if persona should hand off and to whom"
+        echo "  work-summary               - Summary of work states"
+        echo "  stats                      - Journal statistics (days-back as 4th param)"
+        echo ""
+        echo "NEW EVENT-SOURCING QUERIES:"
+        echo "  recent-handoff-unprocessed - Get latest unprocessed handoff target"
+        echo "  extract-handoff-target     - Parse target persona from handoff message"
+        echo "  handoff-processing-complete- Check if handoff was processed"
+        echo "  transition-needed          - Determine if any transition is needed"
+        echo "  last-persona-init          - Get most recent persona initialization"
         exit 1
         ;;
 esac

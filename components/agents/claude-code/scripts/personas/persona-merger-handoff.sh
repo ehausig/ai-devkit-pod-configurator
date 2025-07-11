@@ -1,5 +1,5 @@
 #!/bin/bash
-# MERGER Persona Handoff Script
+# MERGER Persona Handoff Script - CLEANED for pure event sourcing
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -11,8 +11,9 @@ NC='\033[0m' # No Color
 echo -e "${BLUE}=== MERGER Handoff Process ===${NC}"
 echo ""
 
-# Log handoff request
+# Log handoff request with transition event
 es-journal-log.sh "HANDOFF:REQUEST" "MERGER requesting cycle completion"
+es-journal-log.sh "TRANSITION:REQUESTED" "MERGER -> CYCLE_COMPLETE"
 
 # Check for pending work
 echo -e "${YELLOW}Checking for pending work...${NC}"
@@ -130,6 +131,9 @@ if [ "$PENDING_PRS" -gt 0 ]; then
     
     NEXT_PERSONA="DEVELOPER"
     NEXT_ACTION="continue with open PRs"
+    
+    # Log transition request for continuation
+    es-journal-log.sh "TRANSITION:REQUESTED" "MERGER -> DEVELOPER (continuation)"
 else
     echo ""
     echo -e "${GREEN}All PRs processed. Development cycle complete!${NC}"
@@ -163,16 +167,16 @@ echo ""
 
 if [ -n "$NEXT_PERSONA" ]; then
     echo -e "${YELLOW}To continue development:${NC}"
-    echo "1. Run: persona-$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')-init.sh"
+    echo "1. $NEXT_PERSONA should be automatically triggered via journal hook"
     echo "2. $NEXT_ACTION"
     echo ""
     
-    # Signal work ready for next persona
-    echo "$NEXT_PERSONA" > /tmp/persona-work-ready
+    # REMOVED: File signaling logic
+    # REMOVED: echo "$NEXT_PERSONA" > /tmp/persona-work-ready
     
-    echo -e "${GREEN}✓ Work queue signaled for $NEXT_PERSONA${NC}"
+    echo -e "${GREEN}✓ Continuation work items logged to journal${NC}"
     echo ""
-    echo "The work queue monitor will prepare the first executable task."
+    echo "The journal hook will detect the pending work and automatically trigger $NEXT_PERSONA initialization."
 else
     echo -e "${GREEN}Development cycle complete. No automatic handoff needed.${NC}"
     echo ""

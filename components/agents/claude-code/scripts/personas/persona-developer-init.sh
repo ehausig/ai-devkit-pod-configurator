@@ -1,5 +1,5 @@
 #!/bin/bash
-# DEVELOPER Persona Initialization Script
+# DEVELOPER Persona Initialization Script - ENHANCED for pure event sourcing
 # Hook-compatible version
 
 # Colors for output (only if running in terminal)
@@ -23,8 +23,9 @@ if [ -n "$HOOK_TYPE" ] || [ -n "$JSON_INPUT" ]; then
     HOOK_CONTEXT="true"
 fi
 
-# Log initialization (always do this)
+# Log initialization with transition complete event
 es-journal-log.sh "DEVELOPER:INIT" "Starting DEVELOPER persona"
+es-journal-log.sh "TRANSITION:COMPLETED" "DEVELOPER persona active"
 
 # Safety check
 SAFETY_STATUS=$(es-journal-query.sh safety-check DEVELOPER)
@@ -32,7 +33,6 @@ INIT_COUNT=$(echo "$SAFETY_STATUS" | grep -o "Iterations: [0-9]*" | cut -d' ' -f
 
 if [ "$INIT_COUNT" -gt 10 ]; then
     if [ -n "$HOOK_CONTEXT" ]; then
-        # In hook context, just log error and exit
         es-journal-log.sh "SAFETY:LIMIT" "DEVELOPER exceeded initialization limit: $INIT_COUNT"
         echo "ERROR: Safety limit exceeded - too many DEVELOPER initializations" >&2
         exit 1
@@ -48,11 +48,10 @@ PENDING_WORK=$(es-journal-query.sh pending-work DEVELOPER)
 PENDING_COUNT=$(echo "$PENDING_WORK" | grep -c "WORK:PENDING" || echo "0")
 
 if [ $PENDING_COUNT -gt 0 ]; then
-    # Get first work item
     FIRST_WORK=$(echo "$PENDING_WORK" | head -1 | sed 's/.*WORK:PENDING\] DEVELOPER: //')
     
     if [ -n "$HOOK_CONTEXT" ]; then
-        # In hook context, prepare work and return minimal output
+        # Hook context - minimal output
         es-journal-log.sh "DEVELOPER:CONTEXT" "Initialized with $PENDING_COUNT pending work items"
         
         # Prepare the first work item for execution
@@ -61,7 +60,7 @@ if [ $PENDING_COUNT -gt 0 ]; then
         echo "DEVELOPER initialized with $PENDING_COUNT pending work items. First task: $FIRST_WORK"
         exit 0
     else
-        # Interactive context - show full output
+        # Interactive context - full output
         echo -e "${GREEN}Found $PENDING_COUNT pending work items:${NC}"
         echo "$PENDING_WORK" | nl | sed 's/.*WORK:PENDING\] DEVELOPER: /    /'
         echo ""
@@ -74,15 +73,16 @@ else
     fi
 fi
 
-# Check for handoff document (only in interactive mode)
-if [ -z "$HOOK_CONTEXT" ] && [ -f "HANDOFF_TO_DEVELOPER.md" ]; then
-    echo -e "${GREEN}Found handoff document:${NC}"
-    grep -E "^##|^- " HANDOFF_TO_DEVELOPER.md | head -15
-    echo ""
-fi
-
-# Get architectural context (only in interactive mode)
+# Rest of the script only runs in interactive mode
 if [ -z "$HOOK_CONTEXT" ]; then
+    # Check for handoff document
+    if [ -f "HANDOFF_TO_DEVELOPER.md" ]; then
+        echo -e "${GREEN}Found handoff document:${NC}"
+        grep -E "^##|^- " HANDOFF_TO_DEVELOPER.md | head -15
+        echo ""
+    fi
+
+    # Get architectural context
     echo -e "${YELLOW}Loading architectural context...${NC}"
     ARCH_DECISIONS=$(es-journal-query.sh decisions ARCHITECT 5)
     if [ -n "$ARCH_DECISIONS" ]; then
@@ -90,20 +90,16 @@ if [ -z "$HOOK_CONTEXT" ]; then
         echo "$ARCH_DECISIONS" | sed 's/.*\[.*:DECISION\] /- /'
         echo ""
     fi
-fi
 
-# Check for unresolved issues (only in interactive mode)
-if [ -z "$HOOK_CONTEXT" ]; then
+    # Check for unresolved issues
     ERRORS=$(es-journal-query.sh errors DEVELOPER 5)
     if [ -n "$ERRORS" ]; then
         echo -e "${RED}Recent issues:${NC}"
         echo "$ERRORS" | sed 's/.*\[\(.*\)\] /[\1] /'
         echo ""
     fi
-fi
 
-# Check current project state (only in interactive mode)
-if [ -z "$HOOK_CONTEXT" ]; then
+    # Check current project state
     echo -e "${YELLOW}Checking project state...${NC}"
     if [ -d .git ]; then
         CURRENT_BRANCH=$(git branch --show-current)
@@ -119,10 +115,8 @@ if [ -z "$HOOK_CONTEXT" ]; then
         echo "No git repository found"
     fi
     echo ""
-fi
 
-# Check for existing code structure (only in interactive mode)
-if [ -z "$HOOK_CONTEXT" ]; then
+    # Check for existing code structure
     echo -e "${YELLOW}Checking code structure...${NC}"
     if [ -d "src" ] || [ -d "backend" ] || [ -d "frontend" ]; then
         echo "Found directories:"
@@ -147,13 +141,8 @@ if [ -z "$HOOK_CONTEXT" ]; then
         fi
     fi
     echo ""
-fi
 
-# Log context
-es-journal-log.sh "DEVELOPER:CONTEXT" "Initialized with $PENDING_COUNT pending work items"
-
-# Display work instructions (only in interactive mode)
-if [ -z "$HOOK_CONTEXT" ]; then
+    # Display work instructions
     echo -e "${BLUE}=== DEVELOPER Work Instructions ===${NC}"
     echo ""
 
@@ -216,3 +205,6 @@ if [ -z "$HOOK_CONTEXT" ]; then
         cat ~/.claude/personas/DEVELOPER-PROTOCOL.md
     fi
 fi
+
+# Log context
+es-journal-log.sh "DEVELOPER:CONTEXT" "Initialized with $PENDING_COUNT pending work items"

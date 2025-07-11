@@ -1,5 +1,5 @@
 #!/bin/bash
-# Journal hook logic for Stop events
+# Journal hook logic for Stop events - REFACTORED to pure event sourcing
 # Called by hook-framework.sh
 
 # Check if this is a stop hook that's already active to prevent loops
@@ -13,189 +13,145 @@ fi
 
 # Log the session completion first
 log_hook_event "INFO" "Session $SESSION_ID completed - Claude Code session completed"
-log_hook_event "DEBUG" "Stop hook executing - checking for handoff signals"
+log_hook_event "DEBUG" "Stop hook executing - checking for transitions via journal queries"
 
-# Priority 1: Check for forced session end (from handoff or work completion)
-if [ -f /tmp/force-session-end ]; then
-    NEXT_PERSONA=$(cat /tmp/force-session-end 2>/dev/null)
+# PURE EVENT SOURCING APPROACH - No file dependencies
+# All transition decisions based solely on journal state
+
+# Priority 1: Check for unprocessed handoffs via journal queries
+log_hook_event "DEBUG" "Priority 1: Checking for unprocessed handoffs via journal"
+UNPROCESSED_TARGET=$(es-journal-query.sh recent-handoff-unprocessed 2>/dev/null)
+UNPROCESSED_EXIT_CODE=$?
+
+if [ $UNPROCESSED_EXIT_CODE -eq 0 ] && [ -n "$UNPROCESSED_TARGET" ] && [[ "$UNPROCESSED_TARGET" =~ ^(ARCHITECT|DEVELOPER|QA|REVIEWER|MERGER)$ ]]; then
+    log_hook_event "AUTOMATION:JOURNAL_TRANSITION" "Executing automatic continuation with $UNPROCESSED_TARGET persona via journal query"
     
-    if [ -n "$NEXT_PERSONA" ] && [[ "$NEXT_PERSONA" =~ ^(ARCHITECT|DEVELOPER|QA|REVIEWER|MERGER)$ ]]; then
-        log_hook_event "AUTOMATION:FORCED_CONTINUE" "Executing automatic continuation with $NEXT_PERSONA persona"
+    # Log transition events for better tracking
+    log_hook_event "TRANSITION:STARTED" "Initializing $UNPROCESSED_TARGET persona from unprocessed handoff"
+    
+    # Execute the persona initialization script directly
+    NEXT_PERSONA_LOWER=$(echo $UNPROCESSED_TARGET | tr '[:upper:]' '[:lower:]')
+    INIT_SCRIPT="persona-${NEXT_PERSONA_LOWER}-init.sh"
+    
+    log_hook_event "AUTOMATION:EXECUTING" "Directly executing $INIT_SCRIPT in hook for unprocessed handoff"
+    
+    # Execute the persona initialization script
+    if command -v "$INIT_SCRIPT" >/dev/null 2>&1; then
+        # Capture the output to provide to Claude
+        INIT_OUTPUT=$("$INIT_SCRIPT" 2>&1)
+        INIT_EXIT_CODE=$?
         
-        # Clean up signal files first
-        rm -f /tmp/force-session-end /tmp/persona-work-ready /tmp/force-session-end.tmp
-        
-        # CRITICAL: Execute the next persona initialization directly in the hook
-        NEXT_PERSONA_LOWER=$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')
-        INIT_SCRIPT="persona-${NEXT_PERSONA_LOWER}-init.sh"
-        
-        log_hook_event "AUTOMATION:EXECUTING" "Directly executing $INIT_SCRIPT in hook"
-        
-        # Execute the persona initialization script
-        if command -v "$INIT_SCRIPT" >/dev/null 2>&1; then
-            # Capture the output to provide to Claude
-            INIT_OUTPUT=$("$INIT_SCRIPT" 2>&1)
-            INIT_EXIT_CODE=$?
+        if [ $INIT_EXIT_CODE -eq 0 ]; then
+            log_hook_event "AUTOMATION:SUCCESS" "$UNPROCESSED_TARGET persona initialized successfully from unprocessed handoff"
+            log_hook_event "TRANSITION:COMPLETED" "$UNPROCESSED_TARGET persona active"
             
-            if [ $INIT_EXIT_CODE -eq 0 ]; then
-                log_hook_event "AUTOMATION:SUCCESS" "$NEXT_PERSONA persona initialized successfully"
+            # Check if there's executable work ready
+            if [ -f /tmp/execute-next-work.sh ]; then
+                log_hook_event "AUTOMATION:WORK_READY" "Work script prepared for $UNPROCESSED_TARGET"
                 
-                # Check if there's executable work ready
-                if [ -f /tmp/execute-next-work.sh ]; then
-                    log_hook_event "AUTOMATION:WORK_READY" "Work script prepared for $NEXT_PERSONA"
-                    
-                    # Provide Claude with the initialization output and next steps
-                    cat << EOF >&2
+                # Provide Claude with the initialization output and next steps
+                cat << EOF >&2
 {
     "decision": "block",
-    "reason": "$NEXT_PERSONA persona initialized successfully. Work is ready to execute. Run: /tmp/execute-next-work.sh"
+    "reason": "$UNPROCESSED_TARGET persona initialized successfully from unprocessed handoff. Work is ready to execute. Run: /tmp/execute-next-work.sh"
 }
 EOF
-                else
-                    # Provide Claude with initialization output
-                    cat << EOF >&2
+            else
+                # Provide Claude with initialization output
+                cat << EOF >&2
 {
     "decision": "block", 
-    "reason": "$NEXT_PERSONA persona initialized successfully. Check pending work with: es-journal-query.sh pending-work $NEXT_PERSONA"
-}
-EOF
-                fi
-            else
-                log_hook_event "AUTOMATION:FAILED" "$NEXT_PERSONA initialization failed with exit code $INIT_EXIT_CODE"
-                
-                # Provide error details to Claude
-                cat << EOF >&2
-{
-    "decision": "block",
-    "reason": "$NEXT_PERSONA persona initialization failed. Error: $INIT_OUTPUT"
+    "reason": "$UNPROCESSED_TARGET persona initialized successfully from unprocessed handoff. Check pending work with: es-journal-query.sh pending-work $UNPROCESSED_TARGET"
 }
 EOF
             fi
         else
-            log_hook_event "AUTOMATION:ERROR" "Could not find $INIT_SCRIPT command"
+            log_hook_event "AUTOMATION:FAILED" "$UNPROCESSED_TARGET initialization failed with exit code $INIT_EXIT_CODE"
             
+            # Provide error details to Claude
             cat << EOF >&2
 {
     "decision": "block",
-    "reason": "Could not find $INIT_SCRIPT. Please run: persona-$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')-init.sh"
+    "reason": "$UNPROCESSED_TARGET persona initialization failed. Error: $INIT_OUTPUT"
 }
 EOF
         fi
-        
-        exit 2
     else
-        log_hook_event "ERROR" "Invalid persona in force-session-end file: '$NEXT_PERSONA'"
-        rm -f /tmp/force-session-end
+        log_hook_event "AUTOMATION:ERROR" "Could not find $INIT_SCRIPT command"
+        
+        cat << EOF >&2
+{
+    "decision": "block",
+    "reason": "Could not find $INIT_SCRIPT. Please run: persona-$(echo $UNPROCESSED_TARGET | tr '[:upper:]' '[:lower:]')-init.sh"
+}
+EOF
     fi
+    
+    exit 2
+else
+    log_hook_event "DEBUG" "No unprocessed handoffs found via journal query (exit code: $UNPROCESSED_EXIT_CODE, target: '$UNPROCESSED_TARGET')"
 fi
 
-# Priority 2: Check for pending persona work signal (fallback)
-if [ -f /tmp/persona-work-ready ]; then
-    NEXT_PERSONA=$(cat /tmp/persona-work-ready 2>/dev/null)
+# Priority 2: Check for pending work items across all personas using enhanced query
+log_hook_event "DEBUG" "Priority 2: Checking for pending work across all personas via journal"
+TRANSITION_TARGET=$(es-journal-query.sh transition-needed 2>/dev/null)
+TRANSITION_EXIT_CODE=$?
+
+if [ $TRANSITION_EXIT_CODE -eq 0 ] && [ -n "$TRANSITION_TARGET" ] && [[ "$TRANSITION_TARGET" =~ ^(ARCHITECT|DEVELOPER|QA|REVIEWER|MERGER)$ ]]; then
+    log_hook_event "AUTOMATION:DETECTED" "Found pending work or handoff need for $TRANSITION_TARGET via journal query"
     
-    if [ -n "$NEXT_PERSONA" ] && [[ "$NEXT_PERSONA" =~ ^(ARCHITECT|DEVELOPER|QA|REVIEWER|MERGER)$ ]]; then
-        log_hook_event "AUTOMATION:CONTINUE" "Executing automatic continuation with $NEXT_PERSONA persona"
+    # Get pending work count for logging
+    PENDING_COUNT=$(es-journal-query.sh pending-work "$TRANSITION_TARGET" 2>/dev/null | wc -l || echo "0")
+    
+    # Log transition events
+    log_hook_event "TRANSITION:STARTED" "Initializing $TRANSITION_TARGET persona for pending work ($PENDING_COUNT items)"
+    
+    # Execute persona initialization directly
+    PERSONA_LOWER=$(echo $TRANSITION_TARGET | tr '[:upper:]' '[:lower:]')
+    INIT_SCRIPT="persona-${PERSONA_LOWER}-init.sh"
+    
+    log_hook_event "AUTOMATION:EXECUTING" "Directly executing $INIT_SCRIPT for pending work"
+    
+    if command -v "$INIT_SCRIPT" >/dev/null 2>&1; then
+        INIT_OUTPUT=$("$INIT_SCRIPT" 2>&1)
+        INIT_EXIT_CODE=$?
         
-        # Clean up the signal file
-        rm -f /tmp/persona-work-ready
-        
-        # Execute the persona initialization directly
-        NEXT_PERSONA_LOWER=$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')
-        INIT_SCRIPT="persona-${NEXT_PERSONA_LOWER}-init.sh"
-        
-        log_hook_event "AUTOMATION:EXECUTING" "Directly executing $INIT_SCRIPT in hook"
-        
-        if command -v "$INIT_SCRIPT" >/dev/null 2>&1; then
-            INIT_OUTPUT=$("$INIT_SCRIPT" 2>&1)
-            INIT_EXIT_CODE=$?
+        if [ $INIT_EXIT_CODE -eq 0 ]; then
+            log_hook_event "AUTOMATION:SUCCESS" "$TRANSITION_TARGET persona initialized for pending work"
+            log_hook_event "TRANSITION:COMPLETED" "$TRANSITION_TARGET persona active with $PENDING_COUNT pending items"
             
-            if [ $INIT_EXIT_CODE -eq 0 ]; then
-                log_hook_event "AUTOMATION:SUCCESS" "$NEXT_PERSONA persona initialized successfully"
-                
-                cat << EOF >&2
-{
-    "decision": "block",
-    "reason": "$NEXT_PERSONA persona initialized and ready. Check status with: es-journal-query.sh pending-work $NEXT_PERSONA"
-}
-EOF
-            else
-                log_hook_event "AUTOMATION:FAILED" "$NEXT_PERSONA initialization failed"
-                
-                cat << EOF >&2
-{
-    "decision": "block",
-    "reason": "$NEXT_PERSONA persona initialization failed. Manual intervention required."
-}
-EOF
-            fi
-        else
             cat << EOF >&2
 {
     "decision": "block",
-    "reason": "Could not execute $INIT_SCRIPT automatically. Please run manually."
+    "reason": "$TRANSITION_TARGET persona initialized with $PENDING_COUNT pending work items. Work ready to execute."
+}
+EOF
+        else
+            log_hook_event "AUTOMATION:FAILED" "$TRANSITION_TARGET initialization failed"
+            
+            cat << EOF >&2
+{
+    "decision": "block",
+    "reason": "$TRANSITION_TARGET persona initialization failed for pending work. Check logs."
 }
 EOF
         fi
-        
-        exit 2
     else
-        log_hook_event "ERROR" "Invalid persona in persona-work-ready file: '$NEXT_PERSONA'"
-        rm -f /tmp/persona-work-ready
+        cat << EOF >&2
+{
+    "decision": "block",
+    "reason": "Found pending work or transition need for $TRANSITION_TARGET. Please run: persona-$(echo $TRANSITION_TARGET | tr '[:upper:]' '[:lower:]')-init.sh"
+}
+EOF
     fi
+    
+    exit 2
+else
+    log_hook_event "DEBUG" "No transitions needed via journal query (exit code: $TRANSITION_EXIT_CODE, target: '$TRANSITION_TARGET')"
 fi
 
-# Priority 3: Check for pending work items across all personas (deterministic order)
-log_hook_event "DEBUG" "Checking for pending work across all personas"
-for persona in ARCHITECT DEVELOPER QA REVIEWER MERGER; do
-    PENDING_COUNT=$(es-journal-query.sh pending-work "$persona" 2>/dev/null | wc -l || echo "0")
-    
-    if [ "$PENDING_COUNT" -gt 0 ]; then
-        log_hook_event "AUTOMATION:DETECTED" "Found $PENDING_COUNT pending work items for $persona"
-        
-        # Execute persona initialization directly
-        PERSONA_LOWER=$(echo $persona | tr '[:upper:]' '[:lower:]')
-        INIT_SCRIPT="persona-${PERSONA_LOWER}-init.sh"
-        
-        log_hook_event "AUTOMATION:EXECUTING" "Directly executing $INIT_SCRIPT for pending work"
-        
-        if command -v "$INIT_SCRIPT" >/dev/null 2>&1; then
-            INIT_OUTPUT=$("$INIT_SCRIPT" 2>&1)
-            INIT_EXIT_CODE=$?
-            
-            if [ $INIT_EXIT_CODE -eq 0 ]; then
-                log_hook_event "AUTOMATION:SUCCESS" "$persona persona initialized for pending work"
-                
-                cat << EOF >&2
-{
-    "decision": "block",
-    "reason": "$persona persona initialized with $PENDING_COUNT pending work items. Work ready to execute."
-}
-EOF
-            else
-                log_hook_event "AUTOMATION:FAILED" "$persona initialization failed"
-                
-                cat << EOF >&2
-{
-    "decision": "block",
-    "reason": "$persona persona initialization failed for pending work. Check logs."
-}
-EOF
-            fi
-        else
-            cat << EOF >&2
-{
-    "decision": "block",
-    "reason": "Found $PENDING_COUNT pending work items for $persona. Please run: persona-$(echo $persona | tr '[:upper:]' '[:lower:]')-init.sh"
-}
-EOF
-        fi
-        
-        exit 2
-    fi
-done
-
-# No pending work found - allow normal session completion
-log_hook_event "DEBUG" "No pending work found across all personas"
+# Priority 3: No pending work found - allow normal session completion
+log_hook_event "DEBUG" "Priority 3: No pending work or transitions found across all personas"
 
 # Check if we should start a new cycle
 RECENT_MERGER_HANDOFF=$(es-journal-query.sh recent-context MERGER 5 2>/dev/null | grep -c "HANDOFF:COMPLETED" || echo "0")
@@ -204,6 +160,15 @@ if [ "$RECENT_MERGER_HANDOFF" -gt 0 ]; then
     log_hook_event "AUTOMATION:CYCLE_COMPLETE" "Development cycle completed successfully"
 fi
 
+# Final verification - ensure we're not missing any handoffs due to timing
+HANDOFF_STATUS=$(es-journal-query.sh handoff-processing-complete 2>/dev/null)
+if [ "$HANDOFF_STATUS" = "unprocessed" ]; then
+    log_hook_event "DEBUG" "Final check detected unprocessed handoff, but transition-needed query didn't catch it"
+    # This shouldn't happen with the new logic, but log it for debugging
+fi
+
 # Exit normally (allow session to end)
-log_hook_event "DEBUG" "Allowing normal session completion"
+log_hook_event "DEBUG" "Allowing normal session completion - no transitions needed"
+log_hook_event "INFO" "Stop hook completed successfully - session ending normally"
+
 exit 0

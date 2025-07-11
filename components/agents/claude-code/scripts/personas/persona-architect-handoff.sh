@@ -1,5 +1,5 @@
 #!/bin/bash
-# ARCHITECT Persona Handoff Script
+# ARCHITECT Persona Handoff Script - CLEANED for pure event sourcing
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -11,8 +11,9 @@ NC='\033[0m' # No Color
 echo -e "${BLUE}=== ARCHITECT Handoff Process ===${NC}"
 echo ""
 
-# Log handoff request
+# Log handoff request with transition event
 es-journal-log.sh "HANDOFF:REQUEST" "ARCHITECT requesting handoff to DEVELOPER"
+es-journal-log.sh "TRANSITION:REQUESTED" "ARCHITECT -> DEVELOPER"
 
 # Check for pending work first
 echo -e "${YELLOW}Checking for pending work...${NC}"
@@ -148,22 +149,23 @@ EOF
 
 echo -e "${GREEN}Created HANDOFF_TO_DEVELOPER.md${NC}"
 
-# Complete handoff
+# Complete handoff - PURE EVENT SOURCING: Only log to journal
 es-journal-log.sh "HANDOFF:COMPLETED" "Handed off to DEVELOPER with $WORK_ITEMS work items"
 es-journal-log.sh "ARCHITECT:CONTEXT" "Architecture phase complete. Design documents created, technology decisions made."
 
 echo ""
 echo -e "${BLUE}=== Handoff Complete ===${NC}"
 echo ""
-echo -e "${YELLOW}DEVELOPER should now:${NC}"
-echo "1. Run: persona-developer-init.sh"
-echo "2. Review pending work items"
-echo "3. Start implementing with TDD approach"
+echo -e "${YELLOW}DEVELOPER should now be automatically triggered...${NC}"
 echo ""
 
-# Signal that work is ready for DEVELOPER
-echo "DEVELOPER" > /tmp/persona-work-ready
+# REMOVED: All file signaling logic
+# REMOVED: echo "DEVELOPER" > /tmp/persona-work-ready
+# REMOVED: Atomic file operations
+# REMOVED: Sleep statements
 
-echo -e "${GREEN}✓ Work queue signaled for DEVELOPER${NC}"
+echo -e "${GREEN}✓ Handoff logged to journal${NC}"
 echo ""
-echo "The work queue monitor will prepare the first executable task."
+echo "The journal hook will detect the handoff and automatically trigger DEVELOPER initialization."
+echo ""
+echo "If automatic handoff fails, manually run: persona-developer-init.sh"

@@ -1,5 +1,5 @@
 #!/bin/bash
-# QA Persona Handoff Script
+# QA Persona Handoff Script - CLEANED for pure event sourcing
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -30,10 +30,12 @@ if [ "$FAILED" -eq 0 ] && [ "$ISSUES" -eq 0 ]; then
     NEXT_PERSONA="REVIEWER"
     echo -e "${GREEN}All tests passed! Ready for code review.${NC}"
     es-journal-log.sh "HANDOFF:REQUEST" "QA requesting handoff to REVIEWER - all tests passed"
+    es-journal-log.sh "TRANSITION:REQUESTED" "QA -> REVIEWER"
 else
     NEXT_PERSONA="DEVELOPER"
     echo -e "${YELLOW}Issues found. Returning to DEVELOPER for fixes.${NC}"
     es-journal-log.sh "HANDOFF:REQUEST" "QA requesting handoff to DEVELOPER - $FAILED failures, $ISSUES issues"
+    es-journal-log.sh "TRANSITION:REQUESTED" "QA -> DEVELOPER"
 fi
 
 # Check for pending work
@@ -186,22 +188,22 @@ fi
 echo -e "${GREEN}Created TEST_REPORT.md${NC}"
 echo -e "${GREEN}Created $WORK_COUNT work items for $NEXT_PERSONA${NC}"
 
-# Complete handoff
+# Complete handoff - PURE EVENT SOURCING: Only log to journal
 es-journal-log.sh "HANDOFF:COMPLETED" "Handed off to $NEXT_PERSONA with $WORK_COUNT work items"
 es-journal-log.sh "QA:CONTEXT" "Testing complete. $PASSED passed, $FAILED failed, $ISSUES issues found"
 
 echo ""
 echo -e "${BLUE}=== Handoff Complete ===${NC}"
 echo ""
-echo -e "${YELLOW}$NEXT_PERSONA should now:${NC}"
-echo "1. Run: persona-$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')-init.sh"
-echo "2. Review pending work items"
-echo "3. Start with the first work item"
+echo -e "${YELLOW}$NEXT_PERSONA should now be automatically triggered via journal hook...${NC}"
 echo ""
 
-# Signal that work is ready for next persona
-echo "$NEXT_PERSONA" > /tmp/persona-work-ready
+# REMOVED: All file signaling logic
+# REMOVED: echo "$NEXT_PERSONA" > /tmp/persona-work-ready
+# REMOVED: Atomic file operations
 
-echo -e "${GREEN}✓ Work queue signaled for $NEXT_PERSONA${NC}"
+echo -e "${GREEN}✓ Handoff logged to journal${NC}"
 echo ""
-echo "The work queue monitor will prepare the first executable task."
+echo "The journal hook will detect the handoff and automatically trigger $NEXT_PERSONA initialization."
+echo ""
+echo "If automatic handoff fails, manually run: persona-$(echo $NEXT_PERSONA | tr '[:upper:]' '[:lower:]')-init.sh"

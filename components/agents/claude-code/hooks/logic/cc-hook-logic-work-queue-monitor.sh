@@ -1,34 +1,16 @@
 #!/bin/bash
-# Work queue monitor hook logic
+# Work queue monitor hook logic - SIMPLIFIED to remove handoff logic
 # Called by hook-framework.sh
+# Focus: Work completion monitoring and preparation only
 
 # Extract command
 command=$(get_command)
 
-# Priority 1: Check if a work signal file exists (created by handoff scripts)
-# This should only trigger once per handoff and should NOT clean up files here
-if [ -f /tmp/persona-work-ready ]; then
-    NEXT_PERSONA=$(cat /tmp/persona-work-ready)
-    
-    # Log that we detected a handoff signal
-    log_hook_event "WORK:QUEUE" "Detected work ready signal for $NEXT_PERSONA"
-    
-    # Prepare the next work item
-    es-work-tracker.sh prepare "$NEXT_PERSONA"
-    
-    # CRITICAL: Create force session end marker for Stop hook
-    # Use atomic write to prevent race conditions
-    echo "$NEXT_PERSONA" > /tmp/force-session-end.tmp
-    mv /tmp/force-session-end.tmp /tmp/force-session-end
-    
-    # Log the forced termination
-    log_hook_event "AUTOMATION:FORCE_END" "Forcing session end to trigger $NEXT_PERSONA handoff"
-    
-    # Do NOT clean up persona-work-ready here - let Stop hook handle it
-    # This prevents race conditions between PostToolUse and Stop hooks
-fi
+# REMOVED: All handoff detection logic - now handled by journal hook
+# REMOVED: All file signaling logic (/tmp/persona-work-ready, /tmp/force-session-end)
+# FOCUS: Work completion detection and next work preparation only
 
-# Priority 2: Check if command indicates work completion
+# Priority 1: Check if command indicates work completion
 if [[ "$command" =~ "WORK:COMPLETED" ]]; then
     # Use centralized journal query instead of regex parsing
     PERSONA=$(es-journal-query.sh work-completed-persona)
@@ -65,62 +47,51 @@ EOF
                 log_hook_event "WORK:QUEUE" "Failed to prepare work script for $PERSONA"
             fi
         else
-            # No more work - check if this persona should hand off
-            log_hook_event "WORK:QUEUE" "No more work for $PERSONA, checking for auto-handoff"
-            
-            # Use centralized handoff logic
-            NEXT_PERSONA=$(es-journal-query.sh should-handoff "$PERSONA")
-            HANDOFF_EXIT_CODE=$?
-            
-            if [ $HANDOFF_EXIT_CODE -eq 0 ] && [ -n "$NEXT_PERSONA" ]; then
-                # CRITICAL: Auto-trigger handoff when all work is complete
-                # Use atomic write operation
-                echo "$NEXT_PERSONA" > /tmp/force-session-end.tmp
-                mv /tmp/force-session-end.tmp /tmp/force-session-end
-                
-                # Create backup for debugging
-                echo "$NEXT_PERSONA" > "/tmp/force-session-end-backup-$(date +%s)"
-                
-                # Verify file was created
-                if [ -f /tmp/force-session-end ]; then
-                    log_hook_event "AUTOMATION:AUTO_HANDOFF" "Auto-triggering $PERSONA handoff to $NEXT_PERSONA (file created successfully)"
-                else
-                    log_hook_event "ERROR" "Failed to create force-session-end file for $NEXT_PERSONA"
-                fi
-            else
-                log_hook_event "WORK:QUEUE" "No handoff needed for $PERSONA (exit code: $HANDOFF_EXIT_CODE)"
-            fi
+            # No more work - log completion but don't trigger handoff here
+            # The journal hook will handle transition decisions via pure event sourcing
+            log_hook_event "WORK:QUEUE" "No more work for $PERSONA - all work items completed"
+            log_hook_event "DEBUG" "Handoff decisions now handled by journal hook via event sourcing"
         fi
     else
         log_hook_event "WORK:QUEUE" "Could not determine valid persona from recent work completion: '$PERSONA'"
     fi
 fi
 
-# Priority 3: Check for handoff completion commands
-if [[ "$command" =~ "HANDOFF:COMPLETED" ]]; then
-    # Extract the target persona from the handoff message
-    if [[ "$command" =~ "handed off to ([A-Z]+)" ]] || [[ "$command" =~ "Handed off to ([A-Z]+)" ]]; then
-        TARGET_PERSONA="${BASH_REMATCH[1]}"
-        
-        # Force session end after handoff using atomic write
-        echo "$TARGET_PERSONA" > /tmp/force-session-end.tmp
-        mv /tmp/force-session-end.tmp /tmp/force-session-end
-        
-        log_hook_event "AUTOMATION:FORCE_END" "Forcing session end after handoff to $TARGET_PERSONA"
-    fi
-fi
-
-# Priority 4: Check for handoff blocked - this means we should continue working
-if [[ "$command" =~ "HANDOFF:BLOCKED" ]]; then
+# Priority 2: Check for work blocking - this means we should continue working
+if [[ "$command" =~ "WORK:BLOCKED" ]]; then
     # Extract the persona that was blocked
     if [[ "$command" =~ "([A-Z]+) has" ]]; then
         BLOCKED_PERSONA="${BASH_REMATCH[1]}"
         
-        # Log that handoff was blocked
-        log_hook_event "AUTOMATION:HANDOFF_BLOCKED" "Handoff blocked for $BLOCKED_PERSONA, continuing work"
+        # Log that work was blocked
+        log_hook_event "WORK:QUEUE" "Work blocked for $BLOCKED_PERSONA, continuing with current persona"
         
-        # Don't force session end - let the persona continue working
-        # Remove any force-session-end marker
-        rm -f /tmp/force-session-end /tmp/force-session-end.tmp
+        # Don't prepare new work - let the persona handle the blocking issue
+        # Remove any prepared work scripts since they may be invalid
+        rm -f /tmp/execute-next-work.sh /tmp/execute-next-work.sh.tmp
+        
+        log_hook_event "DEBUG" "Removed prepared work scripts due to blocking issue"
     fi
 fi
+
+# Priority 3: Check for work starting - prepare for potential next item
+if [[ "$command" =~ "WORK:STARTED" ]]; then
+    # Extract persona if possible
+    if [[ "$command" =~ "([A-Z]+):" ]]; then
+        STARTED_PERSONA="${BASH_REMATCH[1]}"
+        log_hook_event "WORK:QUEUE" "Work started for $STARTED_PERSONA"
+        
+        # Optionally pre-prepare next work item while current one is executing
+        # This is an optimization but not critical
+        PENDING_COUNT=$(es-journal-query.sh pending-work "$STARTED_PERSONA" 2>/dev/null | wc -l)
+        if [ "$PENDING_COUNT" -gt 1 ]; then
+            log_hook_event "DEBUG" "$STARTED_PERSONA has $PENDING_COUNT items total, pre-preparation possible"
+        fi
+    fi
+fi
+
+# REMOVED: All handoff completion detection logic
+# REMOVED: All force session end logic
+# REMOVED: All persona-work-ready signaling
+
+log_hook_event "DEBUG" "Work queue monitor completed - focusing only on work preparation"

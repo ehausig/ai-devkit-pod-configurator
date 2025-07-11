@@ -1,5 +1,5 @@
 #!/bin/bash
-# DEVELOPER Persona Handoff Script
+# DEVELOPER Persona Handoff Script - CLEANED for pure event sourcing
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -11,8 +11,9 @@ NC='\033[0m' # No Color
 echo -e "${BLUE}=== DEVELOPER Handoff Process ===${NC}"
 echo ""
 
-# Log handoff request
+# Log handoff request with transition event
 es-journal-log.sh "HANDOFF:REQUEST" "DEVELOPER requesting handoff to QA"
+es-journal-log.sh "TRANSITION:REQUESTED" "DEVELOPER -> QA"
 
 # Check for pending work
 echo -e "${YELLOW}Checking for pending work...${NC}"
@@ -216,27 +217,23 @@ EOF
 
 echo -e "${GREEN}Created HANDOFF_TO_QA.md${NC}"
 
-# Complete handoff - CRITICAL: Use exact format that works with work queue monitor
+# Complete handoff - PURE EVENT SOURCING: Only log to journal
 es-journal-log.sh "HANDOFF:COMPLETED" "Handed off to QA with $QA_WORK_ITEMS work items"
 es-journal-log.sh "DEVELOPER:CONTEXT" "Implementation complete, all tests passing, PR #${PR_NUMBER:-pending}"
 
 echo ""
 echo -e "${BLUE}=== Handoff Complete ===${NC}"
 echo ""
-echo -e "${YELLOW}QA should now be triggered automatically...${NC}"
+echo -e "${YELLOW}QA should now be automatically triggered via journal hook...${NC}"
 echo ""
 
-# CRITICAL: Signal that work is ready for QA using atomic write
-echo "QA" > /tmp/persona-work-ready.tmp
-mv /tmp/persona-work-ready.tmp /tmp/persona-work-ready
+# REMOVED: All file signaling logic
+# REMOVED: echo "QA" > /tmp/persona-work-ready.tmp
+# REMOVED: mv /tmp/persona-work-ready.tmp /tmp/persona-work-ready
+# REMOVED: Sleep statements
 
-echo -e "${GREEN}✓ Work queue signaled for QA${NC}"
+echo -e "${GREEN}✓ Handoff logged to journal${NC}"
 echo ""
-echo "The work queue monitor will detect this and trigger the handoff."
-
-# Add a small delay to ensure the hook system processes the handoff
-sleep 1
-
+echo "The journal hook will detect the handoff and automatically trigger QA initialization."
 echo ""
-echo "Handoff should be automatically processed by the hook system."
 echo "If automatic handoff fails, manually run: persona-qa-init.sh"
