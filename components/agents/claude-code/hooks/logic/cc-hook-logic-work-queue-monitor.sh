@@ -1,97 +1,157 @@
 #!/bin/bash
-# Work queue monitor hook logic - SIMPLIFIED to remove handoff logic
+# Work queue monitor hook logic - FIXED: Proper error handling for autonomous execution
 # Called by hook-framework.sh
-# Focus: Work completion monitoring and preparation only
+# Focus: Immediate work execution and persona transitions
 
 # Extract command
 command=$(get_command)
 
-# REMOVED: All handoff detection logic - now handled by journal hook
-# REMOVED: All file signaling logic (/tmp/persona-work-ready, /tmp/force-session-end)
-# FOCUS: Work completion detection and next work preparation only
+# Check if autonomous mode is enabled
+AUTONOMOUS_MODE="${CLAUDE_AUTONOMOUS_MODE:-false}"
+if [ "$AUTONOMOUS_MODE" != "true" ]; then
+    log_hook_event "DEBUG" "Autonomous mode disabled, normal work queue monitoring"
+    exit 0
+fi
 
-# Priority 1: Check if command indicates work completion
+# FIXED: Trigger autonomous execution with proper error handling
 if [[ "$command" =~ "WORK:COMPLETED" ]]; then
     # Use centralized journal query instead of regex parsing
     PERSONA=$(es-journal-query.sh work-completed-persona)
     
     if [ -n "$PERSONA" ] && [[ "$PERSONA" =~ ^(ARCHITECT|DEVELOPER|QA|REVIEWER|MERGER)$ ]]; then
-        log_hook_event "WORK:QUEUE" "Detected work completion for $PERSONA"
+        log_hook_event "AUTONOMOUS:WORK_COMPLETED" "Detected work completion for $PERSONA"
         
         # Check if more work exists for this persona
         PENDING_COUNT=$(es-journal-query.sh pending-work "$PERSONA" 2>/dev/null | wc -l)
         
-        # Debug logging
         log_hook_event "DEBUG" "Pending count for $PERSONA: $PENDING_COUNT"
         
         if [ "$PENDING_COUNT" -gt 0 ]; then
-            # Prepare next work item
-            log_hook_event "WORK:QUEUE" "Preparing next work item for $PERSONA ($PENDING_COUNT remaining)"
-            es-work-tracker.sh prepare "$PERSONA"
+            # More work exists - execute next item immediately
+            log_hook_event "AUTONOMOUS:CONTINUE_WORK" "Executing next work item for $PERSONA ($PENDING_COUNT remaining)"
             
-            # Check if work script was created successfully
+            # Prepare and execute work directly in hook
+            es-work-tracker.sh prepare "$PERSONA" >/dev/null 2>&1
+            
             if [ -f /tmp/execute-next-work.sh ]; then
-                log_hook_event "WORK:QUEUE" "Work script prepared successfully for $PERSONA"
+                log_hook_event "AUTONOMOUS:EXECUTING_NEXT" "Executing prepared work script for $PERSONA"
                 
-                # For PostToolUse hooks, provide feedback to Claude about the next action
-                if is_post_tool_use; then
+                # CRITICAL FIX: Execute work script and handle ALL exit codes properly
+                /tmp/execute-next-work.sh >/dev/null 2>&1
+                WORK_EXIT_CODE=$?
+                
+                if [ $WORK_EXIT_CODE -eq 0 ]; then
+                    log_hook_event "AUTONOMOUS:WORK_SUCCESS" "Next work item completed for $PERSONA"
+                    
+                    # Provide feedback to continue the cycle
                     cat << EOF >&2
 {
     "decision": "block",
-    "reason": "Next work item prepared for $PERSONA. Execute the prepared work script: /tmp/execute-next-work.sh"
+    "reason": "AUTONOMOUS WORK CONTINUATION: Successfully executed next work item for $PERSONA. The autonomous system will continue processing remaining work items automatically."
 }
 EOF
                     exit 2
+                elif [ $WORK_EXIT_CODE -eq 2 ]; then
+                    # CRITICAL: Exit code 2 should not be used by work scripts anymore
+                    log_hook_event "AUTONOMOUS:UNEXPECTED_EXIT_2" "Work script returned exit code 2 (should not happen)"
+                    
+                    # Treat as normal failure and continue
+                    log_hook_event "AUTONOMOUS:WORK_FAILED" "Next work item failed for $PERSONA (exit code 2)"
+                    
+                    # Don't block the entire flow, just log the issue
+                    exit 0
+                else
+                    # Exit code 1 or other - normal failure, log but continue
+                    log_hook_event "AUTONOMOUS:WORK_FAILED" "Next work item failed for $PERSONA (exit code $WORK_EXIT_CODE)"
+                    
+                    # Don't block autonomous flow for normal failures
+                    exit 0
                 fi
             else
-                log_hook_event "WORK:QUEUE" "Failed to prepare work script for $PERSONA"
+                log_hook_event "AUTONOMOUS:PREP_FAILED" "Failed to prepare next work for $PERSONA"
+                exit 0
             fi
         else
-            # No more work - log completion but don't trigger handoff here
-            # The journal hook will handle transition decisions via pure event sourcing
-            log_hook_event "WORK:QUEUE" "No more work for $PERSONA - all work items completed"
-            log_hook_event "DEBUG" "Handoff decisions now handled by journal hook via event sourcing"
+            # No more work - handoff should have been triggered by work script
+            log_hook_event "AUTONOMOUS:NO_MORE_WORK" "No more work for $PERSONA - handoff should have been executed"
+            
+            # Check if handoff was completed
+            RECENT_HANDOFF=$(es-journal-query.sh recent-context "$PERSONA" 5 | grep -c "HANDOFF:COMPLETED" || echo "0")
+            
+            if [ "$RECENT_HANDOFF" -gt 0 ]; then
+                log_hook_event "AUTONOMOUS:HANDOFF_DETECTED" "Handoff already completed by work script"
+            else
+                log_hook_event "AUTONOMOUS:HANDOFF_MISSING" "Expected handoff not found - may need manual intervention"
+            fi
+            
+            # Don't block - let the Stop hook handle any transitions
+            exit 0
         fi
     else
-        log_hook_event "WORK:QUEUE" "Could not determine valid persona from recent work completion: '$PERSONA'"
+        log_hook_event "AUTONOMOUS:PERSONA_UNKNOWN" "Could not determine valid persona from work completion: '$PERSONA'"
     fi
 fi
 
-# Priority 2: Check for work blocking - this means we should continue working
-if [[ "$command" =~ "WORK:BLOCKED" ]]; then
-    # Extract the persona that was blocked
-    if [[ "$command" =~ "([A-Z]+) has" ]]; then
-        BLOCKED_PERSONA="${BASH_REMATCH[1]}"
+# Check for handoff completion (persona transitions)
+if [[ "$command" =~ "HANDOFF:COMPLETED" ]]; then
+    log_hook_event "AUTONOMOUS:HANDOFF_DETECTED" "Handoff completion detected"
+    
+    # Extract target persona from handoff
+    HANDOFF_TARGET=$(es-journal-query.sh recent-handoff-unprocessed 2>/dev/null)
+    
+    if [ $? -eq 0 ] && [ -n "$HANDOFF_TARGET" ] && [[ "$HANDOFF_TARGET" =~ ^(ARCHITECT|DEVELOPER|QA|REVIEWER|MERGER)$ ]]; then
+        log_hook_event "AUTONOMOUS:PROCESSING_HANDOFF" "Processing handoff to $HANDOFF_TARGET"
         
-        # Log that work was blocked
-        log_hook_event "WORK:QUEUE" "Work blocked for $BLOCKED_PERSONA, continuing with current persona"
-        
-        # Don't prepare new work - let the persona handle the blocking issue
-        # Remove any prepared work scripts since they may be invalid
-        rm -f /tmp/execute-next-work.sh /tmp/execute-next-work.sh.tmp
-        
-        log_hook_event "DEBUG" "Removed prepared work scripts due to blocking issue"
-    fi
-fi
-
-# Priority 3: Check for work starting - prepare for potential next item
-if [[ "$command" =~ "WORK:STARTED" ]]; then
-    # Extract persona if possible
-    if [[ "$command" =~ "([A-Z]+):" ]]; then
-        STARTED_PERSONA="${BASH_REMATCH[1]}"
-        log_hook_event "WORK:QUEUE" "Work started for $STARTED_PERSONA"
-        
-        # Optionally pre-prepare next work item while current one is executing
-        # This is an optimization but not critical
-        PENDING_COUNT=$(es-journal-query.sh pending-work "$STARTED_PERSONA" 2>/dev/null | wc -l)
-        if [ "$PENDING_COUNT" -gt 1 ]; then
-            log_hook_event "DEBUG" "$STARTED_PERSONA has $PENDING_COUNT items total, pre-preparation possible"
+        # Initialize target persona
+        TARGET_INIT="persona-$(echo $HANDOFF_TARGET | tr '[:upper:]' '[:lower:]')-init.sh"
+        if command -v "$TARGET_INIT" >/dev/null 2>&1; then
+            # Execute init script
+            "$TARGET_INIT" >/dev/null 2>&1
+            INIT_EXIT_CODE=$?
+            
+            if [ $INIT_EXIT_CODE -eq 0 ]; then
+                log_hook_event "AUTONOMOUS:TARGET_INIT" "$HANDOFF_TARGET initialized from handoff"
+                
+                # Start work immediately
+                es-work-tracker.sh prepare "$HANDOFF_TARGET" >/dev/null 2>&1
+                
+                if [ -f /tmp/execute-next-work.sh ]; then
+                    log_hook_event "AUTONOMOUS:HANDOFF_WORK_START" "Starting work for $HANDOFF_TARGET from handoff"
+                    
+                    # Execute work with proper error handling
+                    /tmp/execute-next-work.sh >/dev/null 2>&1
+                    WORK_EXIT_CODE=$?
+                    
+                    if [ $WORK_EXIT_CODE -eq 0 ]; then
+                        log_hook_event "AUTONOMOUS:HANDOFF_WORK_SUCCESS" "Started work successfully for $HANDOFF_TARGET"
+                        
+                        cat << EOF >&2
+{
+    "decision": "block",
+    "reason": "AUTONOMOUS HANDOFF PROCESSING: Successfully initialized $HANDOFF_TARGET and started their work automatically. The workflow continues autonomously."
+}
+EOF
+                        exit 2
+                    else
+                        # Don't fail the whole flow for work failures
+                        log_hook_event "AUTONOMOUS:HANDOFF_WORK_FAILED" "Failed to start work for $HANDOFF_TARGET (exit code $WORK_EXIT_CODE)"
+                        exit 0
+                    fi
+                else
+                    log_hook_event "AUTONOMOUS:NO_WORK_PREPARED" "No work script prepared for $HANDOFF_TARGET"
+                    exit 0
+                fi
+            else
+                log_hook_event "AUTONOMOUS:TARGET_INIT_FAILED" "Failed to initialize $HANDOFF_TARGET from handoff"
+                exit 0
+            fi
+        else
+            log_hook_event "AUTONOMOUS:INIT_SCRIPT_MISSING" "Init script not found: $TARGET_INIT"
+            exit 0
         fi
     fi
 fi
 
-# REMOVED: All handoff completion detection logic
-# REMOVED: All force session end logic
-# REMOVED: All persona-work-ready signaling
-
-log_hook_event "DEBUG" "Work queue monitor completed - focusing only on work preparation"
+# Normal hook completion (no autonomous action needed)
+log_hook_event "DEBUG" "Work queue monitor completed - no autonomous action required"
+exit 0

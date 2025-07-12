@@ -9,7 +9,8 @@
     "DISABLE_COST_WARNINGS": "0",
     "DISABLE_ERROR_REPORTING": "1",
     "DISABLE_NON_ESSENTIAL_MODEL_CALLS": "0",
-    "DISABLE_TELEMETRY": "1"
+    "DISABLE_TELEMETRY": "1",
+    "CLAUDE_AUTONOMOUS_MODE": "false"
   },
   "permissions": {
     "defaultMode": "acceptEdits",
@@ -48,6 +49,7 @@
       "Bash(~/workspace/cc-common.sh)",
       "Bash(setup-git.sh)",
       "Bash(~/workspace/setup-git.sh)",
+      "Bash(/tmp/execute-next-work.sh)",
       "Bash(autoexpect:*)",
       "Bash(awk:*)",
       "Bash(cc-hook-logic-bash-logger.sh)",
@@ -265,6 +267,10 @@
       {
         "matcher": "",
         "hooks": [
+          {
+            "type": "command",
+            "command": "cc-hook-autonomous-controller.sh"
+          },
           {
             "type": "command",
             "command": "cc-hook-journal.sh"

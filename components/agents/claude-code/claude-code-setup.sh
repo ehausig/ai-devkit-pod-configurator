@@ -414,4 +414,15 @@ if [[ -d "$SCRIPT_DIR/claude-code/hooks/logic" ]]; then
     done
 fi
 
+# NEW: Copy autonomous setup script
+if [[ -f "$SCRIPT_DIR/claude-code/scripts/common/setup-autonomous-mode.sh" ]]; then
+    cp "$SCRIPT_DIR/claude-code/scripts/common/setup-autonomous-mode.sh" "$TEMP_DIR/claude-scripts/"
+    chmod +x "$TEMP_DIR/claude-scripts/setup-autonomous-mode.sh"
+    success "Copied autonomous setup script"
+fi
+
 log "Claude Code pre-build completed successfully"
+
+# NEW: Add autonomous mode setup information
+log "Autonomous mode configuration available after installation"
+info "Run 'setup-autonomous-mode.sh enable' to enable autonomous workflows"
