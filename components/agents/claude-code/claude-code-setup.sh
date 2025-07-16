@@ -1,6 +1,6 @@
 #!/bin/bash
-# Claude Code pre-build script
-# Generates component imports, handles file copying, processes hooks, and sets up personas
+# Claude Code pre-build script - REFACTORED for event-driven architecture
+# Generates component imports and sets up event sourcing system
 
 # Standard arguments
 TEMP_DIR="$1"
@@ -32,7 +32,7 @@ SETTINGS_TEMPLATE="$SCRIPT_DIR/claude-code/claude-settings.json.template"
 
 log "Generating component imports for user CLAUDE.md..."
 
-# Create component imports file
+# Create component imports file (same as before)
 IMPORTS_OUTPUT="$TEMP_DIR/component-imports.txt"
 cat > "$IMPORTS_OUTPUT" << 'EOF'
 
@@ -113,12 +113,10 @@ for yaml_file in $SELECTED_YAML_FILES; do
     done < "$yaml_file"
     
     # Extract category from path
-    # The path should be like "components/CATEGORY/file.yaml"
     category=""
     if [[ "$yaml_file" =~ components/([^/]+)/[^/]+\.yaml$ ]]; then
         category="${BASH_REMATCH[1]}"
     else
-        # Last resort: parent directory
         category=$(basename "$(dirname "$yaml_file")")
     fi
     
@@ -166,12 +164,6 @@ for yaml_file in $SELECTED_YAML_FILES; do
         info "  No ${md_filename} found - skipping component documentation"
     fi
 done
-
-# Debug: Show collected data
-info "Categories collected:"
-cat "$TEMP_CATEGORIES"
-info "Components collected:"
-cat "$TEMP_COMPONENTS"
 
 # Write installed components section organized by category
 while IFS='|' read -r category display_name; do
@@ -259,10 +251,11 @@ rm -f "$TEMP_CATEGORIES" "$TEMP_COMPONENTS" "$TEMP_ALL_COMPONENTS"
 
 success "Generated component imports for user CLAUDE.md"
 
-# Always create claude-commands, claude-hooks, and claude-scripts directories to prevent Docker COPY failures
+# Always create directories to prevent Docker COPY failures
 mkdir -p "$TEMP_DIR/claude-commands"
 mkdir -p "$TEMP_DIR/claude-hooks"
 mkdir -p "$TEMP_DIR/claude-scripts"
+mkdir -p "$TEMP_DIR/claude-personas"
 
 # Copy user-CLAUDE.md
 log "Copying user-CLAUDE.md..."
@@ -285,9 +278,6 @@ COMMANDS_DIR="$SCRIPT_DIR/claude-code/commands"
 if [[ -d "$COMMANDS_DIR" ]]; then
     log "Copying Claude Code slash commands..."
     
-    # Create commands directory in temp
-    mkdir -p "$TEMP_DIR/claude-commands"
-    
     # Copy all .md files from commands directory
     for cmd_file in "$COMMANDS_DIR"/*.md; do
         if [[ -f "$cmd_file" ]]; then
@@ -297,26 +287,9 @@ if [[ -d "$COMMANDS_DIR" ]]; then
         fi
     done
     
-    # Check for subdirectories (for namespaced commands)
-    for subdir in "$COMMANDS_DIR"/*; do
-        if [[ -d "$subdir" ]]; then
-            subdir_name=$(basename "$subdir")
-            mkdir -p "$TEMP_DIR/claude-commands/$subdir_name"
-            
-            for cmd_file in "$subdir"/*.md; do
-                if [[ -f "$cmd_file" ]]; then
-                    cmd_basename=$(basename "$cmd_file")
-                    cp "$cmd_file" "$TEMP_DIR/claude-commands/$subdir_name/"
-                    success "Copied namespaced command: $subdir_name/$cmd_basename"
-                fi
-            done
-        fi
-    done
-    
     success "All Claude Code slash commands copied"
 else
     info "No slash commands directory found"
-    # Create a placeholder to ensure directory exists for Docker COPY
     echo "# Claude Code Slash Commands" > "$TEMP_DIR/claude-commands/.placeholder"
     echo "No custom slash commands configured" >> "$TEMP_DIR/claude-commands/.placeholder"
 fi
@@ -339,7 +312,6 @@ if [[ -d "$HOOKS_DIR" ]]; then
     success "All Claude Code hook scripts copied"
 else
     warning "No hooks scripts directory found"
-    # Create placeholder
     echo '#!/bin/bash' > "$TEMP_DIR/claude-hooks/.placeholder.sh"
     echo '# No hooks configured' >> "$TEMP_DIR/claude-hooks/.placeholder.sh"
     chmod +x "$TEMP_DIR/claude-hooks/.placeholder.sh"
@@ -350,24 +322,20 @@ PERSONAS_DIR="$SCRIPT_DIR/claude-code/personas"
 if [[ -d "$PERSONAS_DIR" ]]; then
     log "Processing Claude Code personas..."
     
-    # Create personas directory structure in temp
-    mkdir -p "$TEMP_DIR/claude-personas"
+    # Copy all persona protocol files
+    cp "$PERSONAS_DIR"/*-PROTOCOL.md "$TEMP_DIR/claude-personas/" 2>/dev/null || true
     
-    # Copy all persona protocol files and README
-    cp "$PERSONAS_DIR"/*.md "$TEMP_DIR/claude-personas/" 2>/dev/null || true
-    
-    # Count personas (based on PROTOCOL files)
+    # Count personas
     persona_count=$(ls -1 "$TEMP_DIR/claude-personas"/*-PROTOCOL.md 2>/dev/null | wc -l)
     success "Processed $persona_count personas"
 else
-    info "No personas directory found - using single-persona mode"
-    # Create placeholder to ensure directory exists
+    info "No personas directory found"
     mkdir -p "$TEMP_DIR/claude-personas"
-    echo "# Single Persona Mode" > "$TEMP_DIR/claude-personas/README.md"
+    echo "# Event-Driven Personas" > "$TEMP_DIR/claude-personas/README.md"
 fi
 
-# Copy all scripts from new structure
-log "Copying all scripts..."
+# Copy all scripts from new event-driven structure
+log "Copying all event-driven scripts..."
 mkdir -p "$TEMP_DIR/claude-scripts"
 
 # Copy event sourcing scripts
@@ -379,17 +347,13 @@ if [[ -d "$SCRIPT_DIR/claude-code/scripts/event-sourcing" ]]; then
             success "Copied script: $(basename "$script")"
         fi
     done
-fi
-
-# Copy persona scripts
-if [[ -d "$SCRIPT_DIR/claude-code/scripts/personas" ]]; then
-    for script in "$SCRIPT_DIR/claude-code/scripts/personas"/*.sh; do
-        if [[ -f "$script" ]]; then
-            cp "$script" "$TEMP_DIR/claude-scripts/"
-            chmod +x "$TEMP_DIR/claude-scripts/$(basename "$script")"
-            success "Copied script: $(basename "$script")"
-        fi
-    done
+    
+    # Verify es-actor-base.sh was copied
+    if [[ -f "$TEMP_DIR/claude-scripts/es-actor-base.sh" ]]; then
+        success "Verified es-actor-base.sh is included"
+    else
+        warning "es-actor-base.sh not found in event-sourcing directory!"
+    fi
 fi
 
 # Copy common scripts
@@ -403,6 +367,22 @@ if [[ -d "$SCRIPT_DIR/claude-code/scripts/common" ]]; then
     done
 fi
 
+# Copy persona actor scripts
+if [[ -d "$SCRIPT_DIR/claude-code/scripts/personas" ]]; then
+    log "Copying persona actor scripts..."
+    
+    # Copy all actor scripts
+    for script in "$SCRIPT_DIR/claude-code/scripts/personas"/*-actor.sh; do
+        if [[ -f "$script" ]]; then
+            cp "$script" "$TEMP_DIR/claude-scripts/"
+            chmod +x "$TEMP_DIR/claude-scripts/$(basename "$script")"
+            success "Copied actor: $(basename "$script")"
+        fi
+    done
+else
+    warning "No personas scripts directory found"
+fi
+
 # Copy hook logic scripts
 if [[ -d "$SCRIPT_DIR/claude-code/hooks/logic" ]]; then
     for script in "$SCRIPT_DIR/claude-code/hooks/logic"/*.sh; do
@@ -414,15 +394,9 @@ if [[ -d "$SCRIPT_DIR/claude-code/hooks/logic" ]]; then
     done
 fi
 
-# NEW: Copy autonomous setup script
-if [[ -f "$SCRIPT_DIR/claude-code/scripts/common/setup-autonomous-mode.sh" ]]; then
-    cp "$SCRIPT_DIR/claude-code/scripts/common/setup-autonomous-mode.sh" "$TEMP_DIR/claude-scripts/"
-    chmod +x "$TEMP_DIR/claude-scripts/setup-autonomous-mode.sh"
-    success "Copied autonomous setup script"
-fi
-
 log "Claude Code pre-build completed successfully"
 
-# NEW: Add autonomous mode setup information
-log "Autonomous mode configuration available after installation"
-info "Run 'setup-autonomous-mode.sh enable' to enable autonomous workflows"
+# NEW: Add event-driven system information
+log "Event-driven autonomous system configured"
+info "System will activate automatically when work is assigned"
+info "Personas communicate through journal events only"

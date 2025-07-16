@@ -49,9 +49,10 @@ Create the following documents in the project:
 
 ### Example Log Entries
 ```bash
-es-journal-log.sh "ARCHITECT:DECISION" "Chose PostgreSQL over MongoDB for ACID compliance"
-es-journal-log.sh "ARCHITECT:MEMORY" "Hard requirement: Must support 10k concurrent users"
-es-journal-log.sh "ARCHITECT:CONTEXT" "Completed API design, 3 services identified"
+# Using direct journal writes (event-driven system uses es-event-emit)
+echo "$(date -Iseconds) [ARCHITECT:DECISION] Chose PostgreSQL over MongoDB for ACID compliance" >> ~/workspace/JOURNAL.md
+echo "$(date -Iseconds) [ARCHITECT:MEMORY] Hard requirement: Must support 10k concurrent users" >> ~/workspace/JOURNAL.md
+echo "$(date -Iseconds) [ARCHITECT:CONTEXT] Completed API design, 3 services identified" >> ~/workspace/JOURNAL.md
 ```
 
 ## Handoff Criteria
@@ -69,18 +70,16 @@ Before handing off to DEVELOPER:
 
 1. **Summarize Work**:
    ```bash
-   es-journal-log.sh "ARCHITECT:CONTEXT" "Architecture complete: [summary]"
+   echo "$(date -Iseconds) [ARCHITECT:CONTEXT] Architecture complete: [summary]" >> ~/workspace/JOURNAL.md
    ```
 
 2. **Log Critical Information**:
    ```bash
-   es-journal-log.sh "ARCHITECT:MEMORY" "Key architectural decisions: [list]"
+   echo "$(date -Iseconds) [ARCHITECT:MEMORY] Key architectural decisions: [list]" >> ~/workspace/JOURNAL.md
    ```
 
 3. **Execute Handoff**:
-   ```bash
-   persona-architect-handoff.sh
-   ```
+   In the event-driven system, the actor will automatically generate work items and emit handoff events.
 
 ## Common Patterns
 

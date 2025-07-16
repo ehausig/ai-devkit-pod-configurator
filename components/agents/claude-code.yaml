@@ -2,7 +2,7 @@ id: CLAUDE_CODE
 name: Claude Code (AI Assistant)
 group: ai-agents
 requires: []
-description: Anthropic's AI coding assistant for development
+description: Anthropic's AI coding assistant with autonomous event-driven development
 pre_build_script: claude-code/claude-code-setup.sh
 installation:
   dockerfile: |
@@ -64,14 +64,14 @@ entrypoint_setup: |
       echo "Claude Code slash commands installed successfully"
   fi
   
-  # Install all scripts to /usr/local/bin
+  # Install all scripts to /usr/local/bin WITHOUT .sh extension
   if [ -d /tmp/claude-scripts ]; then
       echo "Installing Claude Code scripts..."
       
-      # Install all scripts with proper permissions
+      # Install all scripts with proper permissions, removing .sh extension
       for script in /tmp/claude-scripts/*.sh; do
           if [ -f "$script" ]; then
-              script_name=$(basename "$script")
+              script_name=$(basename "$script" .sh)
               cp "$script" "/usr/local/bin/$script_name"
               chmod 755 "/usr/local/bin/$script_name"
               echo "  - Installed: $script_name"
@@ -81,7 +81,7 @@ entrypoint_setup: |
       echo "Claude Code scripts installed successfully"
   fi
   
-  # Install hook scripts if they exist
+  # Install hook scripts if they exist (keeping .sh extension for hooks)
   if [ -d /tmp/claude-hooks ]; then
       echo "Installing Claude Code hooks..."
       
@@ -145,44 +145,21 @@ entrypoint_setup: |
   # Ensure proper ownership
   chown -R devuser:devuser /home/devuser/.claude 2>/dev/null || true
   
-  # Create symlinks in workspace for Claude Code script access
-  echo "Creating symlinks for persona and event sourcing scripts..."
-  mkdir -p /home/devuser/workspace
-  
-  # Create symlinks for event sourcing scripts
-  for script in es-journal-log.sh es-journal-query.sh es-context-window.sh es-work-tracker.sh; do
-      if [ -f "/usr/local/bin/$script" ]; then
-          ln -sf "/usr/local/bin/$script" "/home/devuser/workspace/$script"
-          echo "  - Created symlink: ~/workspace/$script -> /usr/local/bin/$script"
-      fi
-  done
-  
-  # Create symlinks for persona scripts
-  for script in persona-architect-init.sh persona-architect-handoff.sh \
-                persona-developer-init.sh persona-developer-handoff.sh \
-                persona-qa-init.sh persona-qa-handoff.sh \
-                persona-reviewer-init.sh persona-reviewer-handoff.sh \
-                persona-merger-init.sh persona-merger-handoff.sh; do
-      if [ -f "/usr/local/bin/$script" ]; then
-          ln -sf "/usr/local/bin/$script" "/home/devuser/workspace/$script"
-          echo "  - Created symlink: ~/workspace/$script -> /usr/local/bin/$script"
-      fi
-  done
-  
-  # Create symlinks for common utility scripts
-  for script in cc-common.sh setup-git.sh; do
-      if [ -f "/usr/local/bin/$script" ]; then
-          ln -sf "/usr/local/bin/$script" "/home/devuser/workspace/$script"
-          echo "  - Created symlink: ~/workspace/$script -> /usr/local/bin/$script"
-      fi
-  done
-  
-  # Ensure proper ownership of workspace and symlinks
-  chown -R devuser:devuser /home/devuser/workspace 2>/dev/null || true
+  # Event-driven system information
+  echo "Event-driven scripts available in PATH:"
+  echo "  - es-event-emit"
+  echo "  - es-event-monitor"
+  echo "  - es-projection"
+  echo "  - es-actor-base"
+  echo "  - architect-actor"
+  echo "  - developer-actor"
+  echo "  - qa-actor"
+  echo "  - reviewer-actor"
+  echo "  - merger-actor"
   
   # Verify installed components (only if expected)
   if command -v claude &> /dev/null 2>&1; then
       echo "Claude Code is available at: $(which claude)"
   fi
   
-  echo "Claude Code symlinks created successfully"
+  echo "Claude Code event-driven system configured successfully"

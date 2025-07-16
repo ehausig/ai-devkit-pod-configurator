@@ -1,209 +1,101 @@
-# MANDATORY Development Protocol
+# Autonomous Development System
 
-## STOP! READ THIS FIRST
-You MUST follow EVERY step in this document. No exceptions. No shortcuts.
+## Quick Start
 
-## Communication Style
-Be conversational, but ALWAYS follow the protocol below exactly.
+Simply tell me what you want to build:
+- "Create a REST API for a todo list in Python"
+- "Build a web scraper in Node.js"
+- "Develop a CLI tool in Rust"
+- "Make a hello world app"
 
-## Event-Driven Development System
+The system will automatically design, implement, test, review, and integrate your project through autonomous personas.
 
-### Journal as Event Store
-The `~/workspace/JOURNAL.md` file is your PRIMARY source of truth. It uses an event sourcing pattern where all work, decisions, and state changes are recorded as immutable events.
+## How It Works
 
-### Core Event Types
-- `[WORK:PENDING]` - Work that needs to be done
-- `[WORK:STARTED]` - Work has begun (prevents duplicate processing)
-- `[WORK:COMPLETED]` - Work is finished
-- `[WORK:BLOCKED]` - Work cannot proceed (with reason)
-- `[HANDOFF:REQUEST]` - Persona wants to hand off
-- `[HANDOFF:VALIDATED]` - Requirements checked and passed
-- `[HANDOFF:COMPLETED]` - Next persona can begin
-- `[SAFETY:LIMIT]` - Safety threshold exceeded
-- `[PERSONA:STUCK]` - No progress detected
+This is an **event-driven autonomous system** where development personas (ARCHITECT, DEVELOPER, QA, REVIEWER, MERGER) collaborate through journal events. Each persona:
 
-### Working with the Journal
+1. **Monitors** the journal for assigned work
+2. **Executes** their specialized tasks
+3. **Hands off** to the next appropriate persona
+4. **Logs** decisions and progress for visibility
 
-**Query pending work:**
+## Monitoring Progress
+
+### Real-time Event Stream
 ```bash
-es-journal-query.sh pending-work DEVELOPER
+tail -f ~/workspace/JOURNAL.md | grep EVENT
 ```
 
-**Mark work progress:**
+### Check System Status
 ```bash
-es-journal-log.sh "WORK:STARTED" "DEVELOPER: Create user authentication module"
-# ... do the work ...
-es-journal-log.sh "WORK:COMPLETED" "DEVELOPER: Create user authentication module"
+es-projection "" system_state
 ```
 
-**Check safety status:**
+### View Specific Persona Status
 ```bash
-es-journal-query.sh safety-check DEVELOPER
+es-projection DEVELOPER current_state
+es-projection DEVELOPER pending_work
 ```
 
-## Persona System
-
-### Active Personas
-Each persona has specific responsibilities and uses the journal for work coordination:
-
-- **ARCHITECT**: System design, creates work items for DEVELOPER
-- **DEVELOPER**: Implementation, creates work items for QA
-- **QA**: Testing, creates work items for REVIEWER or DEVELOPER
-- **REVIEWER**: Code review, creates work items for MERGER or DEVELOPER
-- **MERGER**: Integration, completes the cycle
-
-### Persona Workflow
-
-1. **Initialization Phase**
-   - Check journal for pending work
-   - Process pending items, mark progress
-   - Handoff: Create work items for next persona
-
-2. **Work Execution Phase**
-   - Process pending items systematically
-   - Mark each item as STARTED then COMPLETED
-   - Log all decisions and context
-
-3. **Handoff Phase**
-   - Verify all work complete
-   - Create specific work items for next persona
-   - Execute handoff script
-
-### Critical Rules
-
-#### When Starting Work
-1. **Always check pending work first:**
-   ```bash
-   es-journal-query.sh pending-work ARCHITECT
-   ```
-
-2. **Mark work as started:**
-   ```bash
-   es-journal-log.sh "WORK:STARTED" "ARCHITECT: Create system architecture"
-   ```
-
-3. **Complete work and mark it:**
-   ```bash
-   es-journal-log.sh "WORK:COMPLETED" "ARCHITECT: Create system architecture"
-   ```
-
-#### During Handoffs
-1. **Check all work is complete:**
-   ```bash
-   es-journal-query.sh handoff-ready ARCHITECT
-   ```
-
-2. **Create specific work items for next persona:**
-   ```bash
-   es-journal-log.sh "WORK:PENDING" "DEVELOPER: Write tests for user module"
-   es-journal-log.sh "WORK:PENDING" "DEVELOPER: Implement user module"
-   ```
-
-3. **Complete the handoff:**
-   ```bash
-   es-journal-log.sh "HANDOFF:COMPLETED" "Handed off to DEVELOPER with 5 work items"
-   ```
-
-### Explicit Work Instructions
-
-When a persona is initialized, you will see:
-1. A list of pending work items
-2. The first item highlighted for immediate action
-3. Clear instructions on how to proceed
-
-**Example:**
-```
-Found 3 pending work items:
-1. DEVELOPER: Create feature branch feat/backend-api
-2. DEVELOPER: Write failing tests for user model
-3. DEVELOPER: Implement user model to pass tests
-
-Your immediate task:
-→ Create feature branch feat/backend-api
-
-Action plan:
-1. Start this work item:
-   es-journal-log.sh 'WORK:STARTED' 'DEVELOPER: Create feature branch feat/backend-api'
-```
-
-### Safety Mechanisms
-
-The system prevents infinite loops through:
-1. **Iteration counting** - Maximum 10 inits per persona
-2. **Progress checking** - Must show completed work
-3. **Work validation** - Can't hand off with pending items
-
-### Context Recovery
-
-If context is lost:
+### See Recent Decisions
 ```bash
-# Get current status
-es-journal-query.sh work-summary ARCHITECT
-
-# View recent context
-es-context-window.sh ARCHITECT
-
-# Check pending work
-es-journal-query.sh pending-work ARCHITECT
+grep "DECISION\|MEMORY\|ISSUE" ~/workspace/JOURNAL.md | tail -20
 ```
 
-## Step-by-Step Example
+## The Development Workflow
 
-### Starting as ARCHITECT
+1. **ARCHITECT** - Creates system design and architecture
+2. **DEVELOPER** - Implements code following TDD practices  
+3. **QA** - Tests against real services (no mocks)
+4. **REVIEWER** - Reviews code quality and compliance
+5. **MERGER** - Integrates changes and manages releases
+
+The workflow is **not linear** - personas can hand work back (e.g., REVIEWER → DEVELOPER for fixes).
+
+## Key Commands
+
+- `es-event-monitor` - The autonomous event loop (starts automatically)
+- `es-projection [PERSONA] [VIEW]` - Query system state
+- `es-event-emit TYPE "FIELDS"` - Emit events (for debugging)
+
+## Journal Structure
+
+The `~/workspace/JOURNAL.md` file is the single source of truth using event sourcing:
+
+- `[EVENT]` entries drive the autonomous system
+- `[PERSONA:DECISION]` entries log architectural and implementation choices
+- `[PERSONA:MEMORY]` entries capture important context
+- `[PERSONA:ISSUE]` entries track problems and resolutions
+
+## Troubleshooting
+
+### System Not Starting?
+Check if the event monitor is running:
 ```bash
-persona-architect-init.sh
-# You see: "Found 0 pending work items"
-# You see: "Starting new project architecture. Please: ..."
-# You create the design documents
-# You run: persona-architect-handoff.sh
-# Work items are created for DEVELOPER
+ps aux | grep es-event-monitor
 ```
 
-### Continuing as DEVELOPER
+### Work Not Progressing?
+Check for pending work across all personas:
 ```bash
-# Automatically activated by handoff
-# You see: "Found 5 pending work items"
-# You see: "Your immediate task: → Create feature branch feat/backend-api"
-# You execute: git checkout -b feat/backend-api
-# You mark: es-journal-log.sh "WORK:STARTED" "DEVELOPER: Create feature branch feat/backend-api"
-# You mark: es-journal-log.sh "WORK:COMPLETED" "DEVELOPER: Create feature branch feat/backend-api"
-# You continue with next items...
+for p in ARCHITECT DEVELOPER QA REVIEWER MERGER; do
+  echo "$p: $(es-projection $p pending_work | wc -l) pending"
+done
 ```
 
-## DO NOT:
-- Skip marking work as STARTED/COMPLETED
-- Create vague work items
-- Hand off with incomplete work
-- Ignore safety warnings
-- Work without checking the journal first
+### Need to Debug?
+Enable debug output:
+```bash
+DEBUG=1 es-event-monitor
+```
 
-## ALWAYS:
-- Check pending work when starting
-- Mark work progress in journal
-- Create specific, actionable work items
-- Verify all work complete before handoff
-- Follow the explicit instructions shown
+## Important Notes
 
-## VERIFICATION CHECKLIST
-Before ANY action:
-- [ ] Have I checked for pending work?
-- [ ] Have I marked current work as STARTED?
-- [ ] Will I mark it COMPLETED when done?
-- [ ] Am I creating clear work items for handoff?
-- [ ] Have I checked the safety status?
+- The system runs **autonomously** - you don't need to manage personas
+- All work is tracked through **events** in the journal
+- Personas make **decisions** based on their specialized knowledge
+- The journal provides **complete visibility** into the development process
 
 ---
-*The journal at ~/workspace/JOURNAL.md is your single source of truth. All decisions, work items, and progress are tracked there.*
 
-## Base Development Tools
-
-This environment always includes these pre-installed tools:
-
-### Core Tools
-- Git @~/.claude/nodejs-base.md
-- GitHub CLI (gh)
-- SSH Server
-- Node.js 20.18.0 @~/.claude/nodejs-base.md
-- Microsoft TUI Test
-- sed (GNU sed) 4.8
-- Ubuntu
+*The autonomous system starts when you describe what you want to build. Just tell me your requirements and watch the development unfold!*

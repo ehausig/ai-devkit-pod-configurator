@@ -1,0 +1,210 @@
+#!/bin/bash
+# Event monitor that watches the journal and activates personas reactively
+# This is the core event loop of the autonomous system
+
+JOURNAL_FILE="${JOURNAL_FILE:-$HOME/workspace/JOURNAL.md}"
+MONITOR_PID_FILE="/tmp/es-event-monitor.pid"
+LAST_LINE_FILE="/tmp/es-event-monitor.lastline"
+
+# Check if already running
+if [ -f "$MONITOR_PID_FILE" ]; then
+    OLD_PID=$(cat "$MONITOR_PID_FILE")
+    if kill -0 "$OLD_PID" 2>/dev/null; then
+        echo "Event monitor already running with PID $OLD_PID"
+        exit 0
+    fi
+fi
+
+# Store our PID
+echo $$ > "$MONITOR_PID_FILE"
+
+# Ensure journal exists
+if [ ! -f "$JOURNAL_FILE" ]; then
+    echo "# Development Journal" > "$JOURNAL_FILE"
+    echo "" >> "$JOURNAL_FILE"
+fi
+
+# Initialize last line tracker
+if [ -f "$LAST_LINE_FILE" ]; then
+    LAST_LINE=$(cat "$LAST_LINE_FILE")
+else
+    # FIXED: Start from line 0 when no lastline file exists
+    LAST_LINE=0
+    echo "$LAST_LINE" > "$LAST_LINE_FILE"
+fi
+
+# Emit monitor started event
+es-event-emit "MONITOR_STARTED" "PID:$$"
+
+# Cleanup on exit
+cleanup() {
+    es-event-emit "MONITOR_STOPPED" "PID:$$"
+    rm -f "$MONITOR_PID_FILE"
+    exit 0
+}
+trap cleanup EXIT INT TERM
+
+# Main monitoring loop
+monitor_loop() {
+    while true; do
+        CURRENT_LINE=$(wc -l < "$JOURNAL_FILE")
+        
+        if [ $CURRENT_LINE -gt $LAST_LINE ]; then
+            # Process new lines
+            tail -n +$((LAST_LINE + 1)) "$JOURNAL_FILE" | while IFS= read -r line; do
+                if [[ "$line" =~ \[EVENT\] ]]; then
+                    process_event "$line"
+                fi
+            done
+            
+            # Update last line
+            LAST_LINE=$CURRENT_LINE
+            echo "$LAST_LINE" > "$LAST_LINE_FILE"
+        fi
+        
+        # Small sleep to prevent CPU spinning
+        sleep 0.5
+    done
+}
+
+# Process individual events
+process_event() {
+    local event="$1"
+    local timestamp=$(echo "$event" | cut -d' ' -f1)
+    
+    # Extract event type
+    if [[ "$event" =~ TYPE:([^|]+) ]]; then
+        local event_type="${BASH_REMATCH[1]}"
+        
+        case "$event_type" in
+            WORK_ASSIGNED)
+                handle_work_assigned "$event"
+                ;;
+            HANDOFF_READY)
+                handle_handoff_ready "$event"
+                ;;
+            HANDOFF_INITIATED)
+                handle_handoff_initiated "$event"
+                ;;
+            PERSONA_IDLE)
+                handle_persona_idle "$event"
+                ;;
+            CYCLE_COMPLETE)
+                handle_cycle_complete "$event"
+                ;;
+            *)
+                # Other events don't require action from monitor
+                [ -n "$DEBUG" ] && echo "Monitor: Observed event $event_type"
+                ;;
+        esac
+    fi
+}
+
+# Handle work assignment - activate persona if not already active
+handle_work_assigned() {
+    local event="$1"
+    
+    if [[ "$event" =~ TO:([^|]+) ]]; then
+        local persona="${BASH_REMATCH[1]}"
+        local state=$(es-projection "$persona" "current_state")
+        
+        if [ "$state" != "ACTIVE" ]; then
+            [ -n "$DEBUG" ] && echo "Monitor: Activating $persona due to work assignment"
+            activate_persona "$persona" "WORK_ASSIGNED"
+        else
+            [ -n "$DEBUG" ] && echo "Monitor: $persona already active, work will be picked up"
+        fi
+    fi
+}
+
+# Handle handoff ready - ensure next persona gets activated
+handle_handoff_ready() {
+    local event="$1"
+    
+    if [[ "$event" =~ TO:([^|]+) ]]; then
+        local next_persona="${BASH_REMATCH[1]}"
+        
+        # Give a moment for work assignments to be created
+        sleep 1
+        
+        # Check if next persona has work
+        local pending_count=$(es-projection "$next_persona" "pending_work" | wc -l)
+        if [ "$pending_count" -gt 0 ]; then
+            [ -n "$DEBUG" ] && echo "Monitor: Handoff to $next_persona with $pending_count work items"
+            # Work assigned events will trigger activation
+        fi
+    fi
+}
+
+# Handle explicit handoff initiation
+handle_handoff_initiated() {
+    local event="$1"
+    
+    if [[ "$event" =~ FROM:([^|]+) ]]; then
+        local from_persona="${BASH_REMATCH[1]}"
+        [ -n "$DEBUG" ] && echo "Monitor: $from_persona initiating handoff"
+        # The persona actor will handle the actual handoff
+    fi
+}
+
+# Handle persona going idle
+handle_persona_idle() {
+    local event="$1"
+    
+    if [[ "$event" =~ PERSONA:([^|]+) ]]; then
+        local persona="${BASH_REMATCH[1]}"
+        [ -n "$DEBUG" ] && echo "Monitor: $persona is now idle"
+        
+        # Check if there's pending work that wasn't seen
+        local pending_count=$(es-projection "$persona" "pending_work" | wc -l)
+        if [ "$pending_count" -gt 0 ]; then
+            [ -n "$DEBUG" ] && echo "Monitor: Reactivating $persona - found $pending_count pending items"
+            activate_persona "$persona" "PENDING_WORK_FOUND"
+        fi
+    fi
+}
+
+# Handle cycle completion
+handle_cycle_complete() {
+    local event="$1"
+    
+    if [[ "$event" =~ FINAL_PERSONA:([^|]+) ]]; then
+        local final_persona="${BASH_REMATCH[1]}"
+        echo "Development cycle completed by $final_persona"
+        
+        # Check for any remaining work across all personas
+        for persona in ARCHITECT DEVELOPER QA REVIEWER MERGER; do
+            local pending=$(es-projection "$persona" "pending_work" | wc -l)
+            if [ "$pending" -gt 0 ]; then
+                echo "Found $pending pending items for $persona"
+                activate_persona "$persona" "REMAINING_WORK"
+            fi
+        done
+    fi
+}
+
+# Activate a specific persona
+activate_persona() {
+    local persona="$1"
+    local trigger="$2"
+    local actor_name="$(echo $persona | tr '[:upper:]' '[:lower:]')-actor"
+    
+    # Check if actor is already running (excluding zombie/defunct processes)
+    if ps aux | grep -v grep | grep "$actor_name" | grep -v defunct > /dev/null; then
+        [ -n "$DEBUG" ] && echo "Monitor: $actor_name already running (active process)"
+        return
+    fi
+    
+    # Start the actor
+    echo "Activating $persona persona (trigger: $trigger)"
+    nohup "$actor_name" > "/tmp/${actor_name}.log" 2>&1 &
+    local pid=$!
+    
+    # The actor will emit its own PERSONA_ACTIVATED event
+    [ -n "$DEBUG" ] && echo "Monitor: Started $actor_name with PID $pid"
+}
+
+# Start monitoring
+echo "Event monitor started (PID: $$)"
+echo "Monitoring journal: $JOURNAL_FILE"
+monitor_loop

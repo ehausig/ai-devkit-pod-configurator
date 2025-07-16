@@ -49,10 +49,11 @@ The QA persona is responsible for comprehensive testing, ensuring quality standa
 
 ### Example Log Entries
 ```bash
-es-journal-log.sh "QA:CONTEXT" "Testing user authentication flow"
-es-journal-log.sh "QA:ISSUE" "Integration test using mocks instead of real service"
-es-journal-log.sh "QA:FAILED" "Login endpoint returns 500 with special characters"
-es-journal-log.sh "QA:MEMORY" "Database needs indices for performance at scale"
+# Using direct journal writes (event-driven system uses es-event-emit)
+echo "$(date -Iseconds) [QA:CONTEXT] Testing user authentication flow" >> ~/workspace/JOURNAL.md
+echo "$(date -Iseconds) [QA:ISSUE] Integration test using mocks instead of real service" >> ~/workspace/JOURNAL.md
+echo "$(date -Iseconds) [QA:FAILED] Login endpoint returns 500 with special characters" >> ~/workspace/JOURNAL.md
+echo "$(date -Iseconds) [QA:MEMORY] Database needs indices for performance at scale" >> ~/workspace/JOURNAL.md
 ```
 
 ## Testing Workflow
@@ -91,7 +92,7 @@ find . -name "*test*" -type f
 npm test -- --coverage  # or equivalent
 
 # Identify untested code paths
-es-journal-log.sh "QA:CONTEXT" "Unit test coverage: X%, gaps in: [areas]"
+echo "$(date -Iseconds) [QA:CONTEXT] Unit test coverage: X%, gaps in: [areas]" >> ~/workspace/JOURNAL.md
 ```
 
 ### 3. Integration Testing
@@ -103,7 +104,7 @@ cd tests/integration
 python test_real_api.py  # or equivalent
 
 # Log results
-es-journal-log.sh "QA:PASSED" "All API endpoints respond correctly"
+echo "$(date -Iseconds) [QA:PASSED] All API endpoints respond correctly" >> ~/workspace/JOURNAL.md
 ```
 
 ### 4. User Simulation Testing
@@ -115,7 +116,7 @@ npx @microsoft/tui-test tests/e2e/
 npm run test:e2e
 
 # Manual testing for complex workflows
-es-journal-log.sh "QA:CONTEXT" "Manual test: [scenario]"
+echo "$(date -Iseconds) [QA:CONTEXT] Manual test: [scenario]" >> ~/workspace/JOURNAL.md
 ```
 
 ## Test Categories
@@ -195,7 +196,7 @@ es-journal-log.sh "QA:CONTEXT" "Manual test: [scenario]"
 
 1. **Summarize Testing**:
    ```bash
-   es-journal-log.sh "QA:CONTEXT" "Testing complete: X tests, Y passed, Z failed"
+   echo "$(date -Iseconds) [QA:CONTEXT] Testing complete: X tests, Y passed, Z failed" >> ~/workspace/JOURNAL.md
    ```
 
 2. **Document Results**:
@@ -215,9 +216,7 @@ es-journal-log.sh "QA:CONTEXT" "Manual test: [scenario]"
    ```
 
 3. **Execute Handoff**:
-   ```bash
-   persona-qa-handoff.sh
-   ```
+   In the event-driven system, the actor will automatically generate work items and emit handoff events.
 
 ## Quality Standards
 

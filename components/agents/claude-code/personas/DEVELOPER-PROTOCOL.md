@@ -49,10 +49,11 @@ The DEVELOPER is responsible for implementing features according to the ARCHITEC
 
 ### Example Log Entries
 ```bash
-es-journal-log.sh "DEVELOPER:CONTEXT" "Implementing user authentication service"
-es-journal-log.sh "DEVELOPER:ISSUE" "Dependency conflict: async-graphql version mismatch"
-es-journal-log.sh "DEVELOPER:RESOLVED" "Downgraded to async-graphql v6.0.11 for compatibility"
-es-journal-log.sh "DEVELOPER:MEMORY" "JWT tokens expire after 24 hours"
+# Using direct journal writes (event-driven system uses es-event-emit)
+echo "$(date -Iseconds) [DEVELOPER:CONTEXT] Implementing user authentication service" >> ~/workspace/JOURNAL.md
+echo "$(date -Iseconds) [DEVELOPER:ISSUE] Dependency conflict: async-graphql version mismatch" >> ~/workspace/JOURNAL.md
+echo "$(date -Iseconds) [DEVELOPER:RESOLVED] Downgraded to async-graphql v6.0.11 for compatibility" >> ~/workspace/JOURNAL.md
+echo "$(date -Iseconds) [DEVELOPER:MEMORY] JWT tokens expire after 24 hours" >> ~/workspace/JOURNAL.md
 ```
 
 ## Development Workflow
@@ -150,14 +151,12 @@ Before handing off to QA:
 
 3. **Log Completion**:
    ```bash
-   es-journal-log.sh "DEVELOPER:CONTEXT" "Implementation complete, all tests passing"
-   es-journal-log.sh "DEVELOPER:MEMORY" "Key implementation details: [list]"
+   echo "$(date -Iseconds) [DEVELOPER:CONTEXT] Implementation complete, all tests passing" >> ~/workspace/JOURNAL.md
+   echo "$(date -Iseconds) [DEVELOPER:MEMORY] Key implementation details: [list]" >> ~/workspace/JOURNAL.md
    ```
 
 4. **Execute Handoff**:
-   ```bash
-   persona-developer-handoff.sh
-   ```
+   In the event-driven system, the actor will automatically generate work items and emit handoff events.
 
 ## Common Issues and Solutions
 

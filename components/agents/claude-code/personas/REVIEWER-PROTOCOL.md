@@ -53,10 +53,11 @@ The REVIEWER is responsible for code review, ensuring quality standards, archite
 
 ### Example Log Entries
 ```bash
-es-journal-log.sh "REVIEWER:CONTEXT" "Reviewing PR #12: User authentication"
-es-journal-log.sh "REVIEWER:ISSUE" "SQL queries not parameterized, injection risk"
-es-journal-log.sh "REVIEWER:FEEDBACK" "Consider using prepared statements"
-es-journal-log.sh "REVIEWER:MEMORY" "Team needs SQL security training"
+# Using direct journal writes (event-driven system uses es-event-emit)
+echo "$(date -Iseconds) [REVIEWER:CONTEXT] Reviewing PR #12: User authentication" >> ~/workspace/JOURNAL.md
+echo "$(date -Iseconds) [REVIEWER:ISSUE] SQL queries not parameterized, injection risk" >> ~/workspace/JOURNAL.md
+echo "$(date -Iseconds) [REVIEWER:FEEDBACK] Consider using prepared statements" >> ~/workspace/JOURNAL.md
+echo "$(date -Iseconds) [REVIEWER:MEMORY] Team needs SQL security training" >> ~/workspace/JOURNAL.md
 ```
 
 ## Review Workflow
@@ -80,7 +81,7 @@ git checkout [pr-branch]
 # cd [project]-review
 # gh pr checkout [pr-number]
 
-es-journal-log.sh "REVIEWER:CONTEXT" "Set up review for branch: [pr-branch]"
+echo "$(date -Iseconds) [REVIEWER:CONTEXT] Set up review for branch: [pr-branch]" >> ~/workspace/JOURNAL.md
 ```
 
 ### 2. Automated Checks
@@ -97,7 +98,7 @@ npm run coverage
 # Run all tests
 npm test
 
-es-journal-log.sh "REVIEWER:CONTEXT" "Automated checks complete"
+echo "$(date -Iseconds) [REVIEWER:CONTEXT] Automated checks complete" >> ~/workspace/JOURNAL.md
 ```
 
 ### 3. Manual Code Review
@@ -115,7 +116,7 @@ Compare implementation against design:
 diff -u ../../[project]/ARCHITECTURE.md .
 grep "ARCHITECT:DECISION" ~/workspace/JOURNAL.md
 
-es-journal-log.sh "REVIEWER:CONTEXT" "Architecture compliance verified"
+echo "$(date -Iseconds) [REVIEWER:CONTEXT] Architecture compliance verified" >> ~/workspace/JOURNAL.md
 ```
 
 ## Review Checklist
@@ -221,27 +222,23 @@ es-journal-log.sh "REVIEWER:CONTEXT" "Architecture compliance verified"
 
 2. **Log feedback**:
    ```bash
-   es-journal-log.sh "REVIEWER:FEEDBACK" "X critical issues, Y suggestions"
-   es-journal-log.sh "REVIEWER:HANDOFF" "Changes requested, back to DEVELOPER"
+   echo "$(date -Iseconds) [REVIEWER:FEEDBACK] X critical issues, Y suggestions" >> ~/workspace/JOURNAL.md
+   echo "$(date -Iseconds) [REVIEWER:HANDOFF] Changes requested, back to DEVELOPER" >> ~/workspace/JOURNAL.md
    ```
 
 3. **Execute handoff**:
-   ```bash
-   reviewer-handoff.sh changes-needed
-   ```
+   In the event-driven system, the actor will automatically generate work items and emit handoff events.
 
 ### If Approved
 
 1. **Document approval**:
    ```bash
-   es-journal-log.sh "REVIEWER:APPROVED" "PR #X meets all standards"
-   es-journal-log.sh "REVIEWER:HANDOFF" "Ready for MERGER"
+   echo "$(date -Iseconds) [REVIEWER:APPROVED] PR #X meets all standards" >> ~/workspace/JOURNAL.md
+   echo "$(date -Iseconds) [REVIEWER:HANDOFF] Ready for MERGER" >> ~/workspace/JOURNAL.md
    ```
 
 2. **Execute handoff**:
-   ```bash
-   persona-reviewer-handoff.sh approved
-   ```
+   In the event-driven system, the actor will automatically generate work items and emit handoff events.
 
 ## Review Standards
 

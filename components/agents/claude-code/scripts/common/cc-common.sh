@@ -36,21 +36,25 @@ extract_json_field() {
     echo "$json" | jq -r "$field // \"$default\"" 2>/dev/null || echo "$default"
 }
 
-# Get current persona with fallback - UPDATED to use enhanced queries
+# Get current persona with fallback - UPDATED to use es-projection
 get_current_persona() {
-    local persona=$(es-journal-query.sh current-persona 2>/dev/null)
-    if [ -z "$persona" ] || [ "$persona" = "UNKNOWN" ]; then
-        # Try last-persona-init as fallback
-        persona=$(es-journal-query.sh last-persona-init 2>/dev/null)
-        if [ -z "$persona" ] || [ "$persona" = "UNKNOWN" ]; then
-            # Final fallback to grep
-            persona=$(grep "PERSONA:INIT" "$JOURNAL_FILE" 2>/dev/null | tail -1 | grep -o '\[.*:' | tr -d '[:[]' || echo "UNKNOWN")
-        fi
+    local persona=""
+    
+    # Try es-projection first
+    if command -v es-projection >/dev/null 2>&1; then
+        # Get the most recently activated persona
+        persona=$(grep "TYPE:PERSONA_ACTIVATED" "$JOURNAL_FILE" 2>/dev/null | tail -1 | grep -o 'PERSONA:[^|]*' | cut -d: -f2)
     fi
-    echo "$persona"
+    
+    if [ -z "$persona" ] || [ "$persona" = "UNKNOWN" ]; then
+        # Fallback to grep
+        persona=$(grep "PERSONA:INIT" "$JOURNAL_FILE" 2>/dev/null | tail -1 | grep -o '\[.*:' | tr -d '[:[]' || echo "UNKNOWN")
+    fi
+    
+    echo "${persona:-UNKNOWN}"
 }
 
-# Log with timestamp (wrapper around es-journal-log.sh)
+# Log with timestamp - UPDATED to use es-event-emit for events
 log_event() {
     local tag="$1"
     local message="$2"
@@ -58,10 +62,12 @@ log_event() {
     # Ensure journal exists
     ensure_journal
     
-    # Use es-journal-log.sh if available, otherwise write directly
-    if command -v es-journal-log.sh >/dev/null 2>&1; then
-        es-journal-log.sh "$tag" "$message"
+    # For EVENT types, use es-event-emit
+    if [[ "$tag" == "EVENT:"* ]] && command -v es-event-emit >/dev/null 2>&1; then
+        local event_type="${tag#EVENT:}"
+        es-event-emit "$event_type" "$message"
     else
+        # For non-event logs, write directly
         echo "$(date -Iseconds) [$tag] $message" >> "$JOURNAL_FILE"
     fi
 }
@@ -72,12 +78,12 @@ is_work_completed() {
     grep -q "WORK:COMPLETED.*$work_desc" "$JOURNAL_FILE" 2>/dev/null
 }
 
-# Get pending work count for persona - UPDATED to use enhanced queries
+# Get pending work count for persona - UPDATED to use es-projection
 get_pending_count() {
     local persona="${1:-$(get_current_persona)}"
     
-    if command -v es-journal-query.sh >/dev/null 2>&1; then
-        es-journal-query.sh pending-work "$persona" 2>/dev/null | wc -l
+    if command -v es-projection >/dev/null 2>&1; then
+        es-projection "$persona" "pending_work" 2>/dev/null | wc -l
     else
         # Fallback: count pending work manually
         grep "WORK:PENDING.*${persona}:" "$JOURNAL_FILE" 2>/dev/null | \
@@ -90,66 +96,66 @@ get_pending_count() {
     fi
 }
 
-# Check if persona is ready for handoff - UPDATED to use enhanced queries
+# Check if persona is ready for handoff - UPDATED to use es-projection
 is_handoff_ready() {
     local persona="${1:-$(get_current_persona)}"
-    
-    if command -v es-journal-query.sh >/dev/null 2>&1; then
-        es-journal-query.sh handoff-ready "$persona" >/dev/null 2>&1
-        return $?
-    else
-        # Fallback logic
-        local pending=$(get_pending_count "$persona")
-        [ "$pending" -eq 0 ]
-    fi
+    local pending=$(get_pending_count "$persona")
+    [ "$pending" -eq 0 ]
 }
 
-# Get next persona in workflow - UPDATED to use enhanced queries
+# Get next persona in workflow - UPDATED to use es-projection
 get_next_persona() {
     local current="$1"
     
-    # Use centralized should-handoff query if available
-    if command -v es-journal-query.sh >/dev/null 2>&1; then
-        local next_persona=$(es-journal-query.sh should-handoff "$current" 2>/dev/null)
-        if [ $? -eq 0 ] && [ -n "$next_persona" ]; then
-            echo "$next_persona"
-            return 0
+    # Use es-projection to check state if available
+    if command -v es-projection >/dev/null 2>&1; then
+        local state=$(es-projection "$current" "current_state")
+        
+        # If persona is complete, determine next
+        if [ "$state" = "COMPLETE" ]; then
+            case "$current" in
+                ARCHITECT) echo "DEVELOPER" ;;
+                DEVELOPER) 
+                    # Check if QA has failures
+                    if grep -q "TYPE:WORK_FAILED.*PERSONA:QA" "$JOURNAL_FILE"; then
+                        echo "DEVELOPER"
+                    else
+                        echo "QA"
+                    fi
+                    ;;
+                QA)
+                    # Check if tests passed
+                    if grep -q "QA:FAILED" "$JOURNAL_FILE" | tail -10; then
+                        echo "DEVELOPER"
+                    else
+                        echo "REVIEWER"
+                    fi
+                    ;;
+                REVIEWER)
+                    # Check if approved
+                    if grep -q "REVIEWER:ISSUE" "$JOURNAL_FILE" | tail -10; then
+                        echo "DEVELOPER"
+                    else
+                        echo "MERGER"
+                    fi
+                    ;;
+                MERGER) echo "ARCHITECT" ;; # Start new cycle
+                *) echo "UNKNOWN" ;;
+            esac
+        else
+            echo "UNKNOWN"
         fi
+    else
+        # Fallback to hardcoded logic
+        case "$current" in
+            ARCHITECT) echo "DEVELOPER" ;;
+            DEVELOPER) echo "QA" ;;
+            QA) echo "REVIEWER" ;;
+            REVIEWER) echo "MERGER" ;;
+            MERGER) echo "ARCHITECT" ;;
+            *) echo "UNKNOWN" ;;
+        esac
     fi
-    
-    # Fallback to hardcoded logic (keep for compatibility)
-    case "$current" in
-        ARCHITECT) echo "DEVELOPER" ;;
-        DEVELOPER) echo "QA" ;;
-        QA)
-            # Check if tests passed
-            if command -v es-journal-query.sh >/dev/null 2>&1; then
-                local failed=$(es-journal-query.sh recent-context QA | grep -c "QA:FAILED" || echo "0")
-                if [ $failed -eq 0 ]; then
-                    echo "REVIEWER"
-                else
-                    echo "DEVELOPER"
-                fi
-            else
-                echo "REVIEWER"
-            fi
-            ;;
-        REVIEWER)
-            # Check if approved
-            if command -v es-journal-query.sh >/dev/null 2>&1; then
-                local issues=$(es-journal-query.sh recent-context REVIEWER | grep -c "REVIEWER:ISSUE" || echo "0")
-                if [ $issues -eq 0 ]; then
-                    echo "MERGER"
-                else
-                    echo "DEVELOPER"
-                fi
-            else
-                echo "MERGER"
-            fi
-            ;;
-        MERGER) echo "ARCHITECT" ;; # Start new cycle
-        *) echo "UNKNOWN" ;;
-    esac
 }
 
 # Format work item for display
@@ -159,31 +165,19 @@ format_work_item() {
     echo "$work_item" | sed 's/.*WORK:PENDING\] //'
 }
 
-# Check safety limits - UPDATED to use enhanced queries
+# Check safety limits - UPDATED to use es-projection
 check_safety_limits() {
     local persona="${1:-$(get_current_persona)}"
     
-    if command -v es-journal-query.sh >/dev/null 2>&1; then
-        local result=$(es-journal-query.sh safety-check "$persona")
-        local exit_code=$?
-        
-        if [ $exit_code -ne 0 ]; then
-            echo -e "${RED}Safety Check Failed:${NC} $result"
-            return 1
-        fi
-    else
-        # Fallback safety check
-        local init_count=$(grep -c "\[${persona}:INIT\]" "$JOURNAL_FILE" 2>/dev/null || echo "0")
-        if [ $init_count -gt 10 ]; then
-            echo -e "${RED}Safety Check Failed:${NC} Too many initializations ($init_count)"
-            return 1
-        fi
+    # Check for too many activations
+    local init_count=$(grep -c "\[${persona}:INIT\]\|TYPE:PERSONA_ACTIVATED.*PERSONA:$persona" "$JOURNAL_FILE" 2>/dev/null || echo "0")
+    if [ $init_count -gt 10 ]; then
+        echo -e "${RED}Safety Check Failed:${NC} Too many initializations ($init_count)"
+        return 1
     fi
+    
     return 0
 }
-
-# REMOVED: signal_work_ready function (no longer needed with pure event sourcing)
-# REMOVED: All file signaling functions
 
 # Common hook response
 hook_success_response() {
@@ -230,70 +224,87 @@ is_stop_hook_active() {
 
 # Enhanced transition detection for autonomous workflow - UPDATED for pure event sourcing
 detect_next_persona_automatically() {
-    # Use the new comprehensive transition-needed query
-    if command -v es-journal-query.sh >/dev/null 2>&1; then
-        local next_persona=$(es-journal-query.sh transition-needed 2>/dev/null)
-        if [ $? -eq 0 ] && [ -n "$next_persona" ]; then
-            echo "$next_persona"
-            return 0
-        fi
+    # Check each persona for pending work using es-projection
+    if command -v es-projection >/dev/null 2>&1; then
+        for persona in ARCHITECT DEVELOPER QA REVIEWER MERGER; do
+            local pending=$(es-projection "$persona" "pending_work" | wc -l)
+            if [ "$pending" -gt 0 ]; then
+                echo "$persona"
+                return 0
+            fi
+        done
+    else
+        # Fallback: Check for pending work across all personas
+        for persona in ARCHITECT DEVELOPER QA REVIEWER MERGER; do
+            local pending=$(get_pending_count "$persona")
+            if [ "$pending" -gt 0 ]; then
+                echo "$persona"
+                return 0
+            fi
+        done
     fi
-    
-    # Fallback: Check for pending work across all personas (deterministic order)
-    for persona in ARCHITECT DEVELOPER QA REVIEWER MERGER; do
-        local pending=$(get_pending_count "$persona")
-        if [ "$pending" -gt 0 ]; then
-            echo "$persona"
-            return 0
-        fi
-    done
     
     # No transition needed
     return 1
 }
 
-# NEW: Check for unprocessed handoffs
+# Check for unprocessed handoffs
 check_unprocessed_handoffs() {
-    if command -v es-journal-query.sh >/dev/null 2>&1; then
-        local unprocessed=$(es-journal-query.sh recent-handoff-unprocessed 2>/dev/null)
-        if [ $? -eq 0 ] && [ -n "$unprocessed" ]; then
-            echo "$unprocessed"
+    # Look for HANDOFF_READY events without subsequent PERSONA_ACTIVATED
+    local last_handoff=$(grep "TYPE:HANDOFF_READY" "$JOURNAL_FILE" 2>/dev/null | tail -1)
+    if [ -n "$last_handoff" ] && [[ "$last_handoff" =~ TO:([^|]+) ]]; then
+        local to_persona="${BASH_REMATCH[1]}"
+        local handoff_time=$(echo "$last_handoff" | cut -d' ' -f1)
+        
+        # Check if persona was activated after this handoff
+        local activation=$(grep "TYPE:PERSONA_ACTIVATED.*PERSONA:$to_persona" "$JOURNAL_FILE" 2>/dev/null | tail -1)
+        if [ -z "$activation" ]; then
+            echo "$to_persona"
+            return 0
+        fi
+        
+        local activation_time=$(echo "$activation" | cut -d' ' -f1)
+        if [[ "$handoff_time" > "$activation_time" ]]; then
+            echo "$to_persona"
             return 0
         fi
     fi
     return 1
 }
 
-# NEW: Validate persona name
+# Validate persona name
 is_valid_persona() {
     local persona="$1"
     [[ "$persona" =~ ^(ARCHITECT|DEVELOPER|QA|REVIEWER|MERGER)$ ]]
 }
 
-# NEW: Get handoff processing status
+# Get handoff processing status
 get_handoff_status() {
-    if command -v es-journal-query.sh >/dev/null 2>&1; then
-        es-journal-query.sh handoff-processing-complete 2>/dev/null
+    if command -v es-projection >/dev/null 2>&1; then
+        # Check if there are any unprocessed handoffs
+        if check_unprocessed_handoffs >/dev/null 2>&1; then
+            echo "pending"
+        else
+            echo "complete"
+        fi
     else
         echo "unknown"
     fi
 }
 
-# NEW: Enhanced logging with transition events
+# Enhanced logging with transition events
 log_transition_event() {
     local event_type="$1"
     local message="$2"
     log_event "TRANSITION:$event_type" "$message"
 }
 
-# NEW: Check if journal query system is available
+# Check if journal query system is available
 is_enhanced_queries_available() {
-    command -v es-journal-query.sh >/dev/null 2>&1 && \
-    es-journal-query.sh recent-handoff-unprocessed >/dev/null 2>&1
-    return $?
+    command -v es-projection >/dev/null 2>&1
 }
 
-# NEW: Journal state validation
+# Journal state validation
 validate_journal_state() {
     if [ ! -f "$JOURNAL_FILE" ]; then
         echo "Journal file not found: $JOURNAL_FILE"
@@ -314,7 +325,7 @@ validate_journal_state() {
     return 0
 }
 
-# NEW: Enhanced debug information
+# Enhanced debug information
 debug_journal_state() {
     local persona="${1:-$(get_current_persona)}"
     
@@ -323,10 +334,10 @@ debug_journal_state() {
     echo "Current persona: $persona"
     echo "Enhanced queries available: $(is_enhanced_queries_available && echo 'Yes' || echo 'No')"
     
-    if command -v es-journal-query.sh >/dev/null 2>&1; then
+    if command -v es-projection >/dev/null 2>&1; then
         echo "Pending work count: $(get_pending_count "$persona")"
         echo "Handoff status: $(get_handoff_status)"
-        echo "Transition needed: $(es-journal-query.sh transition-needed 2>/dev/null || echo 'None')"
+        echo "Current state: $(es-projection "$persona" "current_state" 2>/dev/null || echo 'Unknown')"
     fi
     
     echo "Recent entries:"
