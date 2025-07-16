@@ -26,21 +26,21 @@ FAILED_SUITES=0
 
 # Run each test suite
 for test_file in test-*.sh; do
-    if [ -f "$test_file" ] && [ "$test_file" != "test-framework.sh" ]; then
-        ((TOTAL_SUITES++))
-        
-        echo -e "${YELLOW}Running $test_file...${NC}"
-        
-        if bash "$test_file"; then
-            ((PASSED_SUITES++))
-            echo -e "${GREEN}✓ $test_file passed${NC}"
-        else
-            ((FAILED_SUITES++))
-            echo -e "${RED}✗ $test_file failed${NC}"
-        fi
-        
-        echo ""
+  if [ -f "$test_file" ] && [ "$test_file" != "test-framework.sh" ]; then
+    ((TOTAL_SUITES++))
+
+    echo -e "${YELLOW}Running $test_file...${NC}"
+
+    if bash "$test_file"; then
+      ((PASSED_SUITES++))
+      echo -e "${GREEN}✓ $test_file passed${NC}"
+    else
+      ((FAILED_SUITES++))
+      echo -e "${RED}✗ $test_file failed${NC}"
     fi
+
+    echo ""
+  fi
 done
 
 # Summary
@@ -52,9 +52,9 @@ echo -e "Test suites passed: ${GREEN}$PASSED_SUITES${NC}"
 echo -e "Test suites failed: ${RED}$FAILED_SUITES${NC}"
 
 if [ $FAILED_SUITES -eq 0 ]; then
-    echo -e "\n${GREEN}All tests passed!${NC}"
-    exit 0
+  echo -e "\n${GREEN}All tests passed!${NC}"
+  exit 0
 else
-    echo -e "\n${RED}Some tests failed!${NC}"
-    exit 1
+  echo -e "\n${RED}Some tests failed!${NC}"
+  exit 1
 fi
