@@ -89,8 +89,8 @@ work_history)
   # Get history of work items for a persona
   work_id="${3:-}"
   if [ -n "$work_id" ]; then
-    # Specific work item history
-    grep -E "WORK_ID:$work_id|ID:$work_id" "$JOURNAL_FILE"
+    # Specific work item history - search for both ID and WORK_ID
+    grep -E "(TYPE:WORK_.*ID:$work_id|WORK_ID:$work_id)" "$JOURNAL_FILE"
   else
     # All work history for persona
     grep -E "PERSONA:$PERSONA.*(WORK_|TYPE:WORK_)" "$JOURNAL_FILE"

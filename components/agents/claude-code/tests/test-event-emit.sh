@@ -4,10 +4,15 @@
 # Source test framework
 source "$(dirname "$0")/test-framework.sh"
 
+# Kill any processes that might interfere
+pkill -f es-event-monitor 2>/dev/null || true
+pkill -f "actor" 2>/dev/null || true
+rm -f /tmp/es-event-monitor.pid
+rm -f /tmp/es-event-monitor.lastline
+sleep 0.5
+
 # Test basic event emission
 test_event_format() {
-  setup_test
-
   # Test successful emission
   es-event-emit "WORK_ASSIGNED" "TO:DEVELOPER|ID:123|WORK:Test task"
 
@@ -19,14 +24,10 @@ test_event_format() {
   assert_contains "$event" "TO:DEVELOPER" "Event should contain TO field"
   assert_contains "$event" "ID:123" "Event should contain ID field"
   assert_contains "$event" "WORK:Test task" "Event should contain WORK field"
-
-  teardown_test
 }
 
 # Test required field validation
 test_required_fields() {
-  setup_test
-
   # Test missing TO field - run in current shell to get exit code
   es-event-emit "WORK_ASSIGNED" "ID:123|WORK:Test" 2>&1 >/dev/null
   local exit_code=$?
@@ -51,14 +52,10 @@ test_required_fields() {
 
   output=$(es-event-emit "WORK_ASSIGNED" "TO:DEVELOPER|ID:123" 2>&1)
   assert_contains "$output" "Missing required field: WORK" "Should report missing WORK field"
-
-  teardown_test
 }
 
 # Test different event types
 test_event_types() {
-  setup_test
-
   # Test WORK_STARTED event
   es-event-emit "WORK_STARTED" "PERSONA:DEVELOPER|WORK_ID:123"
   assert_event_exists "WORK_STARTED" "Work started event should be emitted"
@@ -74,14 +71,10 @@ test_event_types() {
   # Test HANDOFF_READY event
   es-event-emit "HANDOFF_READY" "FROM:DEVELOPER|TO:QA"
   assert_event_exists "HANDOFF_READY" "Handoff ready event should be emitted"
-
-  teardown_test
 }
 
 # Test human-readable logging
 test_human_readable_entries() {
-  setup_test
-
   # Test work assignment creates readable entry
   es-event-emit "WORK_ASSIGNED" "TO:DEVELOPER|ID:123|WORK:Create user authentication"
 
@@ -103,14 +96,10 @@ test_human_readable_entries() {
   else
     assert_equals "found" "not_found" "Should create human-readable completion entry"
   fi
-
-  teardown_test
 }
 
 # Test timestamp format
 test_timestamp_format() {
-  setup_test
-
   es-event-emit "TEST_EVENT" "FIELD:value"
 
   local event_line=$(grep "TYPE:TEST_EVENT" "$TEST_JOURNAL")
@@ -120,14 +109,10 @@ test_timestamp_format() {
   else
     assert_equals "valid" "invalid" "Event should have ISO 8601 timestamp"
   fi
-
-  teardown_test
 }
 
 # Test decision and memory events
 test_logging_events() {
-  setup_test
-
   # These events don't require specific fields
   es-event-emit "DECISION" "PERSONA:ARCHITECT|CONTENT:Chose microservices architecture"
   assert_event_exists "DECISION" "Decision event should be emitted"
@@ -137,8 +122,6 @@ test_logging_events() {
 
   es-event-emit "ISSUE" "PERSONA:QA|CONTENT:Test coverage below 80%"
   assert_event_exists "ISSUE" "Issue event should be emitted"
-
-  teardown_test
 }
 
 # Run all tests

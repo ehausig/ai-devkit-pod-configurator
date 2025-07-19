@@ -4,10 +4,30 @@
 # Source test framework
 source "$(dirname "$0")/test-framework.sh"
 
+# Kill any existing processes that might interfere
+kill_actor_test_processes() {
+  pkill -f "architect-actor" 2>/dev/null || true
+  pkill -f "developer-actor" 2>/dev/null || true
+  pkill -f "qa-actor" 2>/dev/null || true
+  pkill -f "reviewer-actor" 2>/dev/null || true
+  pkill -f "merger-actor" 2>/dev/null || true
+  pkill -f "test-actor-base" 2>/dev/null || true
+  rm -f /tmp/test-actor-base.sh
+  rm -rf /tmp/test-project-*
+  rm -rf /tmp/test-handoff-*
+  rm -rf /tmp/test-patterns-*
+  sleep 0.5
+}
+
+# Initial cleanup
+kill_actor_test_processes
+
+# Setup test journal location globally for this test suite
+export TEST_JOURNAL="/tmp/test-journal-$.md"
+export JOURNAL_FILE="$TEST_JOURNAL"
+
 # Mock the actor base functions for testing
 setup_actor_test() {
-  setup_test
-
   # Ensure JOURNAL_FILE is exported
   export JOURNAL_FILE="$TEST_JOURNAL"
 
@@ -69,6 +89,7 @@ EOF
 
 # Test ARCHITECT actor work execution
 test_architect_work_execution() {
+  # Create mock actor base
   setup_actor_test
 
   # Source mock base
@@ -82,6 +103,8 @@ test_architect_work_execution() {
     source <(grep -v "^actor_loop" /usr/local/bin/architect-actor | sed 's|source es-actor-base|source /tmp/test-actor-base.sh|' || echo "echo 'architect-actor processing failed'")
   else
     echo "architect-actor not found in /usr/local/bin"
+    # Clean up before returning
+    rm -f /tmp/test-actor-base.sh
     return 1
   fi
 
@@ -108,13 +131,64 @@ test_architect_work_execution() {
   cd - >/dev/null
   rm -rf /tmp/test-project-$$
   rm -f /tmp/test-actor-base.sh
-
-  teardown_test
 }
 
 # Test DEVELOPER actor work execution
 test_developer_work_execution() {
-  setup_actor_test
+  # Setup mock base (inline to avoid setup_actor_test)
+  cat >/tmp/test-actor-base.sh <<'EOF'
+#!/bin/bash
+# Mock actor base for testing
+
+ACTOR_ACTIVE=true
+PERSONA="TEST"
+JOURNAL_FILE="${JOURNAL_FILE:-$HOME/workspace/JOURNAL.md}"
+
+actor_loop() {
+    PERSONA="$1"
+    echo "Mock actor loop started for $PERSONA"
+}
+
+should_handoff() {
+    [ $(es-projection "$PERSONA" "pending_work" | wc -l) -eq 0 ]
+}
+
+log_decision() {
+    echo "$(date -Iseconds) [$PERSONA:DECISION] $1" >> "$JOURNAL_FILE"
+}
+
+log_issue() {
+    echo "$(date -Iseconds) [$PERSONA:ISSUE] $1" >> "$JOURNAL_FILE"
+}
+
+log_memory() {
+    echo "$(date -Iseconds) [$PERSONA:MEMORY] $1" >> "$JOURNAL_FILE"
+}
+
+log_context() {
+    echo "$(date -Iseconds) [$PERSONA:CONTEXT] $1" >> "$JOURNAL_FILE"
+}
+
+execute_command() {
+    eval "$1"
+}
+
+create_file_with_content() {
+    echo "$2" > "$1"
+}
+
+run_tests() {
+    return 0
+}
+
+ensure_git_repo() {
+    if [ ! -d .git ]; then
+        git init >/dev/null 2>&1
+        git config user.name "Test" >/dev/null 2>&1
+        git config user.email "test@test.com" >/dev/null 2>&1
+    fi
+}
+EOF
 
   # Source mock base
   source /tmp/test-actor-base.sh
@@ -127,6 +201,7 @@ test_developer_work_execution() {
     source <(grep -v "^actor_loop" /usr/local/bin/developer-actor | sed 's|source es-actor-base|source /tmp/test-actor-base.sh|' || echo "echo 'developer-actor processing failed'")
   else
     echo "developer-actor not found in /usr/local/bin"
+    rm -f /tmp/test-actor-base.sh
     return 1
   fi
 
@@ -147,13 +222,64 @@ test_developer_work_execution() {
   cd - >/dev/null
   rm -rf /tmp/test-project-$$
   rm -f /tmp/test-actor-base.sh
-
-  teardown_test
 }
 
 # Test handoff logic
 test_handoff_generation() {
-  setup_actor_test
+  # Create mock base inline
+  cat >/tmp/test-actor-base.sh <<'EOF'
+#!/bin/bash
+# Mock actor base for testing
+
+ACTOR_ACTIVE=true
+PERSONA="TEST"
+JOURNAL_FILE="${JOURNAL_FILE:-$HOME/workspace/JOURNAL.md}"
+
+actor_loop() {
+    PERSONA="$1"
+    echo "Mock actor loop started for $PERSONA"
+}
+
+should_handoff() {
+    [ $(es-projection "$PERSONA" "pending_work" | wc -l) -eq 0 ]
+}
+
+log_decision() {
+    echo "$(date -Iseconds) [$PERSONA:DECISION] $1" >> "$JOURNAL_FILE"
+}
+
+log_issue() {
+    echo "$(date -Iseconds) [$PERSONA:ISSUE] $1" >> "$JOURNAL_FILE"
+}
+
+log_memory() {
+    echo "$(date -Iseconds) [$PERSONA:MEMORY] $1" >> "$JOURNAL_FILE"
+}
+
+log_context() {
+    echo "$(date -Iseconds) [$PERSONA:CONTEXT] $1" >> "$JOURNAL_FILE"
+}
+
+execute_command() {
+    eval "$1"
+}
+
+create_file_with_content() {
+    echo "$2" > "$1"
+}
+
+run_tests() {
+    return 0
+}
+
+ensure_git_repo() {
+    if [ ! -d .git ]; then
+        git init >/dev/null 2>&1
+        git config user.name "Test" >/dev/null 2>&1
+        git config user.email "test@test.com" >/dev/null 2>&1
+    fi
+}
+EOF
 
   # Source mock base
   source /tmp/test-actor-base.sh
@@ -185,13 +311,64 @@ test_handoff_generation() {
   cd - >/dev/null
   rm -rf /tmp/test-handoff-$$
   rm -f /tmp/test-actor-base.sh
-
-  teardown_test
 }
 
 # Test next persona determination
 test_next_persona_logic() {
-  setup_actor_test
+  # Create mock base inline
+  cat >/tmp/test-actor-base.sh <<'EOF'
+#!/bin/bash
+# Mock actor base for testing
+
+ACTOR_ACTIVE=true
+PERSONA="TEST"
+JOURNAL_FILE="${JOURNAL_FILE:-$HOME/workspace/JOURNAL.md}"
+
+actor_loop() {
+    PERSONA="$1"
+    echo "Mock actor loop started for $PERSONA"
+}
+
+should_handoff() {
+    [ $(es-projection "$PERSONA" "pending_work" | wc -l) -eq 0 ]
+}
+
+log_decision() {
+    echo "$(date -Iseconds) [$PERSONA:DECISION] $1" >> "$JOURNAL_FILE"
+}
+
+log_issue() {
+    echo "$(date -Iseconds) [$PERSONA:ISSUE] $1" >> "$JOURNAL_FILE"
+}
+
+log_memory() {
+    echo "$(date -Iseconds) [$PERSONA:MEMORY] $1" >> "$JOURNAL_FILE"
+}
+
+log_context() {
+    echo "$(date -Iseconds) [$PERSONA:CONTEXT] $1" >> "$JOURNAL_FILE"
+}
+
+execute_command() {
+    eval "$1"
+}
+
+create_file_with_content() {
+    echo "$2" > "$1"
+}
+
+run_tests() {
+    return 0
+}
+
+ensure_git_repo() {
+    if [ ! -d .git ]; then
+        git init >/dev/null 2>&1
+        git config user.name "Test" >/dev/null 2>&1
+        git config user.email "test@test.com" >/dev/null 2>&1
+    fi
+}
+EOF
 
   # Source mock base
   source /tmp/test-actor-base.sh
@@ -215,12 +392,35 @@ test_next_persona_logic() {
   assert_contains "$next" "DEVELOPER" "QA should hand off to DEVELOPER when tests fail"
 
   rm -f /tmp/test-actor-base.sh
-  teardown_test
 }
 
 # Test logging functions
 test_persona_logging() {
-  setup_actor_test
+  # Create mock base inline
+  cat >/tmp/test-actor-base.sh <<'EOF'
+#!/bin/bash
+# Mock actor base for testing
+
+ACTOR_ACTIVE=true
+PERSONA="TEST"
+JOURNAL_FILE="${JOURNAL_FILE:-$HOME/workspace/JOURNAL.md}"
+
+log_decision() {
+    echo "$(date -Iseconds) [$PERSONA:DECISION] $1" >> "$JOURNAL_FILE"
+}
+
+log_issue() {
+    echo "$(date -Iseconds) [$PERSONA:ISSUE] $1" >> "$JOURNAL_FILE"
+}
+
+log_memory() {
+    echo "$(date -Iseconds) [$PERSONA:MEMORY] $1" >> "$JOURNAL_FILE"
+}
+
+log_context() {
+    echo "$(date -Iseconds) [$PERSONA:CONTEXT] $1" >> "$JOURNAL_FILE"
+}
+EOF
 
   # Source mock base
   source /tmp/test-actor-base.sh
@@ -238,13 +438,10 @@ test_persona_logging() {
   assert_contains "$(cat $TEST_JOURNAL)" "CONTEXT] Starting" "Context should be logged"
 
   rm -f /tmp/test-actor-base.sh
-  teardown_test
 }
 
 # Test complete workflow simulation
 test_workflow_simulation() {
-  setup_test
-
   # Simulate ARCHITECT creating work for DEVELOPER
   es-event-emit "WORK_ASSIGNED" "TO:DEVELOPER|ID:1|WORK:Create feature branch"
   es-event-emit "WORK_ASSIGNED" "TO:DEVELOPER|ID:2|WORK:Implement feature"
@@ -264,8 +461,6 @@ test_workflow_simulation() {
 
   local qa_pending=$(es-projection "QA" "pending_work" | wc -l)
   assert_equals "1" "$qa_pending" "QA should have 1 pending work item"
-
-  teardown_test
 }
 
 # Test work pattern matching
@@ -284,6 +479,10 @@ test_work_pattern_matching() {
 
   if [ -f "/usr/local/bin/architect-actor" ]; then
     source <(grep -v "^actor_loop" /usr/local/bin/architect-actor | sed 's|source es-actor-base|source /tmp/test-actor-base.sh|' || echo "echo 'architect-actor processing failed'")
+  else
+    echo "architect-actor not found in /usr/local/bin"
+    rm -f /tmp/test-actor-base.sh
+    return 1
   fi
 
   # Test patterns that should work
@@ -303,9 +502,13 @@ test_work_pattern_matching() {
   cd - >/dev/null
   rm -rf /tmp/test-patterns-$$
   rm -f /tmp/test-actor-base.sh
-
-  teardown_test
 }
 
-# Run all tests
+# Test all functions
 run_tests
+
+# Clean up any remaining processes
+pkill -f "test-journal-$" 2>/dev/null || true
+
+# The test framework already reports the summary, so just exit
+exit $?

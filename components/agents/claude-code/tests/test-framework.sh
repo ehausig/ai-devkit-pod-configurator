@@ -8,17 +8,46 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-# Test counters
-TESTS_RUN=0
-TESTS_PASSED=0
-TESTS_FAILED=0
+# Test counters - declare but don't initialize here
+declare -g TESTS_RUN
+declare -g TESTS_PASSED
+declare -g TESTS_FAILED
 
-# Test journal location
-TEST_JOURNAL="/tmp/test-journal-$$.md"
+# Test journal location - make it unique per test suite
+TEST_JOURNAL="/tmp/test-journal-$-${RANDOM}.md"
 export JOURNAL_FILE="$TEST_JOURNAL"
+
+# Kill any processes that might interfere with tests
+kill_test_processes() {
+  # Kill any existing monitors or actors
+  pkill -f es-event-monitor 2>/dev/null || true
+  pkill -f "architect-actor" 2>/dev/null || true
+  pkill -f "developer-actor" 2>/dev/null || true
+  pkill -f "qa-actor" 2>/dev/null || true
+  pkill -f "reviewer-actor" 2>/dev/null || true
+  pkill -f "merger-actor" 2>/dev/null || true
+  pkill -f "test-.*-actor" 2>/dev/null || true
+  
+  # Clean up PID files
+  rm -f /tmp/es-event-monitor.pid
+  rm -f /tmp/es-event-monitor.lastline
+  rm -rf /tmp/es-personas/
+  
+  # Clean up test artifacts
+  rm -f /tmp/architect-mock-*.pid
+  rm -f /tmp/architect-run-count
+  rm -f /tmp/architect-second-run
+  rm -f /tmp/architect-has-run-once
+  rm -f /tmp/architect-should-exit-quickly
+  rm -f /tmp/architect-activation-count
+  rm -f /tmp/monitor-*.log
+}
 
 # Setup test environment
 setup_test() {
+  # Kill any interfering processes first
+  kill_test_processes
+  
   # Create clean test journal
   echo "# Test Journal" >"$TEST_JOURNAL"
   echo "" >>"$TEST_JOURNAL"
@@ -26,6 +55,9 @@ setup_test() {
   # Set test mode for scripts
   export TEST_MODE=1
   export DEBUG=1
+  
+  # Small delay to ensure processes are dead
+  sleep 0.5
 }
 
 # Teardown test environment
@@ -34,7 +66,7 @@ teardown_test() {
   rm -f "$TEST_JOURNAL"
 
   # Kill any test processes
-  pkill -f "test-journal-$$" 2>/dev/null || true
+  pkill -f "test-journal-$" 2>/dev/null || true
 }
 
 # Assert functions
@@ -141,14 +173,43 @@ run_tests() {
   echo -e "${BLUE}Running tests...${NC}"
   echo ""
 
+  # Reset counters for this test file
+  TESTS_RUN=0
+  TESTS_PASSED=0
+  TESTS_FAILED=0
+
+  # Kill any interfering processes before starting tests
+  kill_test_processes
+
   # Find and run all test functions
   local test_functions=$(declare -F | grep "^declare -f test_" | awk '{print $3}')
 
   for test_func in $test_functions; do
     echo -e "${YELLOW}Running $test_func${NC}"
+    
+    # Kill processes between tests
+    kill_test_processes
+    
+    # Create fresh journal for each test
+    local old_journal="$TEST_JOURNAL"
+    TEST_JOURNAL="/tmp/test-journal-$-${RANDOM}.md"
+    export JOURNAL_FILE="$TEST_JOURNAL"
+    
+    # Setup test environment
+    setup_test
+    
+    # Run the test
     $test_func
+    
+    # Clean up this test's journal
+    rm -f "$TEST_JOURNAL"
+    TEST_JOURNAL="$old_journal"
+    export JOURNAL_FILE="$TEST_JOURNAL"
     echo ""
   done
+
+  # Final cleanup
+  kill_test_processes
 
   # Summary
   echo -e "${BLUE}Test Summary${NC}"
@@ -158,21 +219,21 @@ run_tests() {
 
   if [ $TESTS_FAILED -eq 0 ]; then
     echo -e "\n${GREEN}All tests passed!${NC}"
-    exit 0
+    return 0
   else
     echo -e "\n${RED}Some tests failed!${NC}"
-    exit 1
+    return 1
   fi
 }
 
 # Utility to wait for event
 wait_for_event() {
-  local event_type="$1"
+  local event_pattern="$1"
   local timeout="${2:-5}"
   local elapsed=0
 
   while [ $elapsed -lt $timeout ]; do
-    if grep -q "TYPE:$event_type" "$TEST_JOURNAL" 2>/dev/null; then
+    if grep -q "$event_pattern" "$TEST_JOURNAL" 2>/dev/null; then
       return 0
     fi
     sleep 0.5
@@ -185,17 +246,18 @@ wait_for_event() {
 # Mock actor for testing
 create_mock_actor() {
   local persona="$1"
-  cat >"/tmp/test-${persona,,}-actor-$$.sh" <<EOF
+  cat >"/tmp/test-${persona,,}-actor-$.sh" <<EOF
 #!/bin/bash
 echo "Mock $persona actor started"
 es-event-emit "PERSONA_ACTIVATED" "PERSONA:$persona|PID:\$\$"
 sleep 1
 es-event-emit "PERSONA_IDLE" "PERSONA:$persona"
 EOF
-  chmod +x "/tmp/test-${persona,,}-actor-$$.sh"
+  chmod +x "/tmp/test-${persona,,}-actor-$.sh"
 }
 
 # Cleanup mock actors
 cleanup_mock_actors() {
-  rm -f /tmp/test-*-actor-$$.sh
+  rm -f /tmp/test-*-actor-$.sh
+  rm -f /tmp/test-*-actor-*.sh
 }
