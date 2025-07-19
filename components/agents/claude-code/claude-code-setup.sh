@@ -256,6 +256,7 @@ mkdir -p "$TEMP_DIR/claude-commands"
 mkdir -p "$TEMP_DIR/claude-hooks"
 mkdir -p "$TEMP_DIR/claude-scripts"
 mkdir -p "$TEMP_DIR/claude-personas"
+mkdir -p "$TEMP_DIR/claude-tests"
 
 # Copy user-CLAUDE.md
 log "Copying user-CLAUDE.md..."
@@ -394,9 +395,35 @@ if [[ -d "$SCRIPT_DIR/claude-code/hooks/logic" ]]; then
     done
 fi
 
+# Copy test scripts if they exist
+TESTS_DIR="$SCRIPT_DIR/claude-code/tests"
+if [[ -d "$TESTS_DIR" ]]; then
+    log "Copying Claude Code test scripts..."
+    
+    # Copy all test scripts
+    for test_file in "$TESTS_DIR"/*.sh; do
+        if [[ -f "$test_file" ]]; then
+            test_basename=$(basename "$test_file")
+            cp "$test_file" "$TEMP_DIR/claude-tests/"
+            chmod +x "$TEMP_DIR/claude-tests/$test_basename"
+            success "Copied test script: $test_basename"
+        fi
+    done
+    
+    # Count test scripts
+    test_count=$(ls -1 "$TEMP_DIR/claude-tests"/*.sh 2>/dev/null | wc -l)
+    success "Copied $test_count test scripts"
+else
+    warning "No tests directory found"
+    echo '#!/bin/bash' > "$TEMP_DIR/claude-tests/.placeholder.sh"
+    echo '# No tests configured' >> "$TEMP_DIR/claude-tests/.placeholder.sh"
+    chmod +x "$TEMP_DIR/claude-tests/.placeholder.sh"
+fi
+
 log "Claude Code pre-build completed successfully"
 
 # NEW: Add event-driven system information
 log "Event-driven autonomous system configured"
 info "System will activate automatically when work is assigned"
 info "Personas communicate through journal events only"
+info "Test suite available for verification"

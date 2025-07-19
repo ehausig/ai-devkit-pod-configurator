@@ -34,6 +34,9 @@ installation:
     - source: claude-scripts/
       destination: /tmp/claude-scripts/
       permissions: 755
+    - source: claude-tests/
+      destination: /tmp/claude-tests/
+      permissions: 755
 entrypoint_setup: |
   # Claude Code specific setup
   echo "Setting up Claude Code environment..."
@@ -79,6 +82,23 @@ entrypoint_setup: |
       done
       
       echo "Claude Code scripts installed successfully"
+  fi
+  
+  # Install test scripts if they exist
+  if [ -d /tmp/claude-tests ]; then
+      echo "Installing Claude Code test scripts..."
+      
+      # Copy all test scripts to /usr/local/bin, removing .sh extension
+      for test_script in /tmp/claude-tests/*.sh; do
+          if [ -f "$test_script" ]; then
+              test_name=$(basename "$test_script" .sh)
+              cp "$test_script" "/usr/local/bin/$test_name"
+              chmod 755 "/usr/local/bin/$test_name"
+              echo "  - Installed test: $test_name"
+          fi
+      done
+      
+      echo "Claude Code test scripts installed successfully"
   fi
   
   # Install hook scripts if they exist (keeping .sh extension for hooks)
@@ -156,6 +176,15 @@ entrypoint_setup: |
   echo "  - qa-actor"
   echo "  - reviewer-actor"
   echo "  - merger-actor"
+  
+  # Test scripts information
+  echo "Test scripts available in PATH:"
+  echo "  - run-all-tests"
+  echo "  - test-framework"
+  echo "  - test-event-emit"
+  echo "  - test-event-monitor"
+  echo "  - test-projections"
+  echo "  - test-actors"
   
   # Verify installed components (only if expected)
   if command -v claude &> /dev/null 2>&1; then
