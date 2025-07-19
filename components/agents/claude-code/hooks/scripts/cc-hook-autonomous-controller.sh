@@ -16,18 +16,18 @@ if [ "$AUTONOMOUS_MODE" != "true" ]; then
 fi
 
 # Check if event monitor is already running
-if pgrep -f "es-event-monitor" > /dev/null 2>&1; then
+if pgrep -f "es-event-monitor.sh" > /dev/null 2>&1; then
     echo "Event monitor already running" >&2
     exit 0
 fi
 
 # Start the event monitor in background
 echo "Starting event monitor for autonomous operation" >&2
-nohup es-event-monitor > /tmp/event-monitor.log 2>&1 &
+nohup es-event-monitor.sh > /tmp/event-monitor.log 2>&1 &
 MONITOR_PID=$!
 
 # Emit event about monitor starting
-es-event-emit "MONITOR_STARTED" "PID:$MONITOR_PID|SESSION:$SESSION_ID|TRIGGER:STOP_HOOK"
+es-event-emit.sh "MONITOR_STARTED" "PID:$MONITOR_PID|SESSION:$SESSION_ID|TRIGGER:STOP_HOOK"
 
 # Check if there's work to be done
 echo "Checking for pending work or handoffs..." >&2
@@ -39,10 +39,10 @@ if [ -n "$INITIAL_WORK" ] && ! grep -q "TYPE:WORK_ASSIGNED" ~/workspace/JOURNAL.
     # This is a fresh start - assign work to ARCHITECT
     echo "Found initial request: $INITIAL_WORK" >&2
     WORK_ID="$(date +%s)-init-1"
-    es-event-emit "WORK_ASSIGNED" "TO:ARCHITECT|ID:$WORK_ID|WORK:Create system architecture based on requirements"
-    es-event-emit "WORK_ASSIGNED" "TO:ARCHITECT|ID:$(date +%s)-init-2|WORK:Design API specification"
-    es-event-emit "WORK_ASSIGNED" "TO:ARCHITECT|ID:$(date +%s)-init-3|WORK:Define data models and schemas"
-    es-event-emit "WORK_ASSIGNED" "TO:ARCHITECT|ID:$(date +%s)-init-4|WORK:Create testing strategy"
+    es-event-emit.sh "WORK_ASSIGNED" "TO:ARCHITECT|ID:$WORK_ID|WORK:Create system architecture based on requirements"
+    es-event-emit.sh "WORK_ASSIGNED" "TO:ARCHITECT|ID:$(date +%s)-init-2|WORK:Design API specification"
+    es-event-emit.sh "WORK_ASSIGNED" "TO:ARCHITECT|ID:$(date +%s)-init-3|WORK:Define data models and schemas"
+    es-event-emit.sh "WORK_ASSIGNED" "TO:ARCHITECT|ID:$(date +%s)-init-4|WORK:Create testing strategy"
 fi
 
 echo "Autonomous system initialized - event monitor running as PID $MONITOR_PID" >&2

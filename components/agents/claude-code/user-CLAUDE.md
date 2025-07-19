@@ -28,13 +28,13 @@ tail -f ~/workspace/JOURNAL.md | grep EVENT
 
 ### Check System Status
 ```bash
-es-projection "" system_state
+es-projection.sh "" system_state
 ```
 
 ### View Specific Persona Status
 ```bash
-es-projection DEVELOPER current_state
-es-projection DEVELOPER pending_work
+es-projection.sh DEVELOPER current_state
+es-projection.sh DEVELOPER pending_work
 ```
 
 ### See Recent Decisions
@@ -54,9 +54,9 @@ The workflow is **not linear** - personas can hand work back (e.g., REVIEWER →
 
 ## Key Commands
 
-- `es-event-monitor` - The autonomous event loop (starts automatically)
-- `es-projection [PERSONA] [VIEW]` - Query system state
-- `es-event-emit TYPE "FIELDS"` - Emit events (for debugging)
+- `es-event-monitor.sh` - The autonomous event loop (starts automatically)
+- `es-projection.sh [PERSONA] [VIEW]` - Query system state
+- `es-event-emit.sh TYPE "FIELDS"` - Emit events (for debugging)
 
 ## Journal Structure
 
@@ -72,21 +72,21 @@ The `~/workspace/JOURNAL.md` file is the single source of truth using event sour
 ### System Not Starting?
 Check if the event monitor is running:
 ```bash
-ps aux | grep es-event-monitor
+ps aux | grep es-event-monitor.sh
 ```
 
 ### Work Not Progressing?
 Check for pending work across all personas:
 ```bash
 for p in ARCHITECT DEVELOPER QA REVIEWER MERGER; do
-  echo "$p: $(es-projection $p pending_work | wc -l) pending"
+  echo "$p: $(es-projection.sh $p pending_work | wc -l) pending"
 done
 ```
 
 ### Need to Debug?
 Enable debug output:
 ```bash
-DEBUG=1 es-event-monitor
+DEBUG=1 es-event-monitor.sh
 ```
 
 ## Important Notes

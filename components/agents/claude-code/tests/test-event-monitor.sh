@@ -16,7 +16,7 @@ export TEST_MODE=1
 # Helper to create isolated mock actors
 create_isolated_mock_actor() {
   local persona="$1"
-  local actor_name="$(echo $persona | tr '[:upper:]' '[:lower:]')-actor"
+  local actor_name="$(echo $persona | tr '[:upper:]' '[:lower:]')-actor.sh"
   local test_pid="$"
 
   # Ensure directory exists
@@ -40,7 +40,7 @@ test_monitor_startup() {
   setup_test
 
   # Start monitor in background
-  es-event-monitor &
+  es-event-monitor.sh &
   local monitor_pid=$!
 
   # Wait for startup event
@@ -65,18 +65,18 @@ test_work_assignment_activation() {
   setup_test
 
   # Clean up any existing symlinks
-  rm -f "/tmp/test-actors-${TEST_PID}/architect-actor"
+  rm -f "/tmp/test-actors-${TEST_PID}/architect-actor.sh"
 
   # Use the isolated mock actor creation
   create_isolated_mock_actor "ARCHITECT"
 
   # Start monitor first
-  es-event-monitor &
+  es-event-monitor.sh &
   local monitor_pid=$!
   sleep 2
 
   # Add work after monitor is running
-  es-event-emit "WORK_ASSIGNED" "TO:ARCHITECT|ID:test1|WORK:Design system"
+  es-event-emit.sh "WORK_ASSIGNED" "TO:ARCHITECT|ID:test1|WORK:Design system"
 
   # Wait for activation
   sleep 3
@@ -108,7 +108,7 @@ test_zombie_process_handling() {
   mkdir -p "/tmp/test-actors-${test_pid}"
   
   # Create a mock actor that stays alive properly
-  cat >"/tmp/test-actors-${test_pid}/architect-actor" <<'EOF'
+  cat >"/tmp/test-actors-${test_pid}/architect-actor.sh" <<'EOF'
 #!/bin/bash
 echo "Mock architect starting with PID $"
 JOURNAL="${JOURNAL_FILE}"
@@ -133,7 +133,7 @@ fi
 # Clean up our PID file on exit
 rm -f "/tmp/architect-mock-$.pid"
 EOF
-  chmod +x "/tmp/test-actors-${test_pid}/architect-actor"
+  chmod +x "/tmp/test-actors-${test_pid}/architect-actor.sh"
 
   # Clean up any previous state
   rm -f /tmp/architect-run-count
@@ -144,12 +144,12 @@ EOF
 
   # Start monitor with TEST_MODE to allow reactivations
   export TEST_MODE=1
-  es-event-monitor &
+  es-event-monitor.sh &
   local monitor_pid=$!
   sleep 2
 
   # First work assignment
-  es-event-emit "WORK_ASSIGNED" "TO:ARCHITECT|ID:test1|WORK:Test"
+  es-event-emit.sh "WORK_ASSIGNED" "TO:ARCHITECT|ID:test1|WORK:Test"
   sleep 2  # Give time for activation
 
   # Check for first activation
@@ -157,7 +157,7 @@ EOF
   assert_equals "1" "$first_activation" "Should have one activation"
 
   # Second work assignment - process should still be running
-  es-event-emit "WORK_ASSIGNED" "TO:ARCHITECT|ID:test2|WORK:Test2"
+  es-event-emit.sh "WORK_ASSIGNED" "TO:ARCHITECT|ID:test2|WORK:Test2"
   sleep 2
 
   # Still only one activation (process is still running from sleep 10)
@@ -180,7 +180,7 @@ EOF
   sleep 2
 
   # Third work assignment - should activate now
-  es-event-emit "WORK_ASSIGNED" "TO:ARCHITECT|ID:test3|WORK:Test3"
+  es-event-emit.sh "WORK_ASSIGNED" "TO:ARCHITECT|ID:test3|WORK:Test3"
   sleep 3  # Give time for new activation
 
   # Should now have two activations
@@ -205,14 +205,14 @@ test_handoff_processing() {
   create_isolated_mock_actor "QA"
 
   # Start monitor first
-  es-event-monitor &
+  es-event-monitor.sh &
   local monitor_pid=$!
   sleep 2
 
   # Create work and emit handoff
-  es-event-emit "WORK_ASSIGNED" "TO:QA|ID:qa1|WORK:Test feature"
+  es-event-emit.sh "WORK_ASSIGNED" "TO:QA|ID:qa1|WORK:Test feature"
   sleep 1
-  es-event-emit "HANDOFF_READY" "FROM:DEVELOPER|TO:QA|COUNT:1"
+  es-event-emit.sh "HANDOFF_READY" "FROM:DEVELOPER|TO:QA|COUNT:1"
 
   # Give more time for activation
   sleep 3
@@ -252,12 +252,12 @@ test_monitor_singleton() {
   setup_test
 
   # Start first monitor
-  es-event-monitor &
+  es-event-monitor.sh &
   local monitor1_pid=$!
   sleep 1
 
   # Try to start second monitor
-  local output=$(es-event-monitor 2>&1)
+  local output=$(es-event-monitor.sh 2>&1)
   assert_contains "$output" "already running" "Should detect existing monitor"
 
   # Kill first monitor
@@ -273,7 +273,7 @@ test_persona_idle_with_work() {
 
   # Create a simple mock actor that doesn't trigger complex behavior
   mkdir -p "/tmp/test-actors-${TEST_PID}"
-  cat >"/tmp/test-actors-${TEST_PID}/reviewer-actor" <<'EOF'
+  cat >"/tmp/test-actors-${TEST_PID}/reviewer-actor.sh" <<'EOF'
 #!/bin/bash
 JOURNAL="${JOURNAL_FILE}"
 echo "$(date -Iseconds) [EVENT] TYPE:PERSONA_ACTIVATED|PERSONA:REVIEWER|PID:$$" >> "$JOURNAL"
@@ -282,15 +282,15 @@ sleep 0.5
 echo "$(date -Iseconds) [EVENT] TYPE:PERSONA_IDLE|PERSONA:REVIEWER" >> "$JOURNAL"
 exit 0
 EOF
-  chmod +x "/tmp/test-actors-${TEST_PID}/reviewer-actor"
+  chmod +x "/tmp/test-actors-${TEST_PID}/reviewer-actor.sh"
 
   # Start monitor first
-  es-event-monitor >/tmp/monitor-$$.log 2>&1 &
+  es-event-monitor.sh >/tmp/monitor-$$.log 2>&1 &
   local monitor_pid=$!
   sleep 1
 
   # Create pending work - this should trigger initial activation
-  es-event-emit "WORK_ASSIGNED" "TO:REVIEWER|ID:r1|WORK:Review code"
+  es-event-emit.sh "WORK_ASSIGNED" "TO:REVIEWER|ID:r1|WORK:Review code"
   
   # Wait for initial activation and idle cycle
   sleep 3
@@ -328,15 +328,15 @@ test_cycle_complete() {
   create_isolated_mock_actor "ARCHITECT"
 
   # Create pending work for another persona
-  es-event-emit "WORK_ASSIGNED" "TO:ARCHITECT|ID:a1|WORK:New feature"
+  es-event-emit.sh "WORK_ASSIGNED" "TO:ARCHITECT|ID:a1|WORK:New feature"
 
   # Start monitor
-  es-event-monitor &
+  es-event-monitor.sh &
   local monitor_pid=$!
   sleep 1
 
   # Emit cycle complete
-  es-event-emit "CYCLE_COMPLETE" "FINAL_PERSONA:MERGER"
+  es-event-emit.sh "CYCLE_COMPLETE" "FINAL_PERSONA:MERGER"
 
   # Should detect remaining work and activate once
   sleep 2
@@ -384,11 +384,11 @@ test_lastline_initialization() {
   rm -f /tmp/es-event-monitor.lastline
 
   # Add events to journal BEFORE monitor starts
-  es-event-emit "WORK_ASSIGNED" "TO:ARCHITECT|ID:test1|WORK:Test"
-  es-event-emit "WORK_ASSIGNED" "TO:ARCHITECT|ID:test2|WORK:Test2"
+  es-event-emit.sh "WORK_ASSIGNED" "TO:ARCHITECT|ID:test1|WORK:Test"
+  es-event-emit.sh "WORK_ASSIGNED" "TO:ARCHITECT|ID:test2|WORK:Test2"
 
   # Start monitor
-  es-event-monitor &
+  es-event-monitor.sh &
   local monitor_pid=$!
   sleep 2
 
@@ -409,15 +409,15 @@ test_lastline_initialization() {
 # Cleanup
 cleanup() {
   # Kill any remaining monitors
-  pkill -f es-event-monitor 2>/dev/null || true
+  pkill -f es-event-monitor.sh 2>/dev/null || true
 
   # Kill any remaining mock actors
-  pkill -f "test-.*-actor" 2>/dev/null || true
-  pkill -f "architect-actor" 2>/dev/null || true
-  pkill -f "developer-actor" 2>/dev/null || true
-  pkill -f "qa-actor" 2>/dev/null || true
-  pkill -f "reviewer-actor" 2>/dev/null || true
-  pkill -f "merger-actor" 2>/dev/null || true
+  pkill -f "test-.*-actor.sh" 2>/dev/null || true
+  pkill -f "architect-actor.sh" 2>/dev/null || true
+  pkill -f "developer-actor.sh" 2>/dev/null || true
+  pkill -f "qa-actor.sh" 2>/dev/null || true
+  pkill -f "reviewer-actor.sh" 2>/dev/null || true
+  pkill -f "merger-actor.sh" 2>/dev/null || true
 
   # Remove test PATH
   rm -rf "/tmp/test-actors-${TEST_PID}"

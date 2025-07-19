@@ -105,12 +105,15 @@ TOTAL_SUITES=0
 PASSED_SUITES=0
 FAILED_SUITES=0
 
+# Find the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 # Run each test suite
-for test_file in test-*.sh; do
-  if [ -f "$test_file" ] && [ "$test_file" != "test-framework.sh" ]; then
+for test_file in "$SCRIPT_DIR"/test-*.sh; do
+  if [ -f "$test_file" ] && [ "$test_file" != "$SCRIPT_DIR/test-framework.sh" ] && [ "$test_file" != "$0" ]; then
     ((TOTAL_SUITES++))
 
-    echo -e "${YELLOW}Running $test_file...${NC}"
+    echo -e "${YELLOW}Running $(basename "$test_file")...${NC}"
 
     # Clean up between test suites
     kill_existing_processes
@@ -118,15 +121,18 @@ for test_file in test-*.sh; do
     # Run test in a subshell to isolate variables
     if (bash "$test_file"); then
       ((PASSED_SUITES++))
-      echo -e "${GREEN}✓ $test_file passed${NC}"
+      echo -e "${GREEN}✓ $(basename "$test_file") passed${NC}"
     else
       ((FAILED_SUITES++))
-      echo -e "${RED}✗ $test_file failed${NC}"
+      echo -e "${RED}✗ $(basename "$test_file") failed${NC}"
     fi
 
     echo ""
   fi
 done
+
+# Final cleanup
+kill_existing_processes
 
 # Summary
 echo -e "${BLUE}================================${NC}"

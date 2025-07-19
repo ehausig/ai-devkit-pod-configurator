@@ -23,28 +23,28 @@ actor_loop() {
     local PERSONA="$1"
     
     echo "Starting $PERSONA actor (PID: $$)"
-    es-event-emit "PERSONA_ACTIVATED" "PERSONA:$PERSONA|PID:$$"
+    es-event-emit.sh "PERSONA_ACTIVATED" "PERSONA:$PERSONA|PID:$$"
     
     # Initialize persona-specific context
     initialize_persona
     
     while $ACTOR_ACTIVE; do
         # Get next work item
-        local next_work=$(es-projection "$PERSONA" "next_work")
+        local next_work=$(es-projection.sh "$PERSONA" "next_work")
         
         if [ -n "$next_work" ]; then
             # Extract work details
             if [[ "$next_work" =~ ID:([^|]+) ]]; then
                 local work_id="${BASH_REMATCH[1]}"
-                local work_desc=$(es-projection "$PERSONA" "work_description" "$work_id")
+                local work_desc=$(es-projection.sh "$PERSONA" "work_description" "$work_id")
                 
                 echo "[$PERSONA] Starting work: $work_desc"
-                es-event-emit "WORK_STARTED" "PERSONA:$PERSONA|WORK_ID:$work_id"
+                es-event-emit.sh "WORK_STARTED" "PERSONA:$PERSONA|WORK_ID:$work_id"
                 
                 # Execute persona-specific work
                 if execute_persona_work "$work_id" "$work_desc"; then
                     echo "[$PERSONA] Completed work: $work_id"
-                    es-event-emit "WORK_COMPLETED" "PERSONA:$PERSONA|WORK_ID:$work_id"
+                    es-event-emit.sh "WORK_COMPLETED" "PERSONA:$PERSONA|WORK_ID:$work_id"
                     
                     # Log success if persona implements it
                     if type log_work_success >/dev/null 2>&1; then
@@ -52,7 +52,7 @@ actor_loop() {
                     fi
                 else
                     echo "[$PERSONA] Failed work: $work_id"
-                    es-event-emit "WORK_FAILED" "PERSONA:$PERSONA|WORK_ID:$work_id|REASON:$?"
+                    es-event-emit.sh "WORK_FAILED" "PERSONA:$PERSONA|WORK_ID:$work_id|REASON:$?"
                     
                     # Log failure if persona implements it
                     if type log_work_failure >/dev/null 2>&1; then
@@ -77,13 +77,13 @@ actor_loop() {
     done
     
     echo "[$PERSONA] Going idle"
-    es-event-emit "PERSONA_IDLE" "PERSONA:$PERSONA"
+    es-event-emit.sh "PERSONA_IDLE" "PERSONA:$PERSONA"
 }
 
 # Check if persona should hand off
 should_handoff() {
     # Default: handoff when no pending work
-    local pending=$(es-projection "$PERSONA" "pending_work" | wc -l)
+    local pending=$(es-projection.sh "$PERSONA" "pending_work" | wc -l)
     [ "$pending" -eq 0 ]
 }
 
@@ -98,10 +98,10 @@ perform_handoff() {
     
     if [ "$next_persona" = "COMPLETE" ]; then
         echo "[$from_persona] Development cycle complete"
-        es-event-emit "CYCLE_COMPLETE" "FINAL_PERSONA:$from_persona"
+        es-event-emit.sh "CYCLE_COMPLETE" "FINAL_PERSONA:$from_persona"
     else
         echo "[$from_persona] Handing off to $next_persona ($reason)"
-        es-event-emit "HANDOFF_INITIATED" "FROM:$from_persona|REASON:$reason"
+        es-event-emit.sh "HANDOFF_INITIATED" "FROM:$from_persona|REASON:$reason"
         
         # Generate work items for next persona
         echo "[$from_persona] Creating work items for $next_persona"
@@ -109,13 +109,13 @@ perform_handoff() {
         generate_work_items "$from_persona" "$next_persona" | while IFS= read -r work; do
             if [ -n "$work" ]; then
                 local work_id="$(date +%s)-$$-$((++work_count))"
-                es-event-emit "WORK_ASSIGNED" "TO:$next_persona|ID:$work_id|WORK:$work"
+                es-event-emit.sh "WORK_ASSIGNED" "TO:$next_persona|ID:$work_id|WORK:$work"
                 echo "  → Assigned: $work"
             fi
         done
         
         # Emit handoff ready event
-        es-event-emit "HANDOFF_READY" "FROM:$from_persona|TO:$next_persona|COUNT:$work_count"
+        es-event-emit.sh "HANDOFF_READY" "FROM:$from_persona|TO:$next_persona|COUNT:$work_count"
         
         # Log handoff context
         if type log_handoff_context >/dev/null 2>&1; then

@@ -67,14 +67,14 @@ entrypoint_setup: |
       echo "Claude Code slash commands installed successfully"
   fi
   
-  # Install all scripts to /usr/local/bin WITHOUT .sh extension
+  # Install all scripts to /usr/local/bin WITH .sh extension
   if [ -d /tmp/claude-scripts ]; then
       echo "Installing Claude Code scripts..."
       
-      # Install all scripts with proper permissions, removing .sh extension
+      # Install all scripts with proper permissions, keeping .sh extension
       for script in /tmp/claude-scripts/*.sh; do
           if [ -f "$script" ]; then
-              script_name=$(basename "$script" .sh)
+              script_name=$(basename "$script")
               cp "$script" "/usr/local/bin/$script_name"
               chmod 755 "/usr/local/bin/$script_name"
               echo "  - Installed: $script_name"
@@ -88,10 +88,10 @@ entrypoint_setup: |
   if [ -d /tmp/claude-tests ]; then
       echo "Installing Claude Code test scripts..."
       
-      # Copy all test scripts to /usr/local/bin, removing .sh extension
+      # Copy all test scripts to /usr/local/bin, keeping .sh extension
       for test_script in /tmp/claude-tests/*.sh; do
           if [ -f "$test_script" ]; then
-              test_name=$(basename "$test_script" .sh)
+              test_name=$(basename "$test_script")
               cp "$test_script" "/usr/local/bin/$test_name"
               chmod 755 "/usr/local/bin/$test_name"
               echo "  - Installed test: $test_name"
@@ -167,24 +167,24 @@ entrypoint_setup: |
   
   # Event-driven system information
   echo "Event-driven scripts available in PATH:"
-  echo "  - es-event-emit"
-  echo "  - es-event-monitor"
-  echo "  - es-projection"
-  echo "  - es-actor-base"
-  echo "  - architect-actor"
-  echo "  - developer-actor"
-  echo "  - qa-actor"
-  echo "  - reviewer-actor"
-  echo "  - merger-actor"
+  echo "  - es-event-emit.sh"
+  echo "  - es-event-monitor.sh"
+  echo "  - es-projection.sh"
+  echo "  - es-actor-base.sh"
+  echo "  - architect-actor.sh"
+  echo "  - developer-actor.sh"
+  echo "  - qa-actor.sh"
+  echo "  - reviewer-actor.sh"
+  echo "  - merger-actor.sh"
   
   # Test scripts information
   echo "Test scripts available in PATH:"
-  echo "  - run-all-tests"
-  echo "  - test-framework"
-  echo "  - test-event-emit"
-  echo "  - test-event-monitor"
-  echo "  - test-projections"
-  echo "  - test-actors"
+  echo "  - run-all-tests.sh"
+  echo "  - test-framework.sh"
+  echo "  - test-event-emit.sh"
+  echo "  - test-event-monitor.sh"
+  echo "  - test-projections.sh"
+  echo "  - test-actors.sh"
   
   # Verify installed components (only if expected)
   if command -v claude &> /dev/null 2>&1; then

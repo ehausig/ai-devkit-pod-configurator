@@ -29,7 +29,7 @@ if [ ! -f "$JOURNAL_FILE" ]; then
 fi
 
 # Emit monitor started event
-es-event-emit "MONITOR_STARTED" "PID:$$"
+es-event-emit.sh "MONITOR_STARTED" "PID:$$"
 
 # Initialize last line tracker AFTER emitting our start event
 CURRENT_LINE=$(wc -l <"$JOURNAL_FILE")
@@ -47,7 +47,7 @@ echo "$CURRENT_LINE" >"$LAST_LINE_FILE"
 
 # Cleanup on exit
 cleanup() {
-  es-event-emit "MONITOR_STOPPED" "PID:$$"
+  es-event-emit.sh "MONITOR_STOPPED" "PID:$$"
   rm -f "$MONITOR_PID_FILE"
   exit 0
 }
@@ -143,7 +143,7 @@ handle_work_assigned() {
 
   if [[ "$event" =~ TO:([^|]+) ]]; then
     local persona="${BASH_REMATCH[1]}"
-    local state=$(es-projection "$persona" "current_state")
+    local state=$(es-projection.sh "$persona" "current_state")
 
     if [ "$state" != "ACTIVE" ]; then
       [ -n "$DEBUG" ] && echo "Monitor: Activating $persona due to work assignment"
@@ -165,7 +165,7 @@ handle_handoff_ready() {
     sleep 1
 
     # Check if next persona has work
-    local pending_count=$(es-projection "$next_persona" "pending_work" | wc -l)
+    local pending_count=$(es-projection.sh "$next_persona" "pending_work" | wc -l)
     if [ "$pending_count" -gt 0 ]; then
       [ -n "$DEBUG" ] && echo "Monitor: Handoff to $next_persona with $pending_count work items"
       # Always activate the persona on handoff, regardless of current state
@@ -194,7 +194,7 @@ handle_persona_idle() {
     [ -n "$DEBUG" ] && echo "Monitor: $persona is now idle"
 
     # Check if there's pending work that wasn't seen
-    local pending_count=$(es-projection "$persona" "pending_work" | wc -l)
+    local pending_count=$(es-projection.sh "$persona" "pending_work" | wc -l)
     if [ "$pending_count" -gt 0 ]; then
       [ -n "$DEBUG" ] && echo "Monitor: Reactivating $persona - found $pending_count pending items"
       activate_persona "$persona" "PENDING_WORK_FOUND"
@@ -212,7 +212,7 @@ handle_cycle_complete() {
 
     # Check for any remaining work across all personas
     for persona in ARCHITECT DEVELOPER QA REVIEWER MERGER; do
-      local pending=$(es-projection "$persona" "pending_work" | wc -l)
+      local pending=$(es-projection.sh "$persona" "pending_work" | wc -l)
       if [ "$pending" -gt 0 ]; then
         echo "Found $pending pending items for $persona"
         activate_persona "$persona" "REMAINING_WORK"
@@ -245,7 +245,7 @@ is_persona_running() {
     if kill -0 "$pid" 2>/dev/null; then
       # Verify it's really our actor process
       local cmdline=$(ps -p "$pid" -o args= 2>/dev/null || true)
-      local actor_name="$(echo $persona | tr '[:upper:]' '[:lower:]')-actor"
+      local actor_name="$(echo $persona | tr '[:upper:]' '[:lower:]')-actor.sh"
       if echo "$cmdline" | grep -q "$actor_name"; then
         return 0  # Process is running
       fi
@@ -261,7 +261,7 @@ is_persona_running() {
 activate_persona() {
   local persona="$1"
   local trigger="$2"
-  local actor_name="$(echo $persona | tr '[:upper:]' '[:lower:]')-actor"
+  local actor_name="$(echo $persona | tr '[:upper:]' '[:lower:]')-actor.sh"
 
   # For test mode, don't check if already running since mock actors need to activate
   if [ "$TEST_MODE" != "1" ]; then

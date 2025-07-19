@@ -20,13 +20,13 @@ export JOURNAL_FILE="$TEST_JOURNAL"
 # Kill any processes that might interfere with tests
 kill_test_processes() {
   # Kill any existing monitors or actors
-  pkill -f es-event-monitor 2>/dev/null || true
-  pkill -f "architect-actor" 2>/dev/null || true
-  pkill -f "developer-actor" 2>/dev/null || true
-  pkill -f "qa-actor" 2>/dev/null || true
-  pkill -f "reviewer-actor" 2>/dev/null || true
-  pkill -f "merger-actor" 2>/dev/null || true
-  pkill -f "test-.*-actor" 2>/dev/null || true
+  pkill -f es-event-monitor.sh 2>/dev/null || true
+  pkill -f "architect-actor.sh" 2>/dev/null || true
+  pkill -f "developer-actor.sh" 2>/dev/null || true
+  pkill -f "qa-actor.sh" 2>/dev/null || true
+  pkill -f "reviewer-actor.sh" 2>/dev/null || true
+  pkill -f "merger-actor.sh" 2>/dev/null || true
+  pkill -f "test-.*-actor.sh" 2>/dev/null || true
   
   # Clean up PID files
   rm -f /tmp/es-event-monitor.pid
@@ -249,9 +249,9 @@ create_mock_actor() {
   cat >"/tmp/test-${persona,,}-actor-$.sh" <<EOF
 #!/bin/bash
 echo "Mock $persona actor started"
-es-event-emit "PERSONA_ACTIVATED" "PERSONA:$persona|PID:\$\$"
+es-event-emit.sh "PERSONA_ACTIVATED" "PERSONA:$persona|PID:\$\$"
 sleep 1
-es-event-emit "PERSONA_IDLE" "PERSONA:$persona"
+es-event-emit.sh "PERSONA_IDLE" "PERSONA:$persona"
 EOF
   chmod +x "/tmp/test-${persona,,}-actor-$.sh"
 }

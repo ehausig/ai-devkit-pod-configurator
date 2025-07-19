@@ -6,12 +6,12 @@ source "$(dirname "$0")/test-framework.sh"
 
 # Kill any existing processes that might interfere
 kill_actor_test_processes() {
-  pkill -f "architect-actor" 2>/dev/null || true
-  pkill -f "developer-actor" 2>/dev/null || true
-  pkill -f "qa-actor" 2>/dev/null || true
-  pkill -f "reviewer-actor" 2>/dev/null || true
-  pkill -f "merger-actor" 2>/dev/null || true
-  pkill -f "test-actor-base" 2>/dev/null || true
+  pkill -f "architect-actor.sh" 2>/dev/null || true
+  pkill -f "developer-actor.sh" 2>/dev/null || true
+  pkill -f "qa-actor.sh" 2>/dev/null || true
+  pkill -f "reviewer-actor.sh" 2>/dev/null || true
+  pkill -f "merger-actor.sh" 2>/dev/null || true
+  pkill -f "test-actor-base.sh" 2>/dev/null || true
   rm -f /tmp/test-actor-base.sh
   rm -rf /tmp/test-project-*
   rm -rf /tmp/test-handoff-*
@@ -46,7 +46,7 @@ actor_loop() {
 }
 
 should_handoff() {
-    [ $(es-projection "$PERSONA" "pending_work" | wc -l) -eq 0 ]
+    [ $(es-projection.sh "$PERSONA" "pending_work" | wc -l) -eq 0 ]
 }
 
 log_decision() {
@@ -99,10 +99,10 @@ test_architect_work_execution() {
   PERSONA="ARCHITECT"
 
   # Check if script exists in /usr/local/bin first
-  if [ -f "/usr/local/bin/architect-actor" ]; then
-    source <(grep -v "^actor_loop" /usr/local/bin/architect-actor | sed 's|source es-actor-base|source /tmp/test-actor-base.sh|' || echo "echo 'architect-actor processing failed'")
+  if [ -f "/usr/local/bin/architect-actor.sh" ]; then
+    source <(grep -v "^actor_loop" /usr/local/bin/architect-actor.sh | sed 's|source es-actor-base.sh|source /tmp/test-actor-base.sh|' || echo "echo 'architect-actor processing failed'")
   else
-    echo "architect-actor not found in /usr/local/bin"
+    echo "architect-actor.sh not found in /usr/local/bin"
     # Clean up before returning
     rm -f /tmp/test-actor-base.sh
     return 1
@@ -150,7 +150,7 @@ actor_loop() {
 }
 
 should_handoff() {
-    [ $(es-projection "$PERSONA" "pending_work" | wc -l) -eq 0 ]
+    [ $(es-projection.sh "$PERSONA" "pending_work" | wc -l) -eq 0 ]
 }
 
 log_decision() {
@@ -197,10 +197,10 @@ EOF
   PERSONA="DEVELOPER"
   PROJECT_TYPE="python" # Set project type for testing
 
-  if [ -f "/usr/local/bin/developer-actor" ]; then
-    source <(grep -v "^actor_loop" /usr/local/bin/developer-actor | sed 's|source es-actor-base|source /tmp/test-actor-base.sh|' || echo "echo 'developer-actor processing failed'")
+  if [ -f "/usr/local/bin/developer-actor.sh" ]; then
+    source <(grep -v "^actor_loop" /usr/local/bin/developer-actor.sh | sed 's|source es-actor-base.sh|source /tmp/test-actor-base.sh|' || echo "echo 'developer-actor processing failed'")
   else
-    echo "developer-actor not found in /usr/local/bin"
+    echo "developer-actor.sh not found in /usr/local/bin"
     rm -f /tmp/test-actor-base.sh
     return 1
   fi
@@ -241,7 +241,7 @@ actor_loop() {
 }
 
 should_handoff() {
-    [ $(es-projection "$PERSONA" "pending_work" | wc -l) -eq 0 ]
+    [ $(es-projection.sh "$PERSONA" "pending_work" | wc -l) -eq 0 ]
 }
 
 log_decision() {
@@ -292,8 +292,8 @@ EOF
   cd /tmp/test-handoff-$$
   touch ARCHITECTURE.md API_DESIGN.md DATA_MODELS.md TESTING_STRATEGY.md
 
-  if [ -f "/usr/local/bin/architect-actor" ]; then
-    source <(grep -v "^actor_loop" /usr/local/bin/architect-actor | sed 's|source es-actor-base|source /tmp/test-actor-base.sh|' || echo "echo 'architect-actor processing failed'")
+  if [ -f "/usr/local/bin/architect-actor.sh" ]; then
+    source <(grep -v "^actor_loop" /usr/local/bin/architect-actor.sh | sed 's|source es-actor-base.sh|source /tmp/test-actor-base.sh|' || echo "echo 'architect-actor processing failed'")
   fi
 
   # Test handoff determination
@@ -330,7 +330,7 @@ actor_loop() {
 }
 
 should_handoff() {
-    [ $(es-projection "$PERSONA" "pending_work" | wc -l) -eq 0 ]
+    [ $(es-projection.sh "$PERSONA" "pending_work" | wc -l) -eq 0 ]
 }
 
 log_decision() {
@@ -378,8 +378,8 @@ EOF
   TESTS_FAILED=0
   ISSUES_FOUND=0
 
-  if [ -f "/usr/local/bin/qa-actor" ]; then
-    source <(grep -v "^actor_loop" /usr/local/bin/qa-actor | sed 's|source es-actor-base|source /tmp/test-actor-base.sh|' || echo "echo 'qa-actor processing failed'")
+  if [ -f "/usr/local/bin/qa-actor.sh" ]; then
+    source <(grep -v "^actor_loop" /usr/local/bin/qa-actor.sh | sed 's|source es-actor-base.sh|source /tmp/test-actor-base.sh|' || echo "echo 'qa-actor processing failed'")
   fi
 
   # Test with no failures
@@ -443,23 +443,23 @@ EOF
 # Test complete workflow simulation
 test_workflow_simulation() {
   # Simulate ARCHITECT creating work for DEVELOPER
-  es-event-emit "WORK_ASSIGNED" "TO:DEVELOPER|ID:1|WORK:Create feature branch"
-  es-event-emit "WORK_ASSIGNED" "TO:DEVELOPER|ID:2|WORK:Implement feature"
-  es-event-emit "HANDOFF_READY" "FROM:ARCHITECT|TO:DEVELOPER|COUNT:2"
+  es-event-emit.sh "WORK_ASSIGNED" "TO:DEVELOPER|ID:1|WORK:Create feature branch"
+  es-event-emit.sh "WORK_ASSIGNED" "TO:DEVELOPER|ID:2|WORK:Implement feature"
+  es-event-emit.sh "HANDOFF_READY" "FROM:ARCHITECT|TO:DEVELOPER|COUNT:2"
 
   # Simulate DEVELOPER completing work
-  es-event-emit "WORK_COMPLETED" "PERSONA:DEVELOPER|WORK_ID:1"
-  es-event-emit "WORK_COMPLETED" "PERSONA:DEVELOPER|WORK_ID:2"
+  es-event-emit.sh "WORK_COMPLETED" "PERSONA:DEVELOPER|WORK_ID:1"
+  es-event-emit.sh "WORK_COMPLETED" "PERSONA:DEVELOPER|WORK_ID:2"
 
   # Create QA work
-  es-event-emit "WORK_ASSIGNED" "TO:QA|ID:3|WORK:Run tests"
-  es-event-emit "HANDOFF_READY" "FROM:DEVELOPER|TO:QA|COUNT:1"
+  es-event-emit.sh "WORK_ASSIGNED" "TO:QA|ID:3|WORK:Run tests"
+  es-event-emit.sh "HANDOFF_READY" "FROM:DEVELOPER|TO:QA|COUNT:1"
 
   # Verify journal state
-  local dev_pending=$(es-projection "DEVELOPER" "pending_work" | wc -l)
+  local dev_pending=$(es-projection.sh "DEVELOPER" "pending_work" | wc -l)
   assert_equals "0" "$dev_pending" "DEVELOPER should have no pending work"
 
-  local qa_pending=$(es-projection "QA" "pending_work" | wc -l)
+  local qa_pending=$(es-projection.sh "QA" "pending_work" | wc -l)
   assert_equals "1" "$qa_pending" "QA should have 1 pending work item"
 }
 
@@ -477,10 +477,10 @@ test_work_pattern_matching() {
   mkdir -p /tmp/test-patterns-$$
   cd /tmp/test-patterns-$$
 
-  if [ -f "/usr/local/bin/architect-actor" ]; then
-    source <(grep -v "^actor_loop" /usr/local/bin/architect-actor | sed 's|source es-actor-base|source /tmp/test-actor-base.sh|' || echo "echo 'architect-actor processing failed'")
+  if [ -f "/usr/local/bin/architect-actor.sh" ]; then
+    source <(grep -v "^actor_loop" /usr/local/bin/architect-actor.sh | sed 's|source es-actor-base.sh|source /tmp/test-actor-base.sh|' || echo "echo 'architect-actor processing failed'")
   else
-    echo "architect-actor not found in /usr/local/bin"
+    echo "architect-actor.sh not found in /usr/local/bin"
     rm -f /tmp/test-actor-base.sh
     return 1
   fi

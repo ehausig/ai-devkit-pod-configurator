@@ -36,12 +36,12 @@ extract_json_field() {
     echo "$json" | jq -r "$field // \"$default\"" 2>/dev/null || echo "$default"
 }
 
-# Get current persona with fallback - UPDATED to use es-projection
+# Get current persona with fallback - UPDATED to use es-projection.sh
 get_current_persona() {
     local persona=""
     
-    # Try es-projection first
-    if command -v es-projection >/dev/null 2>&1; then
+    # Try es-projection.sh first
+    if command -v es-projection.sh >/dev/null 2>&1; then
         # Get the most recently activated persona
         persona=$(grep "TYPE:PERSONA_ACTIVATED" "$JOURNAL_FILE" 2>/dev/null | tail -1 | grep -o 'PERSONA:[^|]*' | cut -d: -f2)
     fi
@@ -54,7 +54,7 @@ get_current_persona() {
     echo "${persona:-UNKNOWN}"
 }
 
-# Log with timestamp - UPDATED to use es-event-emit for events
+# Log with timestamp - UPDATED to use es-event-emit.sh for events
 log_event() {
     local tag="$1"
     local message="$2"
@@ -62,10 +62,10 @@ log_event() {
     # Ensure journal exists
     ensure_journal
     
-    # For EVENT types, use es-event-emit
-    if [[ "$tag" == "EVENT:"* ]] && command -v es-event-emit >/dev/null 2>&1; then
+    # For EVENT types, use es-event-emit.sh
+    if [[ "$tag" == "EVENT:"* ]] && command -v es-event-emit.sh >/dev/null 2>&1; then
         local event_type="${tag#EVENT:}"
-        es-event-emit "$event_type" "$message"
+        es-event-emit.sh "$event_type" "$message"
     else
         # For non-event logs, write directly
         echo "$(date -Iseconds) [$tag] $message" >> "$JOURNAL_FILE"
@@ -78,12 +78,12 @@ is_work_completed() {
     grep -q "WORK:COMPLETED.*$work_desc" "$JOURNAL_FILE" 2>/dev/null
 }
 
-# Get pending work count for persona - UPDATED to use es-projection
+# Get pending work count for persona - UPDATED to use es-projection.sh
 get_pending_count() {
     local persona="${1:-$(get_current_persona)}"
     
-    if command -v es-projection >/dev/null 2>&1; then
-        es-projection "$persona" "pending_work" 2>/dev/null | wc -l
+    if command -v es-projection.sh >/dev/null 2>&1; then
+        es-projection.sh "$persona" "pending_work" 2>/dev/null | wc -l
     else
         # Fallback: count pending work manually
         grep "WORK:PENDING.*${persona}:" "$JOURNAL_FILE" 2>/dev/null | \
@@ -96,20 +96,20 @@ get_pending_count() {
     fi
 }
 
-# Check if persona is ready for handoff - UPDATED to use es-projection
+# Check if persona is ready for handoff - UPDATED to use es-projection.sh
 is_handoff_ready() {
     local persona="${1:-$(get_current_persona)}"
     local pending=$(get_pending_count "$persona")
     [ "$pending" -eq 0 ]
 }
 
-# Get next persona in workflow - UPDATED to use es-projection
+# Get next persona in workflow - UPDATED to use es-projection.sh
 get_next_persona() {
     local current="$1"
     
-    # Use es-projection to check state if available
-    if command -v es-projection >/dev/null 2>&1; then
-        local state=$(es-projection "$current" "current_state")
+    # Use es-projection.sh to check state if available
+    if command -v es-projection.sh >/dev/null 2>&1; then
+        local state=$(es-projection.sh "$current" "current_state")
         
         # If persona is complete, determine next
         if [ "$state" = "COMPLETE" ]; then
@@ -165,7 +165,7 @@ format_work_item() {
     echo "$work_item" | sed 's/.*WORK:PENDING\] //'
 }
 
-# Check safety limits - UPDATED to use es-projection
+# Check safety limits - UPDATED to use es-projection.sh
 check_safety_limits() {
     local persona="${1:-$(get_current_persona)}"
     
@@ -224,10 +224,10 @@ is_stop_hook_active() {
 
 # Enhanced transition detection for autonomous workflow - UPDATED for pure event sourcing
 detect_next_persona_automatically() {
-    # Check each persona for pending work using es-projection
-    if command -v es-projection >/dev/null 2>&1; then
+    # Check each persona for pending work using es-projection.sh
+    if command -v es-projection.sh >/dev/null 2>&1; then
         for persona in ARCHITECT DEVELOPER QA REVIEWER MERGER; do
-            local pending=$(es-projection "$persona" "pending_work" | wc -l)
+            local pending=$(es-projection.sh "$persona" "pending_work" | wc -l)
             if [ "$pending" -gt 0 ]; then
                 echo "$persona"
                 return 0
@@ -280,7 +280,7 @@ is_valid_persona() {
 
 # Get handoff processing status
 get_handoff_status() {
-    if command -v es-projection >/dev/null 2>&1; then
+    if command -v es-projection.sh >/dev/null 2>&1; then
         # Check if there are any unprocessed handoffs
         if check_unprocessed_handoffs >/dev/null 2>&1; then
             echo "pending"
@@ -301,7 +301,7 @@ log_transition_event() {
 
 # Check if journal query system is available
 is_enhanced_queries_available() {
-    command -v es-projection >/dev/null 2>&1
+    command -v es-projection.sh >/dev/null 2>&1
 }
 
 # Journal state validation
@@ -334,10 +334,10 @@ debug_journal_state() {
     echo "Current persona: $persona"
     echo "Enhanced queries available: $(is_enhanced_queries_available && echo 'Yes' || echo 'No')"
     
-    if command -v es-projection >/dev/null 2>&1; then
+    if command -v es-projection.sh >/dev/null 2>&1; then
         echo "Pending work count: $(get_pending_count "$persona")"
         echo "Handoff status: $(get_handoff_status)"
-        echo "Current state: $(es-projection "$persona" "current_state" 2>/dev/null || echo 'Unknown')"
+        echo "Current state: $(es-projection.sh "$persona" "current_state" 2>/dev/null || echo 'Unknown')"
     fi
     
     echo "Recent entries:"
