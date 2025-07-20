@@ -2,7 +2,7 @@
 # MERGER Actor - Integration and release management persona
 
 # Source the base actor functionality
-source es-actor-base
+source es-actor-base.sh
 
 # Persona name
 PERSONA="MERGER"
@@ -53,7 +53,7 @@ determine_next_persona() {
     
     # Check if new work has appeared for any persona
     for persona in ARCHITECT DEVELOPER QA REVIEWER; do
-        local pending=$(es-projection "$persona" "pending_work" | wc -l)
+        local pending=$(es-projection.sh "$persona" "pending_work" | wc -l)
         if [ "$pending" -gt 0 ]; then
             echo "$persona:Found $pending pending items for $persona"
             return

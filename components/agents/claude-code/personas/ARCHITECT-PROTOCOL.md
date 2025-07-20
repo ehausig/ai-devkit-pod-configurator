@@ -49,7 +49,7 @@ Create the following documents in the project:
 
 ### Example Log Entries
 ```bash
-# Using direct journal writes (event-driven system uses es-event-emit)
+# Using direct journal writes (event-driven system uses es-event-emit.sh)
 echo "$(date -Iseconds) [ARCHITECT:DECISION] Chose PostgreSQL over MongoDB for ACID compliance" >> ~/workspace/JOURNAL.md
 echo "$(date -Iseconds) [ARCHITECT:MEMORY] Hard requirement: Must support 10k concurrent users" >> ~/workspace/JOURNAL.md
 echo "$(date -Iseconds) [ARCHITECT:CONTEXT] Completed API design, 3 services identified" >> ~/workspace/JOURNAL.md

@@ -49,7 +49,7 @@ The DEVELOPER is responsible for implementing features according to the ARCHITEC
 
 ### Example Log Entries
 ```bash
-# Using direct journal writes (event-driven system uses es-event-emit)
+# Using direct journal writes (event-driven system uses es-event-emit.sh)
 echo "$(date -Iseconds) [DEVELOPER:CONTEXT] Implementing user authentication service" >> ~/workspace/JOURNAL.md
 echo "$(date -Iseconds) [DEVELOPER:ISSUE] Dependency conflict: async-graphql version mismatch" >> ~/workspace/JOURNAL.md
 echo "$(date -Iseconds) [DEVELOPER:RESOLVED] Downgraded to async-graphql v6.0.11 for compatibility" >> ~/workspace/JOURNAL.md

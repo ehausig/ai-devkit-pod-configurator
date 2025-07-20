@@ -2,7 +2,7 @@
 # DEVELOPER Actor - Implementation and coding persona
 
 # Source the base actor functionality
-source es-actor-base
+source es-actor-base.sh
 
 # Persona name
 PERSONA="DEVELOPER"
@@ -58,7 +58,7 @@ determine_next_persona() {
     local from="$1"
     
     # Check if coming back from review
-    local last_handoff=$(es-projection "$PERSONA" "last_handoff_to")
+    local last_handoff=$(es-projection.sh "$PERSONA" "last_handoff_to")
     if [ "$last_handoff" = "DEVELOPER" ]; then
         # We're coming back from review, check who sent us
         local review_issues=$(grep "REVIEWER:ISSUE" "$JOURNAL_FILE" | tail -10 | wc -l)

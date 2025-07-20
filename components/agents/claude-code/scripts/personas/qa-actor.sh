@@ -2,7 +2,7 @@
 # QA Actor - Testing and quality assurance persona
 
 # Source the base actor functionality
-source es-actor-base
+source es-actor-base.sh
 
 # Persona name
 PERSONA="QA"
