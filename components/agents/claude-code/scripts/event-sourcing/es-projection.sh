@@ -1,6 +1,6 @@
 #!/bin/bash
 # CQRS projection system - builds read models from event stream
-# Usage: es-projection PERSONA PROJECTION_TYPE [OPTIONS]
+# Usage: es-projection.sh PERSONA PROJECTION_TYPE [OPTIONS]
 
 PERSONA="$1"
 PROJECTION="$2"
@@ -50,7 +50,7 @@ current_state)
     echo "UNKNOWN"
   elif [ -n "$last_activation" ] && [ -z "$last_idle" ]; then
     # Activated but never went idle - check pending work
-    pending=$(es-projection "$PERSONA" "pending_work" | wc -l)
+    pending=$(es-projection.sh "$PERSONA" "pending_work" | wc -l)
     if [ "$pending" -gt 0 ]; then
       echo "ACTIVE"
     else
@@ -73,7 +73,7 @@ current_state)
       echo "IDLE"
     else
       # Activated after being idle - check pending work
-      pending=$(es-projection "$PERSONA" "pending_work" | wc -l)
+      pending=$(es-projection.sh "$PERSONA" "pending_work" | wc -l)
       if [ "$pending" -gt 0 ]; then
         echo "ACTIVE"
       else
@@ -115,7 +115,7 @@ handoffs)
 active_personas)
   # Find all currently active personas
   for p in ARCHITECT DEVELOPER QA REVIEWER MERGER; do
-    state=$(es-projection "$p" "current_state")
+    state=$(es-projection.sh "$p" "current_state")
     if [ "$state" = "ACTIVE" ]; then
       echo "$p"
     fi
@@ -127,7 +127,7 @@ stats)
   total_assigned=$(grep "TYPE:WORK_ASSIGNED.*TO:$PERSONA" "$JOURNAL_FILE" | wc -l)
   total_completed=$(grep "TYPE:WORK_COMPLETED.*PERSONA:$PERSONA" "$JOURNAL_FILE" | wc -l)
   total_failed=$(grep "TYPE:WORK_FAILED.*PERSONA:$PERSONA" "$JOURNAL_FILE" | wc -l)
-  pending=$(es-projection "$PERSONA" "pending_work" | wc -l)
+  pending=$(es-projection.sh "$PERSONA" "pending_work" | wc -l)
 
   echo "=== $PERSONA Statistics ==="
   echo "Total Assigned: $total_assigned"
@@ -143,7 +143,7 @@ stats)
 
 next_work)
   # Get the next work item for persona (oldest pending)
-  es-projection "$PERSONA" "pending_work" | head -1
+  es-projection.sh "$PERSONA" "pending_work" | head -1
   ;;
 
 work_description)
@@ -162,17 +162,17 @@ last_handoff_to)
 system_state)
   # Overall system state
   echo "=== System State ==="
-  echo "Active Personas: $(es-projection "" "active_personas" | tr '\n' ' ')"
+  echo "Active Personas: $(es-projection.sh "" "active_personas" | tr '\n' ' ')"
   echo ""
   for p in ARCHITECT DEVELOPER QA REVIEWER MERGER; do
-    state=$(es-projection "$p" "current_state")
-    pending=$(es-projection "$p" "pending_work" | wc -l)
+    state=$(es-projection.sh "$p" "current_state")
+    pending=$(es-projection.sh "$p" "pending_work" | wc -l)
     echo "$p: $state (pending: $pending)"
   done
   ;;
 
 *)
-  echo "Usage: es-projection PERSONA PROJECTION_TYPE [OPTIONS]"
+  echo "Usage: es-projection.sh PERSONA PROJECTION_TYPE [OPTIONS]"
   echo ""
   echo "Projection types:"
   echo "  pending_work     - List pending work items"
