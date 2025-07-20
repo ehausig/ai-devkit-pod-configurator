@@ -8,11 +8,22 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Change to tests directory
-cd "$(dirname "$0")"
+# Find test directory - check multiple locations
+if [ -d "$HOME/.claude/tests" ]; then
+    TEST_DIR="$HOME/.claude/tests"
+elif [ -d "$(dirname "$0")" ] && [ -f "$(dirname "$0")/test-framework.sh" ]; then
+    TEST_DIR="$(dirname "$0")"
+else
+    echo -e "${RED}Error: Cannot find test directory${NC}"
+    echo "Looked in: $HOME/.claude/tests and $(dirname "$0")"
+    exit 1
+fi
+
+# Change to test directory
+cd "$TEST_DIR"
 
 # Ensure scripts are in PATH
-export PATH="../scripts/event-sourcing:../scripts/personas:../scripts/common:$PATH"
+export PATH="/usr/local/bin:$PATH"
 
 # Kill any existing processes from previous test runs
 kill_existing_processes() {
@@ -106,12 +117,12 @@ PASSED_SUITES=0
 FAILED_SUITES=0
 
 # Find the directory where this script is located
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$TEST_DIR"
 
 # Run each test suite
 for test_file in "$SCRIPT_DIR"/test-*.sh; do
-  if [ -f "$test_file" ] && [ "$test_file" != "$SCRIPT_DIR/test-framework.sh" ] && [ "$test_file" != "$0" ]; then
-    ((TOTAL_SUITES++))
+  if [ -f "$test_file" ] && [ "$test_file" != "$SCRIPT_DIR/test-framework.sh" ] && [ "$(basename "$test_file")" != "run-all-tests.sh" ]; then
+    ((TOTAL_SUITES++)
 
     echo -e "${YELLOW}Running $(basename "$test_file")...${NC}"
 
