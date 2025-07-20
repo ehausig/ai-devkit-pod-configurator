@@ -129,6 +129,9 @@ process_event() {
     CYCLE_COMPLETE)
       handle_cycle_complete "$event"
       ;;
+    MONITOR_HEARTBEAT)
+      handle_monitor_heartbeat "$event"
+      ;;
     *)
       # Other events don't require action from monitor
       [ -n "$DEBUG" ] && echo "Monitor: Observed event $event_type"
@@ -145,7 +148,8 @@ handle_work_assigned() {
     local persona="${BASH_REMATCH[1]}"
     local state=$(es-projection.sh "$persona" "current_state")
 
-    if [ "$state" != "ACTIVE" ]; then
+    # More thorough check - verify process is truly alive
+    if [ "$state" != "ACTIVE" ] || ! is_persona_running "$persona"; then
       [ -n "$DEBUG" ] && echo "Monitor: Activating $persona due to work assignment"
       activate_persona "$persona" "WORK_ASSIGNED"
     else
@@ -219,6 +223,25 @@ handle_cycle_complete() {
       fi
     done
   fi
+}
+
+# Handle monitor heartbeat - check all persona processes
+handle_monitor_heartbeat() {
+  local event="$1"
+  
+  [ -n "$DEBUG" ] && echo "Monitor: Processing heartbeat - checking all personas"
+  
+  # Check each persona's PID file and verify process is alive
+  for persona in ARCHITECT DEVELOPER QA REVIEWER MERGER; do
+    local pid_file="$PERSONA_PID_DIR/${persona}.pid"
+    if [ -f "$pid_file" ]; then
+      local pid=$(cat "$pid_file")
+      if ! kill -0 "$pid" 2>/dev/null; then
+        [ -n "$DEBUG" ] && echo "Monitor: $persona process $pid is dead, removing PID file"
+        rm -f "$pid_file"
+      fi
+    fi
+  done
 }
 
 # Check if a persona is already running

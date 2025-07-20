@@ -504,6 +504,11 @@ test_work_pattern_matching() {
   rm -f /tmp/test-actor-base.sh
 }
 
+# Initialize test counters for this file
+TESTS_RUN=0
+TESTS_PASSED=0
+TESTS_FAILED=0
+
 # Test all functions
 run_tests
 

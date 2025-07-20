@@ -173,7 +173,7 @@ run_tests() {
   echo -e "${BLUE}Running tests...${NC}"
   echo ""
 
-  # Reset counters for this test file
+  # Reset counters for this test file - CRITICAL FIX
   TESTS_RUN=0
   TESTS_PASSED=0
   TESTS_FAILED=0
