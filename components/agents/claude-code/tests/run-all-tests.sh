@@ -116,13 +116,10 @@ TOTAL_SUITES=0
 PASSED_SUITES=0
 FAILED_SUITES=0
 
-# Find the directory where this script is located
-SCRIPT_DIR="$TEST_DIR"
-
 # Run each test suite
-for test_file in "$SCRIPT_DIR"/test-*.sh; do
-  if [ -f "$test_file" ] && [ "$test_file" != "$SCRIPT_DIR/test-framework.sh" ] && [ "$(basename "$test_file")" != "run-all-tests.sh" ]; then
-    ((TOTAL_SUITES++)
+for test_file in "$TEST_DIR"/test-*.sh; do
+  if [ -f "$test_file" ] && [ "$test_file" != "$TEST_DIR/test-framework.sh" ] && [ "$(basename "$test_file")" != "run-all-tests.sh" ]; then
+    ((TOTAL_SUITES++))
 
     echo -e "${YELLOW}Running $(basename "$test_file")...${NC}"
 
