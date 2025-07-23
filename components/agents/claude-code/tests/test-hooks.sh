@@ -34,6 +34,10 @@ test_hook_framework_basics() {
 
 # Test bash logger hook
 test_bash_logger_hook() {
+  # Ensure journal file is set and exists
+  export JOURNAL_FILE="$TEST_JOURNAL"
+  echo "# Test Journal" > "$JOURNAL_FILE"
+  
   # Create test JSON for PostToolUse
   local json_input='{
     "tool_name": "Bash",
@@ -51,7 +55,23 @@ test_bash_logger_hook() {
   export JSON_INPUT="$json_input"
   export HOOK_TYPE="bash-logger"
 
-  # Source the hook logic directly
+  # Source cc-common.sh first to ensure functions are available
+  if [ -f "/usr/local/bin/cc-common.sh" ]; then
+    # Save and restore JOURNAL_FILE
+    local saved_journal="$JOURNAL_FILE"
+    source /usr/local/bin/cc-common.sh
+    export JOURNAL_FILE="$saved_journal"
+  fi
+
+  # Source the wrapper to get all functions
+  if [ -f "/usr/local/bin/cc-hook-logic-wrapper.sh" ]; then
+    # Save and restore JOURNAL_FILE
+    local saved_journal="$JOURNAL_FILE"
+    source /usr/local/bin/cc-hook-logic-wrapper.sh
+    export JOURNAL_FILE="$saved_journal"
+  fi
+
+  # Now source the hook logic directly (not in a subshell)
   if [ -f "/usr/local/bin/cc-hook-logic-bash-logger.sh" ]; then
     source /usr/local/bin/cc-hook-logic-bash-logger.sh
   else
@@ -66,6 +86,10 @@ test_bash_logger_hook() {
 
 # Test decision tracker hook
 test_decision_tracker_hook() {
+  # Ensure journal file is set and exists
+  export JOURNAL_FILE="$TEST_JOURNAL"
+  echo "# Test Journal" > "$JOURNAL_FILE"
+  
   # Create test JSON for file write
   local json_input='{
     "tool_name": "Write",
@@ -82,9 +106,15 @@ test_decision_tracker_hook() {
   export JSON_INPUT="$json_input"
   export HOOK_TYPE="decision-tracker"
 
-  # Mock get_file_path function
-  get_file_path() { echo "package.json"; }
-  export -f get_file_path
+  # Source cc-common.sh first
+  if [ -f "/usr/local/bin/cc-common.sh" ]; then
+    source /usr/local/bin/cc-common.sh
+  fi
+
+  # Source the wrapper
+  if [ -f "/usr/local/bin/cc-hook-logic-wrapper.sh" ]; then
+    source /usr/local/bin/cc-hook-logic-wrapper.sh
+  fi
 
   # Source the hook logic
   if [ -f "/usr/local/bin/cc-hook-logic-decision-tracker.sh" ]; then
@@ -97,6 +127,10 @@ test_decision_tracker_hook() {
 
 # Test error recovery hook
 test_error_recovery_hook() {
+  # Ensure journal file is set and exists
+  export JOURNAL_FILE="$TEST_JOURNAL"
+  echo "# Test Journal" > "$JOURNAL_FILE"
+  
   # Create test JSON for failed command
   local json_input='{
     "tool_name": "Bash",
@@ -114,13 +148,13 @@ test_error_recovery_hook() {
   export JSON_INPUT="$json_input"
   export HOOK_TYPE="error-recovery"
 
-  # Mock helper functions
-  get_command() { echo "npm install"; }
-  get_description() { echo "Installing dependencies"; }
-  is_post_tool_use() { return 0; }
-  is_command_successful() { return 1; }
-  get_error_details() { echo "npm ERR! Failed to install"; }
-  export -f get_command get_description is_post_tool_use is_command_successful get_error_details
+  # Source necessary files
+  if [ -f "/usr/local/bin/cc-common.sh" ]; then
+    source /usr/local/bin/cc-common.sh
+  fi
+  if [ -f "/usr/local/bin/cc-hook-logic-wrapper.sh" ]; then
+    source /usr/local/bin/cc-hook-logic-wrapper.sh
+  fi
 
   # Source the hook logic
   if [ -f "/usr/local/bin/cc-hook-logic-error-recovery.sh" ]; then
@@ -136,6 +170,10 @@ test_error_recovery_hook() {
 
 # Test file milestone hook
 test_file_milestone_hook() {
+  # Ensure journal file is set and exists
+  export JOURNAL_FILE="$TEST_JOURNAL"
+  echo "# Test Journal" > "$JOURNAL_FILE"
+  
   # Create test JSON for README creation
   local json_input='{
     "tool_name": "Write",
@@ -152,10 +190,13 @@ test_file_milestone_hook() {
   export JSON_INPUT="$json_input"
   export HOOK_TYPE="file-milestone"
 
-  # Mock helper functions
-  is_post_tool_use() { return 0; }
-  get_file_path() { echo "README.md"; }
-  export -f is_post_tool_use get_file_path
+  # Source necessary files
+  if [ -f "/usr/local/bin/cc-common.sh" ]; then
+    source /usr/local/bin/cc-common.sh
+  fi
+  if [ -f "/usr/local/bin/cc-hook-logic-wrapper.sh" ]; then
+    source /usr/local/bin/cc-hook-logic-wrapper.sh
+  fi
 
   # Source the hook logic
   if [ -f "/usr/local/bin/cc-hook-logic-file-milestone.sh" ]; then
@@ -168,6 +209,10 @@ test_file_milestone_hook() {
 
 # Test format code hook
 test_format_code_hook() {
+  # Ensure journal file is set and exists
+  export JOURNAL_FILE="$TEST_JOURNAL"
+  echo "# Test Journal" > "$JOURNAL_FILE"
+  
   # Create a test Python file
   mkdir -p /tmp/test-format-$$
   cat > /tmp/test-format-$$/test.py << 'EOF'
@@ -184,16 +229,22 @@ EOF
     \"tool_input\": {
       \"file_path\": \"/tmp/test-format-$$/test.py\",
       \"content\": \"test content\"
+    },
+    \"tool_response\": {
+      \"interrupted\": false
     }
   }"
 
   export JSON_INPUT="$json_input"
   export HOOK_TYPE="format-code"
 
-  # Mock helper functions
-  is_post_tool_use() { return 0; }
-  get_file_path() { echo "/tmp/test-format-$$/test.py"; }
-  export -f is_post_tool_use get_file_path
+  # Source necessary files
+  if [ -f "/usr/local/bin/cc-common.sh" ]; then
+    source /usr/local/bin/cc-common.sh
+  fi
+  if [ -f "/usr/local/bin/cc-hook-logic-wrapper.sh" ]; then
+    source /usr/local/bin/cc-hook-logic-wrapper.sh
+  fi
 
   # Source the hook logic
   if [ -f "/usr/local/bin/cc-hook-logic-format-code.sh" ]; then
@@ -209,6 +260,10 @@ EOF
 
 # Test notification hook
 test_notification_hook() {
+  # Ensure journal file is set and exists
+  export JOURNAL_FILE="$TEST_JOURNAL"
+  echo "# Test Journal" > "$JOURNAL_FILE"
+  
   # Create test JSON for notification
   local json_input='{
     "hook_event_name": "Notification",
@@ -219,15 +274,13 @@ test_notification_hook() {
   export JSON_INPUT="$json_input"
   export HOOK_TYPE="notification"
 
-  # Mock extract_json_field function
-  extract_json_field() {
-    case "$2" in
-      ".message") echo "Build completed successfully" ;;
-      ".title") echo "Build Success" ;;
-      *) echo "$3" ;;
-    esac
-  }
-  export -f extract_json_field
+  # Source necessary files
+  if [ -f "/usr/local/bin/cc-common.sh" ]; then
+    source /usr/local/bin/cc-common.sh
+  fi
+  if [ -f "/usr/local/bin/cc-hook-logic-wrapper.sh" ]; then
+    source /usr/local/bin/cc-hook-logic-wrapper.sh
+  fi
 
   # Source the hook logic
   if [ -f "/usr/local/bin/cc-hook-logic-notification.sh" ]; then
@@ -294,13 +347,5 @@ test_hook_event_routing() {
   assert_equals "1" "$is_pre" "Should detect PreToolUse event"
 }
 
-# Initialize test counters
-TESTS_RUN=0
-TESTS_PASSED=0
-TESTS_FAILED=0
-
 # Run all tests
 run_tests
-
-# The test framework reports the summary
-exit $?

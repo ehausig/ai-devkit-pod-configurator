@@ -74,41 +74,51 @@ DECISION | MEMORY | CONTEXT | ISSUE | RESOLVED | INFO | ERROR | WARNING)
   ;;
 esac
 
-# Emit event with timestamp
-echo "$(date -Iseconds) [EVENT] TYPE:$TYPE|$FIELDS" >>"$JOURNAL_FILE"
+# Use file locking to ensure atomic writes
+{
+  # Try to acquire exclusive lock (will wait if another process has it)
+  flock -x 200
+  
+  # Emit event with timestamp
+  echo "$(date -Iseconds) [EVENT] TYPE:$TYPE|$FIELDS" >>"$JOURNAL_FILE"
 
-# For important events, also log a human-readable version
-case "$TYPE" in
-WORK_ASSIGNED)
-  # Extract TO persona
-  if [[ "$FIELDS" =~ TO:([^|]+) ]]; then
-    TO_PERSONA="${BASH_REMATCH[1]}"
-  fi
-  # Extract work description (everything after WORK:)
-  if [[ "$FIELDS" =~ WORK:(.+) ]]; then
-    WORK_DESC="${BASH_REMATCH[1]}"
-    echo "$(date -Iseconds) [${TO_PERSONA}:ASSIGNED] ${WORK_DESC}" >>"$JOURNAL_FILE"
-  fi
-  ;;
-WORK_COMPLETED)
-  if [[ "$FIELDS" =~ PERSONA:([^|]+) ]]; then
-    PERSONA="${BASH_REMATCH[1]}"
-  fi
-  if [[ "$FIELDS" =~ WORK_ID:([^|]+) ]]; then
-    WORK_ID="${BASH_REMATCH[1]}"
-    echo "$(date -Iseconds) [${PERSONA}:COMPLETED] Work item ${WORK_ID}" >>"$JOURNAL_FILE"
-  fi
-  ;;
-HANDOFF_READY)
-  if [[ "$FIELDS" =~ FROM:([^|]+) ]]; then
-    FROM_PERSONA="${BASH_REMATCH[1]}"
-  fi
-  if [[ "$FIELDS" =~ TO:([^|]+) ]]; then
-    TO_PERSONA="${BASH_REMATCH[1]}"
-    echo "$(date -Iseconds) [${FROM_PERSONA}:HANDOFF] Ready to hand off to ${TO_PERSONA}" >>"$JOURNAL_FILE"
-  fi
-  ;;
-esac
+  # For important events, also log a human-readable version
+  case "$TYPE" in
+  WORK_ASSIGNED)
+    # Extract TO persona
+    if [[ "$FIELDS" =~ TO:([^|]+) ]]; then
+      TO_PERSONA="${BASH_REMATCH[1]}"
+    fi
+    # Extract work description (everything after WORK:)
+    if [[ "$FIELDS" =~ WORK:(.+) ]]; then
+      WORK_DESC="${BASH_REMATCH[1]}"
+      echo "$(date -Iseconds) [${TO_PERSONA}:ASSIGNED] ${WORK_DESC}" >>"$JOURNAL_FILE"
+    fi
+    ;;
+  WORK_COMPLETED)
+    if [[ "$FIELDS" =~ PERSONA:([^|]+) ]]; then
+      PERSONA="${BASH_REMATCH[1]}"
+    fi
+    if [[ "$FIELDS" =~ WORK_ID:([^|]+) ]]; then
+      WORK_ID="${BASH_REMATCH[1]}"
+      echo "$(date -Iseconds) [${PERSONA}:COMPLETED] Work item ${WORK_ID}" >>"$JOURNAL_FILE"
+    fi
+    ;;
+  HANDOFF_READY)
+    if [[ "$FIELDS" =~ FROM:([^|]+) ]]; then
+      FROM_PERSONA="${BASH_REMATCH[1]}"
+    fi
+    if [[ "$FIELDS" =~ TO:([^|]+) ]]; then
+      TO_PERSONA="${BASH_REMATCH[1]}"
+      echo "$(date -Iseconds) [${FROM_PERSONA}:HANDOFF] Ready to hand off to ${TO_PERSONA}" >>"$JOURNAL_FILE"
+    fi
+    ;;
+  esac
+  
+} 200>>"${JOURNAL_FILE}.lock"
+
+# Clean up lock file if it's empty
+[ -s "${JOURNAL_FILE}.lock" ] || rm -f "${JOURNAL_FILE}.lock"
 
 # Success - no output unless DEBUG
 [ -n "$DEBUG" ] && echo "Event emitted: TYPE:$TYPE|$FIELDS"

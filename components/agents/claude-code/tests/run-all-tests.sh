@@ -30,7 +30,7 @@ kill_existing_processes() {
   echo "Cleaning up any existing processes..."
   
   # Kill any existing event monitors
-  pkill -f es-event-monitor 2>/dev/null || true
+  pkill -f es-event-monitor.sh 2>/dev/null || true
   
   # Kill any existing persona actors
   pkill -f "architect-actor" 2>/dev/null || true
@@ -116,23 +116,81 @@ TOTAL_SUITES=0
 PASSED_SUITES=0
 FAILED_SUITES=0
 
+# Run each test suite with better error handling
+run_test_suite() {
+  local test_file="$1"
+  local timeout="${2:-120}"  # Default 2 minute timeout per suite
+  
+  echo -e "${YELLOW}Running $(basename "$test_file")...${NC}"
+  
+  # Clean up between test suites
+  kill_existing_processes
+  
+  # Check if test file exists and is executable
+  if [ ! -f "$test_file" ]; then
+    echo -e "${RED}✗ Test file not found: $test_file${NC}"
+    return 1
+  fi
+  
+  # Run test suite with timeout and better error handling
+  local output_file="/tmp/test-output-$$.log"
+  
+  # Use bash explicitly to avoid any shell interpretation issues
+  if timeout --preserve-status --signal=TERM --kill-after=10 $timeout bash "$test_file" > "$output_file" 2>&1; then
+    cat "$output_file"
+    rm -f "$output_file"
+    echo -e "${GREEN}✓ $(basename "$test_file") passed${NC}"
+    return 0
+  else
+    local exit_code=$?
+    cat "$output_file"
+    rm -f "$output_file"
+    
+    if [ $exit_code -eq 124 ]; then
+      echo -e "${RED}✗ $(basename "$test_file") timed out${NC}"
+    else
+      echo -e "${RED}✗ $(basename "$test_file") failed with exit code $exit_code${NC}"
+    fi
+    
+    # For debugging failing tests, show more info
+    if [[ "$(basename "$test_file")" =~ ^test-(merger|qa|reviewer)-actor\.sh$ ]]; then
+      echo -e "${YELLOW}Debug: Checking why $(basename "$test_file") is failing...${NC}"
+      
+      # Check if the actor script exists
+      local actor_name=$(basename "$test_file" .sh | sed 's/test-//' | sed 's/-actor//')
+      local actor_script="/usr/local/bin/${actor_name}-actor.sh"
+      
+      if [ -f "$actor_script" ]; then
+        echo "  - Actor script exists: $actor_script"
+        
+        # Check if it sources problematic files
+        if grep -q "source es-actor-base.sh" "$actor_script"; then
+          echo "  - Actor sources es-actor-base.sh (potential blocking)"
+        fi
+        
+        # Check for syntax errors
+        if ! bash -n "$actor_script" 2>/dev/null; then
+          echo "  - Actor script has syntax errors"
+        fi
+      else
+        echo "  - Actor script not found: $actor_script"
+      fi
+    fi
+    
+    return 1
+  fi
+}
+
 # Run each test suite
 for test_file in "$TEST_DIR"/test-*.sh; do
+  # Skip the framework file and this file
   if [ -f "$test_file" ] && [ "$test_file" != "$TEST_DIR/test-framework.sh" ] && [ "$(basename "$test_file")" != "run-all-tests.sh" ]; then
     ((TOTAL_SUITES++))
 
-    echo -e "${YELLOW}Running $(basename "$test_file")...${NC}"
-
-    # Clean up between test suites
-    kill_existing_processes
-
-    # Run test in a subshell to isolate variables
-    if (bash "$test_file"); then
+    if run_test_suite "$test_file"; then
       ((PASSED_SUITES++))
-      echo -e "${GREEN}✓ $(basename "$test_file") passed${NC}"
     else
       ((FAILED_SUITES++))
-      echo -e "${RED}✗ $(basename "$test_file") failed${NC}"
     fi
 
     echo ""

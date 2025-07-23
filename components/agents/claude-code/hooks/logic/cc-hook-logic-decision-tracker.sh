@@ -2,6 +2,19 @@
 # Technical decision tracking hook logic
 # Called by hook-framework.sh
 
+# Ensure functions are available
+if ! type -t is_post_tool_use >/dev/null 2>&1; then
+    # Try to source the wrapper
+    if [ -f "/usr/local/bin/cc-hook-logic-wrapper.sh" ]; then
+        source /usr/local/bin/cc-hook-logic-wrapper.sh
+    fi
+fi
+
+# Ensure JOURNAL_FILE is set correctly
+if [ -n "$_HOOK_FRAMEWORK_JOURNAL_FILE" ]; then
+    export JOURNAL_FILE="$_HOOK_FRAMEWORK_JOURNAL_FILE"
+fi
+
 if is_post_tool_use; then
     # PostToolUse - file was written
     file_path=$(get_file_path)
@@ -9,22 +22,22 @@ if is_post_tool_use; then
     
     # Detect project type based on file
     case "$file_path" in
-        */package.json)
+        */package.json|package.json)
             log_hook_event "DECISION" "Project type: Node.js/JavaScript chosen"
             ;;
-        */requirements.txt|*/setup.py|*/pyproject.toml)
+        */requirements.txt|*/setup.py|*/pyproject.toml|requirements.txt|setup.py|pyproject.toml)
             log_hook_event "DECISION" "Project type: Python chosen"
             ;;
-        */Cargo.toml)
+        */Cargo.toml|Cargo.toml)
             log_hook_event "DECISION" "Project type: Rust chosen"
             ;;
-        */go.mod)
+        */go.mod|go.mod)
             log_hook_event "DECISION" "Project type: Go chosen"
             ;;
-        */pom.xml|*/build.gradle)
+        */pom.xml|*/build.gradle|pom.xml|build.gradle)
             log_hook_event "DECISION" "Project type: Java chosen"
             ;;
-        */Gemfile)
+        */Gemfile|Gemfile)
             log_hook_event "DECISION" "Project type: Ruby chosen"
             ;;
     esac
@@ -52,13 +65,13 @@ if is_post_tool_use; then
     
     # Architecture files
     case "$file_path" in
-        */Dockerfile)
+        */Dockerfile|Dockerfile)
             log_hook_event "DECISION" "Containerization: Docker chosen"
             ;;
         */.github/workflows/*.yml|*/.github/workflows/*.yaml)
             log_hook_event "DECISION" "CI/CD: GitHub Actions configured"
             ;;
-        */docker-compose.yml|*/docker-compose.yaml)
+        */docker-compose.yml|*/docker-compose.yaml|docker-compose.yml|docker-compose.yaml)
             log_hook_event "DECISION" "Multi-container setup: Docker Compose configured"
             ;;
     esac

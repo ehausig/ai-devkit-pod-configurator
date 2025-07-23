@@ -42,7 +42,7 @@ test_git_operations() {
   local commit_count=$(git rev-list --count HEAD)
   assert_equals "2" "$commit_count" "Should have 2 commits"
   
-  # Cleanup
+  # Cleanup - return to original directory first
   cd - >/dev/null
   rm -rf "$test_repo"
 }
@@ -100,8 +100,8 @@ EOF
   local decisions=$(grep "ARCHITECT:DECISION" "$TEST_JOURNAL" | wc -l)
   assert_equals "3" "$decisions" "Should have decisions for all languages"
   
-  # Cleanup
-  cd - >/dev/null
+  # Cleanup - return to original directory first
+  cd "$TEST_ORIGINAL_DIR"
   rm -rf "$test_dir"
 }
 
@@ -146,7 +146,7 @@ test_tool_execution() {
   fi
   
   # Cleanup
-  cd - >/dev/null
+  cd "$TEST_ORIGINAL_DIR"
   rm -rf "$test_dir"
 }
 
@@ -189,7 +189,7 @@ test_project_structure_creation() {
   echo "$(date -Iseconds) [DEVELOPER:CONTEXT] Created project structure with $(find . -type d | wc -l) directories" >> "$TEST_JOURNAL"
   
   # Cleanup
-  cd - >/dev/null
+  cd "$TEST_ORIGINAL_DIR"
   rm -rf "$test_dir"
 }
 
@@ -232,7 +232,7 @@ EOF
   echo "$(date -Iseconds) [ARCHITECT:DECISION] Configured CI/CD for GitHub Actions and GitLab" >> "$TEST_JOURNAL"
   
   # Cleanup
-  cd - >/dev/null
+  cd "$TEST_ORIGINAL_DIR"
   rm -rf "$test_dir"
 }
 
@@ -279,7 +279,7 @@ EOF
   echo "$(date -Iseconds) [DEVELOPER:MEMORY] Local dev environment uses Docker Compose" >> "$TEST_JOURNAL"
   
   # Cleanup
-  cd - >/dev/null
+  cd "$TEST_ORIGINAL_DIR"
   rm -rf "$test_dir"
 }
 
@@ -333,7 +333,7 @@ EOF
   echo "$(date -Iseconds) [DEVELOPER:CONTEXT] Generated $doc_count documentation files" >> "$TEST_JOURNAL"
   
   # Cleanup
-  cd - >/dev/null
+  cd "$TEST_ORIGINAL_DIR"
   rm -rf "$test_dir"
 }
 
@@ -388,7 +388,7 @@ EOF
   echo "$(date -Iseconds) [DEVELOPER:MEMORY] Project has $py_deps Python and $npm_deps Node.js dependencies" >> "$TEST_JOURNAL"
   
   # Cleanup
-  cd - >/dev/null
+  cd "$TEST_ORIGINAL_DIR"
   rm -rf "$test_dir"
 }
 

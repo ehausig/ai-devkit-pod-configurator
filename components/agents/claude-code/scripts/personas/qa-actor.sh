@@ -1,6 +1,24 @@
 #!/bin/bash
 # QA Actor - Testing and quality assurance persona
 
+# Check command line arguments for test mode
+for arg in "$@"; do
+    case $arg in
+        --test-harness)
+            export TEST_MODE=1
+            export ACTOR_RUNTIME_MODE="test"
+            echo "QA Actor started with --test-harness flag" >&2
+            ;;
+    esac
+done
+
+# Detect if we should run autonomously
+SHOULD_RUN_AUTONOMOUS=true
+if [ "$TEST_MODE" = "1" ]; then
+    SHOULD_RUN_AUTONOMOUS=false
+    echo "QA Actor loaded in test mode" >&2
+fi
+
 # Source the base actor functionality
 source es-actor-base.sh
 
@@ -401,5 +419,27 @@ log_handoff_context() {
     fi
 }
 
-# Start the actor
-actor_loop "$PERSONA"
+# Test mode support
+if [ "$TEST_MODE" = "1" ]; then
+    # Export test helpers
+    test_init_qa() {
+        TESTS_PASSED=0
+        TESTS_FAILED=0
+        ISSUES_FOUND=0
+        TEST_FRAMEWORK="${1:-pytest}"
+        initialize_persona
+    }
+    export -f test_init_qa
+    
+    echo "QA Actor ready for testing" >&2
+fi
+
+# Autonomous startup - only in production mode
+if [ "$TEST_MODE" != "1" ]; then
+    # Only run if being executed directly
+    if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
+        actor_loop "$PERSONA"
+    fi
+else
+    echo "$PERSONA actor loaded in test mode - actor_loop skipped" >&2
+fi

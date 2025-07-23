@@ -2,6 +2,14 @@
 # Custom notification hook logic
 # Called by hook-framework.sh
 
+# Ensure functions are available
+if ! type -t extract_json_field >/dev/null 2>&1; then
+    # Try to source the wrapper
+    if [ -f "/usr/local/bin/cc-hook-logic-wrapper.sh" ]; then
+        source /usr/local/bin/cc-hook-logic-wrapper.sh
+    fi
+fi
+
 # Extract notification details
 message=$(extract_json_field "$JSON_INPUT" '.message' 'Claude Code notification')
 title=$(extract_json_field "$JSON_INPUT" '.title' 'Claude Code')

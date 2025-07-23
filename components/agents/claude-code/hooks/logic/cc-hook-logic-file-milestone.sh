@@ -2,6 +2,14 @@
 # File milestone tracking hook logic
 # Called by hook-framework.sh
 
+# Ensure functions are available
+if ! type -t is_post_tool_use >/dev/null 2>&1; then
+    # Try to source the wrapper
+    if [ -f "/usr/local/bin/cc-hook-logic-wrapper.sh" ]; then
+        source /usr/local/bin/cc-hook-logic-wrapper.sh
+    fi
+fi
+
 if is_post_tool_use; then
     # Extract file path
     file_path=$(get_file_path)

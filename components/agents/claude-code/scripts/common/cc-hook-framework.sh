@@ -5,6 +5,11 @@
 # Ensure /usr/local/bin is in PATH
 export PATH="/usr/local/bin:$PATH"
 
+# CRITICAL: Store JOURNAL_FILE in a unique variable that won't be overwritten
+if [ -n "$JOURNAL_FILE" ]; then
+    export _HOOK_FRAMEWORK_JOURNAL_FILE="$JOURNAL_FILE"
+fi
+
 # Source common functions
 # Try multiple methods to find the script
 if [ -f "/usr/local/bin/cc-common.sh" ]; then
@@ -14,6 +19,11 @@ elif [ -f "cc-common.sh" ]; then
 else
     echo "Error: Cannot find cc-common.sh" >&2
     exit 1
+fi
+
+# CRITICAL: Restore JOURNAL_FILE after sourcing common
+if [ -n "$_HOOK_FRAMEWORK_JOURNAL_FILE" ]; then
+    export JOURNAL_FILE="$_HOOK_FRAMEWORK_JOURNAL_FILE"
 fi
 
 # Read JSON input once
@@ -46,7 +56,7 @@ if [ -n "$HOOK_EVENT_NAME" ]; then
     esac
 fi
 
-# Check if this is pre or post execution
+# Define all hook helper functions before exporting
 is_post_tool_use() {
     echo "$JSON_INPUT" | jq -e '.tool_response' > /dev/null 2>&1
 }
@@ -106,22 +116,45 @@ export JSON_INPUT
 export TOOL_NAME
 export SESSION_ID
 
-# Allow hook scripts to use these functions
+# CRITICAL: Export JOURNAL_FILE to ensure it's available to sourced scripts
+export JOURNAL_FILE
+export _HOOK_FRAMEWORK_JOURNAL_FILE
+
+# Allow hook scripts to use these functions - CRITICAL: export all functions
 export -f is_post_tool_use get_command get_description get_file_path
 export -f is_command_successful get_error_details log_hook_event
-export -f extract_json_field
+export -f extract_json_field log_event ensure_journal
+
+# Source the wrapper to ensure all functions are available
+if [ -f "/usr/local/bin/cc-hook-logic-wrapper.sh" ]; then
+    source /usr/local/bin/cc-hook-logic-wrapper.sh
+elif [ -f "$(dirname "$0")/cc-hook-logic-wrapper.sh" ]; then
+    source "$(dirname "$0")/cc-hook-logic-wrapper.sh"
+fi
+
+# Restore JOURNAL_FILE again after sourcing wrapper
+if [ -n "$_HOOK_FRAMEWORK_JOURNAL_FILE" ]; then
+    export JOURNAL_FILE="$_HOOK_FRAMEWORK_JOURNAL_FILE"
+fi
 
 # Execute hook-specific logic
 # Try to find the logic script in PATH or absolute path
 find_and_source_script() {
     local script_name="$1"
+    
     if [ -f "/usr/local/bin/$script_name" ]; then
+        # Source in current shell to preserve function exports
         source "/usr/local/bin/$script_name"
     elif command -v "$script_name" >/dev/null 2>&1; then
         source "$(command -v "$script_name")"
     else
         echo "Error: Cannot find $script_name" >&2
         exit 1
+    fi
+    
+    # Always restore JOURNAL_FILE after sourcing
+    if [ -n "$_HOOK_FRAMEWORK_JOURNAL_FILE" ]; then
+        export JOURNAL_FILE="$_HOOK_FRAMEWORK_JOURNAL_FILE"
     fi
 }
 

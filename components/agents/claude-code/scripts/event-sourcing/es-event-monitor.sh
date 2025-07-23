@@ -318,7 +318,14 @@ activate_persona() {
 
   # Start the actor
   echo "Activating $persona persona (trigger: $trigger)"
-  nohup "$actor_name" >"/tmp/${actor_name}.log" 2>&1 &
+  
+  # Check if in test mode and pass the flag
+  if [ "$TEST_MODE" = "1" ]; then
+    TEST_MODE=1 JOURNAL_FILE="$JOURNAL_FILE" nohup "$actor_name" --test-harness >"/tmp/${actor_name}.log" 2>&1 &
+  else
+    nohup "$actor_name" >"/tmp/${actor_name}.log" 2>&1 &
+  fi
+  
   local pid=$!
   
   # Store the PID for tracking

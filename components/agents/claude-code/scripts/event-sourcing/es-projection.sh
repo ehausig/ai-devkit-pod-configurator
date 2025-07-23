@@ -31,24 +31,34 @@ current_state)
   # States: ACTIVE, IDLE, COMPLETE, UNKNOWN
 
   # Check if persona was ever activated
-  if ! grep -q "PERSONA:$PERSONA" "$JOURNAL_FILE"; then
-    echo "UNKNOWN"
-    exit 0
-  fi
-
-  # Check for handoff complete
-  if grep -q "TYPE:HANDOFF_READY.*FROM:$PERSONA" "$JOURNAL_FILE"; then
-    echo "COMPLETE"
-    exit 0
-  fi
-
-  # Check last activation status
   last_activation=$(grep "TYPE:PERSONA_ACTIVATED.*PERSONA:$PERSONA" "$JOURNAL_FILE" | tail -1)
   last_idle=$(grep "TYPE:PERSONA_IDLE.*PERSONA:$PERSONA" "$JOURNAL_FILE" | tail -1)
-
-  if [ -z "$last_activation" ] && [ -z "$last_idle" ]; then
+  last_handoff=$(grep "TYPE:HANDOFF_READY.*FROM:$PERSONA" "$JOURNAL_FILE" | tail -1)
+  
+  # If never activated, return UNKNOWN
+  if [ -z "$last_activation" ] && [ -z "$last_idle" ] && [ -z "$last_handoff" ]; then
     echo "UNKNOWN"
-  elif [ -n "$last_activation" ] && [ -z "$last_idle" ]; then
+    exit 0
+  fi
+
+  # Check for handoff complete (takes precedence)
+  if [ -n "$last_handoff" ]; then
+    # Check if there's any activation after the handoff
+    if [ -n "$last_activation" ]; then
+      handoff_time=$(echo "$last_handoff" | cut -d' ' -f1)
+      activation_time=$(echo "$last_activation" | cut -d' ' -f1)
+      if [[ "$handoff_time" > "$activation_time" ]]; then
+        echo "COMPLETE"
+        exit 0
+      fi
+    else
+      echo "COMPLETE"
+      exit 0
+    fi
+  fi
+
+  # Check activation vs idle status
+  if [ -n "$last_activation" ] && [ -z "$last_idle" ]; then
     # Activated but never went idle - check pending work
     pending=$(es-projection.sh "$PERSONA" "pending_work" | wc -l)
     if [ "$pending" -gt 0 ]; then
@@ -56,23 +66,15 @@ current_state)
     else
       echo "IDLE"
     fi
-  elif [ -n "$last_idle" ]; then
-    # Extract timestamps and compare
-    activation_time=""
-    idle_time=""
-
-    if [ -n "$last_activation" ]; then
-      activation_time=$(echo "$last_activation" | cut -d' ' -f1)
-    fi
-    if [ -n "$last_idle" ]; then
-      idle_time=$(echo "$last_idle" | cut -d' ' -f1)
-    fi
-
-    # If idle is more recent than activation
-    if [ -z "$activation_time" ] || [[ "$idle_time" > "$activation_time" ]]; then
+  elif [ -n "$last_activation" ] && [ -n "$last_idle" ]; then
+    # Both activation and idle exist - compare timestamps
+    activation_time=$(echo "$last_activation" | cut -d' ' -f1)
+    idle_time=$(echo "$last_idle" | cut -d' ' -f1)
+    
+    if [[ "$idle_time" > "$activation_time" ]]; then
       echo "IDLE"
     else
-      # Activated after being idle - check pending work
+      # Reactivated after being idle
       pending=$(es-projection.sh "$PERSONA" "pending_work" | wc -l)
       if [ "$pending" -gt 0 ]; then
         echo "ACTIVE"
@@ -80,6 +82,9 @@ current_state)
         echo "IDLE"
       fi
     fi
+  elif [ -z "$last_activation" ] && [ -n "$last_idle" ]; then
+    # Only idle event (shouldn't happen, but handle it)
+    echo "IDLE"
   else
     echo "UNKNOWN"
   fi
@@ -108,8 +113,8 @@ issues)
   ;;
 
 handoffs)
-  # Get handoff history involving this persona
-  grep -E "FROM:$PERSONA|TO:$PERSONA" "$JOURNAL_FILE" | grep "HANDOFF"
+  # Get handoff history involving this persona - count unique occurrences
+  grep -E "HANDOFF.*FROM:$PERSONA|HANDOFF.*TO:$PERSONA" "$JOURNAL_FILE" | sort -u
   ;;
 
 active_personas)

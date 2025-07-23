@@ -288,5 +288,7 @@ log_handoff_context() {
     log_memory "Design phase complete, implementation can begin"
 }
 
-# Start the actor
-actor_loop "$PERSONA"
+# Start the actor only if not in test mode and not being sourced
+if [ "$TEST_MODE" != "1" ] && [ "${BASH_SOURCE[0]}" = "${0}" ]; then
+    actor_loop "$PERSONA"
+fi

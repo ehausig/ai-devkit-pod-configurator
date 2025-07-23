@@ -15,8 +15,10 @@ export WHITE='\033[1;37m'
 export GRAY='\033[0;37m'
 export NC='\033[0m' # No Color
 
-# Common paths
-export JOURNAL_FILE="$HOME/workspace/JOURNAL.md"
+# Common paths - respect existing JOURNAL_FILE for testing
+if [ -z "$JOURNAL_FILE" ]; then
+    export JOURNAL_FILE="$HOME/workspace/JOURNAL.md"
+fi
 export WORK_SCRIPT="/tmp/execute-next-work.sh"
 
 # Ensure journal exists

@@ -2,6 +2,14 @@
 # Bash command logging hook logic
 # Called by hook-framework.sh
 
+# Ensure functions are available
+if ! type -t get_command >/dev/null 2>&1; then
+    # Try to source the wrapper
+    if [ -f "/usr/local/bin/cc-hook-logic-wrapper.sh" ]; then
+        source /usr/local/bin/cc-hook-logic-wrapper.sh
+    fi
+fi
+
 # Get command details
 command=$(get_command)
 description=$(get_description)

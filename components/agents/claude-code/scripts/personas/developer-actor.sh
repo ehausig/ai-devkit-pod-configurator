@@ -91,27 +91,6 @@ determine_next_persona() {
     fi
 }
 
-# Generate work items for next persona
-generate_work_items() {
-    local from="$1"
-    local to="$2"
-    
-    if [ "$to" = "QA" ]; then
-        local current_branch=$(git branch --show-current 2>/dev/null || echo "unknown")
-        
-        echo "Pull branch $current_branch and set up test environment"
-        echo "Run unit test suite and verify coverage meets 80% minimum"
-        echo "Start backend services for integration testing"
-        echo "Run integration tests against REAL services (no mocks)"
-        echo "Perform user simulation testing for all workflows"
-        echo "Test error handling and edge cases"
-        echo "Check performance and resource usage"
-        echo "Verify API endpoints match specification"
-        echo "Document any bugs or issues found"
-        echo "Create comprehensive test report"
-    fi
-}
-
 # Execute DEVELOPER-specific work
 execute_persona_work() {
     local work_id="$1"
@@ -489,5 +468,26 @@ log_handoff_context() {
     fi
 }
 
-# Start the actor
-actor_loop "$PERSONA"
+# Start the actor only if not in test mode and not being sourced
+if [ "$TEST_MODE" != "1" ] && [ "${BASH_SOURCE[0]}" = "${0}" ]; then
+    actor_loop "$PERSONA"
+fi
+
+# Generate work items for next persona
+generate_work_items() {
+    local from="$1"
+    local to="$2"
+    
+    if [ "$to" = "QA" ]; then
+        local current_branch=$(git branch --show-current 2>/dev/null || echo "unknown")
+        
+        echo "Pull branch $current_branch and set up test environment"
+        echo "Run unit test suite and verify coverage meets 80% minimum"
+        echo "Start backend services for integration testing"
+        echo "Run integration tests against REAL services (no mocks)"
+        echo "Perform user simulation testing for all workflows"
+        echo "Test error handling and edge cases"
+        echo "Check performance and resource usage"
+        echo "Verify API endpoints match specification"
+        echo "Document any bugs or issues found"
+        echo "Create comprehensive test report"
