@@ -19,6 +19,30 @@ This is an **event-driven autonomous system** where development personas (ARCHIT
 3. **Hands off** to the next appropriate persona
 4. **Logs** decisions and progress for visibility
 
+## Starting a Project
+
+When you request a new project, emit proper work assignments to the ARCHITECT:
+
+```bash
+# Example: Starting a "hello persona" Python project
+es-event-emit.sh "WORK_ASSIGNED" "TO:ARCHITECT|ID:$(date +%s)-1|WORK:Create system architecture for hello persona Python project"
+es-event-emit.sh "WORK_ASSIGNED" "TO:ARCHITECT|ID:$(date +%s)-2|WORK:Design API specification for persona interactions"
+es-event-emit.sh "WORK_ASSIGNED" "TO:ARCHITECT|ID:$(date +%s)-3|WORK:Define data models for persona system"
+es-event-emit.sh "WORK_ASSIGNED" "TO:ARCHITECT|ID:$(date +%s)-4|WORK:Create testing strategy for persona behaviors"
+```
+
+The event monitor will detect these assignments and activate the ARCHITECT persona automatically.
+
+## Event Format
+
+Events must follow the format: `TYPE "KEY:VALUE|KEY:VALUE..."`
+
+Key event types:
+- `WORK_ASSIGNED` - Assign work to a persona (requires: TO, ID, WORK)
+- `WORK_STARTED` - Persona begins work (requires: PERSONA, WORK_ID)
+- `WORK_COMPLETED` - Work finished (requires: PERSONA, WORK_ID)
+- `HANDOFF_READY` - Ready to hand off (requires: FROM, TO)
+
 ## Monitoring Progress
 
 ### Real-time Event Stream
@@ -95,7 +119,8 @@ DEBUG=1 es-event-monitor.sh
 - All work is tracked through **events** in the journal
 - Personas make **decisions** based on their specialized knowledge
 - The journal provides **complete visibility** into the development process
+- Events must use proper format: `TYPE "KEY:VALUE|KEY:VALUE..."`
 
 ---
 
-*The autonomous system starts when you describe what you want to build. Just tell me your requirements and watch the development unfold!*
+*The autonomous system starts when you emit WORK_ASSIGNED events. Just describe your project and emit the events to watch the development unfold!*

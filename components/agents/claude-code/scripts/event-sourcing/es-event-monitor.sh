@@ -31,18 +31,16 @@ fi
 # Emit monitor started event
 es-event-emit.sh "MONITOR_STARTED" "PID:$$"
 
-# Initialize last line tracker AFTER emitting our start event
+# Initialize last line tracker
 CURRENT_LINE=$(wc -l <"$JOURNAL_FILE")
 if [ -f "$LAST_LINE_FILE" ]; then
   LAST_LINE=$(cat "$LAST_LINE_FILE")
-  # If this is a fresh start, process all existing events
-  if [ "$LAST_LINE" -eq 0 ]; then
-    LAST_LINE=0 # Process from beginning
-  fi
 else
-  # No lastline file - process from beginning
+  # First run - process all existing events
   LAST_LINE=0
 fi
+
+# Update last line - but don't skip any events
 echo "$CURRENT_LINE" >"$LAST_LINE_FILE"
 
 # Cleanup on exit
@@ -55,19 +53,24 @@ trap cleanup EXIT INT TERM
 
 # Process initial events if starting from beginning
 process_initial_events() {
-  if [ "$LAST_LINE" -eq 0 ] && [ "$CURRENT_LINE" -gt 2 ]; then
-    # Process all existing events
+  echo "Processing existing events from line $((LAST_LINE + 1)) to $CURRENT_LINE"
+  
+  if [ "$LAST_LINE" -lt "$CURRENT_LINE" ]; then
+    # Process all events from LAST_LINE to CURRENT_LINE
     local line_num=0
     while IFS= read -r line; do
       ((line_num++))
-      # Skip header lines and our own MONITOR_STARTED event
-      if [ $line_num -le 2 ]; then
+      # Skip lines before our starting point
+      if [ $line_num -le $LAST_LINE ]; then
         continue
       fi
+      # Skip our own MONITOR_STARTED event
       if [[ "$line" =~ TYPE:MONITOR_STARTED.*PID:$$ ]]; then
         continue
       fi
+      # Process EVENT lines
       if [[ "$line" =~ \[EVENT\] ]]; then
+        [ -n "$DEBUG" ] && echo "Processing initial event: $line"
         process_event "$line"
       fi
     done <"$JOURNAL_FILE"
@@ -341,4 +344,5 @@ activate_persona() {
 # Start monitoring
 echo "Event monitor started (PID: $$)"
 echo "Monitoring journal: $JOURNAL_FILE"
+echo "Processing events from line: $((LAST_LINE + 1))"
 monitor_loop
