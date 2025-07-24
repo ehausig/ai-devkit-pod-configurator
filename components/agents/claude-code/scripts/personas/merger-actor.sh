@@ -1,24 +1,6 @@
 #!/bin/bash
 # MERGER Actor - Integration and release management persona
 
-# Check command line arguments for test mode
-for arg in "$@"; do
-    case $arg in
-        --test-harness)
-            export TEST_MODE=1
-            export ACTOR_RUNTIME_MODE="test"
-            echo "MERGER Actor started with --test-harness flag" >&2
-            ;;
-    esac
-done
-
-# Detect if we should run autonomously
-SHOULD_RUN_AUTONOMOUS=true
-if [ "$TEST_MODE" = "1" ]; then
-    SHOULD_RUN_AUTONOMOUS=false
-    echo "MERGER Actor loaded in test mode" >&2
-fi
-
 # Source the base actor functionality
 source es-actor-base.sh
 
@@ -63,6 +45,10 @@ determine_next_persona() {
     # Check if there are more PRs to process
     if command -v gh >/dev/null 2>&1; then
         local open_prs=$(gh pr list --json number 2>/dev/null | jq length)
+        # Fix: Ensure open_prs is a clean integer
+        open_prs=$(echo "$open_prs" | tr -d '\n' | grep -o '[0-9]*' | head -1)
+        [ -z "$open_prs" ] && open_prs="0"
+        
         if [ "$open_prs" -gt 0 ]; then
             echo "DEVELOPER:More PRs to process ($open_prs remaining)"
             return
@@ -436,12 +422,7 @@ if [ "$TEST_MODE" = "1" ]; then
     echo "MERGER Actor ready for testing" >&2
 fi
 
-# Autonomous startup - only in production mode
-if [ "$TEST_MODE" != "1" ]; then
-    # Only run if being executed directly
-    if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
-        actor_loop "$PERSONA"
-    fi
-else
-    echo "$PERSONA actor loaded in test mode - actor_loop skipped" >&2
+# Start the actor only if not in test mode and not being sourced
+if [ "$TEST_MODE" != "1" ] && [ "${BASH_SOURCE[0]}" = "${0}" ]; then
+    actor_loop "$PERSONA"
 fi

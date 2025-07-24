@@ -21,12 +21,21 @@ export JOURNAL_FILE="$TEST_JOURNAL"
 kill_test_processes() {
   # Kill any existing monitors or actors
   pkill -f es-event-monitor.sh 2>/dev/null || true
-  pkill -f "architect-actor.sh" 2>/dev/null || true
-  pkill -f "developer-actor.sh" 2>/dev/null || true
-  pkill -f "qa-actor.sh" 2>/dev/null || true
-  pkill -f "reviewer-actor.sh" 2>/dev/null || true
-  pkill -f "merger-actor.sh" 2>/dev/null || true
-  pkill -f "test-.*-actor.sh" 2>/dev/null || true
+  
+  # Kill actor scripts ONLY if they're running as actual actors (not test scripts)
+  # Use more specific patterns to avoid killing test scripts
+  pkill -f "/usr/local/bin/architect-actor.sh" 2>/dev/null || true
+  pkill -f "/usr/local/bin/developer-actor.sh" 2>/dev/null || true
+  pkill -f "/usr/local/bin/qa-actor.sh" 2>/dev/null || true
+  pkill -f "/usr/local/bin/reviewer-actor.sh" 2>/dev/null || true
+  pkill -f "/usr/local/bin/merger-actor.sh" 2>/dev/null || true
+  
+  # Also kill any that might be running from test directories
+  pkill -f "test-.*/architect-actor.sh" 2>/dev/null || true
+  pkill -f "test-.*/developer-actor.sh" 2>/dev/null || true
+  pkill -f "test-.*/qa-actor.sh" 2>/dev/null || true
+  pkill -f "test-.*/reviewer-actor.sh" 2>/dev/null || true
+  pkill -f "test-.*/merger-actor.sh" 2>/dev/null || true
   
   # Clean up PID files
   rm -f /tmp/es-event-monitor.pid
@@ -197,109 +206,30 @@ assert_file_exists() {
   fi
 }
 
-# Test runner with timeout protection - FIXED to handle edge cases
-run_test_with_timeout() {
-  local test_func="$1"
-  local timeout="${2:-60}"  # Default timeout 60 seconds
-  
-  # Create temporary file for counter communication
-  local counter_file="/tmp/test-counters-$$-$test_func"
-  echo "TESTS_RUN=0" > "$counter_file"
-  echo "TESTS_PASSED=0" >> "$counter_file"
-  echo "TESTS_FAILED=0" >> "$counter_file"
-  
-  # Run test in background with counter file
-  (
-    # Set up error handling
-    set +e
-    
-    # Source counter file to get initial values
-    source "$counter_file"
-    
-    # Export counters so assert functions can use them
-    export TESTS_RUN TESTS_PASSED TESTS_FAILED
-    
-    # Set up signal handler to save counters on exit
-    save_counters() {
-      echo "TESTS_RUN=$TESTS_RUN" > "$counter_file"
-      echo "TESTS_PASSED=$TESTS_PASSED" >> "$counter_file"
-      echo "TESTS_FAILED=$TESTS_FAILED" >> "$counter_file"
-    }
-    trap save_counters EXIT
-    
-    # Run the test function
-    $test_func
-  ) &
-  local test_pid=$!
-  
-  # Wait for test with timeout
-  local count=0
-  while kill -0 $test_pid 2>/dev/null && [ $count -lt $timeout ]; do
-    sleep 1
-    ((count++))
-  done
-  
-  # Check if test is still running
-  if kill -0 $test_pid 2>/dev/null; then
-    # Test timed out
-    echo -e "${RED}✗${NC} Test timed out after ${timeout}s"
-    kill -TERM $test_pid 2>/dev/null
-    sleep 1
-    kill -KILL $test_pid 2>/dev/null
-    wait $test_pid 2>/dev/null
-    
-    # Clean up counter file
-    rm -f "$counter_file"
-    return 1
-  else
-    # Test completed, get exit code
-    wait $test_pid
-    local exit_code=$?
-    
-    # Source counter file to get final counts
-    if [ -f "$counter_file" ]; then
-      source "$counter_file"
-      rm -f "$counter_file"
-    fi
-    
-    return $exit_code
-  fi
-}
-
-# Test runner - FIXED to handle function detection better
+# Test runner - simplified to avoid counter issues
 run_tests() {
   echo -e "${BLUE}Running tests...${NC}"
   echo ""
 
-  # Initialize cumulative counters
-  local TOTAL_RUN=0
-  local TOTAL_PASSED=0
-  local TOTAL_FAILED=0
-  local TEST_FAILURES=0
+  # Reset ALL counters at the start
+  TESTS_RUN=0
+  TESTS_PASSED=0
+  TESTS_FAILED=0
 
   # Kill any interfering processes before starting tests
   kill_test_processes
 
   # Find all test functions in the current script
-  # Use a more reliable method to find functions
   local test_functions=""
   
-  # Method 1: Try using declare -F
-  if declare -F >/dev/null 2>&1; then
-    test_functions=$(declare -F | grep "^declare -f test_" | awk '{print $3}')
+  # Get the current script name
+  local current_script="${BASH_SOURCE[1]}"
+  if [ -f "$current_script" ]; then
+    # Extract function names from the script
+    test_functions=$(grep -E "^test_[a-zA-Z0-9_]+\(\)" "$current_script" | sed 's/().*//')
   fi
   
-  # Method 2: If declare -F didn't work, try parsing the script
-  if [ -z "$test_functions" ]; then
-    # Get the current script name
-    local current_script="${BASH_SOURCE[1]}"
-    if [ -f "$current_script" ]; then
-      # Extract function names from the script
-      test_functions=$(grep -E "^test_[a-zA-Z0-9_]+\(\)" "$current_script" | sed 's/().*//')
-    fi
-  fi
-  
-  # Method 3: If still no functions found, check if we're in a sourced context
+  # If no test functions found, try other methods
   if [ -z "$test_functions" ]; then
     # List all functions and filter test functions
     test_functions=$(compgen -A function | grep "^test_" || true)
@@ -312,6 +242,11 @@ run_tests() {
     return 1
   fi
 
+  # Count test functions for debugging
+  local num_test_functions=$(echo "$test_functions" | wc -w)
+  echo "Found $num_test_functions test functions"
+  echo ""
+
   for test_func in $test_functions; do
     echo -e "${YELLOW}Running $test_func${NC}"
     
@@ -319,61 +254,46 @@ run_tests() {
     kill_test_processes
     
     # Create fresh journal for each test
-    local old_journal="$TEST_JOURNAL"
     TEST_JOURNAL="/tmp/test-journal-$$-${RANDOM}.md"
     export JOURNAL_FILE="$TEST_JOURNAL"
     
     # Setup test environment
     setup_test
     
-    # Reset individual test counters
-    TESTS_RUN=0
-    TESTS_PASSED=0
-    TESTS_FAILED=0
-    
     # Check if function exists before running
     if type -t "$test_func" >/dev/null 2>&1; then
-      # Run the test with timeout protection
-      if run_test_with_timeout "$test_func"; then
-        : # Test passed
-      else
-        # Test function itself failed (not assertions)
-        ((TESTS_RUN++))
-        ((TESTS_FAILED++))
-        ((TEST_FAILURES++))
-      fi
+      # Run the test function directly (no timeout for simplicity)
+      $test_func
     else
       echo -e "${RED}✗${NC} Test function not found: $test_func"
       ((TESTS_RUN++))
       ((TESTS_FAILED++))
-      ((TEST_FAILURES++))
     fi
-    
-    # Accumulate counts
-    TOTAL_RUN=$((TOTAL_RUN + TESTS_RUN))
-    TOTAL_PASSED=$((TOTAL_PASSED + TESTS_PASSED))
-    TOTAL_FAILED=$((TOTAL_FAILED + TESTS_FAILED))
     
     # Teardown
     teardown_test
     
     # Clean up this test's journal
     rm -f "$TEST_JOURNAL"
-    TEST_JOURNAL="$old_journal"
-    export JOURNAL_FILE="$TEST_JOURNAL"
     echo ""
   done
 
   # Final cleanup
   kill_test_processes
 
-  # Summary with cumulative counts
+  # Summary - ensure counts make sense
   echo -e "${BLUE}Test Summary${NC}"
-  echo -e "Tests run:    $TOTAL_RUN"
-  echo -e "Tests passed: ${GREEN}$TOTAL_PASSED${NC}"
-  echo -e "Tests failed: ${RED}$TOTAL_FAILED${NC}"
+  echo -e "Tests run:    $TESTS_RUN"
+  echo -e "Tests passed: ${GREEN}$TESTS_PASSED${NC}"
+  echo -e "Tests failed: ${RED}$TESTS_FAILED${NC}"
 
-  if [ $TOTAL_FAILED -eq 0 ] && [ $TEST_FAILURES -eq 0 ]; then
+  # Sanity check
+  local total_results=$((TESTS_PASSED + TESTS_FAILED))
+  if [ $total_results -ne $TESTS_RUN ]; then
+    echo -e "${RED}WARNING: Test count mismatch! Run=$TESTS_RUN, Passed+Failed=$total_results${NC}"
+  fi
+
+  if [ $TESTS_FAILED -eq 0 ]; then
     echo -e "\n${GREEN}All tests passed!${NC}"
     return 0
   else

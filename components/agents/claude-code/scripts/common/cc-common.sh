@@ -38,6 +38,22 @@ extract_json_field() {
     echo "$json" | jq -r "$field // \"$default\"" 2>/dev/null || echo "$default"
 }
 
+# Safe integer extraction utility
+safe_integer() {
+    local value="$1"
+    local default="${2:-0}"
+    
+    # Remove newlines and extract only numbers
+    local clean_value=$(echo "$value" | tr -d '\n' | grep -o '[0-9]*' | head -1)
+    
+    # If empty, use default
+    if [ -z "$clean_value" ]; then
+        echo "$default"
+    else
+        echo "$clean_value"
+    fi
+}
+
 # Get current persona with fallback - UPDATED to use es-projection.sh
 get_current_persona() {
     local persona=""
@@ -173,6 +189,8 @@ check_safety_limits() {
     
     # Check for too many activations
     local init_count=$(grep -c "\[${persona}:INIT\]\|TYPE:PERSONA_ACTIVATED.*PERSONA:$persona" "$JOURNAL_FILE" 2>/dev/null || echo "0")
+    init_count=$(safe_integer "$init_count")
+    
     if [ $init_count -gt 10 ]; then
         echo -e "${RED}Safety Check Failed:${NC} Too many initializations ($init_count)"
         return 1
@@ -346,3 +364,6 @@ debug_journal_state() {
     tail -5 "$JOURNAL_FILE" 2>/dev/null | sed 's/^/  /'
     echo "=========================="
 }
+
+# Export the safe_integer function
+export -f safe_integer

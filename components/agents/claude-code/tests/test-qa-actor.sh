@@ -216,4 +216,8 @@ test_qa_work_generation() {
 }
 
 # Run all tests
-run_tests
+if run_tests; then
+    exit 0
+else
+    exit 1
+fi

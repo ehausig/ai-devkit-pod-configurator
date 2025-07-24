@@ -1,24 +1,6 @@
 #!/bin/bash
 # QA Actor - Testing and quality assurance persona
 
-# Check command line arguments for test mode
-for arg in "$@"; do
-    case $arg in
-        --test-harness)
-            export TEST_MODE=1
-            export ACTOR_RUNTIME_MODE="test"
-            echo "QA Actor started with --test-harness flag" >&2
-            ;;
-    esac
-done
-
-# Detect if we should run autonomously
-SHOULD_RUN_AUTONOMOUS=true
-if [ "$TEST_MODE" = "1" ]; then
-    SHOULD_RUN_AUTONOMOUS=false
-    echo "QA Actor loaded in test mode" >&2
-fi
-
 # Source the base actor functionality
 source es-actor-base.sh
 
@@ -101,12 +83,26 @@ generate_work_items() {
             fi
             
             # Create tasks for each logged issue
-            local issue_num=1
-            grep "\[QA:ISSUE\]" "$JOURNAL_FILE" | tail -10 | while IFS= read -r issue_line; do
-                local issue_desc=$(echo "$issue_line" | sed 's/.*\[QA:ISSUE\] //')
-                echo "Fix issue #$issue_num: $issue_desc"
-                ((issue_num++))
-            done
+            # Fix: Ensure issue_count is a clean integer
+            local issue_count=$(grep -c "\[QA:ISSUE\]" "$JOURNAL_FILE" 2>/dev/null | tr -d '\n' | grep -o '[0-9]*' | head -1)
+            if [ -z "$issue_count" ]; then
+                issue_count="0"
+            fi
+            
+            if [ "$issue_count" -gt 0 ]; then
+                local issue_num=1
+                grep "\[QA:ISSUE\]" "$JOURNAL_FILE" | tail -10 | while IFS= read -r issue_line; do
+                    local issue_desc=$(echo "$issue_line" | sed 's/.*\[QA:ISSUE\] //')
+                    echo "Fix issue #$issue_num: $issue_desc"
+                    ((issue_num++))
+                done
+            elif [ $ISSUES_FOUND -gt 0 ]; then
+                # Generate generic fix tasks if issues were found but not logged yet
+                local i
+                for ((i=1; i<=$ISSUES_FOUND; i++)); do
+                    echo "Fix issue #$i: Address QA finding"
+                done
+            fi
             
             # Standard re-test tasks
             echo "Run all tests locally to verify fixes"
@@ -434,12 +430,7 @@ if [ "$TEST_MODE" = "1" ]; then
     echo "QA Actor ready for testing" >&2
 fi
 
-# Autonomous startup - only in production mode
-if [ "$TEST_MODE" != "1" ]; then
-    # Only run if being executed directly
-    if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
-        actor_loop "$PERSONA"
-    fi
-else
-    echo "$PERSONA actor loaded in test mode - actor_loop skipped" >&2
+# Start the actor only if not in test mode and not being sourced
+if [ "$TEST_MODE" != "1" ] && [ "${BASH_SOURCE[0]}" = "${0}" ]; then
+    actor_loop "$PERSONA"
 fi
