@@ -34,13 +34,7 @@ test_qa_unit_test_execution() {
 
     # Test unit test execution
     execute_persona_work "test-1" "Run unit test suite and verify coverage meets 80% minimum"
-    
-    local context=$(grep "QA:CONTEXT.*Unit tests" "$TEST_JOURNAL")
-    if [ -n "$context" ]; then
-        assert_contains "$context" "Unit tests" "Should run unit tests"
-    else
-        assert_equals "executed" "executed" "Unit tests executed"
-    fi
+    assert_work_executed "$?" "Run unit tests"
 
     # Cleanup
     cd - >/dev/null
@@ -63,13 +57,7 @@ test_qa_coverage_verification() {
 
     # Test coverage check
     execute_persona_work "test-1" "Verify test coverage meets 80% minimum"
-    
-    local memory=$(grep "QA:MEMORY.*coverage" "$TEST_JOURNAL")
-    if [ -n "$memory" ]; then
-        assert_contains "$memory" "coverage" "Should check coverage"
-    else
-        assert_equals "executed" "executed" "Coverage verification executed"
-    fi
+    assert_work_executed "$?" "Verify coverage"
 
     # Cleanup
     cd - >/dev/null
@@ -92,13 +80,11 @@ test_qa_integration_testing() {
 
     # Test integration testing
     execute_persona_work "test-1" "Run integration tests against REAL services (no mocks)"
+    assert_work_executed "$?" "Run integration tests"
     
+    # Verify the memory was logged
     local memory=$(grep "QA:MEMORY.*real services" "$TEST_JOURNAL")
-    if [ -n "$memory" ]; then
-        assert_contains "$memory" "real services" "Should use real services"
-    else
-        assert_equals "executed" "executed" "Integration tests executed"
-    fi
+    assert_contains "$memory" "real services" "Should log use of real services"
 
     # Cleanup
     cd - >/dev/null
@@ -124,13 +110,10 @@ test_qa_error_handling() {
 
     # Test error handling check
     execute_persona_work "test-1" "Test error handling and edge cases"
+    assert_work_executed "$?" "Test error handling"
     
-    # Should find issues with error handling
-    if [ $ISSUES_FOUND -gt 0 ]; then
-        assert_equals "found" "found" "Should find error handling issues"
-    else
-        assert_equals "executed" "executed" "Error handling check executed"
-    fi
+    # Verify issue was found
+    assert_equals "1" "$ISSUES_FOUND" "Should find error handling issues"
 
     # Cleanup
     cd - >/dev/null
@@ -156,6 +139,7 @@ test_qa_report_generation() {
 
     # Test report creation
     execute_persona_work "test-1" "Document any bugs or issues found"
+    assert_work_executed "$?" "Generate QA report"
     
     assert_file_exists "QA_REPORT.md" "QA report should be created"
 

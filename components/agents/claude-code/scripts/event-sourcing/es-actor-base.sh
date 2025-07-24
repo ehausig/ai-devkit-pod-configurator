@@ -47,25 +47,46 @@ if [ "$ACTOR_RUNTIME_MODE" = "test" ]; then
     }
     
     execute_command() {
-        echo "Mock executing: $1"
+        local cmd="$1"
+        local description="${2:-Executing command}"
+        
+        # In test mode, just log the intent
+        echo "$(date -Iseconds) [${PERSONA}:MOCK] Would execute: $cmd" >> "$JOURNAL_FILE"
+        echo "  → $description"
         return 0
     }
     
     create_file_with_content() {
-        mkdir -p "$(dirname "$1")"
-        echo "$2" > "$1"
+        local filepath="$1"
+        local content="$2"
+        
+        mkdir -p "$(dirname "$filepath")"
+        echo "$content" > "$filepath"
+        echo "  → Created $filepath"
     }
     
     ensure_git_repo() {
-        if [ ! -d .git ]; then
-            git init >/dev/null 2>&1
-            git config user.name "Test" >/dev/null 2>&1
-            git config user.email "test@test.com" >/dev/null 2>&1
-        fi
+        # Mock git repo initialization
+        echo "$(date -Iseconds) [${PERSONA}:GIT] Initialized repository" >> "$JOURNAL_FILE"
+        mkdir -p .git
+        return 0
     }
     
     run_tests() {
+        # Mock test execution
+        echo "$(date -Iseconds) [${PERSONA}:TEST] Executed test suite" >> "$JOURNAL_FILE"
         return 0
+    }
+    
+    # Mock git operations
+    mock_git_remote() {
+        echo "origin  git@github.com:ai-devkit/project.git (fetch)"
+        echo "origin  git@github.com:ai-devkit/project.git (push)"
+    }
+    
+    mock_git_branch() {
+        echo "* main"
+        echo "  feature/test"
     }
     
     # Default persona implementations
@@ -327,6 +348,8 @@ if [ "$ACTOR_RUNTIME_MODE" = "test" ]; then
     export -f log_work_failure
     export -f log_handoff_context
     export -f test_execute_work
+    export -f mock_git_remote
+    export -f mock_git_branch
 fi
 
 # Export common variables

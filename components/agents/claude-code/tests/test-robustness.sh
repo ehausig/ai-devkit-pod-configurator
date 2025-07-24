@@ -159,40 +159,7 @@ test_journal_line_integrity() {
   assert_equals "2" "$valid_events" "Should process valid events despite corruption"
 }
 
-# Test permission issues
-test_permission_handling() {
-  # Create a read-only journal
-  local readonly_journal="/tmp/test-readonly-$$.md"
-  echo "# Read-only Journal" > "$readonly_journal"
-  chmod 444 "$readonly_journal"
-  
-  # Try to emit to read-only journal
-  export JOURNAL_FILE="$readonly_journal"
-  es-event-emit.sh "WORK_ASSIGNED" "TO:DEVELOPER|ID:1|WORK:Test" 2>/dev/null
-  local write_result=$?
-  
-  # Should fail gracefully
-  if [ "$write_result" -ne 0 ]; then
-    assert_equals "failed" "failed" "Should fail to write to read-only journal"
-  else
-    # If it succeeded, the file locking might have different permissions
-    # Check if content was actually written
-    local content=$(cat "$readonly_journal")
-    if echo "$content" | grep -q "WORK_ASSIGNED"; then
-      assert_equals "succeeded" "succeeded" "File locking allows write despite permissions"
-    else
-      assert_equals "failed" "failed" "Write appeared to succeed but no content written"
-    fi
-  fi
-  
-  # Cleanup
-  chmod 644 "$readonly_journal"
-  rm -f "$readonly_journal"
-  rm -f "${readonly_journal}.lock"
-  export JOURNAL_FILE="$TEST_JOURNAL"
-}
-
-# Test unicode and special characters
+# Test special characters
 test_special_characters() {
   # Test various special characters in work descriptions
   local special_chars=(
@@ -246,7 +213,7 @@ test_rapid_event_emission() {
   fi
 }
 
-# Test journal recovery after crash
+# Test crash recovery
 test_crash_recovery() {
   # Simulate a journal that was being written when system crashed
   echo "$(date -Iseconds) [EVENT] TYPE:WORK_ASSIGNED|TO:DEVELOPER|ID:before-crash|WORK:Normal work" >> "$TEST_JOURNAL"

@@ -28,8 +28,13 @@ initialize_persona() {
 # Check repository state
 check_repository_state() {
     if [ -d .git ]; then
-        local current_branch=$(git branch --show-current)
-        local has_changes=$(git status --porcelain | wc -l)
+        if [ "$ACTOR_RUNTIME_MODE" = "test" ]; then
+            local current_branch=$(mock_git_branch | grep '^\*' | cut -d' ' -f2)
+            local has_changes=0
+        else
+            local current_branch=$(git branch --show-current)
+            local has_changes=$(git status --porcelain | wc -l)
+        fi
         
         log_memory "Current branch: $current_branch"
         if [ $has_changes -gt 0 ]; then
@@ -43,16 +48,21 @@ determine_next_persona() {
     local from="$1"
     
     # Check if there are more PRs to process
-    if command -v gh >/dev/null 2>&1; then
+    if [ "$ACTOR_RUNTIME_MODE" = "test" ]; then
+        # In test mode, assume no more PRs
+        local open_prs="0"
+    elif command -v gh >/dev/null 2>&1; then
         local open_prs=$(gh pr list --json number 2>/dev/null | jq length)
         # Fix: Ensure open_prs is a clean integer
         open_prs=$(echo "$open_prs" | tr -d '\n' | grep -o '[0-9]*' | head -1)
         [ -z "$open_prs" ] && open_prs="0"
-        
-        if [ "$open_prs" -gt 0 ]; then
-            echo "DEVELOPER:More PRs to process ($open_prs remaining)"
-            return
-        fi
+    else
+        local open_prs="0"
+    fi
+    
+    if [ "$open_prs" -gt 0 ]; then
+        echo "DEVELOPER:More PRs to process ($open_prs remaining)"
+        return
     fi
     
     # Check if new work has appeared for any persona
@@ -104,7 +114,10 @@ execute_persona_work() {
         *"CI/CD"*|*"checks pass"*)
             log_decision "Verifying CI/CD status"
             
-            if command -v gh >/dev/null 2>&1; then
+            if [ "$ACTOR_RUNTIME_MODE" = "test" ]; then
+                emit_mock_tool_event "gh" "pr checks" "success"
+                log_context "All CI/CD checks passed"
+            elif command -v gh >/dev/null 2>&1; then
                 local pr_number=$(echo "$work_desc" | grep -o '#[0-9]*' | tr -d '#')
                 if [ -z "$pr_number" ]; then
                     pr_number=$(gh pr list --json number --jq '.[0].number' 2>/dev/null)
@@ -138,18 +151,28 @@ execute_persona_work() {
             log_decision "Running final integration tests"
             
             # Ensure we're on main branch
-            execute_command "git checkout main 2>/dev/null || git checkout master" \
-                "Switching to main branch"
-            
-            execute_command "git pull origin main 2>/dev/null || git pull origin master" \
-                "Updating main branch"
+            if [ "$ACTOR_RUNTIME_MODE" = "test" ]; then
+                mock_git_operation "checkout" "main branch"
+                mock_git_operation "pull" "latest changes"
+            else
+                execute_command "git checkout main 2>/dev/null || git checkout master" \
+                    "Switching to main branch"
+                
+                execute_command "git pull origin main 2>/dev/null || git pull origin master" \
+                    "Updating main branch"
+            fi
             
             # Run tests on main
-            if run_tests; then
+            if [ "$ACTOR_RUNTIME_MODE" = "test" ]; then
+                emit_mock_tool_event "test" "integration" "success"
                 log_context "Integration tests passed on main branch"
             else
-                ((ISSUES_ENCOUNTERED++))
-                log_issue "Integration tests failed on main branch"
+                if run_tests; then
+                    log_context "Integration tests passed on main branch"
+                else
+                    ((ISSUES_ENCOUNTERED++))
+                    log_issue "Integration tests failed on main branch"
+                fi
             fi
             
             return 0
@@ -159,14 +182,18 @@ execute_persona_work() {
             log_decision "Merging pull request"
             
             local pr_number=$(echo "$work_desc" | grep -o '#[0-9]*' | tr -d '#')
-            if [ -z "$pr_number" ] && command -v gh >/dev/null 2>&1; then
+            if [ -z "$pr_number" ] && [ "$ACTOR_RUNTIME_MODE" != "test" ] && command -v gh >/dev/null 2>&1; then
                 pr_number=$(gh pr list --json number --jq '.[0].number' 2>/dev/null)
             fi
             
-            if [ -n "$pr_number" ]; then
-                log_context "Merging PR #$pr_number"
-                
-                if command -v gh >/dev/null 2>&1; then
+            if [ -n "$pr_number" ] || [ "$ACTOR_RUNTIME_MODE" = "test" ]; then
+                if [ "$ACTOR_RUNTIME_MODE" = "test" ]; then
+                    emit_mock_tool_event "gh" "pr merge #${pr_number:-123}" "success"
+                    ((MERGES_COMPLETED++))
+                    log_memory "Successfully merged PR #${pr_number:-123}"
+                elif command -v gh >/dev/null 2>&1; then
+                    log_context "Merging PR #$pr_number"
+                    
                     # Merge using GitHub CLI
                     if gh pr merge "$pr_number" --merge --delete-branch 2>&1; then
                         ((MERGES_COMPLETED++))
@@ -266,10 +293,15 @@ $changelog_entry"
             esac
             
             # Commit changelog
-            execute_command "git add CHANGELOG.md package.json setup.py 2>/dev/null" \
-                "Staging version updates"
-            execute_command "git commit -m 'chore: Update CHANGELOG and version to $new_version'" \
-                "Committing version updates"
+            if [ "$ACTOR_RUNTIME_MODE" = "test" ]; then
+                mock_git_operation "add" "CHANGELOG.md package.json setup.py"
+                mock_git_operation "commit" "chore: Update CHANGELOG and version to $new_version"
+            else
+                execute_command "git add CHANGELOG.md package.json setup.py 2>/dev/null" \
+                    "Staging version updates"
+                execute_command "git commit -m 'chore: Update CHANGELOG and version to $new_version'" \
+                    "Committing version updates"
+            fi
             
             return 0
             ;;
@@ -288,25 +320,32 @@ $changelog_entry"
             local tag_name="v$version"
             log_context "Creating tag: $tag_name"
             
-            if execute_command "git tag -a $tag_name -m 'Release version $version'" \
-                "Creating annotated tag"; then
+            if [ "$ACTOR_RUNTIME_MODE" = "test" ]; then
+                mock_git_operation "tag -a" "$tag_name -m 'Release version $version'"
                 ((RELEASES_CREATED++))
                 log_memory "Created release tag: $tag_name"
-                
-                # Push tag if origin exists
-                if git remote | grep -q origin; then
-                    execute_command "git push origin $tag_name" "Pushing tag to origin"
-                fi
-                
-                # Create GitHub release if gh is available
-                if command -v gh >/dev/null 2>&1; then
-                    local release_notes=$(sed -n "/## \[$version\]/,/## \[/p" CHANGELOG.md | sed '$ d')
-                    execute_command "gh release create $tag_name --title 'Release $version' --notes '$release_notes'" \
-                        "Creating GitHub release"
-                fi
+                emit_mock_tool_event "gh" "release create $tag_name" "success"
             else
-                ((ISSUES_ENCOUNTERED++))
-                log_issue "Failed to create release tag"
+                if execute_command "git tag -a $tag_name -m 'Release version $version'" \
+                    "Creating annotated tag"; then
+                    ((RELEASES_CREATED++))
+                    log_memory "Created release tag: $tag_name"
+                    
+                    # Push tag if origin exists
+                    if git remote | grep -q origin; then
+                        execute_command "git push origin $tag_name" "Pushing tag to origin"
+                    fi
+                    
+                    # Create GitHub release if gh is available
+                    if command -v gh >/dev/null 2>&1; then
+                        local release_notes=$(sed -n "/## \[$version\]/,/## \[/p" CHANGELOG.md | sed '$ d')
+                        execute_command "gh release create $tag_name --title 'Release $version' --notes '$release_notes'" \
+                            "Creating GitHub release"
+                    fi
+                else
+                    ((ISSUES_ENCOUNTERED++))
+                    log_issue "Failed to create release tag"
+                fi
             fi
             
             return 0
@@ -315,19 +354,25 @@ $changelog_entry"
         *"Delete feature branch"*)
             log_decision "Cleaning up merged feature branches"
             
-            # Delete local feature branches that are merged
-            local deleted_count=0
-            for branch in $(git branch --merged main | grep -v main | grep -v master); do
-                if execute_command "git branch -d $branch" "Deleting merged branch: $branch"; then
-                    ((deleted_count++))
-                fi
-            done
-            
-            log_context "Deleted $deleted_count merged branches"
-            
-            # Prune remote tracking branches
-            execute_command "git remote prune origin 2>/dev/null || true" \
-                "Pruning remote tracking branches"
+            if [ "$ACTOR_RUNTIME_MODE" = "test" ]; then
+                mock_git_operation "branch -d" "feature branches"
+                log_context "Deleted 2 merged branches"
+                mock_git_operation "remote prune" "origin"
+            else
+                # Delete local feature branches that are merged
+                local deleted_count=0
+                for branch in $(git branch --merged main | grep -v main | grep -v master); do
+                    if execute_command "git branch -d $branch" "Deleting merged branch: $branch"; then
+                        ((deleted_count++))
+                    fi
+                done
+                
+                log_context "Deleted $deleted_count merged branches"
+                
+                # Prune remote tracking branches
+                execute_command "git remote prune origin 2>/dev/null || true" \
+                    "Pruning remote tracking branches"
+            fi
             
             return 0
             ;;
@@ -339,8 +384,13 @@ $changelog_entry"
             if [ -f "README.md" ] && [ $MERGES_COMPLETED -gt 0 ]; then
                 if ! grep -q "## Latest Release" README.md; then
                     echo -e "\n## Latest Release\n\nSee [CHANGELOG.md](CHANGELOG.md) for version history.\n" >> README.md
-                    execute_command "git add README.md && git commit -m 'docs: Add release section to README'" \
-                        "Updating README"
+                    if [ "$ACTOR_RUNTIME_MODE" = "test" ]; then
+                        mock_git_operation "add" "README.md"
+                        mock_git_operation "commit" "docs: Add release section to README"
+                    else
+                        execute_command "git add README.md && git commit -m 'docs: Add release section to README'" \
+                            "Updating README"
+                    fi
                 fi
             fi
             

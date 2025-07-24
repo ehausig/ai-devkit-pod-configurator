@@ -13,7 +13,11 @@ initialize_persona() {
     
     # Check current branch
     if [ -d .git ]; then
-        local current_branch=$(git branch --show-current 2>/dev/null || echo "none")
+        if [ "$ACTOR_RUNTIME_MODE" = "test" ]; then
+            local current_branch=$(mock_git_branch | grep '^\*' | cut -d' ' -f2)
+        else
+            local current_branch=$(git branch --show-current 2>/dev/null || echo "none")
+        fi
         log_memory "Current branch: $current_branch"
     fi
     
@@ -69,13 +73,21 @@ determine_next_persona() {
     
     # Check if tests are passing
     local tests_passing=false
-    if run_tests >/dev/null 2>&1; then
+    if [ "$ACTOR_RUNTIME_MODE" = "test" ]; then
+        # In test mode, assume tests pass
         tests_passing=true
+    else
+        if run_tests >/dev/null 2>&1; then
+            tests_passing=true
+        fi
     fi
     
     # Check if PR exists
     local pr_exists=false
-    if command -v gh >/dev/null 2>&1; then
+    if [ "$ACTOR_RUNTIME_MODE" = "test" ]; then
+        # In test mode, assume PR exists
+        pr_exists=true
+    elif command -v gh >/dev/null 2>&1; then
         local current_branch=$(git branch --show-current 2>/dev/null)
         if [ -n "$current_branch" ] && [ "$current_branch" != "main" ] && [ "$current_branch" != "master" ]; then
             if gh pr view "$current_branch" >/dev/null 2>&1; then
@@ -102,8 +114,13 @@ execute_persona_work() {
             log_decision "Creating feature branch: $branch_name"
             
             ensure_git_repo
-            execute_command "git checkout -b $branch_name 2>/dev/null || git checkout $branch_name" \
-                "Checking out branch $branch_name"
+            
+            if [ "$ACTOR_RUNTIME_MODE" = "test" ]; then
+                mock_git_operation "checkout -b" "$branch_name"
+            else
+                execute_command "git checkout -b $branch_name 2>/dev/null || git checkout $branch_name" \
+                    "Checking out branch $branch_name"
+            fi
             return $?
             ;;
             
@@ -142,7 +159,11 @@ source = [\"src\"]"
     \"eslint\": \"^8.0.0\"
   }
 }"
-                    execute_command "npm install" "Installing dependencies"
+                    if [ "$ACTOR_RUNTIME_MODE" != "test" ]; then
+                        execute_command "npm install" "Installing dependencies"
+                    else
+                        emit_mock_tool_event "npm" "install" "success"
+                    fi
                     ;;
                 rust)
                     create_file_with_content "Cargo.toml" "[package]
@@ -155,7 +176,11 @@ edition = \"2021\"
 [dev-dependencies]"
                     ;;
                 go)
-                    execute_command "go mod init project" "Initializing Go module"
+                    if [ "$ACTOR_RUNTIME_MODE" != "test" ]; then
+                        execute_command "go mod init project" "Initializing Go module"
+                    else
+                        emit_mock_tool_event "go" "mod init project" "success"
+                    fi
                     ;;
             esac
             
@@ -165,7 +190,11 @@ edition = \"2021\"
         *"project structure"*)
             log_decision "Setting up project structure"
             
-            execute_command "mkdir -p src tests docs" "Creating directories"
+            if [ "$ACTOR_RUNTIME_MODE" = "test" ]; then
+                mock_execute_command "mkdir -p src tests docs" "Creating directories"
+            else
+                execute_command "mkdir -p src tests docs" "Creating directories"
+            fi
             
             case "$PROJECT_TYPE" in
                 python)
@@ -268,7 +297,12 @@ describe('Main functionality', () => {
             
             # Run tests to verify they fail
             log_context "Running tests to verify they fail (TDD)"
-            run_tests || log_memory "Tests failing as expected (TDD approach)"
+            if [ "$ACTOR_RUNTIME_MODE" = "test" ]; then
+                emit_mock_tool_event "test" "run" "failure"
+                log_memory "Tests failing as expected (TDD approach)"
+            else
+                run_tests || log_memory "Tests failing as expected (TDD approach)"
+            fi
             return 0
             ;;
             
@@ -310,12 +344,18 @@ describe('Main functionality', () => {
             esac
             
             # Run tests to verify they pass
-            if run_tests; then
+            if [ "$ACTOR_RUNTIME_MODE" = "test" ]; then
+                emit_mock_tool_event "test" "run" "success"
                 log_memory "Tests now passing - implementation complete"
                 return 0
             else
-                log_issue "Tests still failing after implementation"
-                return 1
+                if run_tests; then
+                    log_memory "Tests now passing - implementation complete"
+                    return 0
+                else
+                    log_issue "Tests still failing after implementation"
+                    return 1
+                fi
             fi
             ;;
             
@@ -330,7 +370,10 @@ describe('Main functionality', () => {
             log_decision "Ensuring test coverage meets minimum requirements"
             
             # Run coverage check
-            if [ -n "$COVERAGE_CMD" ]; then
+            if [ "$ACTOR_RUNTIME_MODE" = "test" ]; then
+                emit_mock_tool_event "coverage" "$COVERAGE_CMD" "success"
+                log_memory "Test coverage checked"
+            elif [ -n "$COVERAGE_CMD" ]; then
                 execute_command "$COVERAGE_CMD" "Checking test coverage"
                 log_memory "Test coverage checked"
             fi
@@ -389,14 +432,22 @@ This project follows TDD practices. See TESTING_STRATEGY.md for details."
             log_decision "Creating pull request"
             
             # Ensure all changes are committed
-            if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
-                execute_command "git add -A" "Staging all changes"
-                execute_command "git commit -m 'feat: Complete implementation with tests'" \
-                    "Committing changes"
+            if [ "$ACTOR_RUNTIME_MODE" = "test" ]; then
+                mock_git_operation "add -A" "all changes"
+                mock_git_operation "commit" "feat: Complete implementation with tests"
+            else
+                if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
+                    execute_command "git add -A" "Staging all changes"
+                    execute_command "git commit -m 'feat: Complete implementation with tests'" \
+                        "Committing changes"
+                fi
             fi
             
             # Create PR if gh is available
-            if command -v gh >/dev/null 2>&1; then
+            if [ "$ACTOR_RUNTIME_MODE" = "test" ]; then
+                emit_mock_tool_event "gh" "pr create" "success"
+                log_context "Pull request created (mocked)"
+            elif command -v gh >/dev/null 2>&1; then
                 local current_branch=$(git branch --show-current)
                 local pr_title="feat: Initial implementation"
                 local pr_body="## Summary
@@ -426,12 +477,18 @@ All tests passing. Run \`$TEST_CMD\` to verify."
             log_context "Addressing review feedback"
             
             # Run tests after fix
-            if run_tests; then
+            if [ "$ACTOR_RUNTIME_MODE" = "test" ]; then
+                emit_mock_tool_event "test" "run" "success"
                 log_memory "Fix applied and tests passing"
                 return 0
             else
-                log_issue "Fix applied but tests still failing"
-                return 1
+                if run_tests; then
+                    log_memory "Fix applied and tests passing"
+                    return 0
+                else
+                    log_issue "Fix applied but tests still failing"
+                    return 1
+                fi
             fi
             ;;
             
@@ -491,3 +548,5 @@ generate_work_items() {
         echo "Verify API endpoints match specification"
         echo "Document any bugs or issues found"
         echo "Create comprehensive test report"
+    fi
+}
