@@ -26,14 +26,12 @@ AI DevKit Pod Configurator provides a beautiful TUI (Terminal User Interface) fo
 
 - 🎨 **Beautiful TUI** - Interactive component selection with theme support
 - 🧩 **Modular Architecture** - Add only what you need: languages, tools, AI assistants
-- 🤖 **Autonomous AI Development** - Claude Code integration with self-directed multi-persona workflow
 - 🔧 **Language Support** - Python, Java, Go, Rust, Ruby, Scala, Kotlin, and more
 - 📦 **Build Tools** - Maven, Gradle, SBT with optional Nexus proxy support
 - 🧪 **TUI Testing** - Microsoft TUI Test pre-installed for testing terminal apps
 - 💾 **Persistent Storage** - Your code and configuration persist across restarts
 - 🌐 **Web File Manager** - Built-in Filebrowser for easy file management
 - 🔒 **Secure** - Runs as non-root user with proper isolation
-- 📊 **Event-Sourced Memory** - Journal-based system for autonomous AI workflow
 
 ## 📸 Screenshots
 
@@ -112,105 +110,6 @@ The selector shows:
 - Dependencies and conflicts
 - Real-time build status with animations
 
-## 🤖 Claude Code Integration
-
-### Autonomous AI Development System
-
-The AI DevKit includes deep integration with Claude Code, featuring a revolutionary autonomous development system that enables end-to-end software creation without human intervention.
-
-#### Event-Sourced Architecture
-The system uses `~/workspace/JOURNAL.md` as an event store, implementing event sourcing patterns where all work, decisions, and state changes are recorded as immutable events. This provides:
-- **Persistent Memory** - Survives context switches and session restarts
-- **Complete Audit Trail** - Every decision and action is traceable
-- **State Recovery** - Can reconstruct context from any point
-- **Work Coordination** - Enables autonomous persona transitions
-
-#### Autonomous Multi-Persona Workflow
-Simulates a complete development team that works autonomously:
-- **ARCHITECT** - System design and technical planning
-- **DEVELOPER** - Implementation with TDD practices
-- **QA** - Comprehensive testing and quality assurance
-- **REVIEWER** - Code review and standards compliance
-- **MERGER** - Integration and release management
-
-📖 **[Detailed Autonomous System Documentation](components/agents/claude-code/personas/README.md)** - In-depth guide to the autonomous workflow
-
-#### Autonomous Operation
-
-To start an autonomous development session:
-
-```bash
-# SSH into your container
-ssh devuser@localhost -p 2222
-
-# Create a project prompt
-cat > ~/workspace/PROMPT.md << 'EOF'
-Create a REST API for a task management system with:
-- User authentication
-- CRUD operations for tasks
-- PostgreSQL database
-- Comprehensive tests
-- Full documentation
-EOF
-
-# Initialize ARCHITECT to start autonomous development
-/home/devuser/.claude/personas/architect/architect-init.sh
-```
-
-The system will autonomously:
-1. Design the architecture (ARCHITECT)
-2. Implement with TDD (DEVELOPER)
-3. Test against real services (QA)
-4. Review code quality (REVIEWER)
-5. Merge and release (MERGER)
-
-All without human intervention, using the journal for coordination.
-
-#### Key Event Types
-- `[WORK:PENDING]` - Work that needs to be done
-- `[WORK:STARTED]` - Work has begun (prevents duplicate processing)
-- `[WORK:COMPLETED]` - Work is finished
-- `[WORK:BLOCKED]` - Work cannot proceed (with reason)
-- `[HANDOFF:REQUEST]` - Persona wants to hand off
-- `[HANDOFF:VALIDATED]` - Requirements checked and passed
-- `[HANDOFF:COMPLETED]` - Next persona can begin
-- `[SAFETY:LIMIT]` - Safety threshold exceeded
-- `[PERSONA:STUCK]` - No progress detected
-
-#### Monitoring Autonomous Progress
-
-```bash
-# View real-time journal activity
-tail -f ~/workspace/JOURNAL.md
-
-# Check overall status
-journal-query.sh stats
-
-# View pending work across all personas
-journal-query.sh pending-work ALL
-
-# Check current active persona
-journal-query.sh current-persona
-```
-
-### Manual Persona Control
-
-While the system is designed for autonomous operation, you can also manually control personas:
-
-```bash
-# Switch to a specific persona
-/switch-persona developer
-
-# Check work status
-/work-status
-
-# Execute prepared work
-/execute-work
-
-# View journal summary
-/journal-summary
-```
-
 ## 🔐 Git Configuration
 
 Configure git credentials once on your host machine:
@@ -260,11 +159,7 @@ Access the built-in Filebrowser at [http://localhost:8090](http://localhost:8090
 - **SBT** - Scala build tool
 
 ### AI Assistants
-- **Claude Code** - Advanced AI coding assistant with:
-  - Autonomous multi-persona development system
-  - Event-sourced journal for persistent memory
-  - Custom hooks for automation
-  - End-to-end software creation capability
+- **Claude Code** - Advanced AI coding assistant (see [Claude Code Documentation](components/agents/claude-code/README.md))
 
 ## 🎨 Theme Support
 
@@ -432,19 +327,15 @@ This project builds upon excellent work from these organizations and projects:
 
 ### Core Technologies
 
-- **[Claude Code](https://www.anthropic.com/claude-code)** by [Anthropic](https://www.anthropic.com) - AI coding assistant that lives in your terminal
-  - Claude is a trademark of Anthropic PBC
-  - [Documentation](https://docs.anthropic.com/en/docs/claude-code/overview) | [GitHub](https://github.com/anthropics/claude-code) | [npm](https://www.npmjs.com/package/@anthropic-ai/claude-code)
-  
-- **[Microsoft TUI Test](https://github.com/microsoft/tui-test)** - End-to-end terminal testing framework
-  - Built and maintained by Microsoft
-  - Provides rich API for testing terminal applications across platforms
-  
 - **[Ubuntu](https://ubuntu.com)** - The base operating system (22.04 LTS)
   - Copyright © Canonical Ltd.
   
 - **[Kubernetes](https://kubernetes.io)** - Container orchestration platform
   - Originally designed by Google, now maintained by the Cloud Native Computing Foundation
+
+- **[Microsoft TUI Test](https://github.com/microsoft/tui-test)** - End-to-end terminal testing framework
+  - Built and maintained by Microsoft
+  - Provides rich API for testing terminal applications across platforms
 
 ### Development Tools
 

@@ -84,14 +84,7 @@ Components are the building blocks of the system. Each component is:
 components/
 ├── agents/
 │   ├── .category.yaml
-│   ├── claude-code.yaml
-│   ├── claude-code.md
-│   └── claude-code/
-│       ├── claude-code-setup.sh
-│       ├── hooks/
-│       ├── personas/
-│       ├── commands/
-│       └── scripts/
+│   └── [agent components]
 ├── languages/
 │   ├── .category.yaml
 │   ├── python-miniconda.yaml
@@ -151,47 +144,27 @@ The build engine handles:
 - Aggregates documentation
 - Prepares build context
 
-### 4. Claude Code Integration
+### 4. Optional Components
 
-When the Claude Code component is selected, it provides:
+The system supports various optional components that can be selected during build:
 
-#### Multi-Persona System
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Claude Code                          │
-│  ┌────────────┐  ┌────────────┐  ┌────────────┐       │
-│  │ ARCHITECT  │→ │ DEVELOPER  │→ │    QA      │       │
-│  └────────────┘  └────────────┘  └────────────┘       │
-│         ↓              ↕               ↕                │
-│  ┌────────────┐  ┌────────────┐                       │
-│  │   MERGER   │← │  REVIEWER  │                       │
-│  └────────────┘  └────────────┘                       │
-└─────────────────────────────────────────────────────────┘
-```
+#### AI Assistants
+- **Claude Code** - Advanced AI coding assistant with autonomous capabilities
+- Other AI tools can be added as components
 
-#### Journal-Based Memory
-- Event sourcing pattern
-- Work item tracking (PENDING/STARTED/COMPLETED)
-- Persistent across sessions
-- Context recovery mechanisms
+#### Programming Languages
+- Multiple versions of Python, Java, Go, Rust, Ruby, Scala, Kotlin
+- Each language is a separate component with proper dependency management
 
-#### Hook System
-```
-┌─────────────────────────────────────────────────────────┐
-│                   Claude Code Hooks                     │
-├─────────────────────────────────────────────────────────┤
-│ PreToolUse:  │ PostToolUse: │ Stop:    │ Notification: │
-│ • bash-logger│ • format-code│ • journal│ • alerts      │
-│ • session    │ • test-track │          │               │
-│ • persona    │ • decisions  │          │               │
-└─────────────────────────────────────────────────────────┘
-```
+#### Build Tools
+- Maven, Gradle, SBT
+- Automatically configured for Nexus proxy when available
 
-#### Custom Commands
-- `/switch-persona` - Change development role
-- `/journal-summary` - System status overview
-- `/show-context` - Display current context
-- `/list-handoffs` - Pending work transitions
+Each component can include:
+- Installation instructions
+- Runtime configuration
+- Documentation for AI assistants
+- Pre-build scripts for complex setup
 
 ### 5. Container Image
 
@@ -214,7 +187,6 @@ Built on Ubuntu 22.04 LTS with:
 **Persistent Paths**:
 - `/home/devuser/workspace` - Code and projects
 - `/home/devuser/.config` - User configuration
-- `/home/devuser/.claude` - Claude Code config (when selected)
 
 **Service Ports**:
 - 2222: SSH server
@@ -321,14 +293,6 @@ spec:
 6. **Building**: Docker builds the image
 7. **Deployment**: Image deployed to Kubernetes
 
-### Claude Code Workflow (when selected)
-
-```
-User → Persona Init → Journal Check → Work Execution → Handoff
-  ↑                                                        ↓
-  ←─────────────────── Next Persona ←──────────────────────
-```
-
 ## Security Architecture
 
 ### Container Security
@@ -388,13 +352,6 @@ Components can include pre-build scripts that:
 - Download additional resources
 - Create documentation aggregates
 - Set up component-specific structures
-- Process hooks and personas
-
-Example: Claude Code's pre-build script:
-- Generates component imports
-- Processes hook YAML files
-- Sets up personas structure
-- Creates command files
 
 ## Configuration Management
 
@@ -458,15 +415,7 @@ Example: Claude Code's pre-build script:
 - SSH access for troubleshooting
 - Container logs: `kubectl logs -n ai-devkit`
 - Filebrowser for file inspection
-- Journal logs for Claude Code
 - Standard Kubernetes tooling
-
-### Claude Code Debugging (when selected)
-- Journal at `~/workspace/JOURNAL.md`
-- Hook execution logs
-- Persona state tracking
-- Work item progression
-- Context recovery tools
 
 ## Technical Decisions
 
@@ -497,13 +446,6 @@ Example: Claude Code's pre-build script:
 - Secret management
 - Platform agnostic
 - Industry standard
-
-### Why Claude Code Integration?
-- Advanced AI assistance
-- Team workflow simulation
-- Persistent memory system
-- Extensible hook system
-- Enhanced productivity
 
 ## Future Considerations
 
