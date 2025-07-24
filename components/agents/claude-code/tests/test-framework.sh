@@ -8,10 +8,11 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-# Test counters - declare globally
+# Test counters - declare globally and export them
 declare -g TESTS_RUN=0
 declare -g TESTS_PASSED=0
 declare -g TESTS_FAILED=0
+export TESTS_RUN TESTS_PASSED TESTS_FAILED
 
 # Test journal location - make it unique per test suite
 TEST_JOURNAL="/tmp/test-journal-$$-${RANDOM}.md"
@@ -107,7 +108,7 @@ teardown_test() {
   rm -rf /tmp/test-*-$$
 }
 
-# Assert functions
+# Assert functions - ensure they update global counters
 assert_equals() {
   local expected="$1"
   local actual="$2"
@@ -123,6 +124,9 @@ assert_equals() {
     echo -e "  Expected: $expected"
     echo -e "  Actual:   $actual"
   fi
+  
+  # Export updated counters
+  export TESTS_RUN TESTS_PASSED TESTS_FAILED
 }
 
 assert_contains() {
@@ -140,6 +144,9 @@ assert_contains() {
     echo -e "  Looking for: $needle"
     echo -e "  In: $haystack"
   fi
+  
+  # Export updated counters
+  export TESTS_RUN TESTS_PASSED TESTS_FAILED
 }
 
 assert_not_contains() {
@@ -157,6 +164,9 @@ assert_not_contains() {
     ((TESTS_PASSED++))
     echo -e "${GREEN}✓${NC} $message"
   fi
+  
+  # Export updated counters
+  export TESTS_RUN TESTS_PASSED TESTS_FAILED
 }
 
 assert_event_exists() {
@@ -172,6 +182,9 @@ assert_event_exists() {
     echo -e "${RED}✗${NC} $message"
     echo -e "  Event type not found: $event_type"
   fi
+  
+  # Export updated counters
+  export TESTS_RUN TESTS_PASSED TESTS_FAILED
 }
 
 assert_exit_code() {
@@ -189,6 +202,9 @@ assert_exit_code() {
     echo -e "  Expected exit code: $expected"
     echo -e "  Actual exit code:   $actual"
   fi
+  
+  # Export updated counters
+  export TESTS_RUN TESTS_PASSED TESTS_FAILED
 }
 
 assert_file_exists() {
@@ -204,6 +220,9 @@ assert_file_exists() {
     echo -e "${RED}✗${NC} $message"
     echo -e "  File not found: $filepath"
   fi
+  
+  # Export updated counters
+  export TESTS_RUN TESTS_PASSED TESTS_FAILED
 }
 
 # New assertion helper to avoid counting issues
@@ -219,6 +238,9 @@ assert_work_executed() {
     ((TESTS_FAILED++))
     echo -e "${RED}✗${NC} Work failed: $work_desc (exit code: $exit_code)"
   fi
+  
+  # Export updated counters
+  export TESTS_RUN TESTS_PASSED TESTS_FAILED
 }
 
 # Test runner - simplified to avoid counter issues
@@ -226,10 +248,11 @@ run_tests() {
   echo -e "${BLUE}Running tests...${NC}"
   echo ""
 
-  # Reset ALL counters at the start
+  # Reset ALL counters at the start and export them
   TESTS_RUN=0
   TESTS_PASSED=0
   TESTS_FAILED=0
+  export TESTS_RUN TESTS_PASSED TESTS_FAILED
 
   # Kill any interfering processes before starting tests
   kill_test_processes
@@ -386,3 +409,20 @@ mock_execute_command() {
   # Always return success in test mode
   return 0
 }
+
+# Export all assert functions so they're available in sourced contexts
+export -f assert_equals
+export -f assert_contains
+export -f assert_not_contains
+export -f assert_event_exists
+export -f assert_exit_code
+export -f assert_file_exists
+export -f assert_work_executed
+
+# Export other test utilities
+export -f wait_for_event
+export -f create_mock_actor
+export -f cleanup_mock_actors
+export -f emit_mock_tool_event
+export -f mock_git_operation
+export -f mock_execute_command
