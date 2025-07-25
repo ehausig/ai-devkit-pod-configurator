@@ -1,96 +1,118 @@
 ---
-description: Initialize a new project with the autonomous development system
+description: Initialize a new autonomous development project
 ---
 
 # Initialize Autonomous Project
 
 Start a new project using the event-driven autonomous development system.
 
-## Instructions
+## Usage
 
-When the user requests to create a project (e.g., "create a hello persona project in Python"), follow these steps:
+When the user requests to create a project (e.g., "create a hello world project in Python"), follow these steps:
 
 ```bash
-# First, ensure the event monitor is running
-if ! pgrep -f "es-event-monitor.sh" > /dev/null 2>&1; then
-    echo "Starting event monitor..."
-    nohup es-event-monitor.sh > /tmp/event-monitor.log 2>&1 &
-    MONITOR_PID=$!
-    echo "Event monitor started (PID: $MONITOR_PID)"
-    sleep 2  # Give it time to start
+# Ensure journal exists
+mkdir -p ~/workspace
+if [ ! -f ~/workspace/JOURNAL.md ]; then
+    echo "# Development Journal" > ~/workspace/JOURNAL.md
+    echo "" >> ~/workspace/JOURNAL.md
+    echo "## Events" >> ~/workspace/JOURNAL.md
 fi
 
-# Extract project details from the request
-PROJECT_NAME="[extracted project name]"
-LANGUAGE="[extracted language or empty]"
-TIMESTAMP=$(date +%s)
+# Parse the user's request to extract project details
+USER_REQUEST="$*"  # Get all arguments as the request
 
-# Create initial work assignments for ARCHITECT
-echo "Emitting work assignments to ARCHITECT..."
-es-event-emit.sh "WORK_ASSIGNED" "TO:ARCHITECT|ID:${TIMESTAMP}-1|WORK:Create system architecture for ${PROJECT_NAME}${LANGUAGE}"
-es-event-emit.sh "WORK_ASSIGNED" "TO:ARCHITECT|ID:${TIMESTAMP}-2|WORK:Design API specification and interfaces"
-es-event-emit.sh "WORK_ASSIGNED" "TO:ARCHITECT|ID:${TIMESTAMP}-3|WORK:Define data models and schemas"
-es-event-emit.sh "WORK_ASSIGNED" "TO:ARCHITECT|ID:${TIMESTAMP}-4|WORK:Create comprehensive testing strategy"
+# Default values
+PROJECT_NAME="project"
+PROJECT_TYPE="application"
+LANGUAGE=""
 
-# Verify events were emitted
-echo "Checking journal for events..."
-tail -5 ~/workspace/JOURNAL.md
+# Try to extract project details from common patterns
+if [[ "$USER_REQUEST" =~ (create|build|develop|make)[[:space:]]+[a]?[[:space:]]*(.*)[[:space:]]+(project|app|application|api|tool|system) ]]; then
+    PROJECT_NAME="${BASH_REMATCH[2]}"
+    PROJECT_TYPE="${BASH_REMATCH[3]}"
+elif [[ "$USER_REQUEST" =~ (hello[[:space:]]+world) ]]; then
+    PROJECT_NAME="hello world"
+    PROJECT_TYPE="application"
+elif [[ "$USER_REQUEST" =~ (todo|task)[[:space:]]+(list|app) ]]; then
+    PROJECT_NAME="todo list"
+    PROJECT_TYPE="application"
+fi
 
-# Show monitoring instructions
+# Extract language if mentioned
+if [[ "$USER_REQUEST" =~ [[:space:]]in[[:space:]]+(Python|python) ]]; then
+    LANGUAGE="Python"
+elif [[ "$USER_REQUEST" =~ [[:space:]]in[[:space:]]+(JavaScript|javascript|JS|Node|node) ]]; then
+    LANGUAGE="Node.js"
+elif [[ "$USER_REQUEST" =~ [[:space:]]in[[:space:]]+(Rust|rust) ]]; then
+    LANGUAGE="Rust"
+elif [[ "$USER_REQUEST" =~ [[:space:]]in[[:space:]]+(Go|go|golang|Golang) ]]; then
+    LANGUAGE="Go"
+elif [[ "$USER_REQUEST" =~ [[:space:]]in[[:space:]]+(Java|java) ]]; then
+    LANGUAGE="Java"
+elif [[ "$USER_REQUEST" =~ [[:space:]]in[[:space:]]+(Ruby|ruby) ]]; then
+    LANGUAGE="Ruby"
+fi
+
+# Extract specific types
+if [[ "$USER_REQUEST" =~ (REST|rest)[[:space:]]+(API|api) ]]; then
+    PROJECT_TYPE="REST API"
+elif [[ "$USER_REQUEST" =~ (web[[:space:]]+scraper|scraper) ]]; then
+    PROJECT_TYPE="web scraper"
+elif [[ "$USER_REQUEST" =~ (CLI|cli)[[:space:]]+(tool|app) ]]; then
+    PROJECT_TYPE="CLI tool"
+elif [[ "$USER_REQUEST" =~ (web[[:space:]]+app|website) ]]; then
+    PROJECT_TYPE="web application"
+fi
+
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+# Create initial work assignment for ARCHITECT
+echo "Initializing autonomous development for: $PROJECT_NAME"
 echo ""
-echo "Project initialization complete!"
+
+# Add work assignment to journal
+echo "$TIMESTAMP | WORK_ASSIGNED | ARCHITECT | Design and architect $PROJECT_NAME $PROJECT_TYPE${LANGUAGE:+ in $LANGUAGE}" >> ~/workspace/JOURNAL.md
+
+# Log project initialization
+echo "$TIMESTAMP | PROJECT_INIT | SYSTEM | Starting autonomous development: $PROJECT_NAME" >> ~/workspace/JOURNAL.md
+
+echo "✓ Project initialized successfully!"
 echo ""
-echo "Monitor progress with:"
-echo "  tail -f ~/workspace/JOURNAL.md | grep EVENT"
+echo "The ARCHITECT persona will now begin designing your system."
+echo "Use /show-journal to monitor progress."
 echo ""
-echo "Check system status with:"
-echo "  es-projection.sh \"\" system_state"
-echo ""
-echo "The ARCHITECT persona will activate automatically and begin work."
+
+# Now invoke the architect command
+/architect
 ```
 
 ## Examples
 
-For "create a hello persona project in Python":
+For "create a hello world project in Python":
 ```bash
-PROJECT_NAME="hello persona project"
-LANGUAGE=" in Python"
+PROJECT_NAME="hello world"
+PROJECT_TYPE="application"
+LANGUAGE="Python"
 ```
 
-For "build a REST API":
+For "build a REST API for todo list":
 ```bash
-PROJECT_NAME="REST API"
+PROJECT_NAME="todo list"
+PROJECT_TYPE="REST API"
+LANGUAGE=""  # Will be determined by ARCHITECT
+```
+
+For "develop a web scraper":
+```bash
+PROJECT_NAME="web scraper"
+PROJECT_TYPE="tool"
 LANGUAGE=""
 ```
 
-## Troubleshooting
-
-If the system doesn't start:
-
-1. Check if events are in the journal:
-   ```bash
-   grep "TYPE:WORK_ASSIGNED" ~/workspace/JOURNAL.md
-   ```
-
-2. Check if event monitor is running:
-   ```bash
-   ps aux | grep es-event-monitor.sh
-   ```
-
-3. Check ARCHITECT status:
-   ```bash
-   es-projection.sh ARCHITECT current_state
-   es-projection.sh ARCHITECT pending_work
-   ```
-
-4. Check monitor log for errors:
-   ```bash
-   tail -20 /tmp/event-monitor.log
-   ```
-
 ## Notes
 
-- The event monitor MUST be running for personas to activate
-- Each persona will hand off work to the next when complete
-- The system runs autonomously without further intervention
-- Events must NOT contain shell redirections like "< /dev/null"
+- This command parses the user's request and creates the initial work assignment
+- The ARCHITECT persona is always the first to be activated
+- All subsequent handoffs are handled automatically through the Stop hook
+- The journal serves as the persistent event store for the entire process

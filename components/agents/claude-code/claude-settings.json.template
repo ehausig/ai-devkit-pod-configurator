@@ -12,134 +12,23 @@
     "DISABLE_TELEMETRY": "1",
     "CLAUDE_AUTONOMOUS_MODE": "true"
   },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/orchestrate.sh"
+          }
+        ]
+      }
+    ]
+  },
   "permissions": {
     "defaultMode": "acceptEdits",
     "allow": [
       "Bash(*)",
       "Bash(*:*)",
-      "Bash(es-event-emit.sh:*)",
-      "Bash(es-event-monitor.sh)",
-      "Bash(es-projection.sh:*)",
-      "Bash(es-actor-base.sh)",
-      "Bash(architect-actor.sh)",
-      "Bash(developer-actor.sh)",
-      "Bash(qa-actor.sh)",
-      "Bash(reviewer-actor.sh)",
-      "Bash(merger-actor.sh)",
-      "Bash(cc-hook-autonomous-controller.sh)",
-      "Bash(cc-hook-bash-logger.sh)",
-      "Bash(cc-hook-decision-tracker.sh)",
-      "Bash(cc-hook-error-recovery.sh)",
-      "Bash(cc-hook-file-milestone.sh)",
-      "Bash(cc-hook-format-code.sh)",
-      "Bash(cc-hook-notification.sh)",
-      "Bash(cc-hook-project-init.sh)",
-      "Bash(cc-hook-framework.sh)",
-      "Bash(cc-hook-logic-bash-logger.sh)",
-      "Bash(cc-hook-logic-decision-tracker.sh)",
-      "Bash(cc-hook-logic-error-recovery.sh)",
-      "Bash(cc-hook-logic-file-milestone.sh)",
-      "Bash(cc-hook-logic-format-code.sh)",
-      "Bash(cc-hook-logic-notification.sh)",
-      "Bash(cc-hook-logic-project-init.sh)",
-      "Bash(cc-hook-logic-wrapper.sh)",
-      "Bash(cc-common.sh)",
-      "Bash(run-all-tests.sh)",
-      "Bash(test-framework.sh)",
-      "Bash(test-event-emit.sh)",
-      "Bash(test-event-monitor.sh)",
-      "Bash(test-projections.sh)",
-      "Bash(test-actors.sh)",
-      "Bash(autoexpect:*)",
-      "Bash(awk:*)",
-      "Bash(black:*)",
-      "Bash(bundle:*)",
-      "Bash(cargo:*)",
-      "Bash(cat:*)",
-      "Bash(cd:*)",
-      "Bash(chmod:*)",
-      "Bash(composer:*)",
-      "Bash(conda:*)",
-      "Bash(cp:~/workspace/*)",
-      "Bash(curl:*)",
-      "Bash(cut:*)",
-      "Bash(date:*)",
-      "Bash(df:*)",
-      "Bash(diff:*)",
-      "Bash(docker:*)",
-      "Bash(du:*)",
-      "Bash(echo:*)",
-      "Bash(env:*)",
-      "Bash(eval:*)",
-      "Bash(expect:*)",
-      "Bash(export:*)",
-      "Bash(find:*)",
-      "Bash(flake8:*)",
-      "Bash(free:*)",
-      "Bash(gh:*)",
-      "Bash(git:*)",
-      "Bash(go:*)",
-      "Bash(gradle:*)",
-      "Bash(grep:*)",
-      "Bash(groups:*)",
-      "Bash(gunzip:*)",
-      "Bash(gzip:*)",
-      "Bash(head:*)",
-      "Bash(hostname:*)",
-      "Bash(htop:*)",
-      "Bash(id:*)",
-      "Bash(java:*)",
-      "Bash(jq:*)",
-      "Bash(kill:*)",
-      "Bash(killall:*)",
-      "Bash(less:*)",
-      "Bash(ls:*)",
-      "Bash(lsof:*)",
-      "Bash(make:*)",
-      "Bash(mamba:*)",
-      "Bash(mkdir:*)",
-      "Bash(mv:*)",
-      "Bash(mvn:*)",
-      "Bash(netstat:*)",
-      "Bash(node:*)",
-      "Bash(npm:*)",
-      "Bash(patch:*)",
-      "Bash(pip:*)",
-      "Bash(pkill:*)",
-      "Bash(pgrep:*)",
-      "Bash(printenv:*)",
-      "Bash(ps:*)",
-      "Bash(pwd:*)",
-      "Bash(pytest:*)",
-      "Bash(python:*)",
-      "Bash(python3:*)",
-      "Bash(ruby:*)",
-      "Bash(rustc:*)",
-      "Bash(sbt:*)",
-      "Bash(sed:*)",
-      "Bash(sleep:*)",
-      "Bash(sort:*)",
-      "Bash(source:*)",
-      "Bash(ss:*)",
-      "Bash(tail:*)",
-      "Bash(tar:*)",
-      "Bash(tee:*)",
-      "Bash(timeout:*)",
-      "Bash(top:*)",
-      "Bash(touch:*)",
-      "Bash(tr:*)",
-      "Bash(uname:*)",
-      "Bash(uniq:*)",
-      "Bash(unzip:*)",
-      "Bash(wc:*)",
-      "Bash(wget:*)",
-      "Bash(whereis:*)",
-      "Bash(which:*)",
-      "Bash(whoami:*)",
-      "Bash(xmllint:*)",
-      "Bash(yarn:*)",
-      "Bash(yq:*)",
-      "Bash(zip:*)",
       "Edit(~/workspace/*)",
       "Glob(~/workspace/*)",
       "Grep(~/workspace/*)",
@@ -163,114 +52,16 @@
       "Write(~/workspace/*)"
     ],
     "deny": [
-      "Bash(apt-get:*)",
-      "Bash(apt:*)",
-      "Bash(chmod:~/.claude/*)",
-      "Bash(chmod:~/.ssh/*)",
-      "Bash(crontab:*)",
-      "Bash(dnf:*)",
-      "Bash(dpkg:*)",
-      "Bash(fdisk:*)",
-      "Bash(firewall-cmd:*)",
-      "Bash(groupadd:*)",
-      "Bash(halt:*)",
-      "Bash(iptables:*)",
-      "Bash(mkfs:*)",
-      "Bash(mount:*)",
-      "Bash(passwd:*)",
-      "Bash(poweroff:*)",
-      "Bash(reboot:*)",
-      "Bash(rm:~/.bundle/*)",
-      "Bash(rm:~/.cargo/*)",
       "Bash(rm:~/.claude/*)",
-      "Bash(rm:~/.config/*)",
-      "Bash(rm:~/.local/*)",
-      "Bash(rm:~/.m2/*)",
-      "Bash(rm:~/.npm-global/*)",
       "Bash(rm:~/.ssh/*)",
-      "Bash(rpm:*)",
-      "Bash(service:*)",
-      "Bash(shutdown:*)",
-      "Bash(su:*)",
-      "Bash(sudo:*)",
-      "Bash(systemctl:*)",
-      "Bash(umount:*)",
-      "Bash(useradd:*)",
-      "Bash(userdel:*)",
-      "Bash(usermod:*)",
-      "Bash(yum:*)",
-      "Edit(/etc/*)",
-      "MultiEdit(/etc/*)",
-      "Read(/etc/passwd)",
-      "Read(/etc/shadow)",
-      "Read(/etc/sudoers)",
-      "Read(~/.aws/config)",
-      "Read(~/.aws/credentials)",
-      "Read(~/.docker/config.json)",
-      "Read(~/.kube/config)",
-      "Read(~/.ssh/*_dsa)",
-      "Read(~/.ssh/*_ecdsa)",
-      "Read(~/.ssh/*_ed25519)",
-      "Read(~/.ssh/*_rsa)",
-      "Read(~/.ssh/id_*)",
-      "Write(/bin/*)",
-      "Write(/etc/*)",
-      "Write(/lib/*)",
-      "Write(/opt/*)",
-      "Write(/root/*)",
-      "Write(/sbin/*)",
-      "Write(/usr/*)",
-      "Write(/var/*)",
+      "Bash(rm:/etc/*)",
+      "Bash(rm:/usr/*)",
+      "Bash(rm:/var/*)",
       "Write(~/.claude/*)",
-      "Write(~/.ssh/*)"
-    ]
-  },
-  "hooks": {
-    "Stop": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cc-hook-autonomous-controller.sh"
-          }
-        ]
-      }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cc-hook-bash-logger.sh"
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cc-hook-bash-logger.sh"
-          }
-        ]
-      },
-      {
-        "matcher": "Write|Edit|MultiEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cc-hook-format-code.sh"
-          },
-          {
-            "type": "command",
-            "command": "cc-hook-project-init.sh"
-          }
-        ]
-      }
+      "Write(~/.ssh/*)",
+      "Write(/etc/*)",
+      "Write(/usr/*)",
+      "Write(/var/*)"
     ]
   }
 }

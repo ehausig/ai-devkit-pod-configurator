@@ -1,336 +1,149 @@
-# Claude Code Component - Autonomous AI Development System
+# Claude Code - Autonomous Development System
+
+An AI-powered coding assistant with an autonomous event-driven development system that manages the complete software development lifecycle through specialized personas.
 
 ## Overview
 
-The Claude Code component transforms the AI DevKit into an autonomous software development platform. Using event sourcing and a multi-persona system, Claude Code can develop complete software solutions from a simple prompt without human intervention.
+Claude Code provides an intelligent development environment where AI personas collaborate to design, implement, test, review, and deploy software projects autonomously. The system uses event sourcing with a persistent journal to maintain context and coordinate work between personas.
 
-## Key Features
+## Features
 
-### 🤖 Fully Autonomous Development
-- **End-to-End Creation**: From requirements to deployed software
-- **Self-Directed Workflow**: Automatic persona transitions
-- **No Human Intervention**: Complete development cycles autonomously
-- **Intelligent Coordination**: Event-sourced memory system
+- **Autonomous Development**: Once initiated, the system completes the entire development cycle
+- **Specialized Personas**: ARCHITECT, DEVELOPER, QA, REVIEWER, and MERGER each handle their domain
+- **Event-Driven Architecture**: All work is tracked through events in a persistent journal
+- **Context Preservation**: The journal maintains state across Claude Code sessions
+- **Flexible Workflow**: Supports non-linear development with handoffs back for fixes
+- **Transparent Process**: All decisions and work are logged for complete visibility
 
-### 📊 Event-Sourced Architecture
-- **Journal as Event Store**: `~/workspace/JOURNAL.md` stores all events
-- **Persistent Memory**: Survives context switches and restarts
-- **Work Coordination**: Enables autonomous persona handoffs
-- **Complete Audit Trail**: Every decision and action is traceable
+## Quick Start
 
-### 👥 Multi-Persona System
-- **ARCHITECT**: System design and planning
-- **DEVELOPER**: TDD implementation
-- **QA**: Comprehensive testing
-- **REVIEWER**: Code quality assurance
-- **MERGER**: Integration and deployment
+1. Start Claude Code:
+   ```bash
+   claude
+   ```
 
-## Quick Start - Autonomous Development
+2. Describe your project:
+   ```
+   Please initiate the architect persona and create a hello world project in Python
+   ```
 
-### 1. Deploy with Claude Code
+3. Claude will use `/init-project` to start the autonomous development process
 
-Select Claude Code during the AI DevKit build process:
+4. Monitor progress:
+   ```
+   /show-journal
+   /persona-status
+   ```
 
-```bash
-./build-and-deploy.sh
-# Select "Claude Code (AI Assistant)" from the agents category
-```
+## Architecture
 
-### 2. Create a Project Prompt
-
-```bash
-ssh devuser@localhost -p 2222
-
-cat > ~/workspace/PROMPT.md << 'EOF'
-Create a REST API for a todo list application with:
-- User authentication (JWT)
-- CRUD operations for todos
-- PostgreSQL database
-- Unit and integration tests
-- Docker deployment
-- API documentation
-EOF
-```
-
-### 3. Start Autonomous Development
-
-```bash
-# Initialize the ARCHITECT persona
-/home/devuser/.claude/personas/architect/architect-init.sh
-
-# The system will now work autonomously through all personas
-```
-
-### 4. Monitor Progress
-
-```bash
-# In another terminal, watch the journal
-tail -f ~/workspace/JOURNAL.md
-
-# Or check status periodically
-journal-query.sh stats
-```
-
-## How It Works
-
-### Autonomous Flow
-
-```
-PROMPT.md → ARCHITECT → DEVELOPER → QA → REVIEWER → MERGER
-              ↓                      ↕        ↕         ↓
-              └──────────────────────┴────────┴─────────┘
-                    (automatic transitions)
-```
-
-1. **ARCHITECT** reads PROMPT.md and creates design documents
-2. **DEVELOPER** implements using TDD with work items from ARCHITECT
-3. **QA** tests the implementation against real services
-4. **REVIEWER** performs code review in isolated environment
-5. **MERGER** integrates changes and prepares release
-
-### Event Types
-
-The system uses structured events in JOURNAL.md:
-
-```bash
-[WORK:PENDING]    # Work item created
-[WORK:STARTED]    # Work begun (prevents duplicates)
-[WORK:COMPLETED]  # Work finished
-[HANDOFF:REQUEST] # Ready to transition
-[HANDOFF:COMPLETED] # Next persona activated
-```
-
-### Work Queue System
-
-- Handoff scripts create `WORK:PENDING` items
-- `work-queue-monitor` hook detects handoffs
-- Prepares executable scripts at `/tmp/execute-next-work.sh`
-- Automatically triggers next persona
-
-## Component Structure
-
+### Component Structure
 ```
 claude-code/
-├── claude-code.yaml          # Component definition
-├── claude-code-setup.sh      # Pre-build script
-├── user-CLAUDE.md           # System instructions
-├── claude-settings.json.template # Claude Code config
-├── commands/                # Slash commands
-│   ├── execute-work.md     # Execute next work item
-│   ├── journal-summary.md  # View system status
-│   └── switch-persona.md   # Manual persona control
-├── hooks/                   # Automation hooks
-│   ├── work-queue-monitor.yaml
-│   ├── persona-manager.yaml
-│   └── bash-logger.yaml
-├── personas/               # Persona definitions
-│   ├── architect/         # System designer
-│   ├── developer/         # Implementation
-│   ├── qa/               # Testing
-│   ├── reviewer/         # Code review
-│   └── merger/           # Integration
-└── scripts/              # Utility scripts
-    ├── journal-query.sh  # Query event store
-    ├── work-tracker.sh   # Manage work items
-    └── hook-framework.sh # Hook system
+├── commands/           # Claude Code slash commands
+├── hooks/             # Orchestration hook
+├── personas/          # Persona protocol documentation
+├── claude-settings.json.template
+└── user-CLAUDE.md
 ```
 
-## Manual Controls (Optional)
-
-While designed for autonomous operation, manual controls are available:
-
-### Slash Commands
-- `/execute-work` - Execute next prepared work item
-- `/journal-summary` - View overall system status
-- `/switch-persona [persona]` - Manually switch personas
-- `/work-status` - Check current work queue
-
-### Shell Commands
-```bash
-# Query journal
-journal-query.sh pending-work DEVELOPER
-journal-query.sh work-summary ARCHITECT
-journal-query.sh handoff-chain
-
-# Track work
-work-tracker.sh status
-work-tracker.sh prepare DEVELOPER
-
-# Get context
-get-context-window.sh QA
+### Event Flow
+```
+User Request
+    ↓
+/init-project → WORK_ASSIGNED → ARCHITECT
+    ↓
+ARCHITECT completes → HANDOFF → DEVELOPER
+    ↓
+DEVELOPER completes → HANDOFF → QA
+    ↓
+QA passes → HANDOFF → REVIEWER
+    ↓
+REVIEWER approves → HANDOFF → MERGER
+    ↓
+MERGER completes → CYCLE_COMPLETE
 ```
 
-## Customization
-
-### Adding Custom Personas
-
-1. Create persona directory:
-```bash
-mkdir -p ~/.claude/personas/security
+### Journal Structure
+```
+2024-01-15T10:00:00Z | WORK_ASSIGNED | ARCHITECT | Design system
+2024-01-15T10:05:00Z | DECISION | ARCHITECT | Using Flask framework
+2024-01-15T10:10:00Z | FILE_CREATED | ARCHITECT | ARCHITECTURE.md
+2024-01-15T10:15:00Z | HANDOFF | ARCHITECT->DEVELOPER | 5 tasks
 ```
 
-2. Create init script:
-```bash
-cat > ~/.claude/personas/security/security-init.sh << 'EOF'
-#!/bin/bash
-# Security persona initialization
-journal-log.sh "SECURITY:INIT" "Starting security audit"
-# ... persona logic
-EOF
-```
+## Commands
 
-3. Create protocol:
-```bash
-cat > ~/.claude/personas/security/SECURITY-PROTOCOL.md << 'EOF'
-# SECURITY Persona Protocol
-## Role Definition
-Security auditing and vulnerability assessment...
-EOF
-```
+- `/init-project` - Parse request and start development
+- `/architect` - System design persona
+- `/developer` - Implementation persona
+- `/qa` - Testing persona
+- `/reviewer` - Code review persona
+- `/merger` - Integration persona
+- `/event-emit` - Add events to journal
+- `/event-query` - Query journal events
+- `/show-journal` - Display journal with formatting
+- `/persona-status` - Show all persona states
 
-### Modifying Work Patterns
+## Personas
 
-Edit handoff scripts to change work generation:
+### ARCHITECT
+- Creates system design and architecture
+- Makes technology decisions
+- Defines data models and APIs
+- Creates testing strategy
 
-```bash
-# In architect-handoff.sh
-journal-log.sh "WORK:PENDING" "DEVELOPER: Implement with your framework"
-journal-log.sh "WORK:PENDING" "DEVELOPER: Add custom validation"
-```
+### DEVELOPER
+- Implements code using TDD
+- Ensures 80% test coverage
+- Creates documentation
+- Handles review fixes
 
-### Custom Hooks
+### QA
+- Runs comprehensive tests
+- Uses real services (no mocks)
+- Tests user workflows
+- Documents issues
 
-Create new hooks for specific behaviors:
+### REVIEWER
+- Reviews code quality
+- Checks architecture compliance
+- Validates security practices
+- Provides feedback
 
-```yaml
-# custom-hook.yaml
-id: custom-validator
-name: Custom Validation Hook
-events:
-  - PostToolUse
-configuration:
-  matcher: "Write"
-  command: "/home/devuser/.claude/hooks/custom-validator.sh"
-```
+### MERGER
+- Integrates approved changes
+- Updates documentation
+- Creates releases
+- Completes cycle
 
-## Safety Features
+## Configuration
 
-### Iteration Limits
-- Max 10 initializations per persona
-- Prevents infinite loops
-- Automatic safety checks
+The system is configured through `claude-settings.json.template` which includes:
+- Orchestration hook configuration
+- File permissions
+- Environment variables
 
-### Progress Tracking
-- Must complete work to continue
-- Detects stuck personas
-- Alerts on no progress
+## Development Workflow
 
-### Work Validation
-- Clean handoffs required
-- All work must be addressed
-- Dependency checking
+1. **Project Initialization**: User describes project → `/init-project` parses and starts
+2. **Architecture Phase**: ARCHITECT designs system and creates documentation
+3. **Implementation Phase**: DEVELOPER implements with TDD approach
+4. **Testing Phase**: QA performs comprehensive testing
+5. **Review Phase**: REVIEWER ensures quality and compliance
+6. **Integration Phase**: MERGER completes the cycle
 
-## Troubleshooting
+## Monitoring
 
-### Stuck Persona
-```bash
-# Check safety status
-journal-query.sh safety-check DEVELOPER
+Track development progress with:
+- `/show-journal` - Recent events with emoji indicators
+- `/persona-status` - Current state of each persona
+- `/event-query DEVELOPER WORK_ASSIGNED` - Specific queries
 
-# View recent errors
-journal-query.sh errors DEVELOPER
+## Notes
 
-# Force continue
-/execute-work
-```
-
-### Missing Dependencies
-```bash
-# Ensure Node.js is installed (required)
-node --version
-
-# Check Claude Code installation
-claude --version
-```
-
-### Journal Issues
-```bash
-# Verify journal exists
-ls -la ~/workspace/JOURNAL.md
-
-# Check journal health
-journal-query.sh stats all
-```
-
-## Best Practices
-
-1. **Clear Requirements**: Write detailed PROMPT.md files
-2. **Resource Allocation**: Ensure adequate CPU/memory
-3. **Monitor Initially**: Watch first cycle for smooth operation
-4. **Trust the Process**: Avoid interrupting autonomous flow
-5. **Review Journal**: Learn from decision history
-
-## Integration with AI DevKit
-
-The Claude Code component integrates seamlessly with other AI DevKit components:
-
-- **Languages**: Works with any selected language
-- **Build Tools**: Utilizes Maven, Gradle, etc.
-- **Testing**: Leverages testing frameworks
-- **Git**: Full git integration for version control
-
-## Examples
-
-### Web API Development
-```markdown
-# ~/workspace/PROMPT.md
-Create a RESTful API for a blog platform with:
-- User registration and authentication
-- Article CRUD with categories
-- Comment system with moderation
-- PostgreSQL database
-- Redis caching
-- Full test coverage
-```
-
-### CLI Tool Development
-```markdown
-# ~/workspace/PROMPT.md
-Build a command-line tool for system monitoring:
-- CPU, memory, disk usage tracking
-- Process management
-- Log file analysis
-- Configuration file support
-- Colored output
-- Cross-platform support
-```
-
-### Microservice Development
-```markdown
-# ~/workspace/PROMPT.md
-Design a microservice for payment processing:
-- Stripe integration
-- Transaction logging
-- Webhook handling
-- Idempotency support
-- Rate limiting
-- Comprehensive error handling
-```
-
-## Contributing
-
-To improve the Claude Code component:
-
-1. Test changes with example projects
-2. Ensure autonomous flow remains intact
-3. Update persona protocols as needed
-4. Document new features
-5. Submit PR with examples
-
-## License
-
-This component is part of the AI DevKit Pod Configurator and follows the same MIT license.
-
----
-
-*The Claude Code component enables truly autonomous AI-driven software development, transforming ideas into working software without human intervention.*
+- The system runs autonomously after initialization
+- All work is event-driven through the journal
+- Context is preserved across sessions
+- Personas can hand work back (e.g., for fixes)
+- The orchestration hook ensures continuous progress
