@@ -183,6 +183,9 @@ case "$HOOK_TYPE" in
     "persona-manager")
         find_and_source_script "cc-hook-logic-persona-manager.sh"
         ;;
+    "project-init")
+        find_and_source_script "cc-hook-logic-project-init.sh"
+        ;;
     "project-lifecycle")
         find_and_source_script "cc-hook-logic-project-lifecycle.sh"
         ;;

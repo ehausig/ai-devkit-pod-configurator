@@ -33,6 +33,7 @@
       "Bash(cc-hook-file-milestone.sh)",
       "Bash(cc-hook-format-code.sh)",
       "Bash(cc-hook-notification.sh)",
+      "Bash(cc-hook-project-init.sh)",
       "Bash(cc-hook-framework.sh)",
       "Bash(cc-hook-logic-bash-logger.sh)",
       "Bash(cc-hook-logic-decision-tracker.sh)",
@@ -40,6 +41,7 @@
       "Bash(cc-hook-logic-file-milestone.sh)",
       "Bash(cc-hook-logic-format-code.sh)",
       "Bash(cc-hook-logic-notification.sh)",
+      "Bash(cc-hook-logic-project-init.sh)",
       "Bash(cc-hook-logic-wrapper.sh)",
       "Bash(cc-common.sh)",
       "Bash(run-all-tests.sh)",
@@ -262,6 +264,10 @@
           {
             "type": "command",
             "command": "cc-hook-format-code.sh"
+          },
+          {
+            "type": "command",
+            "command": "cc-hook-project-init.sh"
           }
         ]
       }

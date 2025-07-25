@@ -6,6 +6,11 @@ TYPE="$1"
 FIELDS="$2"
 JOURNAL_FILE="${JOURNAL_FILE:-$HOME/workspace/JOURNAL.md}"
 
+# Clean up any shell artifacts from the input
+# Remove any "< /dev/null" or similar redirections that might have been injected
+TYPE=$(echo "$TYPE" | sed 's/< \/dev\/null//g' | sed 's/[[:space:]]*$//')
+FIELDS=$(echo "$FIELDS" | sed 's/< \/dev\/null//g')
+
 # Validation helper function
 validate_and_exit() {
   echo "$1" >&2
@@ -85,9 +90,11 @@ esac
   # For important events, also log a human-readable version
   case "$TYPE" in
   WORK_ASSIGNED)
-    # Extract TO persona
+    # Extract TO persona - handle potential shell artifacts
     if [[ "$FIELDS" =~ TO:([^|]+) ]]; then
       TO_PERSONA="${BASH_REMATCH[1]}"
+      # Clean up any remaining shell artifacts
+      TO_PERSONA=$(echo "$TO_PERSONA" | sed 's/< \/dev\/null//g' | sed 's/[[:space:]]*$//')
     fi
     # Extract work description (everything after WORK:)
     if [[ "$FIELDS" =~ WORK:(.+) ]]; then
@@ -98,6 +105,7 @@ esac
   WORK_COMPLETED)
     if [[ "$FIELDS" =~ PERSONA:([^|]+) ]]; then
       PERSONA="${BASH_REMATCH[1]}"
+      PERSONA=$(echo "$PERSONA" | sed 's/< \/dev\/null//g' | sed 's/[[:space:]]*$//')
     fi
     if [[ "$FIELDS" =~ WORK_ID:([^|]+) ]]; then
       WORK_ID="${BASH_REMATCH[1]}"
@@ -107,9 +115,11 @@ esac
   HANDOFF_READY)
     if [[ "$FIELDS" =~ FROM:([^|]+) ]]; then
       FROM_PERSONA="${BASH_REMATCH[1]}"
+      FROM_PERSONA=$(echo "$FROM_PERSONA" | sed 's/< \/dev\/null//g' | sed 's/[[:space:]]*$//')
     fi
     if [[ "$FIELDS" =~ TO:([^|]+) ]]; then
       TO_PERSONA="${BASH_REMATCH[1]}"
+      TO_PERSONA=$(echo "$TO_PERSONA" | sed 's/< \/dev\/null//g' | sed 's/[[:space:]]*$//')
       echo "$(date -Iseconds) [${FROM_PERSONA}:HANDOFF] Ready to hand off to ${TO_PERSONA}" >>"$JOURNAL_FILE"
     fi
     ;;
