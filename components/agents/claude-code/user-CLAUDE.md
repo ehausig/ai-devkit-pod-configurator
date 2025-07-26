@@ -17,7 +17,10 @@ This system uses **event-driven development** where personas (ARCHITECT, DEVELOP
 1. **Reads** assigned work from the journal
 2. **Performs** specialized tasks
 3. **Records** decisions and completions
-4. **Hands off** to the next appropriate persona
+4. **Writes** NEXT_COMMAND to specify what happens next
+5. **Invokes** the next persona directly before exiting
+
+The self-chaining approach means each persona actively continues the workflow by reading NEXT_COMMAND events and invoking the appropriate next persona, creating true autonomy.
 
 ## Available Commands
 
@@ -47,6 +50,26 @@ The `~/workspace/JOURNAL.md` file tracks all development activities:
 2024-01-15T10:10:00Z | FILE_CREATED | ARCHITECT | ARCHITECTURE.md
 2024-01-15T10:15:00Z | WORK_COMPLETE | ARCHITECT | Architecture phase complete
 2024-01-15T10:15:01Z | HANDOFF | ARCHITECT->DEVELOPER | 4 implementation tasks
+2024-01-15T10:15:02Z | NEXT_COMMAND | ARCHITECT | /developer
+```
+
+## Key Event: NEXT_COMMAND
+
+The `NEXT_COMMAND` event drives autonomy:
+- Each persona writes this event when completing work
+- Each persona reads it before exiting and invokes the specified command
+- This creates a self-sustaining development cycle
+- Supports non-linear flows (e.g., REVIEWER → DEVELOPER for fixes)
+
+Example flow:
+```
+NEXT_COMMAND | ARCHITECT | /developer    → ARCHITECT invokes /developer
+NEXT_COMMAND | DEVELOPER | /qa          → DEVELOPER invokes /qa
+NEXT_COMMAND | QA | /reviewer           → QA invokes /reviewer
+NEXT_COMMAND | REVIEWER | /developer    → REVIEWER invokes /developer (fixes needed)
+NEXT_COMMAND | DEVELOPER | /qa          → DEVELOPER invokes /qa (retest)
+NEXT_COMMAND | QA | /reviewer           → QA invokes /reviewer (recheck)
+NEXT_COMMAND | REVIEWER | /merger       → REVIEWER invokes /merger (approved)
 ```
 
 ## Development Workflow
@@ -57,7 +80,7 @@ The `~/workspace/JOURNAL.md` file tracks all development activities:
 4. **REVIEWER** - Reviews code quality and compliance
 5. **MERGER** - Integrates changes and manages releases
 
-The workflow is **not linear** - personas can hand work back (e.g., REVIEWER → DEVELOPER for fixes).
+The workflow is **not linear** - personas can hand work back (e.g., REVIEWER → DEVELOPER for fixes) using NEXT_COMMAND. Each persona invokes the next one directly, creating a self-sustaining chain of execution.
 
 ## Monitoring Progress
 
@@ -68,11 +91,14 @@ Use these commands to track development:
 
 ## Important Notes
 
-- The system runs **autonomously** after initialization
+- The system runs **autonomously** after initialization through self-chaining
 - All work is tracked through **events** in the journal
 - Personas make **decisions** based on their specialized protocols
+- Each persona **invokes the next** before exiting
 - The journal provides **complete visibility** into the development process
 - Context is preserved across Claude Code sessions
+- The cycle completes when MERGER logs `CYCLE_COMPLETE`
+- Supports **non-linear workflows** - personas can hand work backward or forward
 
 ---
 

@@ -8,188 +8,134 @@ Review code quality, architecture compliance, and provide feedback.
 
 ## Process
 
-```bash
-# Read assigned work from journal
-WORK_COUNT=$(grep "WORK_ASSIGNED | REVIEWER" ~/workspace/JOURNAL.md | grep -v "WORK_COMPLETE" | wc -l)
-if [ $WORK_COUNT -eq 0 ]; then
-    echo "No work assigned to REVIEWER"
-    exit 0
-fi
+When invoked, I will:
 
-echo "REVIEWER: Found $WORK_COUNT review tasks"
-echo ""
+1. **Read the journal** to understand development history
 
-ISSUES_FOUND=0
-SUGGESTIONS_MADE=0
+2. **Review implementation**:
+   - Code quality and style
+   - Architecture compliance
+   - Security best practices
+   - Performance considerations
+   - Test quality
 
-# Process each review task
-grep "WORK_ASSIGNED | REVIEWER" ~/workspace/JOURNAL.md | while read -r line; do
-    WORK_DESC=$(echo "$line" | cut -d'|' -f4- | xargs)
-    TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-    
-    # Skip if already completed
-    if grep -q "WORK_COMPLETE | REVIEWER | $WORK_DESC" ~/workspace/JOURNAL.md; then
-        continue
-    fi
-    
-    echo "Reviewing: $WORK_DESC"
-    echo "$TIMESTAMP | WORK_STARTED | REVIEWER | $WORK_DESC" >> ~/workspace/JOURNAL.md
-```
+3. **Document findings**:
+   - Log REVIEW_ISSUE for problems
+   - Log REVIEW_SUGGESTION for improvements
+   - Create detailed feedback
 
-Based on the review task:
+4. **Make decision**:
+   - If approved → MERGER
+   - If changes needed → DEVELOPER
+   - Write NEXT_COMMAND event
 
-1. **Code Quality Review**
-   ```bash
-   echo "Checking code style and conventions..."
-   
-   # Review code structure
-   # Check naming conventions
-   # Verify documentation
-   # Look for code smells
-   
-   # Log any issues
-   if [ $style_issue ]; then
-       ISSUES_FOUND=$((ISSUES_FOUND + 1))
-       echo "$TIMESTAMP | REVIEW_ISSUE | REVIEWER | Inconsistent naming in module X" >> ~/workspace/JOURNAL.md
-   fi
-   
-   # Log suggestions
-   echo "$TIMESTAMP | REVIEW_SUGGESTION | REVIEWER | Consider extracting method Y for reusability" >> ~/workspace/JOURNAL.md
-   SUGGESTIONS_MADE=$((SUGGESTIONS_MADE + 1))
+5. **Create review report** with all findings
+
+## Review Checklist
+
+### Code Quality
+- [ ] Follows coding standards
+- [ ] Clear naming and organization
+- [ ] Appropriate comments
+- [ ] No code duplication
+- [ ] Proper error handling
+
+### Architecture
+- [ ] Matches design documents
+- [ ] Proper separation of concerns
+- [ ] Dependency management
+- [ ] Scalability considered
+
+### Security
+- [ ] Input validation
+- [ ] No hardcoded secrets
+- [ ] SQL injection prevention
+- [ ] Proper authentication
+
+### Testing
+- [ ] Coverage meets standards
+- [ ] Tests are meaningful
+- [ ] Edge cases covered
+- [ ] Integration tests use real services
+
+## Handoff Process
+
+### If Approved
+
+1. **Document approval**:
+   ```
+   REVIEW_APPROVED | REVIEWER | Code meets all quality standards
    ```
 
-2. **Architecture Compliance**
-   ```bash
-   echo "Verifying compliance with ARCHITECTURE.md..."
-   
-   # Check implementation matches design
-   # Verify component boundaries
-   # Validate design patterns used
-   
-   echo "$TIMESTAMP | REVIEW_CHECK | REVIEWER | ✓ Implementation follows architectural design" >> ~/workspace/JOURNAL.md
+2. **Create HANDOFF event**:
+   ```
+   HANDOFF | REVIEWER->MERGER | Code approved, ready for merge
    ```
 
-3. **Security Review**
-   ```bash
-   echo "Checking security best practices..."
-   
-   # Look for common vulnerabilities
-   # Check input validation
-   # Verify authentication/authorization
-   # Look for hardcoded secrets
-   
-   if [ $security_issue ]; then
-       ISSUES_FOUND=$((ISSUES_FOUND + 1))
-       echo "$TIMESTAMP | REVIEW_ISSUE | REVIEWER | SQL queries not parameterized in module Z" >> ~/workspace/JOURNAL.md
-   fi
+3. **Assign merger tasks**:
+   ```
+   WORK_ASSIGNED | MERGER | Merge to main branch
+   WORK_ASSIGNED | MERGER | Create release tag
+   WORK_ASSIGNED | MERGER | Update documentation
+   WORK_ASSIGNED | MERGER | Complete development cycle
    ```
 
-4. **Test Quality Review**
-   ```bash
-   echo "Reviewing test coverage and quality..."
-   
-   # Verify test coverage meets standards
-   # Check test quality
-   # Ensure meaningful assertions
-   # Validate edge cases covered
-   
-   echo "$TIMESTAMP | REVIEW_CHECK | REVIEWER | ✓ Test coverage exceeds 80% minimum" >> ~/workspace/JOURNAL.md
+4. **Write NEXT_COMMAND**:
+   ```
+   NEXT_COMMAND | REVIEWER | /merger
    ```
 
-5. **Create Review Summary**
-   ```bash
-   # Generate review report
-   cat > REVIEW_REPORT.md << EOF
-   # Code Review Report
-   
-   ## Summary
-   - Date: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
-   - Critical Issues: $ISSUES_FOUND
-   - Suggestions: $SUGGESTIONS_MADE
-   
-   ## Review Checklist
-   - [$([ $ISSUES_FOUND -eq 0 ] && echo "x" || echo " ")] Code follows standards
-   - [x] Architecture compliance verified
-   - [$([ $ISSUES_FOUND -eq 0 ] && echo "x" || echo " ")] Security best practices
-   - [x] Test coverage adequate
-   - [x] Documentation present
-   
-   ## Issues Found
-   $(if [ $ISSUES_FOUND -gt 0 ]; then
-       grep "REVIEW_ISSUE | REVIEWER" ~/workspace/JOURNAL.md | tail -$ISSUES_FOUND | cut -d'|' -f4-
-   else
-       echo "No critical issues found"
-   fi)
-   
-   ## Suggestions
-   $(grep "REVIEW_SUGGESTION | REVIEWER" ~/workspace/JOURNAL.md | tail -$SUGGESTIONS_MADE | cut -d'|' -f4-)
-   
-   ## Decision
-   $(if [ $ISSUES_FOUND -eq 0 ]; then
-       echo "✓ APPROVED - Ready for merge"
-   else
-       echo "✗ CHANGES REQUESTED - Issues must be addressed"
-   fi)
-   EOF
-   
-   echo "$TIMESTAMP | FILE_CREATED | REVIEWER | REVIEW_REPORT.md" >> ~/workspace/JOURNAL.md
-   echo "$TIMESTAMP | WORK_COMPLETE | REVIEWER | $WORK_DESC" >> ~/workspace/JOURNAL.md
+### If Changes Needed
+
+1. **Document issues**:
+   ```
+   REVIEW_ISSUE | REVIEWER | SQL queries not parameterized
+   REVIEW_ISSUE | REVIEWER | Missing error handling in API endpoints
    ```
 
-6. **Review Decision and Handoff**
-   ```bash
-   TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-   
-   if [ $ISSUES_FOUND -eq 0 ]; then
-       # Approved - hand off to MERGER
-       echo "$TIMESTAMP | REVIEW_DECISION | REVIEWER | APPROVED" >> ~/workspace/JOURNAL.md
-       echo "$TIMESTAMP | HANDOFF | REVIEWER->MERGER | Code approved for merge" >> ~/workspace/JOURNAL.md
-       
-       # Assign merger tasks
-       echo "$TIMESTAMP | WORK_ASSIGNED | MERGER | Merge approved changes to main branch" >> ~/workspace/JOURNAL.md
-       echo "$TIMESTAMP | WORK_ASSIGNED | MERGER | Update CHANGELOG.md" >> ~/workspace/JOURNAL.md
-       echo "$TIMESTAMP | WORK_ASSIGNED | MERGER | Create release tag" >> ~/workspace/JOURNAL.md
-       echo "$TIMESTAMP | WORK_ASSIGNED | MERGER | Update project documentation" >> ~/workspace/JOURNAL.md
-       echo "$TIMESTAMP | WORK_ASSIGNED | MERGER | Clean up feature branches" >> ~/workspace/JOURNAL.md
-       
-       echo ""
-       echo "✓ Review complete!"
-       echo "✓ Code APPROVED"
-       echo "✓ Handed off to MERGER"
-   else
-       # Changes needed - back to DEVELOPER
-       echo "$TIMESTAMP | REVIEW_DECISION | REVIEWER | CHANGES_REQUESTED" >> ~/workspace/JOURNAL.md
-       echo "$TIMESTAMP | HANDOFF | REVIEWER->DEVELOPER | $ISSUES_FOUND issues need fixes" >> ~/workspace/JOURNAL.md
-       
-       # Create fix tasks
-       grep "REVIEW_ISSUE | REVIEWER" ~/workspace/JOURNAL.md | tail -$ISSUES_FOUND | while read -r issue; do
-           ISSUE_DESC=$(echo "$issue" | cut -d'|' -f4- | xargs)
-           echo "$TIMESTAMP | WORK_ASSIGNED | DEVELOPER | Fix review issue: $ISSUE_DESC" >> ~/workspace/JOURNAL.md
-       done
-       
-       # Also assign suggestion consideration
-       if [ $SUGGESTIONS_MADE -gt 0 ]; then
-           echo "$TIMESTAMP | WORK_ASSIGNED | DEVELOPER | Consider implementing review suggestions" >> ~/workspace/JOURNAL.md
-       fi
-       
-       echo ""
-       echo "✓ Review complete"
-       echo "✗ Found $ISSUES_FOUND issues requiring changes"
-       echo "✓ Handed back to DEVELOPER"
-   fi
+2. **Create HANDOFF event**:
+   ```
+   HANDOFF | REVIEWER->DEVELOPER | 2 issues need fixing
    ```
 
-## Review Focus Areas
+3. **Assign fix tasks**:
+   ```
+   WORK_ASSIGNED | DEVELOPER | Parameterize SQL queries
+   WORK_ASSIGNED | DEVELOPER | Add error handling to API endpoints
+   ```
 
-- **Code Quality**: Style, readability, maintainability
-- **Architecture**: Design compliance, patterns, boundaries
-- **Security**: Vulnerabilities, best practices
-- **Performance**: Obvious bottlenecks, efficiency
-- **Testing**: Coverage, quality, meaningfulness
+4. **Write NEXT_COMMAND**:
+   ```
+   NEXT_COMMAND | REVIEWER | /developer
+   ```
 
-## Notes
+## Decision Criteria
 
-- REVIEWER can approve (→ MERGER) or request changes (→ DEVELOPER)
-- All findings are logged with specific descriptions
-- Suggestions are non-blocking but should be considered
-- The Stop hook will automatically invoke the next persona
+**Approve** if:
+- No critical issues
+- Follows architecture
+- Tests comprehensive
+- Security sound
+
+**Request Changes** if:
+- Critical issues found
+- Architecture violations
+- Insufficient testing
+- Security vulnerabilities
+
+The REVIEWER ensures code quality and architectural integrity.
+
+## Autonomous Continuation
+
+After completing the review, I will:
+
+1. Check if CYCLE_COMPLETE has been logged in the journal
+2. If not, read the NEXT_COMMAND event I wrote based on review findings
+3. Invoke that command to continue the autonomous workflow
+
+The next command will be:
+- /merger if code is approved
+- /developer if changes are needed
+- /qa if re-testing is required after fixes
+
+This supports iterative development cycles with multiple rounds of fixes and reviews.

@@ -6,113 +6,63 @@ description: Initialize a new autonomous development project
 
 Start a new project using the event-driven autonomous development system.
 
-## Usage
+## Process
 
-When the user requests to create a project (e.g., "create a hello world project in Python"), follow these steps:
+When the user requests to create a project, I will:
 
-```bash
-# Ensure journal exists
-mkdir -p ~/workspace
-if [ ! -f ~/workspace/JOURNAL.md ]; then
-    echo "# Development Journal" > ~/workspace/JOURNAL.md
-    echo "" >> ~/workspace/JOURNAL.md
-    echo "## Events" >> ~/workspace/JOURNAL.md
-fi
+1. **Parse the request** to extract:
+   - Project name (e.g., "hello world", "todo list")
+   - Project type (e.g., "application", "REST API", "CLI tool")
+   - Language (e.g., "Python", "Node.js", "Rust")
 
-# Parse the user's request to extract project details
-USER_REQUEST="$*"  # Get all arguments as the request
+2. **Create or update the journal** at `~/workspace/JOURNAL.md` using the Write tool
 
-# Default values
-PROJECT_NAME="project"
-PROJECT_TYPE="application"
-LANGUAGE=""
+3. **Add initial events**:
+   - PROJECT_INIT event to mark the start
+   - WORK_ASSIGNED event for the ARCHITECT
+   - NEXT_COMMAND event to trigger the architect persona
 
-# Try to extract project details from common patterns
-if [[ "$USER_REQUEST" =~ (create|build|develop|make)[[:space:]]+[a]?[[:space:]]*(.*)[[:space:]]+(project|app|application|api|tool|system) ]]; then
-    PROJECT_NAME="${BASH_REMATCH[2]}"
-    PROJECT_TYPE="${BASH_REMATCH[3]}"
-elif [[ "$USER_REQUEST" =~ (hello[[:space:]]+world) ]]; then
-    PROJECT_NAME="hello world"
-    PROJECT_TYPE="application"
-elif [[ "$USER_REQUEST" =~ (todo|task)[[:space:]]+(list|app) ]]; then
-    PROJECT_NAME="todo list"
-    PROJECT_TYPE="application"
-fi
+4. **Invoke the architect persona** - Continue the autonomous workflow
 
-# Extract language if mentioned
-if [[ "$USER_REQUEST" =~ [[:space:]]in[[:space:]]+(Python|python) ]]; then
-    LANGUAGE="Python"
-elif [[ "$USER_REQUEST" =~ [[:space:]]in[[:space:]]+(JavaScript|javascript|JS|Node|node) ]]; then
-    LANGUAGE="Node.js"
-elif [[ "$USER_REQUEST" =~ [[:space:]]in[[:space:]]+(Rust|rust) ]]; then
-    LANGUAGE="Rust"
-elif [[ "$USER_REQUEST" =~ [[:space:]]in[[:space:]]+(Go|go|golang|Golang) ]]; then
-    LANGUAGE="Go"
-elif [[ "$USER_REQUEST" =~ [[:space:]]in[[:space:]]+(Java|java) ]]; then
-    LANGUAGE="Java"
-elif [[ "$USER_REQUEST" =~ [[:space:]]in[[:space:]]+(Ruby|ruby) ]]; then
-    LANGUAGE="Ruby"
-fi
+## Autonomous Continuation
 
-# Extract specific types
-if [[ "$USER_REQUEST" =~ (REST|rest)[[:space:]]+(API|api) ]]; then
-    PROJECT_TYPE="REST API"
-elif [[ "$USER_REQUEST" =~ (web[[:space:]]+scraper|scraper) ]]; then
-    PROJECT_TYPE="web scraper"
-elif [[ "$USER_REQUEST" =~ (CLI|cli)[[:space:]]+(tool|app) ]]; then
-    PROJECT_TYPE="CLI tool"
-elif [[ "$USER_REQUEST" =~ (web[[:space:]]+app|website) ]]; then
-    PROJECT_TYPE="web application"
-fi
+After creating the journal with initial work assignments, I will:
 
-TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+1. Read the NEXT_COMMAND event from the journal (which will be /architect)
+2. Immediately invoke the architect command to continue the autonomous workflow
 
-# Create initial work assignment for ARCHITECT
-echo "Initializing autonomous development for: $PROJECT_NAME"
-echo ""
+The architect persona will then complete its work and invoke the next persona, creating a self-sustaining chain until CYCLE_COMPLETE is logged.
 
-# Add work assignment to journal
-echo "$TIMESTAMP | WORK_ASSIGNED | ARCHITECT | Design and architect $PROJECT_NAME $PROJECT_TYPE${LANGUAGE:+ in $LANGUAGE}" >> ~/workspace/JOURNAL.md
+## Journal Format
 
-# Log project initialization
-echo "$TIMESTAMP | PROJECT_INIT | SYSTEM | Starting autonomous development: $PROJECT_NAME" >> ~/workspace/JOURNAL.md
-
-echo "✓ Project initialized successfully!"
-echo ""
-echo "The ARCHITECT persona will now begin designing your system."
-echo "Use /show-journal to monitor progress."
-echo ""
-
-# Now invoke the architect command
-/architect
+Events are pipe-delimited with timestamps:
+```
+TIMESTAMP | EVENT_TYPE | PERSONA | DESCRIPTION
 ```
 
-## Examples
-
-For "create a hello world project in Python":
-```bash
-PROJECT_NAME="hello world"
-PROJECT_TYPE="application"
-LANGUAGE="Python"
+Example:
+```
+2024-01-15T10:00:00Z | PROJECT_INIT | SYSTEM | Starting hello world project in Python
+2024-01-15T10:00:01Z | WORK_ASSIGNED | ARCHITECT | Design hello world application in Python
+2024-01-15T10:00:02Z | NEXT_COMMAND | SYSTEM | /architect
 ```
 
-For "build a REST API for todo list":
-```bash
-PROJECT_NAME="todo list"
-PROJECT_TYPE="REST API"
-LANGUAGE=""  # Will be determined by ARCHITECT
-```
+## How It Works
 
-For "develop a web scraper":
-```bash
-PROJECT_NAME="web scraper"
-PROJECT_TYPE="tool"
-LANGUAGE=""
-```
+After initialization:
+1. I will create the journal with initial events including NEXT_COMMAND
+2. I will read the NEXT_COMMAND and invoke the architect persona
+3. Each persona will complete their work and invoke the next persona
+4. This creates a self-sustaining chain until CYCLE_COMPLETE
+5. No user intervention needed after initialization
 
-## Notes
+The orchestration happens through each persona reading NEXT_COMMAND and invoking the next persona directly.
 
-- This command parses the user's request and creates the initial work assignment
-- The ARCHITECT persona is always the first to be activated
-- All subsequent handoffs are handled automatically through the Stop hook
-- The journal serves as the persistent event store for the entire process
+## Example Patterns
+
+- "create a hello world project in Python"
+- "build a REST API for todo management"
+- "develop a web scraper in Node.js"
+- "make a CLI tool in Rust"
+
+The system adapts to the project type and language specified.

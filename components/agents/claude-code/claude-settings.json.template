@@ -25,10 +25,30 @@
     ]
   },
   "permissions": {
-    "defaultMode": "acceptEdits",
+    "defaultMode": "autoApprove",
+    "autoApprove": [
+      "Write(~/workspace/*)",
+      "Read(~/workspace/*)",
+      "Edit(~/workspace/*)",
+      "MultiEdit(~/workspace/*)",
+      "Write(*.md)",
+      "Write(*.py)",
+      "Write(*.js)",
+      "Write(*.txt)",
+      "Write(*.json)",
+      "Write(*.yaml)",
+      "Write(*.yml)",
+      "Bash(mkdir*)",
+      "Bash(touch*)",
+      "Bash(echo*)",
+      "Bash(cat*)",
+      "Bash(grep*)"
+    ],
     "allow": [
       "Bash(*)",
       "Bash(*:*)",
+			"Bash(mkdir:*)",
+			"Bash(pip install:*)",
       "Edit(~/workspace/*)",
       "Glob(~/workspace/*)",
       "Grep(~/workspace/*)",

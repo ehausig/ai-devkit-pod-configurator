@@ -8,170 +8,135 @@ Perform comprehensive testing to ensure quality standards are met.
 
 ## Process
 
-```bash
-# Read assigned work from journal
-WORK_COUNT=$(grep "WORK_ASSIGNED | QA" ~/workspace/JOURNAL.md | grep -v "WORK_COMPLETE" | wc -l)
-if [ $WORK_COUNT -eq 0 ]; then
-    echo "No work assigned to QA"
-    exit 0
-fi
+When invoked, I will:
 
-echo "QA: Found $WORK_COUNT testing tasks"
-echo ""
+1. **Read the journal** to find assigned testing tasks
 
-TESTS_PASSED=0
-TESTS_FAILED=0
-ISSUES_FOUND=0
+2. **Set up test environment**:
+   - Pull latest code
+   - Install dependencies
+   - Start services
 
-# Process each testing task
-grep "WORK_ASSIGNED | QA" ~/workspace/JOURNAL.md | while read -r line; do
-    WORK_DESC=$(echo "$line" | cut -d'|' -f4- | xargs)
-    TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-    
-    # Skip if already completed
-    if grep -q "WORK_COMPLETE | QA | $WORK_DESC" ~/workspace/JOURNAL.md; then
-        continue
-    fi
-    
-    echo "Executing: $WORK_DESC"
-    echo "$TIMESTAMP | WORK_STARTED | QA | $WORK_DESC" >> ~/workspace/JOURNAL.md
-```
+3. **Execute test suites**:
+   - Run unit tests
+   - Perform integration tests with REAL services
+   - Execute end-to-end workflows
+   - Test error conditions
 
-Based on the task type:
+4. **Track results**:
+   - Log TEST_EXECUTED events
+   - Record TEST_COVERAGE metrics
+   - Document any QA_ISSUE findings
 
-1. **Unit Test Verification**
-   ```bash
-   # Run unit tests and check coverage
-   echo "Running unit test suite..."
-   
-   # Execute tests based on project
-   # Log results
-   echo "$TIMESTAMP | TEST_EXECUTED | QA | Unit tests: 45 passed, 0 failed" >> ~/workspace/JOURNAL.md
-   echo "$TIMESTAMP | TEST_COVERAGE | QA | Coverage: 85% (exceeds 80% minimum)" >> ~/workspace/JOURNAL.md
-   
-   TESTS_PASSED=$((TESTS_PASSED + 45))
-   ```
+5. **Create QA report** with:
+   - Test summary
+   - Coverage metrics
+   - Issues found
+   - Recommendations
 
-2. **Integration Testing**
-   ```bash
-   # CRITICAL: Use real services, no mocks
-   echo "Starting backend services for integration testing..."
-   
-   # Start services
-   # Run integration tests
-   echo "$TIMESTAMP | TEST_EXECUTED | QA | Integration tests: 12 passed, 0 failed" >> ~/workspace/JOURNAL.md
-   echo "$TIMESTAMP | QA_NOTE | QA | All tests run against real services (no mocks)" >> ~/workspace/JOURNAL.md
-   
-   TESTS_PASSED=$((TESTS_PASSED + 12))
-   ```
+6. **Decide handoff**:
+   - If all pass → REVIEWER
+   - If issues found → DEVELOPER
+   - Write NEXT_COMMAND event
 
-3. **End-to-End Testing**
-   ```bash
-   # Test complete user workflows
-   echo "Testing user workflows..."
-   
-   # Execute E2E scenarios
-   echo "$TIMESTAMP | TEST_EXECUTED | QA | E2E workflows: 5 passed, 0 failed" >> ~/workspace/JOURNAL.md
-   ```
+## Testing Principles
 
-4. **Edge Case Testing**
-   ```bash
-   # Test error conditions
-   echo "Testing error handling and edge cases..."
-   
-   # Test various failure scenarios
-   # Check error messages
-   # Verify graceful degradation
-   
-   if [ $issue_found ]; then
-       ISSUES_FOUND=$((ISSUES_FOUND + 1))
-       echo "$TIMESTAMP | QA_ISSUE | QA | Found issue: [description]" >> ~/workspace/JOURNAL.md
-   fi
-   ```
-
-5. **Create QA Report**
-   ```bash
-   # Generate comprehensive report
-   cat > QA_REPORT.md << EOF
-   # QA Test Report
-   
-   ## Summary
-   - Date: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
-   - Total Tests: $((TESTS_PASSED + TESTS_FAILED))
-   - Passed: $TESTS_PASSED
-   - Failed: $TESTS_FAILED
-   - Issues Found: $ISSUES_FOUND
-   
-   ## Test Coverage
-   - Unit Tests: ✓ 85% coverage
-   - Integration Tests: ✓ All endpoints tested
-   - E2E Tests: ✓ All workflows verified
-   
-   ## Issues
-   $(if [ $ISSUES_FOUND -eq 0 ]; then
-       echo "No issues found"
-   else
-       grep "QA_ISSUE | QA" ~/workspace/JOURNAL.md | tail -$ISSUES_FOUND | cut -d'|' -f4-
-   fi)
-   
-   ## Recommendation
-   $(if [ $TESTS_FAILED -eq 0 ] && [ $ISSUES_FOUND -eq 0 ]; then
-       echo "✓ Ready for code review"
-   else
-       echo "✗ Issues need to be addressed before review"
-   fi)
-   EOF
-   
-   echo "$TIMESTAMP | FILE_CREATED | QA | QA_REPORT.md" >> ~/workspace/JOURNAL.md
-   echo "$TIMESTAMP | WORK_COMPLETE | QA | $WORK_DESC" >> ~/workspace/JOURNAL.md
-   ```
-
-6. **Handoff Decision**
-   ```bash
-   TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-   
-   if [ $TESTS_FAILED -eq 0 ] && [ $ISSUES_FOUND -eq 0 ]; then
-       # All tests passed - hand off to REVIEWER
-       echo "$TIMESTAMP | HANDOFF | QA->REVIEWER | All tests passed, ready for review" >> ~/workspace/JOURNAL.md
-       
-       # Assign review tasks
-       echo "$TIMESTAMP | WORK_ASSIGNED | REVIEWER | Review code quality and style" >> ~/workspace/JOURNAL.md
-       echo "$TIMESTAMP | WORK_ASSIGNED | REVIEWER | Verify architecture compliance" >> ~/workspace/JOURNAL.md
-       echo "$TIMESTAMP | WORK_ASSIGNED | REVIEWER | Check security best practices" >> ~/workspace/JOURNAL.md
-       echo "$TIMESTAMP | WORK_ASSIGNED | REVIEWER | Validate test coverage and quality" >> ~/workspace/JOURNAL.md
-       echo "$TIMESTAMP | WORK_ASSIGNED | REVIEWER | Provide review decision and feedback" >> ~/workspace/JOURNAL.md
-       
-       echo ""
-       echo "✓ QA phase complete!"
-       echo "✓ All tests passing, no issues found"
-       echo "✓ Handed off to REVIEWER"
-   else
-       # Issues found - back to DEVELOPER
-       echo "$TIMESTAMP | HANDOFF | QA->DEVELOPER | Found issues requiring fixes" >> ~/workspace/JOURNAL.md
-       
-       # Create fix tasks
-       grep "QA_ISSUE | QA" ~/workspace/JOURNAL.md | tail -$ISSUES_FOUND | while read -r issue; do
-           ISSUE_DESC=$(echo "$issue" | cut -d'|' -f4- | xargs)
-           echo "$TIMESTAMP | WORK_ASSIGNED | DEVELOPER | Fix: $ISSUE_DESC" >> ~/workspace/JOURNAL.md
-       done
-       
-       echo ""
-       echo "✓ QA phase complete"
-       echo "✗ Found $ISSUES_FOUND issues"
-       echo "✓ Handed back to DEVELOPER for fixes"
-   fi
-   ```
-
-## Testing Approach
-
-- **Real Services Only**: Never use mocks for integration tests
-- **Comprehensive Coverage**: Test happy paths and error cases
+- **No Mocks in Integration Tests**: Always use real services
+- **Comprehensive Coverage**: Test happy paths and edge cases
 - **User Perspective**: Validate from end-user viewpoint
-- **Performance Awareness**: Note any performance concerns
+- **Performance Awareness**: Note any performance issues
 
-## Notes
+## Test Categories
 
-- QA can hand off to REVIEWER (pass) or back to DEVELOPER (fail)
-- All findings are logged to the journal
-- The QA_REPORT.md provides a comprehensive test summary
-- The Stop hook will automatically invoke the next persona
+1. **Unit Tests**: Individual functions/methods
+2. **Integration Tests**: Component interactions with real services
+3. **E2E Tests**: Complete user workflows
+4. **Edge Cases**: Error conditions and boundaries
+
+## Issue Reporting
+
+For each issue found:
+- Clear description
+- Steps to reproduce
+- Expected vs actual behavior
+- Severity assessment
+- Suggested fix (if applicable)
+
+## Handoff Process
+
+### If Tests Pass
+
+1. **Create success events**:
+   ```
+   TEST_RESULT | QA | All tests passing: 48/48
+   TEST_COVERAGE | QA | Overall coverage: 87%
+   ```
+
+2. **Create HANDOFF event**:
+   ```
+   HANDOFF | QA->REVIEWER | All tests pass, ready for review
+   ```
+
+3. **Assign review tasks**:
+   ```
+   WORK_ASSIGNED | REVIEWER | Review code quality and architecture compliance
+   WORK_ASSIGNED | REVIEWER | Check security best practices
+   WORK_ASSIGNED | REVIEWER | Validate test coverage and quality
+   ```
+
+4. **Write NEXT_COMMAND**:
+   ```
+   NEXT_COMMAND | QA | /reviewer
+   ```
+
+### If Issues Found
+
+1. **Document issues**:
+   ```
+   QA_ISSUE | QA | Login fails with special characters in password
+   QA_ISSUE | QA | API timeout under load (>100 concurrent requests)
+   ```
+
+2. **Create HANDOFF event**:
+   ```
+   HANDOFF | QA->DEVELOPER | 2 issues found, fixes needed
+   ```
+
+3. **Assign fix tasks**:
+   ```
+   WORK_ASSIGNED | DEVELOPER | Fix login special character handling
+   WORK_ASSIGNED | DEVELOPER | Optimize API for concurrent requests
+   ```
+
+4. **Write NEXT_COMMAND**:
+   ```
+   NEXT_COMMAND | QA | /developer
+   ```
+
+## Example Test Flow
+
+For a web API:
+1. Run unit test suite
+2. Start API server
+3. Test all endpoints with real database
+4. Verify error responses
+5. Check performance under load
+6. Test edge cases
+7. Generate coverage report
+
+The QA persona ensures quality through comprehensive real-world testing.
+
+## Autonomous Continuation
+
+After completing all testing, I will:
+
+1. Check if CYCLE_COMPLETE has been logged in the journal
+2. If not, read the NEXT_COMMAND event I wrote based on test results
+3. Invoke that command to continue the autonomous workflow
+
+The next command will be:
+- /reviewer if all tests pass
+- /developer if fixes are needed
+- Another persona if specialized testing is required
+
+This enables dynamic flow based on test outcomes.

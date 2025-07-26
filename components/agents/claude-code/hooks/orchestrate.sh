@@ -1,6 +1,7 @@
 #!/bin/bash
 # Orchestration hook for autonomous development system
-# Runs after Claude Code completes a response to check for pending work
+# Serves as a backup mechanism if persona chaining is interrupted
+# Primary autonomy is now handled by personas invoking each other directly
 
 # Journal path
 JOURNAL_PATH="$HOME/workspace/JOURNAL.md"
@@ -41,9 +42,22 @@ fi
 # Function to count pending work for a persona
 count_pending_work() {
     local persona="$1"
-    local assigned=$(grep -c "WORK_ASSIGNED | $persona" "$JOURNAL_PATH" 2>/dev/null || echo 0)
-    local completed=$(grep -c "WORK_COMPLETE | $persona" "$JOURNAL_PATH" 2>/dev/null || echo 0)
-    echo $((assigned - completed))
+    local assigned=0
+    local completed=0
+    
+    # Count assigned work
+    if grep -q "WORK_ASSIGNED | $persona" "$JOURNAL_PATH" 2>/dev/null; then
+        assigned=$(grep "WORK_ASSIGNED | $persona" "$JOURNAL_PATH" | wc -l | tr -d ' ')
+    fi
+    
+    # Count completed work
+    if grep -q "WORK_COMPLETE | $persona" "$JOURNAL_PATH" 2>/dev/null; then
+        completed=$(grep "WORK_COMPLETE | $persona" "$JOURNAL_PATH" | wc -l | tr -d ' ')
+    fi
+    
+    local pending=$((assigned - completed))
+    [ $pending -lt 0 ] && pending=0
+    echo $pending
 }
 
 # Function to find active persona with pending work
@@ -69,8 +83,23 @@ check_last_handoff() {
     
     # Extract TO persona from handoff (format: ARCHITECT->DEVELOPER)
     local handoff_personas=$(echo "$last_handoff" | cut -d'|' -f3 | xargs)
-    if [[ "$handoff_personas" =~ -\> ]]; then
-        local to_persona=$(echo "$handoff_personas" | cut -d'>' -f2)
+    
+    # Handle both formats: "ARCHITECT->DEVELOPER" and "DEVELOPER-&gt;QA"
+    # The &gt; is HTML entity for > that might appear in some outputs
+    if [[ "$handoff_personas" =~ -\> ]] || [[ "$handoff_personas" =~ -\&gt\; ]]; then
+        # Extract the TO persona (after the arrow)
+        local to_persona=""
+        if [[ "$handoff_personas" =~ -\> ]]; then
+            to_persona=$(echo "$handoff_personas" | sed 's/.*->//')
+        else
+            to_persona=$(echo "$handoff_personas" | sed 's/.*-&gt;//')
+        fi
+        
+        # Clean up any trailing colons or spaces
+        to_persona=$(echo "$to_persona" | sed 's/:.*$//' | xargs)
+        
+        debug_log "Extracted TO persona: '$to_persona' from '$handoff_personas'"
+        
         local handoff_time=$(echo "$last_handoff" | cut -d' ' -f1)
         
         # Check if this persona has started work after the handoff
@@ -98,55 +127,111 @@ if grep -q "CYCLE_COMPLETE" "$JOURNAL_PATH" 2>/dev/null; then
     exit 0
 fi
 
-# Find active persona with pending work
-ACTIVE_PERSONA=""
-PENDING_COUNT=0
+# Look for the most recent NEXT_COMMAND directive in the journal
+NEXT_CMD=$(grep "NEXT_COMMAND |" "$JOURNAL_PATH" 2>/dev/null | tail -1 | cut -d'|' -f4 | xargs)
 
-if result=$(find_active_persona); then
-    ACTIVE_PERSONA=$(echo "$result" | cut -d' ' -f1)
-    PENDING_COUNT=$(echo "$result" | cut -d' ' -f2)
-    debug_log "Active persona: $ACTIVE_PERSONA with $PENDING_COUNT pending"
-fi
-
-# If no active persona, check for unprocessed handoffs
-if [ -z "$ACTIVE_PERSONA" ]; then
-    if ACTIVE_PERSONA=$(check_last_handoff); then
-        PENDING_COUNT=1
-        debug_log "Activating $ACTIVE_PERSONA from handoff"
-    fi
-fi
-
-# If still no active persona, check if we need to start
-if [ -z "$ACTIVE_PERSONA" ]; then
-    # Check if project was initialized or ARCHITECT has work
-    PROJECT_INIT=$(grep -c "PROJECT_INIT" "$JOURNAL_PATH" 2>/dev/null || echo 0)
-    ARCHITECT_ASSIGNED=$(grep -c "WORK_ASSIGNED | ARCHITECT" "$JOURNAL_PATH" 2>/dev/null || echo 0)
-    WORK_STARTED=$(grep -c "WORK_STARTED" "$JOURNAL_PATH" 2>/dev/null || echo 0)
+if [ -n "$NEXT_CMD" ]; then
+    debug_log "Found NEXT_COMMAND in journal: $NEXT_CMD"
     
-    if [ "$PROJECT_INIT" -gt 0 ] || [ "$ARCHITECT_ASSIGNED" -gt 0 ]; then
-        if [ "$WORK_STARTED" -eq 0 ]; then
-            # Project initialized but no work started
-            ACTIVE_PERSONA="ARCHITECT"
-            PENDING_COUNT=1
-            debug_log "Project initialized but not started, activating ARCHITECT"
+    # Check if this command has already been executed by looking for subsequent events
+    # Get the timestamp of the NEXT_COMMAND
+    NEXT_CMD_TIME=$(grep "NEXT_COMMAND |" "$JOURNAL_PATH" 2>/dev/null | tail -1 | cut -d' ' -f1)
+    
+    # Check for any WORK_STARTED events after this time
+    if [ -n "$NEXT_CMD_TIME" ]; then
+        LATER_WORK=$(grep "WORK_STARTED" "$JOURNAL_PATH" 2>/dev/null | while read line; do
+            event_time=$(echo "$line" | cut -d' ' -f1)
+            if [[ "$event_time" > "$NEXT_CMD_TIME" ]]; then
+                echo "found"
+                break
+            fi
+        done)
+        
+        if [ "$LATER_WORK" = "found" ]; then
+            debug_log "NEXT_COMMAND already executed (found later WORK_STARTED)"
+            NEXT_CMD=""
         fi
     fi
 fi
 
-# If we found work to do, continue with that persona
-if [ -n "$ACTIVE_PERSONA" ] && [ "$PENDING_COUNT" -gt 0 ]; then
-    # Use JSON output to block stopping and provide next command
+# If no NEXT_COMMAND or it was already executed, check for active personas
+if [ -z "$NEXT_CMD" ]; then
+    ACTIVE_PERSONA=""
+    PENDING_COUNT=0
+    
+    if result=$(find_active_persona); then
+        ACTIVE_PERSONA=$(echo "$result" | cut -d' ' -f1)
+        PENDING_COUNT=$(echo "$result" | cut -d' ' -f2)
+        debug_log "Active persona: $ACTIVE_PERSONA with $PENDING_COUNT pending"
+    fi
+    
+    # If no active persona, check for unprocessed handoffs
+    if [ -z "$ACTIVE_PERSONA" ]; then
+        if ACTIVE_PERSONA=$(check_last_handoff); then
+            PENDING_COUNT=1
+            debug_log "Activating $ACTIVE_PERSONA from handoff"
+        fi
+    fi
+    
+    # If still no active persona, check if we need to start
+    if [ -z "$ACTIVE_PERSONA" ]; then
+        # Check if project was initialized or ARCHITECT has work
+        local project_init=0
+        local architect_assigned=0
+        local work_started=0
+        
+        grep -q "PROJECT_INIT" "$JOURNAL_PATH" 2>/dev/null && project_init=1
+        grep -q "WORK_ASSIGNED | ARCHITECT" "$JOURNAL_PATH" 2>/dev/null && architect_assigned=1
+        grep -q "WORK_STARTED" "$JOURNAL_PATH" 2>/dev/null && work_started=1
+        
+        if [ "$project_init" -eq 1 ] || [ "$architect_assigned" -eq 1 ]; then
+            if [ "$work_started" -eq 0 ]; then
+                # Project initialized but no work started
+                ACTIVE_PERSONA="ARCHITECT"
+                PENDING_COUNT=1
+                debug_log "Project initialized but not started, activating ARCHITECT"
+            fi
+        fi
+    fi
+    
+    # Also check for any persona with assigned work that hasn't been started
+    if [ -z "$ACTIVE_PERSONA" ]; then
+        for persona in ARCHITECT DEVELOPER QA REVIEWER MERGER; do
+            # Check if there are WORK_ASSIGNED events without corresponding WORK_STARTED
+            local assigned=0
+            local started=0
+            
+            grep -q "WORK_ASSIGNED | $persona" "$JOURNAL_PATH" 2>/dev/null && \
+                assigned=$(grep "WORK_ASSIGNED | $persona" "$JOURNAL_PATH" | wc -l | tr -d ' ')
+            
+            grep -q "WORK_STARTED | $persona" "$JOURNAL_PATH" 2>/dev/null && \
+                started=$(grep "WORK_STARTED | $persona" "$JOURNAL_PATH" | wc -l | tr -d ' ')
+            
+            if [ "$assigned" -gt "$started" ]; then
+                ACTIVE_PERSONA="$persona"
+                PENDING_COUNT=$((assigned - started))
+                debug_log "Found $persona with unstarted work: $assigned assigned, $started started"
+                break
+            fi
+        done
+    fi
+fi
+
+# Determine what to do next
+if [ -n "$NEXT_CMD" ]; then
+    # We have an explicit next command from the journal
+    debug_log "Executing NEXT_COMMAND: $NEXT_CMD"
+    
+    # Return error to trigger Claude to process the command
+    echo "AUTONOMOUS DEVELOPMENT: Execute next command from journal: $NEXT_CMD" >&2
+    exit 2
+elif [ -n "$ACTIVE_PERSONA" ] && [ "$PENDING_COUNT" -gt 0 ]; then
+    # We found work but no explicit command, suggest the persona command
     PERSONA_LOWER=$(echo "$ACTIVE_PERSONA" | tr '[:upper:]' '[:lower:]')
+    debug_log "Suggesting $ACTIVE_PERSONA persona command"
     
-    cat << EOF
-{
-  "decision": "block",
-  "reason": "Continue with $ACTIVE_PERSONA persona - $PENDING_COUNT pending tasks. Run /$PERSONA_LOWER"
-}
-EOF
-    
-    debug_log "Blocking stop, continuing with $ACTIVE_PERSONA"
-    exit 0
+    echo "AUTONOMOUS DEVELOPMENT: $ACTIVE_PERSONA has $PENDING_COUNT pending tasks. Execute: /$PERSONA_LOWER" >&2
+    exit 2
 fi
 
 # No work found - allow Claude to stop

@@ -10,103 +10,71 @@ Query and filter events from the development journal.
 
 `/event-query [persona] [type]`
 
-## Examples
+- No arguments: Show recent 20 events
+- Persona only: `/event-query DEVELOPER`
+- Type only: `/event-query "" WORK_ASSIGNED`
+- Both: `/event-query DEVELOPER WORK_COMPLETE`
 
-```bash
-# Show all events
+## Process
+
+I will:
+1. Read `~/workspace/JOURNAL.md`
+2. Filter based on criteria
+3. Show matching events (last 20)
+4. Display summary counts
+
+## Filter Examples
+
+Show all events:
+```
 /event-query
-
-# Show events for a specific persona
-/event-query DEVELOPER
-
-# Show events of a specific type
-/event-query "" WORK_ASSIGNED
-
-# Show DEVELOPER's completed work
-/event-query DEVELOPER WORK_COMPLETE
-
-# Show all handoffs
-/event-query "" HANDOFF
-
-# Show all decisions
-/event-query ARCHITECT DECISION
 ```
 
-## Implementation
+Show DEVELOPER's events:
+```
+/event-query DEVELOPER
+```
 
-```bash
-# Parse arguments
-PERSONA="${1:-}"
-EVENT_TYPE="${2:-}"
+Show all work assignments:
+```
+/event-query "" WORK_ASSIGNED
+```
 
-# Check if journal exists
-if [ ! -f ~/workspace/JOURNAL.md ]; then
-    echo "No journal found. Start a project with /init-project"
-    exit 1
-fi
-
-# Build grep pattern
-PATTERN=""
-if [ -n "$PERSONA" ] && [ -n "$EVENT_TYPE" ]; then
-    PATTERN="$EVENT_TYPE | $PERSONA"
-elif [ -n "$PERSONA" ]; then
-    PATTERN=" | $PERSONA | "
-elif [ -n "$EVENT_TYPE" ]; then
-    PATTERN=" | $EVENT_TYPE | "
-fi
-
-# Query events
-echo "=== Event Query Results ==="
-echo ""
-
-if [ -z "$PATTERN" ]; then
-    # Show all events
-    grep " | " ~/workspace/JOURNAL.md | tail -20
-else
-    # Show filtered events
-    grep "$PATTERN" ~/workspace/JOURNAL.md | tail -20
-fi
-
-# Show summary
-echo ""
-echo "=== Summary ==="
-if [ -n "$PERSONA" ]; then
-    TOTAL=$(grep " | $PERSONA | " ~/workspace/JOURNAL.md | wc -l)
-    echo "$PERSONA total events: $TOTAL"
-fi
-
-if [ -n "$EVENT_TYPE" ]; then
-    TYPE_TOTAL=$(grep " | $EVENT_TYPE | " ~/workspace/JOURNAL.md | wc -l)
-    echo "$EVENT_TYPE total: $TYPE_TOTAL"
-fi
+Show ARCHITECT's decisions:
+```
+/event-query ARCHITECT DECISION
 ```
 
 ## Query Patterns
 
-Useful queries for monitoring progress:
+Useful queries:
+- Pending work: WORK_ASSIGNED without matching WORK_COMPLETE
+- Handoff flow: All HANDOFF events
+- Recent decisions: DECISION events
+- Test results: TEST_RESULT events
+- Issues found: QA_ISSUE or REVIEW_ISSUE
 
-```bash
-# Show pending work for each persona
-for P in ARCHITECT DEVELOPER QA REVIEWER MERGER; do
-    ASSIGNED=$(grep "WORK_ASSIGNED | $P" ~/workspace/JOURNAL.md | wc -l)
-    COMPLETE=$(grep "WORK_COMPLETE | $P" ~/workspace/JOURNAL.md | wc -l)
-    PENDING=$((ASSIGNED - COMPLETE))
-    echo "$P: $PENDING pending tasks"
-done
+## Output Format
 
-# Show handoff flow
-grep "HANDOFF |" ~/workspace/JOURNAL.md | tail -10
+```
+=== Event Query Results ===
 
-# Show recent decisions
-grep "DECISION |" ~/workspace/JOURNAL.md | tail -10
+2024-01-15T10:00:00Z | WORK_ASSIGNED | DEVELOPER | Implement core functionality
+2024-01-15T10:30:00Z | WORK_STARTED | DEVELOPER | Implement core functionality
+2024-01-15T11:00:00Z | WORK_COMPLETE | DEVELOPER | Implement core functionality
 
-# Show test results
-grep -E "TEST_RESULT|TEST_COVERAGE" ~/workspace/JOURNAL.md
+=== Summary ===
+DEVELOPER total events: 15
+WORK_ASSIGNED total: 5
 ```
 
-## Notes
+## Advanced Patterns
 
-- Queries show the most recent 20 events by default
-- Use grep patterns for more complex queries
-- The journal maintains complete history
-- Events are shown in chronological order
+To see pending work across all personas, I'll:
+1. Count WORK_ASSIGNED events
+2. Subtract WORK_COMPLETE events
+3. Show the difference
+
+This helps identify bottlenecks in the autonomous workflow.
+
+This command provides visibility into the event-driven development process.
