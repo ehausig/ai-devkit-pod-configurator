@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Code pre-build script - Sets up autonomous development system
+# Claude Code pre-build script - Sets up autonomous development system with sub agents
 # Generates component imports and prepares files for Docker build
 
 # Standard arguments
@@ -29,12 +29,12 @@ SETTINGS_TEMPLATE="$SCRIPT_DIR/claude-code/claude-settings.json.template"
 [[ ! -f "$USER_CLAUDE" ]] && error "user-CLAUDE.md not found in $SCRIPT_DIR/claude-code"
 [[ ! -f "$SETTINGS_TEMPLATE" ]] && error "claude-settings.json.template not found in $SCRIPT_DIR/claude-code"
 
-log "Setting up Claude Code autonomous development system..."
+log "Setting up Claude Code autonomous development system with sub agents..."
 
 # Create necessary directories
 mkdir -p "$TEMP_DIR/commands"
 mkdir -p "$TEMP_DIR/hooks"
-mkdir -p "$TEMP_DIR/personas"
+mkdir -p "$TEMP_DIR/agents"
 
 # Copy user documentation
 log "Copying user documentation..."
@@ -46,26 +46,31 @@ log "Copying settings template..."
 cp "$SETTINGS_TEMPLATE" "$TEMP_DIR/"
 success "Copied claude-settings.json.template"
 
-# Copy commands
+# Copy commands (only the ones we need for sub agent system)
 if [[ -d "$SCRIPT_DIR/claude-code/commands" ]]; then
-    log "Copying Claude Code commands..."
-    cp -r "$SCRIPT_DIR/claude-code/commands/"*.md "$TEMP_DIR/commands/" 2>/dev/null || true
+    log "Copying autonomous development commands..."
+    # Only copy utility commands, not persona commands
+    for cmd in init-autonomous show-journal event-query; do
+        if [[ -f "$SCRIPT_DIR/claude-code/commands/${cmd}.md" ]]; then
+            cp "$SCRIPT_DIR/claude-code/commands/${cmd}.md" "$TEMP_DIR/commands/"
+        fi
+    done
     success "Copied $(ls -1 "$TEMP_DIR/commands/"*.md 2>/dev/null | wc -l) commands"
 fi
 
-# Copy orchestration hook
-if [[ -f "$SCRIPT_DIR/claude-code/hooks/orchestrate.sh" ]]; then
-    log "Copying orchestration hook..."
-    cp "$SCRIPT_DIR/claude-code/hooks/orchestrate.sh" "$TEMP_DIR/hooks/"
-    chmod +x "$TEMP_DIR/hooks/orchestrate.sh"
-    success "Copied orchestrate.sh"
+# Copy autonomous continuation hook
+if [[ -f "$SCRIPT_DIR/claude-code/hooks/autonomous-continue.sh" ]]; then
+    log "Copying autonomous continuation hook..."
+    cp "$SCRIPT_DIR/claude-code/hooks/autonomous-continue.sh" "$TEMP_DIR/hooks/"
+    chmod +x "$TEMP_DIR/hooks/autonomous-continue.sh"
+    success "Copied autonomous-continue.sh"
 fi
 
-# Copy persona protocols
-if [[ -d "$SCRIPT_DIR/claude-code/personas" ]]; then
-    log "Copying persona protocols..."
-    cp -r "$SCRIPT_DIR/claude-code/personas/"*.md "$TEMP_DIR/personas/" 2>/dev/null || true
-    success "Copied $(ls -1 "$TEMP_DIR/personas/"*.md 2>/dev/null | wc -l) persona protocols"
+# Copy sub agents
+if [[ -d "$SCRIPT_DIR/claude-code/agents" ]]; then
+    log "Copying sub agent definitions..."
+    cp -r "$SCRIPT_DIR/claude-code/agents/"*.md "$TEMP_DIR/agents/" 2>/dev/null || true
+    success "Copied $(ls -1 "$TEMP_DIR/agents/"*.md 2>/dev/null | wc -l) sub agents"
 fi
 
 # Generate component imports file
@@ -156,29 +161,29 @@ cat > "$TEMP_DIR/MANIFEST.txt" << EOF
 
 ## Core Files
 - user-CLAUDE.md: User documentation
-- claude-settings.json.template: Settings with orchestration hook
+- claude-settings.json.template: Settings with stop hook for autonomy
 
 ## Commands ($(ls -1 "$TEMP_DIR/commands/"*.md 2>/dev/null | wc -l))
 $(ls -1 "$TEMP_DIR/commands/"*.md 2>/dev/null | sed 's|.*/|  - |')
 
 ## Hooks
-- orchestrate.sh: Stop hook for autonomous orchestration (bash)
+- autonomous-continue.sh: Stop hook for autonomous agent delegation
 
-## Persona Protocols ($(ls -1 "$TEMP_DIR/personas/"*.md 2>/dev/null | wc -l))
-$(ls -1 "$TEMP_DIR/personas/"*.md 2>/dev/null | sed 's|.*/|  - |')
+## Sub Agents ($(ls -1 "$TEMP_DIR/agents/"*.md 2>/dev/null | wc -l))
+$(ls -1 "$TEMP_DIR/agents/"*.md 2>/dev/null | sed 's|.*/|  - |')
 
 ## System Overview
 The autonomous development system uses:
-1. Commands for each persona (architect, developer, qa, reviewer, merger)
-2. A journal (~/workspace/JOURNAL.md) for event sourcing
-3. A bash orchestration hook that runs after each Claude response
-4. Clear protocols for each persona's responsibilities
+1. Sub agents for each persona (product-manager, architect, developer, qa, reviewer, merger)
+2. A journal (~/workspace/JOURNAL.md) for state persistence
+3. A stop hook that reads NEXT_AGENT directives and continues autonomously
+4. Clear handoff protocols between agents
 
-To start: Use "/init-project" command after describing your project.
+To start: Use "/init-autonomous" command after describing your project.
 EOF
 
 success "Created manifest file"
 
 log "Claude Code autonomous development system setup completed successfully!"
-info "The system will activate when users run /init-project"
-info "Personas will work autonomously through the Stop hook"
+info "The system will activate when users run /init-autonomous"
+info "Agents will work autonomously through the Stop hook"

@@ -1,16 +1,16 @@
 ---
-description: Display recent journal entries with formatting
+description: Display development journal with formatted entries
 ---
 
 # Show Journal
 
-Display recent entries from the development journal with visual formatting.
+Display recent entries from the autonomous development journal.
 
 ## Usage
 
 `/show-journal [lines]`
 
-- Default: Shows last 20 events
+- Default: Shows last 30 events
 - Specify number: `/show-journal 50`
 - Show all: `/show-journal all`
 
@@ -19,56 +19,39 @@ Display recent entries from the development journal with visual formatting.
 I will:
 
 1. Read `~/workspace/JOURNAL.md`
-2. Parse event entries
-3. Format with emoji indicators
-4. Show summary statistics
-5. Display current development state
+2. Parse entries and format them
+3. Show current development state
+4. Display agent progress
 
 ## Event Formatting
 
-- 📋 **WORK_ASSIGNED** - New task assigned
-- 🚀 **WORK_STARTED** - Work begun
+- 📋 **PROJECT_INIT** - Project started
+- 📋 **WORK_ASSIGNED** - Task assigned to agent
+- 🚀 **AGENT_START** - Agent began work
+- 🎯 **DECISION** - Technical choice made
+- 📄 **FILE_CREATED** - New file created
+- 🤝 **NEXT_AGENT** - Handoff directive
 - ✅ **WORK_COMPLETE** - Task finished
-- 🤝 **HANDOFF** - Persona transition
-- 🎯 **DECISION** - Technical choice
-- 📄 **FILE_CREATED** - New file
-- 🧪 **TEST_RESULT** - Test outcome
-- ⚠️ **ISSUE** - Problem found
-- 🏁 **PROJECT_INIT** - Project started
 - 🎉 **CYCLE_COMPLETE** - Development done
-
-## Statistics Shown
-
-- Total events logged
-- Events per persona
-- Current active persona
-- Pending work items
-- Development phase
-
-## Time Display
-
-- Today's events: Show time only
-- Older events: Show full timestamp
 
 ## Example Output
 
 ```
-=== Development Journal ===
+=== Autonomous Development Journal ===
 
-[10:15:32] 📋 ARCHITECT: Design hello world system
-[10:20:45] 🎯 ARCHITECT: Chose Python with Flask framework
-[10:25:10] 📄 ARCHITECT: ARCHITECTURE.md
-[10:30:00] ✅ ARCHITECT: Architecture phase complete
-[10:30:01] 🤝 ARCHITECT->DEVELOPER: 5 tasks assigned
+[10:00:00] 📋 PROJECT_INIT: Starting todo list API
+[10:00:01] 📋 WORK_ASSIGNED to PRODUCT_MANAGER: Define requirements
+[10:00:02] 🤝 NEXT_AGENT: system → product-manager
+[10:15:00] 🚀 AGENT_START: product-manager reading assigned work
+[10:20:00] 🎯 DECISION by product-manager: RESTful API with CRUD
+[10:25:00] 📄 FILE_CREATED: REQUIREMENTS.md
+[10:30:00] 🤝 NEXT_AGENT: product-manager → architect
 
-=== Journal Statistics ===
-Total events: 12
-ARCHITECT: 5 events
-DEVELOPER: 7 events
-
-=== Current State ===
-Active persona: DEVELOPER (3 pending tasks)
-Status: Development in progress...
+=== Current Status ===
+Active Flow: product-manager → architect
+Next Agent: architect (pending delegation)
+Files Created: 1
+Decisions Made: 1
 ```
 
-This provides a clear visual overview of the autonomous development progress.
+This provides visibility into the autonomous development progress.

@@ -3,103 +3,83 @@
 ## Quick Start
 
 Simply tell me what you want to build:
-- "Please initiate the architect persona and create a 'hello world' project in Python"
 - "Create a REST API for a todo list"
 - "Build a web scraper in Node.js"
 - "Develop a CLI tool in Rust"
+- "Create a real-time chat application"
 
-The system will autonomously design, implement, test, review, and integrate your project through specialized personas.
+Then use `/init-autonomous` to start the autonomous development process. The system will automatically progress through specialized agents to design, implement, test, review, and release your project.
 
 ## How It Works
 
-This system uses **event-driven development** where personas (ARCHITECT, DEVELOPER, QA, REVIEWER, MERGER) collaborate through a persistent journal. Each persona:
+This system uses **autonomous sub agents** where specialized personas (PRODUCT_MANAGER, ARCHITECT, DEVELOPER, QA, REVIEWER, MERGER) collaborate through a persistent journal. Each agent:
 
-1. **Reads** assigned work from the journal
-2. **Performs** specialized tasks
-3. **Records** decisions and completions
-4. **Writes** NEXT_COMMAND to specify what happens next
-5. **Invokes** the next persona directly before exiting
+1. **Reads** the journal to understand assigned work
+2. **Performs** specialized tasks in isolation
+3. **Records** decisions and progress
+4. **Writes** NEXT_AGENT directive for handoffs
+5. **Delegates** to the next appropriate agent
 
-The self-chaining approach means each persona actively continues the workflow by reading NEXT_COMMAND events and invoking the appropriate next persona, creating true autonomy.
+The Stop hook ensures continuous autonomous execution by reading NEXT_AGENT directives and prompting the next delegation.
 
 ## Available Commands
 
 ### Project Initialization
-- `/init-project` - Parse your request and start the development process
+- `/init-autonomous` - Parse your request and start autonomous development
 
-### Persona Commands
-- `/architect` - System design and architecture
-- `/developer` - Implementation and coding
-- `/qa` - Testing and quality assurance
-- `/reviewer` - Code review and approval
-- `/merger` - Integration and release
-
-### Utility Commands
-- `/event-emit <type> <persona> <description>` - Add events to journal
-- `/event-query [persona] [type]` - Query journal state
+### Monitoring
 - `/show-journal` - Display recent journal entries
-- `/persona-status` - Show current state of all personas
+- `/event-query [type]` - Query specific events from the journal
+
+## Available Agents
+
+1. **product-manager** - Requirements analysis and user stories
+2. **architect** - System design and technical planning
+3. **developer** - Implementation using TDD practices
+4. **qa** - Comprehensive testing with real services
+5. **reviewer** - Code review and quality assurance
+6. **merger** - Integration and release management
 
 ## Journal Structure
 
 The `~/workspace/JOURNAL.md` file tracks all development activities:
 
 ```
-2024-01-15T10:00:00Z | WORK_ASSIGNED | ARCHITECT | Create hello world Python project
-2024-01-15T10:05:00Z | DECISION | ARCHITECT | Using Flask for web framework
-2024-01-15T10:10:00Z | FILE_CREATED | ARCHITECT | ARCHITECTURE.md
-2024-01-15T10:15:00Z | WORK_COMPLETE | ARCHITECT | Architecture phase complete
-2024-01-15T10:15:01Z | HANDOFF | ARCHITECT->DEVELOPER | 4 implementation tasks
-2024-01-15T10:15:02Z | NEXT_COMMAND | ARCHITECT | /developer
+2024-01-15T10:00:00Z | PROJECT_INIT | Starting todo list API
+2024-01-15T10:00:01Z | WORK_ASSIGNED | PRODUCT_MANAGER | Define requirements
+2024-01-15T10:00:02Z | NEXT_AGENT | system | product-manager | Requirements needed
+2024-01-15T10:15:00Z | DECISION | product-manager | RESTful API with CRUD operations
+2024-01-15T10:30:00Z | WORK_ASSIGNED | ARCHITECT | Design system for todo API
+2024-01-15T10:30:01Z | NEXT_AGENT | product-manager | architect | Requirements complete
 ```
 
-## Key Event: NEXT_COMMAND
+## Autonomous Flow
 
-The `NEXT_COMMAND` event drives autonomy:
-- Each persona writes this event when completing work
-- Each persona reads it before exiting and invokes the specified command
-- This creates a self-sustaining development cycle
-- Supports non-linear flows (e.g., REVIEWER → DEVELOPER for fixes)
-
-Example flow:
+The system automatically progresses through agents:
 ```
-NEXT_COMMAND | ARCHITECT | /developer    → ARCHITECT invokes /developer
-NEXT_COMMAND | DEVELOPER | /qa          → DEVELOPER invokes /qa
-NEXT_COMMAND | QA | /reviewer           → QA invokes /reviewer
-NEXT_COMMAND | REVIEWER | /developer    → REVIEWER invokes /developer (fixes needed)
-NEXT_COMMAND | DEVELOPER | /qa          → DEVELOPER invokes /qa (retest)
-NEXT_COMMAND | QA | /reviewer           → QA invokes /reviewer (recheck)
-NEXT_COMMAND | REVIEWER | /merger       → REVIEWER invokes /merger (approved)
+PRODUCT_MANAGER → ARCHITECT → DEVELOPER → QA → REVIEWER → MERGER
 ```
 
-## Development Workflow
+Non-linear flows are supported (e.g., REVIEWER → DEVELOPER for fixes).
 
-1. **ARCHITECT** - Creates system design and architecture
-2. **DEVELOPER** - Implements code following TDD practices  
-3. **QA** - Tests against real services (no mocks)
-4. **REVIEWER** - Reviews code quality and compliance
-5. **MERGER** - Integrates changes and manages releases
+## Key Features
 
-The workflow is **not linear** - personas can hand work back (e.g., REVIEWER → DEVELOPER for fixes) using NEXT_COMMAND. Each persona invokes the next one directly, creating a self-sustaining chain of execution.
-
-## Monitoring Progress
-
-Use these commands to track development:
-- `/show-journal` - See recent activity
-- `/persona-status` - Check persona states
-- `/event-query DEVELOPER WORK_ASSIGNED` - See Developer's pending work
+- **Fully Autonomous**: Once started, requires no manual intervention
+- **Context Isolation**: Each agent has its own context window
+- **State Persistence**: Journal maintains continuity across agents
+- **Flexible Workflow**: Supports iterative development cycles
+- **Real Testing**: QA uses actual services, not mocks
+- **Complete Visibility**: Journal provides full audit trail
 
 ## Important Notes
 
-- The system runs **autonomously** after initialization through self-chaining
+- The system runs **autonomously** after initialization
 - All work is tracked through **events** in the journal
-- Personas make **decisions** based on their specialized protocols
-- Each persona **invokes the next** before exiting
-- The journal provides **complete visibility** into the development process
-- Context is preserved across Claude Code sessions
+- Each agent makes **decisions** based on specialized expertise
+- The journal provides **complete visibility** into progress
+- Non-linear workflows are supported for iterations
 - The cycle completes when MERGER logs `CYCLE_COMPLETE`
-- Supports **non-linear workflows** - personas can hand work backward or forward
 
 ---
 
-*Start by describing your project, and I'll use `/init-project` to begin the autonomous development process!*
+*Start by describing your project, then use `/init-autonomous` to begin the autonomous development process!*

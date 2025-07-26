@@ -2,7 +2,7 @@ id: CLAUDE_CODE
 name: Claude Code (Autonomous Development)
 group: ai-agents
 requires: []
-description: AI coding assistant with autonomous event-driven development system
+description: AI coding assistant with autonomous development system using sub agents
 pre_build_script: claude-code/claude-code-setup.sh
 installation:
   dockerfile: |
@@ -31,9 +31,9 @@ installation:
     - source: hooks/
       destination: /tmp/claude-hooks/
       permissions: 755
-    - source: personas/
-      destination: /tmp/claude-personas/
-      permissions: 755
+    - source: agents/
+      destination: /tmp/claude-agents/
+      permissions: 644
     - source: component-imports.txt
       destination: /tmp/component-imports.txt
       permissions: 644
@@ -49,7 +49,7 @@ entrypoint_setup: |
       mkdir -p /home/devuser/.claude
       mkdir -p /home/devuser/.claude/hooks
       mkdir -p /home/devuser/.claude/commands
-      mkdir -p /home/devuser/.claude/personas
+      mkdir -p /home/devuser/.claude/agents
   fi
   
   # Copy settings.json from template
@@ -57,16 +57,16 @@ entrypoint_setup: |
       if [ ! -f /home/devuser/.claude/settings.json ]; then
           echo "Installing Claude Code settings..."
           cp /tmp/claude-settings.json.template /home/devuser/.claude/settings.json
-          echo "✓ Settings installed with orchestration hook"
+          echo "✓ Settings installed with autonomous stop hook"
       fi
   fi
   
-  # Install orchestration hook
-  if [ -f /tmp/claude-hooks/orchestrate.sh ]; then
-      echo "Installing orchestration hook..."
-      cp /tmp/claude-hooks/orchestrate.sh /home/devuser/.claude/hooks/
-      chmod +x /home/devuser/.claude/hooks/orchestrate.sh
-      echo "✓ Orchestration hook installed"
+  # Install autonomous continuation hook
+  if [ -f /tmp/claude-hooks/autonomous-continue.sh ]; then
+      echo "Installing autonomous continuation hook..."
+      cp /tmp/claude-hooks/autonomous-continue.sh /home/devuser/.claude/hooks/
+      chmod +x /home/devuser/.claude/hooks/autonomous-continue.sh
+      echo "✓ Autonomous continuation hook installed"
   fi
   
   # Install commands
@@ -82,20 +82,18 @@ entrypoint_setup: |
       echo "✓ Commands installed successfully"
   fi
   
-  # Install persona protocols
-  if [ -d /tmp/claude-personas ] && [ "$(ls -A /tmp/claude-personas/*.md 2>/dev/null)" ]; then
-      echo "Installing persona protocols..."
-      cp /tmp/claude-personas/*.md /home/devuser/.claude/personas/
+  # Install sub agents
+  if [ -d /tmp/claude-agents ] && [ "$(ls -A /tmp/claude-agents/*.md 2>/dev/null)" ]; then
+      echo "Installing autonomous development agents..."
+      cp /tmp/claude-agents/*.md /home/devuser/.claude/agents/
       
-      # List installed personas
-      echo "Installed personas:"
-      for protocol in /home/devuser/.claude/personas/*-PROTOCOL.md; do
-          if [ -f "$protocol" ]; then
-              persona=$(basename "$protocol" -PROTOCOL.md)
-              echo "  - $persona"
-          fi
+      # List installed agents
+      echo "Installed agents:"
+      for agent in /home/devuser/.claude/agents/*.md; do
+          agent_name=$(basename "$agent" .md)
+          echo "  - $agent_name"
       done
-      echo "✓ Persona protocols installed"
+      echo "✓ Sub agents installed successfully"
   fi
   
   # Append component imports to user documentation
@@ -122,17 +120,16 @@ entrypoint_setup: |
   echo "Quick Start:"
   echo "1. Start Claude Code: 'claude'"
   echo "2. Describe your project"
-  echo "3. Use: /init-project"
+  echo "3. Use: /init-autonomous"
   echo "4. The system will autonomously develop your application"
   echo ""
   echo "Available Commands:"
-  echo "  /init-project    - Start a new project"
+  echo "  /init-autonomous - Start a new autonomous project"
   echo "  /show-journal    - View development progress"
-  echo "  /persona-status  - Check persona states"
   echo "  /event-query     - Query specific events"
   echo ""
-  echo "The system will automatically hand off work between:"
-  echo "ARCHITECT → DEVELOPER → QA → REVIEWER → MERGER"
+  echo "The system will automatically progress through:"
+  echo "PRODUCT_MANAGER → ARCHITECT → DEVELOPER → QA → REVIEWER → MERGER"
   echo "═══════════════════════════════════════════════════════════"
   
   # Verify Claude Code is available

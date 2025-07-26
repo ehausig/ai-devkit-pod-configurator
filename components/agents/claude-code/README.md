@@ -1,19 +1,26 @@
-# Claude Code - Autonomous Development System
+# Claude Code Autonomous Development System
 
-An AI-powered coding assistant with an autonomous event-driven development system that manages the complete software development lifecycle through specialized personas.
+An AI-powered autonomous software development system that leverages Claude Code's sub-agent architecture to design, implement, test, review, and release software projects with minimal human intervention.
 
 ## Overview
 
-Claude Code provides an intelligent development environment where AI personas collaborate to design, implement, test, review, and deploy software projects autonomously. The system uses event sourcing with a persistent journal to maintain context and coordinate work between personas.
+This system orchestrates specialized AI agents through a complete software development lifecycle:
 
-## Features
+- **Product Manager** - Requirements analysis and user story creation
+- **Architect** - System design and technical planning
+- **Developer** - Implementation using Test-Driven Development (TDD)
+- **QA** - Comprehensive testing with real services
+- **Reviewer** - Code quality and security review
+- **Merger** - Release management and deployment
 
-- **Autonomous Development**: Once initiated, the system completes the entire development cycle
-- **Specialized Personas**: ARCHITECT, DEVELOPER, QA, REVIEWER, and MERGER each handle their domain
-- **Event-Driven Architecture**: All work is tracked through events in a persistent journal
-- **Context Preservation**: The journal maintains state across Claude Code sessions
-- **Flexible Workflow**: Supports non-linear development with handoffs back for fixes
-- **Transparent Process**: All decisions and work are logged for complete visibility
+## How It Works
+
+The system uses an event-driven architecture with:
+
+1. **Sub Agents** - Each persona is a specialized Claude Code sub-agent with its own context
+2. **Journal** - `~/workspace/JOURNAL.md` maintains state across agents
+3. **Stop Hook** - Automatically continues the workflow by reading NEXT_AGENT directives
+4. **Autonomous Flow** - Agents delegate to each other without manual intervention
 
 ## Quick Start
 
@@ -24,126 +31,153 @@ Claude Code provides an intelligent development environment where AI personas co
 
 2. Describe your project:
    ```
-   Please initiate the architect persona and create a hello world project in Python
+   Create a REST API for managing a todo list with CRUD operations
    ```
 
-3. Claude will use `/init-project` to start the autonomous development process
-
-4. Monitor progress:
+3. Initialize the autonomous system:
    ```
-   /show-journal
-   /persona-status
+   /init-autonomous
    ```
 
-## Architecture
+4. The system will automatically progress through all development phases
 
-### Component Structure
-```
-claude-code/
-├── commands/           # Claude Code slash commands
-├── hooks/             # Orchestration hook
-├── personas/          # Persona protocol documentation
-├── claude-settings.json.template
-└── user-CLAUDE.md
-```
+## Available Commands
 
-### Event Flow
-```
-User Request
-    ↓
-/init-project → WORK_ASSIGNED → ARCHITECT
-    ↓
-ARCHITECT completes → HANDOFF → DEVELOPER
-    ↓
-DEVELOPER completes → HANDOFF → QA
-    ↓
-QA passes → HANDOFF → REVIEWER
-    ↓
-REVIEWER approves → HANDOFF → MERGER
-    ↓
-MERGER completes → CYCLE_COMPLETE
+- `/init-autonomous` - Start a new autonomous development project
+- `/show-journal` - View the development progress and agent activity
+- `/event-query [type]` - Query specific events from the journal
+
+## Agent Workflow
+
+```mermaid
+graph LR
+    PM[Product Manager] --> A[Architect]
+    A --> D[Developer]
+    D --> Q[QA]
+    Q --> R[Reviewer]
+    R --> M[Merger]
+    R -.->|fixes needed| D
+    Q -.->|issues found| D
 ```
 
-### Journal Structure
-```
-2024-01-15T10:00:00Z | WORK_ASSIGNED | ARCHITECT | Design system
-2024-01-15T10:05:00Z | DECISION | ARCHITECT | Using Flask framework
-2024-01-15T10:10:00Z | FILE_CREATED | ARCHITECT | ARCHITECTURE.md
-2024-01-15T10:15:00Z | HANDOFF | ARCHITECT->DEVELOPER | 5 tasks
-```
+### Product Manager
+- Analyzes vague requirements
+- Creates detailed user stories
+- Defines success metrics
+- Sets technical constraints
 
-## Commands
+### Architect
+- Designs system architecture
+- Selects technology stack
+- Creates API specifications
+- Plans data models
 
-- `/init-project` - Parse request and start development
-- `/architect` - System design persona
-- `/developer` - Implementation persona
-- `/qa` - Testing persona
-- `/reviewer` - Code review persona
-- `/merger` - Integration persona
-- `/event-emit` - Add events to journal
-- `/event-query` - Query journal events
-- `/show-journal` - Display journal with formatting
-- `/persona-status` - Show all persona states
-
-## Personas
-
-### ARCHITECT
-- Creates system design and architecture
-- Makes technology decisions
-- Defines data models and APIs
-- Creates testing strategy
-
-### DEVELOPER
-- Implements code using TDD
-- Ensures 80% test coverage
-- Creates documentation
-- Handles review fixes
+### Developer
+- Implements using TDD
+- Writes tests first
+- Achieves 80%+ coverage
+- Documents code
 
 ### QA
-- Runs comprehensive tests
-- Uses real services (no mocks)
-- Tests user workflows
-- Documents issues
+- Tests with real services (no mocks)
+- Performs integration testing
+- Validates performance
+- Documents bugs clearly
 
-### REVIEWER
+### Reviewer
 - Reviews code quality
-- Checks architecture compliance
-- Validates security practices
-- Provides feedback
+- Checks security
+- Verifies architecture compliance
+- Provides actionable feedback
 
-### MERGER
-- Integrates approved changes
-- Updates documentation
+### Merger
 - Creates releases
-- Completes cycle
+- Updates documentation
+- Tags versions
+- Completes development cycle
+
+## Journal Structure
+
+The journal tracks all activities:
+
+```
+2024-01-20T10:00:00Z | PROJECT_INIT | Starting todo API
+2024-01-20T10:00:01Z | WORK_ASSIGNED | PRODUCT_MANAGER | Define requirements
+2024-01-20T10:00:02Z | NEXT_AGENT | system | product-manager | Requirements needed
+2024-01-20T10:15:00Z | DECISION | architect | Using PostgreSQL for persistence
+2024-01-20T10:30:00Z | FILE_CREATED | developer | src/api/todos.py
+```
+
+## Key Features
+
+- **Fully Autonomous** - Requires no manual intervention after initialization
+- **Context Isolation** - Each agent has its own context window
+- **Flexible Workflow** - Supports non-linear flows (e.g., reviewer sending work back)
+- **Real Testing** - QA always uses actual services, never mocks
+- **Complete Visibility** - Journal provides full audit trail
+- **Quality Focus** - TDD, code review, and comprehensive testing built-in
 
 ## Configuration
 
-The system is configured through `claude-settings.json.template` which includes:
-- Orchestration hook configuration
-- File permissions
-- Environment variables
+The system is configured through:
 
-## Development Workflow
+- **Settings** - `claude-settings.json.template` with Stop hook
+- **Sub Agents** - Individual agent definitions in `agents/`
+- **Commands** - Utility commands in `commands/`
+- **Hook** - `autonomous-continue.sh` for autonomous flow
 
-1. **Project Initialization**: User describes project → `/init-project` parses and starts
-2. **Architecture Phase**: ARCHITECT designs system and creates documentation
-3. **Implementation Phase**: DEVELOPER implements with TDD approach
-4. **Testing Phase**: QA performs comprehensive testing
-5. **Review Phase**: REVIEWER ensures quality and compliance
-6. **Integration Phase**: MERGER completes the cycle
+## Development Principles
 
-## Monitoring
+1. **Requirements First** - Clear requirements prevent costly revisions
+2. **Test-Driven** - Tests written before implementation
+3. **Real Services** - Integration tests use actual databases/APIs
+4. **Clean Architecture** - Separation of concerns enforced
+5. **Continuous Progress** - Automatic handoffs between agents
 
-Track development progress with:
-- `/show-journal` - Recent events with emoji indicators
-- `/persona-status` - Current state of each persona
-- `/event-query DEVELOPER WORK_ASSIGNED` - Specific queries
+## Example Projects
 
-## Notes
+The system can build:
 
-- The system runs autonomously after initialization
-- All work is event-driven through the journal
-- Context is preserved across sessions
-- Personas can hand work back (e.g., for fixes)
-- The orchestration hook ensures continuous progress
+- REST APIs with CRUD operations
+- CLI tools with argument parsing
+- Web scrapers with data processing
+- Real-time applications with WebSockets
+- Microservices with event-driven architecture
+
+## Troubleshooting
+
+### System Stops Unexpectedly
+- Check journal for `CYCLE_COMPLETE` - system stops when done
+- Look for `stop_hook_active` events to prevent loops
+- Verify Stop hook is properly configured
+
+### Agent Not Starting
+- Ensure work is assigned in journal
+- Check NEXT_AGENT directive exists
+- Verify agent file exists in `~/.claude/agents/`
+
+### Tests Failing
+- QA uses real services - ensure Docker/services are running
+- Check database connections
+- Verify API endpoints are accessible
+
+## Contributing
+
+To modify or extend the system:
+
+1. **Add New Agents** - Create agent definition in `agents/`
+2. **Modify Workflow** - Update NEXT_AGENT logic in agents
+3. **Add Commands** - Create new command files in `commands/`
+4. **Enhance Agents** - Improve prompts and decision logic
+
+## Technical Details
+
+- Built for Claude Code with sub-agent support
+- Uses bash for scripting (Python-free)
+- Event-sourced architecture via journal
+- Leverages Claude Code's Stop hook for automation
+- Supports all major programming languages
+
+## License
+
+This component is part of the AI DevKit Pod Configurator project.

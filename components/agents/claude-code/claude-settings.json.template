@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ~/.claude/hooks/orchestrate.sh"
+            "command": "bash ~/.claude/hooks/autonomous-continue.sh"
           }
         ]
       }
@@ -47,8 +47,8 @@
     "allow": [
       "Bash(*)",
       "Bash(*:*)",
-			"Bash(mkdir:*)",
-			"Bash(pip install:*)",
+      "Bash(mkdir:*)",
+      "Bash(pip install:*)",
       "Edit(~/workspace/*)",
       "Glob(~/workspace/*)",
       "Grep(~/workspace/*)",

@@ -4,77 +4,63 @@ description: Query events from the development journal
 
 # Event Query
 
-Query and filter events from the development journal.
+Query and filter events from the autonomous development journal.
 
 ## Usage
 
-`/event-query [persona] [type]`
+`/event-query [type]`
 
-- No arguments: Show recent 20 events
-- Persona only: `/event-query DEVELOPER`
-- Type only: `/event-query "" WORK_ASSIGNED`
-- Both: `/event-query DEVELOPER WORK_COMPLETE`
+- No arguments: Show all recent events
+- Type filter: `/event-query WORK_ASSIGNED`
+- Multiple types: `/event-query "DECISION|FILE_CREATED"`
+
+## Event Types
+
+- `PROJECT_INIT` - Project initialization
+- `WORK_ASSIGNED` - Task assignments
+- `AGENT_START` - Agent beginning work
+- `DECISION` - Technical decisions
+- `FILE_CREATED` - Files created
+- `NEXT_AGENT` - Handoff directives
+- `WORK_COMPLETE` - Completed tasks
+- `CYCLE_COMPLETE` - Development finished
 
 ## Process
 
 I will:
 1. Read `~/workspace/JOURNAL.md`
 2. Filter based on criteria
-3. Show matching events (last 20)
-4. Display summary counts
+3. Show matching events
+4. Provide summary statistics
 
-## Filter Examples
-
-Show all events:
-```
-/event-query
-```
-
-Show DEVELOPER's events:
-```
-/event-query DEVELOPER
-```
+## Example Queries
 
 Show all work assignments:
 ```
-/event-query "" WORK_ASSIGNED
+/event-query WORK_ASSIGNED
 ```
 
-Show ARCHITECT's decisions:
+Show decisions and files:
 ```
-/event-query ARCHITECT DECISION
+/event-query "DECISION|FILE_CREATED"
 ```
 
-## Query Patterns
-
-Useful queries:
-- Pending work: WORK_ASSIGNED without matching WORK_COMPLETE
-- Handoff flow: All HANDOFF events
-- Recent decisions: DECISION events
-- Test results: TEST_RESULT events
-- Issues found: QA_ISSUE or REVIEW_ISSUE
+Show handoff flow:
+```
+/event-query NEXT_AGENT
+```
 
 ## Output Format
 
 ```
 === Event Query Results ===
 
-2024-01-15T10:00:00Z | WORK_ASSIGNED | DEVELOPER | Implement core functionality
-2024-01-15T10:30:00Z | WORK_STARTED | DEVELOPER | Implement core functionality
-2024-01-15T11:00:00Z | WORK_COMPLETE | DEVELOPER | Implement core functionality
+2024-01-20T10:00:00Z | WORK_ASSIGNED | ARCHITECT | Design REST API
+2024-01-20T11:00:00Z | WORK_ASSIGNED | DEVELOPER | Implement endpoints
 
 === Summary ===
-DEVELOPER total events: 15
-WORK_ASSIGNED total: 5
+Total WORK_ASSIGNED events: 2
+Agents involved: ARCHITECT, DEVELOPER
 ```
 
-## Advanced Patterns
-
-To see pending work across all personas, I'll:
-1. Count WORK_ASSIGNED events
-2. Subtract WORK_COMPLETE events
-3. Show the difference
-
-This helps identify bottlenecks in the autonomous workflow.
-
-This command provides visibility into the event-driven development process.
+This helps track specific aspects of the autonomous development process.
