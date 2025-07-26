@@ -10,9 +10,9 @@ Interactively gather requirements and create a well-structured PROMPT.md file fo
 
 When invoked, I will:
 
-1. **Check for existing PROMPT.md**:
-   - If exists, ask if user wants to overwrite
-   - If not, proceed with creation
+1. **Set context clearly**:
+   - Explain we're gathering requirements, NOT building yet
+   - Clarify that implementation happens after `/init-autonomous`
 
 2. **Delegate to requirements analyst**:
    - Invoke the requirements-analyst agent
@@ -23,29 +23,20 @@ When invoked, I will:
    - Confirm PROMPT.md was created
    - Instruct user to run `/init-autonomous`
 
-## Usage
+## Implementation Note
 
-```
-/create-prompt
-```
+Make it VERY clear to the user that we're in requirements gathering mode:
+
+"I'll help you create a project specification through interactive requirements gathering. 
+
+**Important**: We're not building anything yet - just defining what you want. The actual implementation will happen after you run /init-autonomous.
+
+Let me delegate to the requirements analyst who will ask you some questions about your project."
 
 ## Workflow
 
 1. User runs `/create-prompt`
-2. Requirements analyst asks questions
-3. PROMPT.md is created
-4. User runs `/init-autonomous` to start development
-
-## Note
-
-This command is optional. Experienced users can create PROMPT.md manually and skip directly to `/init-autonomous`.
-
-## Implementation Note
-
-The command should immediately delegate to requirements-analyst without checking for PROMPT.md first. The agent will handle file existence checks.
-
-## Example Response
-
-Simply: "I'll help you create a project specification through interactive requirements gathering."
-
-Then delegate immediately to requirements-analyst.
+2. Clear context is set about requirements gathering
+3. Requirements analyst asks questions
+4. PROMPT.md is created
+5. User runs `/init-autonomous` to start development

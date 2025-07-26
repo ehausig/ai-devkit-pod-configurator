@@ -1,5 +1,12 @@
 # Autonomous Development System
 
+## CRITICAL: Agent Delegation Instructions
+
+When using sub agent commands that delegate to agents:
+- Let agents communicate naturally with users
+- Show agent messages directly without interpretation
+- Allow back-and-forth conversation between user and agent
+
 ## Quick Start
 
 ### Option 1: Interactive Requirements (Easier)
@@ -91,6 +98,15 @@ Non-linear flows are supported (e.g., REVIEWER → DEVELOPER for fixes).
 - **Flexible Workflow**: Supports iterative development cycles
 - **Real Testing**: QA uses actual services, not mocks
 - **Complete Visibility**: Journal provides full audit trail
+
+## Sub Agent Guidelines
+
+This system uses specialized sub agents for different phases of development. When these agents are invoked:
+
+1. **Direct Communication** - Agents should communicate directly with users, not through intermediaries
+2. **Natural Language** - Use first-person language ("I'll help you...") not third-person ("The agent will...")
+3. **Seamless Handoffs** - Transitions between agents should feel natural
+4. **Preserve Context** - Each agent reads the journal to maintain continuity
 
 ## Important Notes
 
