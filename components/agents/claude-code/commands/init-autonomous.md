@@ -1,66 +1,84 @@
 ---
-description: Initialize autonomous development project with sub agents
+description: Initialize autonomous development project from PROMPT.md
 ---
 
 # Initialize Autonomous Project
 
-Start a new project using the autonomous sub agent development system.
+Start a new project using the autonomous sub agent development system by reading requirements from `~/workspace/PROMPT.md`.
 
 ## Process
 
-When the user requests to create a project, I will:
+When invoked, I will:
 
-1. **Parse the request** to determine:
-   - Project type and requirements
-   - Whether requirements are clear enough
-   - Starting agent (product-manager for vague, architect for clear)
+1. **Check for PROMPT.md**:
+   - Look for `~/workspace/PROMPT.md`
+   - If not found, instruct user to create it
+   - Read the contents as project requirements
 
-2. **Create the journal** at `~/workspace/JOURNAL.md`
+2. **Parse requirements** to determine:
+   - Project type and complexity
+   - Starting agent (product-manager for analysis, architect if very specific)
 
-3. **Add initial events**:
+3. **Create the journal** at `~/workspace/JOURNAL.md` with:
    - PROJECT_INIT event
+   - USER_REQUEST with full prompt content
    - WORK_ASSIGNED for the first agent
    - NEXT_AGENT directive
 
-4. **Instruct delegation** to begin autonomous flow
+4. **Start autonomous flow** by instructing delegation
 
-## Decision Logic
+## Usage Flow
 
-- **Vague requests** → Start with product-manager
-  - "Create a chat app"
-  - "Build something for task management"
-  - "I need a tool for X"
+1. User creates `~/workspace/PROMPT.md`:
+   ```markdown
+   # Project: [Name]
+   
+   [Detailed requirements and specifications]
+   ```
 
-- **Clear technical requests** → Start with architect
-  - "Create a REST API with CRUD operations for todos"
-  - "Build a CLI tool in Rust that converts JSON to YAML"
+2. User runs: `/init-autonomous`
 
-## Journal Format
+3. System reads PROMPT.md and begins autonomous development
 
+## File Check
+
+If PROMPT.md doesn't exist:
 ```
-TIMESTAMP | EVENT_TYPE | DETAILS
-```
+No PROMPT.md found. Please create ~/workspace/PROMPT.md with your project requirements:
 
-Example initialization:
-```
-2024-01-20T10:00:00Z | PROJECT_INIT | Starting chat application
-2024-01-20T10:00:01Z | WORK_ASSIGNED | PRODUCT_MANAGER | Define requirements for chat app
-2024-01-20T10:00:02Z | NEXT_AGENT | system | product-manager | Requirements analysis needed
-```
+cat > ~/workspace/PROMPT.md << 'EOF'
+# Project: Your Project Name
 
-## Delegation Message
+Describe what you want to build...
 
-After creating the journal, I will say:
+## Requirements
+- Feature 1
+- Feature 2
 
-"I've initialized the autonomous development system. Please delegate to the [agent-name] agent to begin."
+## Technical Constraints
+- Language preference
+- Performance needs
+EOF
 
-The Stop hook will then automatically continue the process.
-
-## Usage
-
-Simply describe what you want to build, then use:
-```
-/init-autonomous
+Then run /init-autonomous again.
 ```
 
-The system will determine the appropriate starting point and begin the autonomous development cycle.
+## Journal Initialization
+
+Example journal creation:
+```
+2024-01-20T10:00:00Z | PROJECT_INIT | Starting project from PROMPT.md
+2024-01-20T10:00:01Z | USER_REQUEST | [Full content from PROMPT.md]
+2024-01-20T10:00:02Z | WORK_ASSIGNED | PRODUCT_MANAGER | Analyze requirements from PROMPT.md
+2024-01-20T10:00:03Z | NEXT_AGENT | system | product-manager | Requirements analysis needed
+```
+
+## Benefits
+
+- Clear requirements before starting
+- Reproducible development cycles
+- No ambiguity about project scope
+- Easy to iterate on requirements
+- Can version control PROMPT.md
+
+The system will read PROMPT.md and begin the autonomous development cycle with clear, documented requirements.

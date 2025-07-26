@@ -2,13 +2,22 @@
 
 ## Quick Start
 
-Simply tell me what you want to build:
-- "Create a REST API for a todo list"
-- "Build a web scraper in Node.js"
-- "Develop a CLI tool in Rust"
-- "Create a real-time chat application"
+1. **Create your requirements file** at `~/workspace/PROMPT.md`:
+   ```markdown
+   # Project: Todo Management API
+   
+   Create a REST API for managing todos with:
+   - CRUD operations
+   - Status filtering
+   - PostgreSQL storage
+   ```
 
-Then use `/init-autonomous` to start the autonomous development process. The system will automatically progress through specialized agents to design, implement, test, review, and release your project.
+2. **Run the initialization command**:
+   ```
+   /init-autonomous
+   ```
+
+3. The system will automatically progress through all development phases.
 
 ## How It Works
 
@@ -25,7 +34,7 @@ The Stop hook ensures continuous autonomous execution by reading NEXT_AGENT dire
 ## Available Commands
 
 ### Project Initialization
-- `/init-autonomous` - Parse your request and start autonomous development
+- `/init-autonomous` - Read requirements from ~/workspace/PROMPT.md and start development
 
 ### Monitoring
 - `/show-journal` - Display recent journal entries
@@ -82,4 +91,4 @@ Non-linear flows are supported (e.g., REVIEWER → DEVELOPER for fixes).
 
 ---
 
-*Start by describing your project, then use `/init-autonomous` to begin the autonomous development process!*
+*Create your project requirements in ~/workspace/PROMPT.md, then use `/init-autonomous` to begin the autonomous development process!*

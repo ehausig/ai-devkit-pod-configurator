@@ -17,21 +17,30 @@ This system orchestrates specialized AI agents through a complete software devel
 
 The system uses an event-driven architecture with:
 
-1. **Sub Agents** - Each persona is a specialized Claude Code sub-agent with its own context
-2. **Journal** - `~/workspace/JOURNAL.md` maintains state across agents
-3. **Stop Hook** - Automatically continues the workflow by reading NEXT_AGENT directives
-4. **Autonomous Flow** - Agents delegate to each other without manual intervention
+1. **Requirements File** - `~/workspace/PROMPT.md` contains project specifications
+2. **Sub Agents** - Each persona is a specialized Claude Code sub-agent with its own context
+3. **Journal** - `~/workspace/JOURNAL.md` maintains state across agents
+4. **Stop Hook** - Automatically continues the workflow by reading NEXT_AGENT directives
+5. **Autonomous Flow** - Agents delegate to each other without manual intervention
 
 ## Quick Start
 
-1. Start Claude Code:
+1. Create your project requirements:
    ```bash
-   claude
+   cat > ~/workspace/PROMPT.md << 'EOF'
+   # Project: Todo Management API
+   
+   Create a REST API for managing todos with:
+   - CRUD operations (Create, Read, Update, Delete)
+   - Status filtering (all, active, completed)
+   - PostgreSQL for data storage
+   - Support for 100 concurrent users
+   EOF
    ```
 
-2. Describe your project:
-   ```
-   Create a REST API for managing a todo list with CRUD operations
+2. Start Claude Code:
+   ```bash
+   claude
    ```
 
 3. Initialize the autonomous system:
@@ -43,7 +52,7 @@ The system uses an event-driven architecture with:
 
 ## Available Commands
 
-- `/init-autonomous` - Start a new autonomous development project
+- `/init-autonomous` - Start a new project (reads requirements from ~/workspace/PROMPT.md)
 - `/show-journal` - View the development progress and agent activity
 - `/event-query [type]` - Query specific events from the journal
 
@@ -126,6 +135,40 @@ The system is configured through:
 - **Commands** - Utility commands in `commands/`
 - **Hook** - `autonomous-continue.sh` for autonomous flow
 
+## Example PROMPT.md
+
+Here's a template for creating your requirements:
+
+```markdown
+# Project: [Your Project Name]
+
+[Brief description of what you want to build]
+
+## Functional Requirements
+- [Feature 1]
+- [Feature 2]
+- [Feature 3]
+
+## Technical Requirements
+- Language: [Python/Node.js/Rust/Go]
+- Database: [PostgreSQL/MongoDB/SQLite]
+- Framework preferences: [any specific preferences]
+
+## Performance Requirements
+- Concurrent users: [number]
+- Response time: [target in ms]
+- Uptime: [availability target]
+
+## Constraints
+- [Time constraints]
+- [Resource limitations]
+- [Security requirements]
+
+## Out of Scope (Future Phases)
+- [Feature to implement later]
+- [Another future feature]
+```
+
 ## Development Principles
 
 1. **Requirements First** - Clear requirements prevent costly revisions
@@ -152,7 +195,8 @@ The system can build:
 - Verify Stop hook is properly configured
 
 ### Agent Not Starting
-- Ensure work is assigned in journal
+- Ensure PROMPT.md exists in ~/workspace/
+- Check work is assigned in journal
 - Check NEXT_AGENT directive exists
 - Verify agent file exists in `~/.claude/agents/`
 
