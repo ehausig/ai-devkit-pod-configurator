@@ -2,6 +2,19 @@
 
 ## Quick Start
 
+### Option 1: Interactive Requirements (Easier)
+1. **Run the requirements gathering command**:
+   ```
+   /create-prompt
+   ```
+   I'll ask you questions about your project and create PROMPT.md for you.
+
+2. **Start autonomous development**:
+   ```
+   /init-autonomous
+   ```
+
+### Option 2: Direct Requirements (Faster)
 1. **Create your requirements file** at `~/workspace/PROMPT.md`:
    ```markdown
    # Project: Todo Management API
@@ -17,7 +30,7 @@
    /init-autonomous
    ```
 
-3. The system will automatically progress through all development phases.
+Both approaches lead to the same autonomous development process.
 
 ## How It Works
 
@@ -33,10 +46,9 @@ The Stop hook ensures continuous autonomous execution by reading NEXT_AGENT dire
 
 ## Available Commands
 
-### Project Initialization
+### Commands
+- `/create-prompt` - Interactive requirements gathering (creates PROMPT.md)
 - `/init-autonomous` - Read requirements from ~/workspace/PROMPT.md and start development
-
-### Monitoring
 - `/show-journal` - Display recent journal entries
 - `/event-query [type]` - Query specific events from the journal
 
