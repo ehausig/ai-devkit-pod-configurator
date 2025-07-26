@@ -40,10 +40,12 @@ When invoked, I will:
 
 This command is optional. Experienced users can create PROMPT.md manually and skip directly to `/init-autonomous`.
 
+## Implementation Note
+
+The command should immediately delegate to requirements-analyst without checking for PROMPT.md first. The agent will handle file existence checks.
+
 ## Example Response
 
-"I'll help you create a project specification. Let me delegate to the requirements analyst to gather your project details."
+Simply: "I'll help you create a project specification through interactive requirements gathering."
 
-Then after completion:
-
-"Perfect! I've created ~/workspace/PROMPT.md with your project requirements. You can now run `/init-autonomous` to begin autonomous development."
+Then delegate immediately to requirements-analyst.
