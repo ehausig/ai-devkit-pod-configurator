@@ -35,6 +35,8 @@ log "Setting up Claude Code autonomous development system with sub agents..."
 mkdir -p "$TEMP_DIR/commands"
 mkdir -p "$TEMP_DIR/hooks"
 mkdir -p "$TEMP_DIR/agents"
+mkdir -p "$TEMP_DIR/scripts"
+mkdir -p "$TEMP_DIR/scripts"
 
 # Copy user documentation
 log "Copying user documentation..."
@@ -49,8 +51,8 @@ success "Copied claude-settings.json.template"
 # Copy commands (only the ones we need for sub agent system)
 if [[ -d "$SCRIPT_DIR/claude-code/commands" ]]; then
     log "Copying autonomous development commands..."
-    # Only copy utility commands, not persona commands
-    for cmd in init-autonomous show-journal event-query; do
+    # Copy all needed commands including create-prompt
+    for cmd in init-autonomous show-journal event-query create-prompt; do
         if [[ -f "$SCRIPT_DIR/claude-code/commands/${cmd}.md" ]]; then
             cp "$SCRIPT_DIR/claude-code/commands/${cmd}.md" "$TEMP_DIR/commands/"
         fi
@@ -71,6 +73,13 @@ if [[ -d "$SCRIPT_DIR/claude-code/agents" ]]; then
     log "Copying sub agent definitions..."
     cp -r "$SCRIPT_DIR/claude-code/agents/"*.md "$TEMP_DIR/agents/" 2>/dev/null || true
     success "Copied $(ls -1 "$TEMP_DIR/agents/"*.md 2>/dev/null | wc -l) sub agents"
+fi
+
+# Copy utility scripts
+if [[ -d "$SCRIPT_DIR/claude-code/scripts" ]]; then
+    log "Copying utility scripts..."
+    cp -r "$SCRIPT_DIR/claude-code/scripts/"*.sh "$TEMP_DIR/scripts/" 2>/dev/null || true
+    success "Copied $(ls -1 "$TEMP_DIR/scripts/"*.sh 2>/dev/null | wc -l) scripts"
 fi
 
 # Generate component imports file

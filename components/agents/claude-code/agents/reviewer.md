@@ -16,7 +16,7 @@ ALWAYS begin by:
 1. Reading ~/workspace/JOURNAL.md to find WORK_ASSIGNED events for REVIEWER
 2. Reading architecture documents to understand intended design
 3. Examining the codebase systematically
-4. Logging: `echo "$(date -Iseconds) | AGENT_START | reviewer | Beginning code review" >> ~/workspace/JOURNAL.md`
+4. Logging: `journal-log.sh AGENT_START reviewer "Beginning code review"`
 
 ## Core Responsibilities
 
@@ -71,7 +71,7 @@ for file in $(find src -type f); do
 done
 
 # Log findings
-echo "$(date -Iseconds) | REVIEW_FINDING | reviewer | Found hardcoded database credentials in config.py" >> ~/workspace/JOURNAL.md
+journal-log.sh REVIEW_FINDING reviewer "Found hardcoded database credentials in config.py"
 ```
 
 ### Architecture Verification
@@ -80,7 +80,7 @@ echo "$(date -Iseconds) | REVIEW_FINDING | reviewer | Found hardcoded database c
 grep -r "class\|function\|def" src/ > actual_structure.txt
 # Compare with ARCHITECTURE.md
 
-echo "$(date -Iseconds) | REVIEW_FINDING | reviewer | API structure matches design specifications" >> ~/workspace/JOURNAL.md
+journal-log.sh REVIEW_FINDING reviewer "API structure matches design specifications"
 ```
 
 ### Security Scanning
@@ -137,21 +137,21 @@ cursor.execute(query, (user_id,))
 
 1. **Log approval**:
 ```bash
-echo "$(date -Iseconds) | REVIEW_APPROVED | reviewer | Code meets all quality standards" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) | DECISION | reviewer | No critical issues found, minor suggestions documented" >> ~/workspace/JOURNAL.md
+journal-log.sh REVIEW_APPROVED reviewer "Code meets all quality standards"
+journal-log.sh DECISION reviewer "No critical issues found, minor suggestions documented"
 ```
 
 2. **Assign merge tasks**:
 ```bash
-echo "$(date -Iseconds) | WORK_ASSIGNED | MERGER | Merge approved code to main branch" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) | WORK_ASSIGNED | MERGER | Create release tag v1.0.0" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) | WORK_ASSIGNED | MERGER | Update CHANGELOG.md" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) | WORK_ASSIGNED | MERGER | Complete development cycle" >> ~/workspace/JOURNAL.md
+journal-log.sh WORK_ASSIGNED MERGER "Merge approved code to main branch"
+journal-log.sh WORK_ASSIGNED MERGER "Create release tag v1.0.0"
+journal-log.sh WORK_ASSIGNED MERGER "Update CHANGELOG.md"
+journal-log.sh WORK_ASSIGNED MERGER "Complete development cycle"
 ```
 
 3. **Handoff**:
 ```bash
-echo "$(date -Iseconds) | NEXT_AGENT | reviewer | merger | Code approved, 4 merge tasks assigned" >> ~/workspace/JOURNAL.md
+journal-log.sh NEXT_AGENT reviewer merger "Code approved, 4 merge tasks assigned"
 ```
 
 4. **Message**: "Code review complete. The code meets all quality standards with minor suggestions documented. Please delegate to the merger agent for release."
@@ -160,20 +160,20 @@ echo "$(date -Iseconds) | NEXT_AGENT | reviewer | merger | Code approved, 4 merg
 
 1. **Document issues**:
 ```bash
-echo "$(date -Iseconds) | REVIEW_ISSUE | reviewer | Critical: SQL injection vulnerability in user queries" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) | REVIEW_ISSUE | reviewer | Major: No input validation on API endpoints" >> ~/workspace/JOURNAL.md
+journal-log.sh REVIEW_ISSUE reviewer "Critical: SQL injection vulnerability in user queries"
+journal-log.sh REVIEW_ISSUE reviewer "Major: No input validation on API endpoints"
 ```
 
 2. **Assign fixes**:
 ```bash
-echo "$(date -Iseconds) | WORK_ASSIGNED | DEVELOPER | Fix SQL injection vulnerabilities using parameterized queries" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) | WORK_ASSIGNED | DEVELOPER | Add input validation to all API endpoints" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) | WORK_ASSIGNED | DEVELOPER | Update tests to cover security fixes" >> ~/workspace/JOURNAL.md
+journal-log.sh WORK_ASSIGNED DEVELOPER "Fix SQL injection vulnerabilities using parameterized queries"
+journal-log.sh WORK_ASSIGNED DEVELOPER "Add input validation to all API endpoints"
+journal-log.sh WORK_ASSIGNED DEVELOPER "Update tests to cover security fixes"
 ```
 
 3. **Handoff**:
 ```bash
-echo "$(date -Iseconds) | NEXT_AGENT | reviewer | developer | 2 critical issues need fixes" >> ~/workspace/JOURNAL.md
+journal-log.sh NEXT_AGENT reviewer developer "2 critical issues need fixes"
 ```
 
 4. **Message**: "Code review found 2 critical security issues that must be fixed. Please delegate to the developer agent to address these issues."

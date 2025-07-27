@@ -16,7 +16,7 @@ ALWAYS begin by:
 1. Reading ~/workspace/JOURNAL.md to find WORK_ASSIGNED events for QA
 2. Reading TESTING_STRATEGY.md and requirements
 3. Setting up test environment with REAL services
-4. Logging: `echo "$(date -Iseconds) | AGENT_START | qa | Beginning quality assurance" >> ~/workspace/JOURNAL.md`
+4. Logging: `journal-log.sh AGENT_START qa "Beginning quality assurance"`
 
 ## Core Responsibilities
 
@@ -64,7 +64,7 @@ pytest --cov=src --cov-report=html
 # or
 npm test -- --coverage
 
-echo "$(date -Iseconds) | TEST_RESULT | qa | Unit tests: 142 passed, 3 failed" >> ~/workspace/JOURNAL.md
+journal-log.sh TEST_RESULT qa "Unit tests: 142 passed, 3 failed"
 ```
 
 ### Integration Testing (REAL Services)
@@ -72,7 +72,7 @@ echo "$(date -Iseconds) | TEST_RESULT | qa | Unit tests: 142 passed, 3 failed" >
 # NEVER mock - use actual services
 python integration_tests.py --real-db --real-api
 
-echo "$(date -Iseconds) | TEST_RESULT | qa | Integration tests with PostgreSQL: All passed" >> ~/workspace/JOURNAL.md
+journal-log.sh TEST_RESULT qa "Integration tests with PostgreSQL: All passed"
 ```
 
 ### Performance Testing
@@ -80,7 +80,7 @@ echo "$(date -Iseconds) | TEST_RESULT | qa | Integration tests with PostgreSQL: 
 # Load testing
 ab -n 1000 -c 100 http://localhost:8080/api/users
 
-echo "$(date -Iseconds) | PERFORMANCE | qa | Response time: avg 45ms, max 120ms (requirement: <200ms)" >> ~/workspace/JOURNAL.md
+journal-log.sh PERFORMANCE qa "Response time: avg 45ms, max 120ms (requirement: <200ms)"
 ```
 
 ### Security Testing
@@ -96,7 +96,7 @@ Document all issues clearly:
 
 ```bash
 # Log issue
-echo "$(date -Iseconds) | QA_ISSUE | qa | Login fails with special characters: SQL escape needed" >> ~/workspace/JOURNAL.md
+journal-log.sh QA_ISSUE qa "Login fails with special characters: SQL escape needed"
 
 # Create detailed report
 cat > QA_ISSUES.md << 'EOF'
@@ -154,19 +154,19 @@ Based on results, decide next agent:
 
 1. **Log success**:
 ```bash
-echo "$(date -Iseconds) | QA_COMPLETE | qa | All tests passing, requirements met" >> ~/workspace/JOURNAL.md
+journal-log.sh QA_COMPLETE qa "All tests passing, requirements met"
 ```
 
 2. **Assign review**:
 ```bash
-echo "$(date -Iseconds) | WORK_ASSIGNED | REVIEWER | Review code quality and architecture compliance" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) | WORK_ASSIGNED | REVIEWER | Verify security best practices" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) | WORK_ASSIGNED | REVIEWER | Check test quality and coverage" >> ~/workspace/JOURNAL.md
+journal-log.sh WORK_ASSIGNED REVIEWER "Review code quality and architecture compliance"
+journal-log.sh WORK_ASSIGNED REVIEWER "Verify security best practices"
+journal-log.sh WORK_ASSIGNED REVIEWER "Check test quality and coverage"
 ```
 
 3. **Handoff to reviewer**:
 ```bash
-echo "$(date -Iseconds) | NEXT_AGENT | qa | reviewer | All tests pass, ready for code review" >> ~/workspace/JOURNAL.md
+journal-log.sh NEXT_AGENT qa reviewer "All tests pass, ready for code review"
 ```
 
 4. **Message**: "QA complete. All tests pass with 87% coverage. No critical issues found. Please delegate to the reviewer agent."
@@ -175,13 +175,13 @@ echo "$(date -Iseconds) | NEXT_AGENT | qa | reviewer | All tests pass, ready for
 
 1. **Assign fixes**:
 ```bash
-echo "$(date -Iseconds) | WORK_ASSIGNED | DEVELOPER | Fix SQL injection in login endpoint" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) | WORK_ASSIGNED | DEVELOPER | Handle special characters in user input" >> ~/workspace/JOURNAL.md
+journal-log.sh WORK_ASSIGNED DEVELOPER "Fix SQL injection in login endpoint"
+journal-log.sh WORK_ASSIGNED DEVELOPER "Handle special characters in user input"
 ```
 
 2. **Handoff to developer**:
 ```bash
-echo "$(date -Iseconds) | NEXT_AGENT | qa | developer | 2 critical issues need fixes" >> ~/workspace/JOURNAL.md
+journal-log.sh NEXT_AGENT qa developer "2 critical issues need fixes"
 ```
 
 3. **Message**: "QA found 2 critical issues that need fixing. Please delegate to the developer agent to address these issues."

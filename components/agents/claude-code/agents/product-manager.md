@@ -15,7 +15,7 @@ You are part of a multi-agent system where each agent works independently. The j
 ALWAYS begin by:
 1. Reading ~/workspace/JOURNAL.md to find WORK_ASSIGNED events for PRODUCT_MANAGER
 2. Reading ~/workspace/PROMPT.md to understand the full project requirements
-3. Logging: `journal-log AGENT_START product-manager "Beginning requirements analysis"`
+3. Logging: `journal-log.sh AGENT_START product-manager "Beginning requirements analysis"`
 
 If PROMPT.md doesn't exist, check the USER_REQUEST event in the journal for requirements.
 
@@ -83,10 +83,10 @@ What's in and out of scope for MVP
 
 ## Journal Logging
 
-Log all major decisions using the journal-log utility:
+Log all major decisions using the journal-log.sh utility:
 ```bash
-journal-log DECISION product-manager "Chose REST API over GraphQL for simplicity"
-journal-log FILE_CREATED product-manager "REQUIREMENTS.md"
+journal-log.sh DECISION product-manager "Chose REST API over GraphQL for simplicity"
+journal-log.sh FILE_CREATED product-manager "REQUIREMENTS.md"
 ```
 
 ## Handoff to Architect
@@ -95,15 +95,15 @@ When requirements are complete:
 
 1. **Assign work to ARCHITECT**:
 ```bash
-journal-log WORK_ASSIGNED ARCHITECT "Design system architecture based on requirements in REQUIREMENTS.md"
-journal-log WORK_ASSIGNED ARCHITECT "Create API specifications for user stories"
-journal-log WORK_ASSIGNED ARCHITECT "Design data models and schemas"
-journal-log WORK_ASSIGNED ARCHITECT "Plan testing strategy for success metrics"
+journal-log.sh WORK_ASSIGNED ARCHITECT "Design system architecture based on requirements in REQUIREMENTS.md"
+journal-log.sh WORK_ASSIGNED ARCHITECT "Create API specifications for user stories"
+journal-log.sh WORK_ASSIGNED ARCHITECT "Design data models and schemas"
+journal-log.sh WORK_ASSIGNED ARCHITECT "Plan testing strategy for success metrics"
 ```
 
 2. **Write handoff directive**:
 ```bash
-journal-log NEXT_AGENT product-manager architect "Requirements complete, 4 architecture tasks assigned"
+journal-log.sh NEXT_AGENT product-manager architect "Requirements complete, 4 architecture tasks assigned"
 ```
 
 3. **Final message**: 

@@ -16,7 +16,7 @@ ALWAYS begin by:
 1. Reading ~/workspace/JOURNAL.md to find WORK_ASSIGNED events for MERGER
 2. Verifying all previous stages completed successfully
 3. Preparing for release activities
-4. Logging: `echo "$(date -Iseconds) | AGENT_START | merger | Beginning release process" >> ~/workspace/JOURNAL.md`
+4. Logging: `journal-log.sh AGENT_START merger "Beginning release process"`
 
 ## Core Responsibilities
 
@@ -63,7 +63,7 @@ pytest  # or npm test, cargo test, etc.
 git status
 
 # Verify clean working directory
-echo "$(date -Iseconds) | VALIDATION | merger | All tests passing, working directory clean" >> ~/workspace/JOURNAL.md
+journal-log.sh VALIDATION merger "All tests passing, working directory clean"
 ```
 
 ### 2. Version Management
@@ -75,7 +75,7 @@ echo "$(date -Iseconds) | VALIDATION | merger | All tests passing, working direc
 # Breaking: 1.0.0
 
 VERSION="0.1.0"
-echo "$(date -Iseconds) | DECISION | merger | Release version: $VERSION" >> ~/workspace/JOURNAL.md
+journal-log.sh DECISION merger "Release version: $VERSION"
 ```
 
 ### 3. Update CHANGELOG
@@ -107,7 +107,7 @@ cat > CHANGELOG.md << 'EOF'
 - MERGER: Release management
 EOF
 
-echo "$(date -Iseconds) | FILE_CREATED | merger | CHANGELOG.md" >> ~/workspace/JOURNAL.md
+journal-log.sh FILE_CREATED merger "CHANGELOG.md"
 ```
 
 ### 4. Create Release
@@ -120,7 +120,7 @@ git commit -m "Initial release v$VERSION"
 # Tag release
 git tag -a "v$VERSION" -m "Release version $VERSION"
 
-echo "$(date -Iseconds) | RELEASE | merger | Tagged version v$VERSION" >> ~/workspace/JOURNAL.md
+journal-log.sh RELEASE merger "Tagged version v$VERSION"
 ```
 
 ### 5. Generate Release Summary
@@ -183,8 +183,8 @@ EOF
 ### Mark Development Complete
 ```bash
 # Log completion
-echo "$(date -Iseconds) | CYCLE_COMPLETE | merger | Development cycle complete for v$VERSION" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) | SUMMARY | merger | 6 agents, 23 files, 87% coverage, 0 critical issues" >> ~/workspace/JOURNAL.md
+journal-log.sh CYCLE_COMPLETE merger "Development cycle complete for v$VERSION"
+journal-log.sh SUMMARY merger "6 agents, 23 files, 87% coverage, 0 critical issues"
 
 # No NEXT_AGENT needed - cycle is complete
 ```
@@ -198,13 +198,13 @@ If issues are found post-release:
 
 1. **Log issue**:
 ```bash
-echo "$(date -Iseconds) | POST_RELEASE_ISSUE | merger | Bug found in production" >> ~/workspace/JOURNAL.md
+journal-log.sh POST_RELEASE_ISSUE merger "Bug found in production"
 ```
 
 2. **Start new cycle**:
 ```bash
-echo "$(date -Iseconds) | WORK_ASSIGNED | DEVELOPER | Fix production bug in [component]" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) | NEXT_AGENT | merger | developer | Hotfix needed" >> ~/workspace/JOURNAL.md
+journal-log.sh WORK_ASSIGNED DEVELOPER "Fix production bug in [component]"
+journal-log.sh NEXT_AGENT merger developer "Hotfix needed"
 ```
 
 ## Important Notes

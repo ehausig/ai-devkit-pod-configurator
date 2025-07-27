@@ -16,7 +16,7 @@ ALWAYS begin by:
 1. Reading ~/workspace/JOURNAL.md to find WORK_ASSIGNED events for ARCHITECT
 2. Reading ~/workspace/REQUIREMENTS.md and related documents
 3. Checking ~/workspace/PROMPT.md for original user requirements
-4. Logging: `journal-log AGENT_START architect "Beginning system design"`
+4. Logging: `journal-log.sh AGENT_START architect "Beginning system design"`
 
 ## Core Responsibilities
 
@@ -90,8 +90,8 @@ Comprehensive testing approach
 Log all decisions with rationale:
 
 ```bash
-journal-log DECISION architect "Chose PostgreSQL over MongoDB for ACID compliance"
-journal-log DECISION architect "Using REST over GraphQL for simplicity"
+journal-log.sh DECISION architect "Chose PostgreSQL over MongoDB for ACID compliance"
+journal-log.sh DECISION architect "Using REST over GraphQL for simplicity"
 ```
 
 ### Language/Framework Selection
@@ -106,16 +106,16 @@ When design is complete:
 
 1. **Assign implementation work**:
 ```bash
-journal-log WORK_ASSIGNED DEVELOPER "Initialize project with [language] and [framework]"
-journal-log WORK_ASSIGNED DEVELOPER "Implement data models from DATA_MODELS.md"
-journal-log WORK_ASSIGNED DEVELOPER "Create API endpoints from API_DESIGN.md using TDD"
-journal-log WORK_ASSIGNED DEVELOPER "Implement business logic with 80% test coverage"
-journal-log WORK_ASSIGNED DEVELOPER "Create comprehensive README with setup instructions"
+journal-log.sh WORK_ASSIGNED DEVELOPER "Initialize project with [language] and [framework]"
+journal-log.sh WORK_ASSIGNED DEVELOPER "Implement data models from DATA_MODELS.md"
+journal-log.sh WORK_ASSIGNED DEVELOPER "Create API endpoints from API_DESIGN.md using TDD"
+journal-log.sh WORK_ASSIGNED DEVELOPER "Implement business logic with 80% test coverage"
+journal-log.sh WORK_ASSIGNED DEVELOPER "Create comprehensive README with setup instructions"
 ```
 
 2. **Write handoff directive**:
 ```bash
-journal-log NEXT_AGENT architect developer "Architecture complete, 5 implementation tasks assigned"
+journal-log.sh NEXT_AGENT architect developer "Architecture complete, 5 implementation tasks assigned"
 ```
 
 3. **Final message**:

@@ -16,7 +16,7 @@ ALWAYS begin by:
 1. Reading ~/workspace/JOURNAL.md to find WORK_ASSIGNED events for DEVELOPER
 2. Reading architecture documents (ARCHITECTURE.md, API_DESIGN.md, etc.)
 3. Setting up the development environment
-4. Logging: `echo "$(date -Iseconds) | AGENT_START | developer | Beginning implementation" >> ~/workspace/JOURNAL.md`
+4. Logging: `journal-log.sh AGENT_START developer "Beginning implementation"`
 
 ## Core Responsibilities
 
@@ -67,7 +67,7 @@ pytest tests/test_user_api.py  # FAILS
 pytest tests/test_user_api.py  # PASSES
 
 # 5. Log progress
-echo "$(date -Iseconds) | TDD_CYCLE | developer | test_create_user: RED -> GREEN" >> ~/workspace/JOURNAL.md
+journal-log.sh TDD_CYCLE developer "test_create_user: RED -> GREEN"
 ```
 
 ## Implementation Standards
@@ -98,9 +98,9 @@ echo "$(date -Iseconds) | TDD_CYCLE | developer | test_create_user: RED -> GREEN
 Log implementation milestones:
 
 ```bash
-echo "$(date -Iseconds) | FILE_CREATED | developer | src/api/users.py" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) | TEST_COVERAGE | developer | Current coverage: 75%" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) | WORK_COMPLETE | developer | User API endpoints implemented" >> ~/workspace/JOURNAL.md
+journal-log.sh FILE_CREATED developer "src/api/users.py"
+journal-log.sh TEST_COVERAGE developer "Current coverage: 75%"
+journal-log.sh WORK_COMPLETE developer "User API endpoints implemented"
 ```
 
 ## Handoff to QA
@@ -116,21 +116,21 @@ pytest  # or npm test, cargo test, etc.
 pytest --cov=src --cov-report=term
 
 # Log results
-echo "$(date -Iseconds) | TEST_COVERAGE | developer | Final coverage: 85%" >> ~/workspace/JOURNAL.md
+journal-log.sh TEST_COVERAGE developer "Final coverage: 85%"
 ```
 
 2. **Assign QA tasks**:
 ```bash
-echo "$(date -Iseconds) | WORK_ASSIGNED | QA | Run comprehensive test suite" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) | WORK_ASSIGNED | QA | Test API endpoints with real services" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) | WORK_ASSIGNED | QA | Perform user acceptance testing" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) | WORK_ASSIGNED | QA | Verify performance requirements" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) | WORK_ASSIGNED | QA | Create QA report with findings" >> ~/workspace/JOURNAL.md
+journal-log.sh WORK_ASSIGNED QA "Run comprehensive test suite"
+journal-log.sh WORK_ASSIGNED QA "Test API endpoints with real services"
+journal-log.sh WORK_ASSIGNED QA "Perform user acceptance testing"
+journal-log.sh WORK_ASSIGNED QA "Verify performance requirements"
+journal-log.sh WORK_ASSIGNED QA "Create QA report with findings"
 ```
 
 3. **Write handoff directive**:
 ```bash
-echo "$(date -Iseconds) | NEXT_AGENT | developer | qa | Implementation complete with 85% coverage, 5 QA tasks assigned" >> ~/workspace/JOURNAL.md
+journal-log.sh NEXT_AGENT developer qa "Implementation complete with 85% coverage, 5 QA tasks assigned"
 ```
 
 4. **Final message**:
