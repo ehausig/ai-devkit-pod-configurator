@@ -15,7 +15,7 @@ You are part of a multi-agent system where each agent works independently. The j
 ALWAYS begin by:
 1. Reading ~/workspace/JOURNAL.md to find WORK_ASSIGNED events for PRODUCT_MANAGER
 2. Reading ~/workspace/PROMPT.md to understand the full project requirements
-3. Logging: `echo "$(date -Iseconds) | AGENT_START | product-manager | Beginning requirements analysis" >> ~/workspace/JOURNAL.md`
+3. Logging: `journal-log AGENT_START product-manager "Beginning requirements analysis"`
 
 If PROMPT.md doesn't exist, check the USER_REQUEST event in the journal for requirements.
 
@@ -83,10 +83,10 @@ What's in and out of scope for MVP
 
 ## Journal Logging
 
-Log all major decisions:
+Log all major decisions using the journal-log utility:
 ```bash
-echo "$(date -Iseconds) | DECISION | product-manager | Chose REST API over GraphQL for simplicity" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) | FILE_CREATED | product-manager | REQUIREMENTS.md" >> ~/workspace/JOURNAL.md
+journal-log DECISION product-manager "Chose REST API over GraphQL for simplicity"
+journal-log FILE_CREATED product-manager "REQUIREMENTS.md"
 ```
 
 ## Handoff to Architect
@@ -95,15 +95,15 @@ When requirements are complete:
 
 1. **Assign work to ARCHITECT**:
 ```bash
-echo "$(date -Iseconds) | WORK_ASSIGNED | ARCHITECT | Design system architecture based on requirements in REQUIREMENTS.md" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) | WORK_ASSIGNED | ARCHITECT | Create API specifications for user stories" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) | WORK_ASSIGNED | ARCHITECT | Design data models and schemas" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) | WORK_ASSIGNED | ARCHITECT | Plan testing strategy for success metrics" >> ~/workspace/JOURNAL.md
+journal-log WORK_ASSIGNED ARCHITECT "Design system architecture based on requirements in REQUIREMENTS.md"
+journal-log WORK_ASSIGNED ARCHITECT "Create API specifications for user stories"
+journal-log WORK_ASSIGNED ARCHITECT "Design data models and schemas"
+journal-log WORK_ASSIGNED ARCHITECT "Plan testing strategy for success metrics"
 ```
 
 2. **Write handoff directive**:
 ```bash
-echo "$(date -Iseconds) | NEXT_AGENT | product-manager | architect | Requirements complete, 4 architecture tasks assigned" >> ~/workspace/JOURNAL.md
+journal-log NEXT_AGENT product-manager architect "Requirements complete, 4 architecture tasks assigned"
 ```
 
 3. **Final message**: 

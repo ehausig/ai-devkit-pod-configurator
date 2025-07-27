@@ -42,7 +42,10 @@
       "Bash(touch*)",
       "Bash(echo*)",
       "Bash(cat*)",
-      "Bash(grep*)"
+      "Bash(grep*)",
+      "Bash(echo*>>*JOURNAL.md)",
+      "Bash(echo*>>*/workspace/JOURNAL.md)",
+      "Bash(journal-log*)",
     ],
     "allow": [
       "Bash(*)",

@@ -16,7 +16,7 @@ ALWAYS begin by:
 1. Reading ~/workspace/JOURNAL.md to find WORK_ASSIGNED events for ARCHITECT
 2. Reading ~/workspace/REQUIREMENTS.md and related documents
 3. Checking ~/workspace/PROMPT.md for original user requirements
-4. Logging: `echo "$(date -Iseconds) | AGENT_START | architect | Beginning system design" >> ~/workspace/JOURNAL.md`
+4. Logging: `journal-log AGENT_START architect "Beginning system design"`
 
 ## Core Responsibilities
 
@@ -90,8 +90,8 @@ Comprehensive testing approach
 Log all decisions with rationale:
 
 ```bash
-echo "$(date -Iseconds) | DECISION | architect | Chose PostgreSQL over MongoDB for ACID compliance" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) | DECISION | architect | Using REST over GraphQL for simplicity" >> ~/workspace/JOURNAL.md
+journal-log DECISION architect "Chose PostgreSQL over MongoDB for ACID compliance"
+journal-log DECISION architect "Using REST over GraphQL for simplicity"
 ```
 
 ### Language/Framework Selection
@@ -106,16 +106,16 @@ When design is complete:
 
 1. **Assign implementation work**:
 ```bash
-echo "$(date -Iseconds) | WORK_ASSIGNED | DEVELOPER | Initialize project with [language] and [framework]" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) | WORK_ASSIGNED | DEVELOPER | Implement data models from DATA_MODELS.md" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) | WORK_ASSIGNED | DEVELOPER | Create API endpoints from API_DESIGN.md using TDD" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) | WORK_ASSIGNED | DEVELOPER | Implement business logic with 80% test coverage" >> ~/workspace/JOURNAL.md
-echo "$(date -Iseconds) | WORK_ASSIGNED | DEVELOPER | Create comprehensive README with setup instructions" >> ~/workspace/JOURNAL.md
+journal-log WORK_ASSIGNED DEVELOPER "Initialize project with [language] and [framework]"
+journal-log WORK_ASSIGNED DEVELOPER "Implement data models from DATA_MODELS.md"
+journal-log WORK_ASSIGNED DEVELOPER "Create API endpoints from API_DESIGN.md using TDD"
+journal-log WORK_ASSIGNED DEVELOPER "Implement business logic with 80% test coverage"
+journal-log WORK_ASSIGNED DEVELOPER "Create comprehensive README with setup instructions"
 ```
 
 2. **Write handoff directive**:
 ```bash
-echo "$(date -Iseconds) | NEXT_AGENT | architect | developer | Architecture complete, 5 implementation tasks assigned" >> ~/workspace/JOURNAL.md
+journal-log NEXT_AGENT architect developer "Architecture complete, 5 implementation tasks assigned"
 ```
 
 3. **Final message**:

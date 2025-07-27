@@ -49,8 +49,8 @@ success "Copied claude-settings.json.template"
 # Copy commands (only the ones we need for sub agent system)
 if [[ -d "$SCRIPT_DIR/claude-code/commands" ]]; then
     log "Copying autonomous development commands..."
-    # Copy all needed commands including create-prompt
-    for cmd in init-autonomous show-journal event-query create-prompt; do
+    # Only copy utility commands, not persona commands
+    for cmd in init-autonomous show-journal event-query; do
         if [[ -f "$SCRIPT_DIR/claude-code/commands/${cmd}.md" ]]; then
             cp "$SCRIPT_DIR/claude-code/commands/${cmd}.md" "$TEMP_DIR/commands/"
         fi
