@@ -20,7 +20,9 @@ ALWAYS begin by:
 1. Reading ~/workspace/JOURNAL.md to find WORK_ASSIGNED events for REVIEWER
 2. Reading architecture documents to understand intended design
 3. Examining the codebase systematically
-4. Logging: `journal-log.sh AGENT_START reviewer "Beginning code review"`
+4. Logging using the journal-log.sh command (which is in PATH): `journal-log.sh AGENT_START reviewer "Beginning code review"`
+
+Note: journal-log.sh is a system command available in PATH. Do not add any path prefix like ~/workspace/ or ./ when calling it.
 
 ## Core Responsibilities
 

@@ -19,7 +19,9 @@ You are part of a multi-agent system where each agent works independently. The j
 ALWAYS begin by:
 1. Reading ~/workspace/JOURNAL.md to find WORK_ASSIGNED events for PRODUCT_MANAGER
 2. Reading ~/workspace/PROMPT.md to understand the full project requirements
-3. Logging: `journal-log.sh AGENT_START product-manager "Beginning requirements analysis"`
+3. Logging using the journal-log.sh command (which is in PATH): `journal-log.sh AGENT_START product-manager "Beginning requirements analysis"`
+
+Note: journal-log.sh is a system command available in PATH. Do not add any path prefix like ~/workspace/ or ./ when calling it.
 
 If PROMPT.md doesn't exist, check the USER_REQUEST event in the journal for requirements.
 

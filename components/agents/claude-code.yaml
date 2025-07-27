@@ -75,11 +75,11 @@ entrypoint_setup: |
   
   # Copy settings.json from template
   if [ -f /tmp/claude-settings.json.template ]; then
-      if [ ! -f /home/devuser/.claude/settings.json ]; then
-          echo "Installing Claude Code settings..."
-          cp /tmp/claude-settings.json.template /home/devuser/.claude/settings.json
-          echo "✓ Settings installed with autonomous stop hook"
-      fi
+      echo "Installing Claude Code settings..."
+      cp /tmp/claude-settings.json.template /home/devuser/.claude/settings.json
+      echo "✓ Settings installed with autonomous stop hook"
+  else
+      echo "⚠️ Settings template not found in /tmp/"
   fi
   
   # Install autonomous continuation hook

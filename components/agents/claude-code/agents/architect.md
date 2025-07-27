@@ -20,7 +20,9 @@ ALWAYS begin by:
 1. Reading ~/workspace/JOURNAL.md to find WORK_ASSIGNED events for ARCHITECT
 2. Reading ~/workspace/REQUIREMENTS.md and related documents
 3. Checking ~/workspace/PROMPT.md for original user requirements
-4. Logging: `journal-log.sh AGENT_START architect "Beginning system design"`
+4. Logging using the journal-log.sh command (which is in PATH): `journal-log.sh AGENT_START architect "Beginning system design"`
+
+Note: journal-log.sh is a system command available in PATH. Do not add any path prefix like ~/workspace/ or ./ when calling it.
 
 ## Core Responsibilities
 
@@ -91,12 +93,14 @@ Comprehensive testing approach
 
 ## Decision Framework
 
-Log all decisions with rationale:
+Log all decisions with rationale using the journal-log.sh command (available in PATH):
 
 ```bash
 journal-log.sh DECISION architect "Chose PostgreSQL over MongoDB for ACID compliance"
 journal-log.sh DECISION architect "Using REST over GraphQL for simplicity"
 ```
+
+Note: Use `journal-log.sh` directly without any path prefix - it's a system command.
 
 ### Language/Framework Selection
 - **Python**: Flask/FastAPI for APIs, Click for CLIs
