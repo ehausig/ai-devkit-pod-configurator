@@ -9,8 +9,7 @@
     "DISABLE_COST_WARNINGS": "0",
     "DISABLE_ERROR_REPORTING": "1",
     "DISABLE_NON_ESSENTIAL_MODEL_CALLS": "0",
-    "DISABLE_TELEMETRY": "1",
-    "CLAUDE_AUTONOMOUS_MODE": "true"
+    "DISABLE_TELEMETRY": "1"
   },
   "hooks": {
     "Stop": [
@@ -25,8 +24,8 @@
     ]
   },
   "permissions": {
-    "defaultMode": "autoApprove",
-    "autoApprove": [
+    "defaultMode": "acceptEdits",
+    "allow": [
       "Write(~/workspace/*)",
       "Read(~/workspace/*)",
       "Edit(~/workspace/*)",
@@ -45,18 +44,14 @@
       "Bash(grep*)",
       "Bash(echo*>>*JOURNAL.md)",
       "Bash(echo*>>*/workspace/JOURNAL.md)",
-      "Bash(journal-log*)",
-    ],
-    "allow": [
+      "Bash(journal-log.sh*)",
       "Bash(*)",
       "Bash(*:*)",
       "Bash(mkdir:*)",
       "Bash(pip install:*)",
-      "Edit(~/workspace/*)",
       "Glob(~/workspace/*)",
       "Grep(~/workspace/*)",
       "LS(~/workspace/*)",
-      "MultiEdit(~/workspace/*)",
       "NotebookEdit(~/workspace/*)",
       "NotebookRead(~/workspace/*)",
       "Read(~/.bash_profile)",
@@ -67,12 +62,10 @@
       "Read(~/.m2/settings.xml)",
       "Read(~/.npmrc)",
       "Read(~/.profile)",
-      "Read(~/workspace/*)",
       "Read(/etc/ai-devkit-version)",
       "Read(/tmp/*)",
       "WebFetch(*)",
-      "WebSearch(*)",
-      "Write(~/workspace/*)"
+      "WebSearch(*)"
     ],
     "deny": [
       "Bash(rm:~/.claude/*)",
