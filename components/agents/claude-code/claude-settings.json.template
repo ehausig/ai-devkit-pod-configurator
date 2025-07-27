@@ -44,7 +44,7 @@
       "Bash(grep*)",
       "Bash(echo*>>*JOURNAL.md)",
       "Bash(echo*>>*/workspace/JOURNAL.md)",
-      "Bash(journal-log.sh*)",
+      "Bash(journal-log.sh:*)",
       "Bash(*)",
       "Bash(*:*)",
       "Bash(mkdir:*)",
