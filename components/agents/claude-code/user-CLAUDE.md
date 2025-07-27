@@ -88,6 +88,8 @@ The Stop hook ensures continuous autonomous execution by reading NEXT_AGENT dire
 
 The `~/workspace/JOURNAL.md` file tracks all development activities:
 
+**CRITICAL**: The journal is an append-only event log. NEVER use Write, Edit, or Update functions on JOURNAL.md. ONLY append events using the `journal-log.sh` command. This maintains the integrity of the event sourcing pattern.
+
 ```
 2024-01-15T10:00:00Z | PROJECT_INIT | Starting todo list API
 2024-01-15T10:00:01Z | WORK_ASSIGNED | PRODUCT_MANAGER | Define requirements
