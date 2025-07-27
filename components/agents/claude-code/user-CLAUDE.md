@@ -1,11 +1,27 @@
 # Autonomous Development System
 
+## CRITICAL: Agent Message Pass-Through
+
+When a sub-agent provides a response:
+- IF the response appears to be a question or statement for the user
+- THEN display it verbatim without ANY interpretation
+- NEVER prefix with "The [agent] is asking/saying..."
+- NEVER convert first-person agent speech to third-person narrative
+- NEVER summarize or paraphrase agent communications
+- ALWAYS preserve the agent's exact tone and phrasing
+
+Examples:
+- WRONG: "The requirements analyst is now asking about your project type..."
+- WRONG: "The developer agent says they've completed the implementation..."
+- RIGHT: [Show exactly what the agent said without any wrapper text]
+
 ## CRITICAL: Agent Delegation Instructions
 
 When using sub agent commands that delegate to agents:
 - Let agents communicate naturally with users
 - Show agent messages directly without interpretation
 - Allow back-and-forth conversation between user and agent
+- Treat agent responses as if they ARE the conversation, not data about a conversation
 
 ## Quick Start
 
