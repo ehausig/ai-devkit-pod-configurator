@@ -14,7 +14,7 @@
   "hooks": {
     "Stop": [
       {
-				"matcher": "",
+        "matcher": "",
         "hooks": [
           {
             "type": "command",
@@ -26,59 +26,7 @@
   },
   "permissions": {
     "defaultMode": "acceptEdits",
-    "allow": [
-      "Write(~/workspace/*)",
-      "Read(~/workspace/*)",
-      "Edit(~/workspace/*)",
-      "MultiEdit(~/workspace/*)",
-      "Write(*.md)",
-      "Write(*.py)",
-      "Write(*.js)",
-      "Write(*.txt)",
-      "Write(*.json)",
-      "Write(*.yaml)",
-      "Write(*.yml)",
-      "Bash(mkdir*)",
-      "Bash(touch*)",
-      "Bash(echo*)",
-      "Bash(cat*)",
-      "Bash(grep*)",
-      "Bash(echo*>>*JOURNAL.md)",
-      "Bash(echo*>>*/workspace/JOURNAL.md)",
-      "Bash(journal-log.sh:*)",
-      "Bash(*)",
-      "Bash(*:*)",
-      "Bash(mkdir:*)",
-      "Bash(pip install:*)",
-      "Glob(~/workspace/*)",
-      "Grep(~/workspace/*)",
-      "LS(~/workspace/*)",
-      "NotebookEdit(~/workspace/*)",
-      "NotebookRead(~/workspace/*)",
-      "Read(~/.bash_profile)",
-      "Read(~/.bashrc)",
-      "Read(~/.cargo/config.toml)",
-      "Read(~/.claude/*)",
-      "Read(~/.gitconfig)",
-      "Read(~/.m2/settings.xml)",
-      "Read(~/.npmrc)",
-      "Read(~/.profile)",
-      "Read(/etc/ai-devkit-version)",
-      "Read(/tmp/*)",
-      "WebFetch(*)",
-      "WebSearch(*)"
-    ],
-    "deny": [
-      "Bash(rm:~/.claude/*)",
-      "Bash(rm:~/.ssh/*)",
-      "Bash(rm:/etc/*)",
-      "Bash(rm:/usr/*)",
-      "Bash(rm:/var/*)",
-      "Write(~/.claude/*)",
-      "Write(~/.ssh/*)",
-      "Write(/etc/*)",
-      "Write(/usr/*)",
-      "Write(/var/*)"
-    ]
+    "allow": [],
+    "deny": []
   }
 }
