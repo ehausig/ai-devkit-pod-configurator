@@ -25,9 +25,11 @@ info() { echo -e "${BLUE}ℹ $1${NC}"; }
 # Verify required files exist
 USER_CLAUDE="$SCRIPT_DIR/claude-code/user-CLAUDE.md"
 SETTINGS_TEMPLATE="$SCRIPT_DIR/claude-code/claude-settings.json.template"
+WORKSPACE_SETTINGS_TEMPLATE="$SCRIPT_DIR/claude-code/claude-workspace-settings.json.template"
 
 [[ ! -f "$USER_CLAUDE" ]] && error "user-CLAUDE.md not found in $SCRIPT_DIR/claude-code"
 [[ ! -f "$SETTINGS_TEMPLATE" ]] && error "claude-settings.json.template not found in $SCRIPT_DIR/claude-code"
+[[ ! -f "$WORKSPACE_SETTINGS_TEMPLATE" ]] && error "claude-workspace-settings.json.template not found in $SCRIPT_DIR/claude-code"
 
 log "Setting up Claude Code autonomous development system with sub agents..."
 
@@ -41,6 +43,16 @@ mkdir -p "$TEMP_DIR/scripts"
 log "Copying user documentation..."
 cp "$USER_CLAUDE" "$TEMP_DIR/"
 success "Copied user-CLAUDE.md"
+
+# Copy settings template
+log "Copying settings template..."
+cp "$SETTINGS_TEMPLATE" "$TEMP_DIR/"
+success "Copied claude-settings.json.template"
+
+# Copy workspace settings template
+log "Copying workspace settings template..."
+cp "$WORKSPACE_SETTINGS_TEMPLATE" "$TEMP_DIR/"
+success "Copied claude-workspace-settings.json.template"
 
 # Copy commands (only the ones we need for sub agent system)
 if [[ -d "$SCRIPT_DIR/claude-code/commands" ]]; then
@@ -137,8 +149,9 @@ done
 while IFS= read -r category; do
     [ -z "$category" ] && continue
     
-    # Category header
-    echo "## ${category^}" >> "$IMPORTS_OUTPUT"
+    # Category header (capitalize first letter)
+    cat_display=$(echo "$category" | sed 's/^\(.\)/\U\1/')
+    echo "## $cat_display" >> "$IMPORTS_OUTPUT"
     echo "" >> "$IMPORTS_OUTPUT"
     
     # List components in category
@@ -161,162 +174,265 @@ success "Component imports generated"
 # Process command permissions from all selected components
 log "Processing command permissions from selected components..."
 
+# Check if yq is available
+if command -v yq >/dev/null 2>&1; then
+    log "Using yq for YAML parsing"
+else
+    log "yq not found, using fallback YAML parser"
+fi
+
 # Initialize arrays for permissions
 declare -a all_allow_perms=()
 declare -a all_deny_perms=()
 
 # Function to extract permissions from YAML
-extract_permissions() {
+extract_permissions_from_yaml() {
     local yaml_file="$1"
     local perm_type="$2"  # "allow" or "deny"
-    local in_permissions=false
-    local in_target_section=false
-    local indent_level=0
     
-    while IFS= read -r line; do
-        # Check if we're entering command_permissions section
-        if [[ "$line" =~ ^command_permissions:[[:space:]]*$ ]]; then
-            in_permissions=true
-            continue
-        fi
+    # Check if yq is available
+    if command -v yq >/dev/null 2>&1; then
+        # Use yq for proper YAML parsing
+        yq eval ".command_permissions.${perm_type}[]" "$yaml_file" 2>/dev/null || true
+    else
+        # Fallback to manual parsing if yq is not available
+        local in_permissions=false
+        local in_target=false
+        local indent_count=0
+        local target_indent=0
         
-        # If we're in command_permissions
-        if [[ "$in_permissions" == true ]]; then
-            # Check if line starts with a non-space character (end of command_permissions)
-            if [[ "$line" =~ ^[^[:space:]] ]]; then
-                in_permissions=false
-                in_target_section=false
+        while IFS= read -r line; do
+            # Check for command_permissions section
+            if [[ "$line" =~ ^command_permissions:[[:space:]]*$ ]]; then
+                in_permissions=true
                 continue
             fi
             
-            # Check for allow: or deny: section
-            if [[ "$line" =~ ^[[:space:]]+${perm_type}:[[:space:]]*$ ]]; then
-                in_target_section=true
+            # Exit if we hit a top-level key
+            if [[ "$in_permissions" == true ]] && [[ "$line" =~ ^[^[:space:]] ]]; then
+                break
+            fi
+            
+            # Check for our target section (allow/deny)
+            if [[ "$in_permissions" == true ]] && [[ "$line" =~ ^([[:space:]]+)${perm_type}:[[:space:]]*$ ]]; then
+                in_target=true
+                # Count the indent level
+                target_indent="${#BASH_REMATCH[1]}"
                 continue
             fi
             
-            # Check if we're leaving the target section
-            if [[ "$in_target_section" == true ]] && [[ "$line" =~ ^[[:space:]]+[^[:space:]-] ]]; then
-                in_target_section=false
-                continue
+            # Exit target section if we hit another key at the same indent level
+            if [[ "$in_target" == true ]]; then
+                # Check if line starts with spaces
+                if [[ "$line" =~ ^([[:space:]]+) ]]; then
+                    current_indent="${#BASH_REMATCH[1]}"
+                    # If we're back at the same level as allow/deny but it's not an array item
+                    if [[ $current_indent -le $target_indent ]] && [[ ! "$line" =~ ^[[:space:]]+-[[:space:]] ]]; then
+                        break
+                    fi
+                fi
             fi
             
-            # Extract permission if we're in the target section
-            if [[ "$in_target_section" == true ]] && [[ "$line" =~ ^[[:space:]]+-[[:space:]]+(.+)$ ]]; then
+            # Extract array items
+            if [[ "$in_target" == true ]] && [[ "$line" =~ ^[[:space:]]+-[[:space:]](.*)$ ]]; then
                 local perm="${BASH_REMATCH[1]}"
                 # Remove quotes if present
-                perm="${perm#[\"\']}"
-                perm="${perm%[\"\']}"
-                echo "$perm"
+                if [[ "$perm" =~ ^\"(.*)\"$ ]] || [[ "$perm" =~ ^\'(.*)\'$ ]]; then
+                    perm="${BASH_REMATCH[1]}"
+                fi
+                # Output the permission if not empty
+                [[ -n "$perm" ]] && echo "$perm"
             fi
-        fi
-    done < "$yaml_file"
+        done < "$yaml_file"
+    fi
 }
 
 # Process each selected YAML file for permissions
 for yaml_file in $SELECTED_YAML_FILES; do
     if [ -f "$yaml_file" ]; then
-        log "Checking $yaml_file for command permissions..."
+        log "Checking $(basename "$yaml_file") for command permissions..."
+        
+        # Debug: Check if the file has command_permissions section
+        if grep -q "command_permissions:" "$yaml_file"; then
+            log "  Found command_permissions section"
+        else
+            log "  No command_permissions section found"
+            continue
+        fi
         
         # Extract allow permissions
+        log "  Extracting allow permissions..."
+        extracted_count=0
         while IFS= read -r perm; do
-            [ -n "$perm" ] && all_allow_perms+=("$perm")
-        done < <(extract_permissions "$yaml_file" "allow")
+            if [ -n "$perm" ]; then
+                all_allow_perms+=("$perm")
+                ((extracted_count++))
+                log "    Added: $perm"
+            fi
+        done < <(extract_permissions_from_yaml "$yaml_file" "allow")
+        log "  Extracted $extracted_count allow permissions"
         
         # Extract deny permissions
+        log "  Extracting deny permissions..."
+        extracted_count=0
         while IFS= read -r perm; do
-            [ -n "$perm" ] && all_deny_perms+=("$perm")
-        done < <(extract_permissions "$yaml_file" "deny")
+            if [ -n "$perm" ]; then
+                all_deny_perms+=("$perm")
+                ((extracted_count++))
+                log "    Added: $perm"
+            fi
+        done < <(extract_permissions_from_yaml "$yaml_file" "deny")
+        log "  Extracted $extracted_count deny permissions"
     fi
 done
 
-# Deduplicate permissions
+# Deduplicate permissions - MUST preserve array elements with spaces
 if [ ${#all_allow_perms[@]} -gt 0 ]; then
-    readarray -t all_allow_perms < <(printf '%s\n' "${all_allow_perms[@]}" | sort -u)
+    # Use a temporary file to preserve spaces during deduplication
+    temp_allow="$TEMP_DIR/temp_allow_perms.txt"
+    printf '%s\n' "${all_allow_perms[@]}" | sort -u > "$temp_allow"
+    all_allow_perms=()
+    while IFS= read -r perm; do
+        all_allow_perms+=("$perm")
+    done < "$temp_allow"
+    rm -f "$temp_allow"
 fi
 if [ ${#all_deny_perms[@]} -gt 0 ]; then
-    readarray -t all_deny_perms < <(printf '%s\n' "${all_deny_perms[@]}" | sort -u)
+    # Use a temporary file to preserve spaces during deduplication
+    temp_deny="$TEMP_DIR/temp_deny_perms.txt"
+    printf '%s\n' "${all_deny_perms[@]}" | sort -u > "$temp_deny"
+    all_deny_perms=()
+    while IFS= read -r perm; do
+        all_deny_perms+=("$perm")
+    done < "$temp_deny"
+    rm -f "$temp_deny"
 fi
 
-log "Found ${#all_allow_perms[@]} unique allow permissions and ${#all_deny_perms[@]} unique deny permissions"
+log "Found ${#all_allow_perms[@]} unique allow permissions and ${#all_deny_perms[@]} unique deny permissions from components"
 
-# Generate the final settings.json with permissions
-log "Generating claude-settings.json with dynamic permissions..."
+# Generate the final settings.json (copy template as-is)
+log "Copying claude-settings.json template..."
+cp "$SETTINGS_TEMPLATE" "$TEMP_DIR/claude-settings.json"
+cp "$SETTINGS_TEMPLATE" "$TEMP_DIR/claude-settings.json.template"
+success "Copied claude-settings.json"
+
+# Generate the workspace settings with dynamic permissions
+log "Generating claude-workspace-settings.json with dynamic permissions..."
 
 # Function to escape JSON string
 json_escape() {
     local str="$1"
-    # Escape backslashes first, then quotes
-    str="${str//\\/\\\\}"
-    str="${str//\"/\\\"}"
-    # Escape other control characters
-    str="${str//$'\n'/\\n}"
-    str="${str//$'\r'/\\r}"
-    str="${str//$'\t'/\\t}"
-    echo "$str"
+    # Use jq if available for proper JSON escaping
+    if command -v jq >/dev/null 2>&1; then
+        echo -n "$str" | jq -Rs .
+    else
+        # Fallback: basic escaping
+        str="${str//\\/\\\\}"
+        str="${str//\"/\\\"}"
+        str="${str//$'\n'/\\n}"
+        str="${str//$'\r'/\\r}"
+        str="${str//$'\t'/\\t}"
+        echo "\"$str\""
+    fi
 }
 
-# Generate the permissions arrays as JSON
-allow_json=""
-for perm in "${all_allow_perms[@]}"; do
-    if [ -n "$allow_json" ]; then
-        allow_json+=","$'\n'
+# Create the JSON structure using jq
+if command -v jq >/dev/null 2>&1; then
+    log "Using jq to create proper JSON structure..."
+    
+    # Create a temporary file with the permissions as JSON arrays
+    {
+        echo '{'
+        echo '  "permissions": {'
+        
+        # Allow permissions
+        echo '    "allow": ['
+        first=true
+        for perm in "${all_allow_perms[@]}"; do
+            if [ "$first" = true ]; then
+                first=false
+            else
+                echo ","
+            fi
+            printf "      %s" "$(json_escape "$perm")"
+        done
+        [ ${#all_allow_perms[@]} -gt 0 ] && echo
+        echo '    ],'
+        
+        # Deny permissions
+        echo '    "deny": ['
+        first=true
+        for perm in "${all_deny_perms[@]}"; do
+            if [ "$first" = true ]; then
+                first=false
+            else
+                echo ","
+            fi
+            printf "      %s" "$(json_escape "$perm")"
+        done
+        [ ${#all_deny_perms[@]} -gt 0 ] && echo
+        echo '    ]'
+        
+        echo '  }'
+        echo '}'
+    } | jq . > "$TEMP_DIR/claude-workspace-settings.json"
+    
+else
+    # Fallback without jq
+    log "Creating JSON manually (jq not found)..."
+    
+    {
+        echo '{'
+        echo '  "permissions": {'
+        echo '    "allow": ['
+        
+        # Add allow permissions
+        first=true
+        for perm in "${all_allow_perms[@]}"; do
+            if [ "$first" = true ]; then
+                first=false
+            else
+                echo ","
+            fi
+            # Basic JSON escaping
+            escaped_perm="${perm//\\/\\\\}"
+            escaped_perm="${escaped_perm//\"/\\\"}"
+            echo -n "      \"$escaped_perm\""
+        done
+        [ ${#all_allow_perms[@]} -gt 0 ] && echo
+        echo '    ],'
+        
+        echo '    "deny": ['
+        # Add deny permissions
+        first=true
+        for perm in "${all_deny_perms[@]}"; do
+            if [ "$first" = true ]; then
+                first=false
+            else
+                echo ","
+            fi
+            # Basic JSON escaping
+            escaped_perm="${perm//\\/\\\\}"
+            escaped_perm="${escaped_perm//\"/\\\"}"
+            echo -n "      \"$escaped_perm\""
+        done
+        [ ${#all_deny_perms[@]} -gt 0 ] && echo
+        echo '    ]'
+        echo '  }'
+        echo '}'
+    } > "$TEMP_DIR/claude-workspace-settings.json"
+fi
+
+success "Generated claude-workspace-settings.json with permissions"
+
+# Verify the JSON is valid
+if command -v jq >/dev/null 2>&1; then
+    if jq . "$TEMP_DIR/claude-workspace-settings.json" >/dev/null 2>&1; then
+        success "JSON validation passed"
+    else
+        error "Generated JSON is invalid!"
     fi
-    allow_json+="      \"$(json_escape "$perm")\""
-done
-
-deny_json=""
-for perm in "${all_deny_perms[@]}"; do
-    if [ -n "$deny_json" ]; then
-        deny_json+=","$'\n'
-    fi
-    deny_json+="      \"$(json_escape "$perm")\""
-done
-
-# Read the template and replace the permissions section
-cat > "$TEMP_DIR/claude-settings.json" << EOF
-{
-  "theme": "dark",
-  "verbose": true,
-  "includeCoAuthoredBy": true,
-  "env": {
-    "CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR": "0",
-    "DISABLE_AUTOUPDATER": "1",
-    "DISABLE_BUG_COMMAND": "1",
-    "DISABLE_COST_WARNINGS": "0",
-    "DISABLE_ERROR_REPORTING": "1",
-    "DISABLE_NON_ESSENTIAL_MODEL_CALLS": "0",
-    "DISABLE_TELEMETRY": "1"
-  },
-  "hooks": {
-    "Stop": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "autonomous-continue.sh"
-          }
-        ]
-      }
-    ]
-  },
-  "permissions": {
-    "defaultMode": "acceptEdits",
-    "allow": [
-${allow_json}
-    ],
-    "deny": [
-${deny_json}
-    ]
-  }
-}
-EOF
-
-success "Generated claude-settings.json with permissions"
-
-# Copy the generated settings file to be used instead of template
-cp "$TEMP_DIR/claude-settings.json" "$TEMP_DIR/claude-settings.json.template"
+fi
 
 # Create a manifest of included files
 cat > "$TEMP_DIR/MANIFEST.txt" << EOF
@@ -324,7 +440,8 @@ cat > "$TEMP_DIR/MANIFEST.txt" << EOF
 
 ## Core Files
 - user-CLAUDE.md: User documentation
-- claude-settings.json: Settings with dynamic permissions from components
+- claude-settings.json: Global settings with stop hook
+- claude-workspace-settings.json: Workspace settings with dynamic permissions
 
 ## Commands ($(ls -1 "$TEMP_DIR/commands/"*.md 2>/dev/null | wc -l))
 $(ls -1 "$TEMP_DIR/commands/"*.md 2>/dev/null | sed 's|.*/|  - |')
@@ -341,12 +458,21 @@ The autonomous development system uses:
 2. A journal (~/workspace/JOURNAL.md) for state persistence
 3. A stop hook that reads NEXT_AGENT directives and continues autonomously
 4. Clear handoff protocols between agents
-5. Dynamic permissions based on selected components
+5. Dynamic permissions based on selected components (workspace-level)
 
 To start: Use "/init-autonomous" command after describing your project.
 EOF
 
 success "Created manifest file"
+
+# Debug: Show some extracted permissions
+if [ ${#all_allow_perms[@]} -gt 0 ]; then
+    log "Sample of extracted permissions:"
+    for i in {0..4}; do
+        [ $i -lt ${#all_allow_perms[@]} ] && echo "  - ${all_allow_perms[$i]}"
+    done
+    [ ${#all_allow_perms[@]} -gt 5 ] && echo "  ... and $((${#all_allow_perms[@]} - 5)) more"
+fi
 
 log "Claude Code autonomous development system setup completed successfully!"
 info "The system will activate when users run /init-autonomous"

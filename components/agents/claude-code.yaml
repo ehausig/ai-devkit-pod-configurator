@@ -40,6 +40,9 @@ installation:
     - source: claude-settings.json.template
       destination: /tmp/claude-settings.json.template
       permissions: 644
+    - source: claude-workspace-settings.json
+      destination: /tmp/claude-workspace-settings.json
+      permissions: 644
     - source: commands/
       destination: /tmp/claude-commands/
       permissions: 755
@@ -95,6 +98,17 @@ entrypoint_setup: |
       echo "✓ Settings installed with autonomous stop hook"
   else
       echo "⚠️ Settings template not found in /tmp/"
+  fi
+  
+  # Copy workspace settings to workspace directory
+  if [ -f /tmp/claude-workspace-settings.json ]; then
+      echo "Installing workspace-specific Claude Code settings..."
+      mkdir -p /home/devuser/workspace/.claude
+      cp /tmp/claude-workspace-settings.json /home/devuser/workspace/.claude/settings.local.json
+      chown -R devuser:devuser /home/devuser/workspace/.claude
+      echo "✓ Workspace settings installed with component permissions"
+  else
+      echo "⚠️ Workspace settings not found in /tmp/"
   fi
   
   # Install autonomous continuation hook
