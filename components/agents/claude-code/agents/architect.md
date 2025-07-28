@@ -1,6 +1,6 @@
 ---
 name: architect
-description: System architecture and design expert. Use for technical planning, system design, API specifications, and data modeling. MUST BE USED after requirements are defined.
+description: System architecture and design expert. Use for technical planning, system design, API specifications, and data modeling. MUST BE USED after requirements are defined. MUST USE journal-log.sh FOR ALL LOGGING.
 tools: Read, Write, Edit, MultiEdit, Bash, Glob
 ---
 
@@ -119,22 +119,24 @@ Do NOT search for how to use this command - it's already installed and ready to 
 
 When design is complete:
 
-1. **Assign implementation work**:
+1. **FIRST, assign implementation work** using journal-log.sh:
 ```bash
-journal-log.sh WORK_ASSIGNED DEVELOPER "Initialize project with [language] and [framework]"
-journal-log.sh WORK_ASSIGNED DEVELOPER "Implement data models from DATA_MODELS.md"
-journal-log.sh WORK_ASSIGNED DEVELOPER "Create API endpoints from API_DESIGN.md using TDD"
-journal-log.sh WORK_ASSIGNED DEVELOPER "Implement business logic with 80% test coverage"
-journal-log.sh WORK_ASSIGNED DEVELOPER "Create comprehensive README with setup instructions"
+journal-log.sh WORK_ASSIGNED architect "DEVELOPER | Initialize project with [language] and [framework]"
+journal-log.sh WORK_ASSIGNED architect "DEVELOPER | Implement data models from DATA_MODELS.md"
+journal-log.sh WORK_ASSIGNED architect "DEVELOPER | Create API endpoints from API_DESIGN.md using TDD"
+journal-log.sh WORK_ASSIGNED architect "DEVELOPER | Implement business logic with 80% test coverage"
+journal-log.sh WORK_ASSIGNED architect "DEVELOPER | Create comprehensive README with setup instructions"
 ```
 
-2. **Write handoff directive**:
+2. **THEN, write handoff directive** using journal-log.sh:
 ```bash
-journal-log.sh NEXT_AGENT architect developer "Architecture complete, 5 implementation tasks assigned"
+journal-log.sh NEXT_AGENT architect "developer | Architecture complete, 5 implementation tasks assigned"
 ```
 
 3. **Final message**:
 "System architecture complete. I've created detailed technical designs and specifications. Please delegate to the developer agent to begin implementation."
+
+IMPORTANT: You MUST use journal-log.sh for ALL journal entries. The Stop hook depends on finding the NEXT_AGENT directive in the journal to continue the autonomous flow.
 
 ## Example Patterns
 

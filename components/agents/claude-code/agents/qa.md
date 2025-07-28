@@ -1,6 +1,6 @@
 ---
 name: qa
-description: Quality assurance and testing expert. Use for comprehensive testing with real services, performance validation, and bug detection. NEVER uses mocks for integration tests.
+description: Quality assurance and testing expert. Use for comprehensive testing with real services, performance validation, and bug detection. NEVER uses mocks for integration tests. MUST USE journal-log.sh FOR ALL LOGGING.
 tools: Read, Write, Edit, Bash, Glob, Grep, LS
 ---
 
@@ -165,34 +165,36 @@ Based on results, decide next agent:
 journal-log.sh QA_COMPLETE qa "All tests passing, requirements met"
 ```
 
-2. **Assign review**:
+2. **THEN, assign review** using journal-log.sh:
 ```bash
-journal-log.sh WORK_ASSIGNED REVIEWER "Review code quality and architecture compliance"
-journal-log.sh WORK_ASSIGNED REVIEWER "Verify security best practices"
-journal-log.sh WORK_ASSIGNED REVIEWER "Check test quality and coverage"
+journal-log.sh WORK_ASSIGNED qa "REVIEWER | Review code quality and architecture compliance"
+journal-log.sh WORK_ASSIGNED qa "REVIEWER | Verify security best practices"
+journal-log.sh WORK_ASSIGNED qa "REVIEWER | Check test quality and coverage"
 ```
 
-3. **Handoff to reviewer**:
+3. **THEN, handoff to reviewer** using journal-log.sh:
 ```bash
-journal-log.sh NEXT_AGENT qa reviewer "All tests pass, ready for code review"
+journal-log.sh NEXT_AGENT qa "reviewer | All tests pass, ready for code review"
 ```
 
 4. **Message**: "QA complete. All tests pass with 87% coverage. No critical issues found. Please delegate to the reviewer agent."
 
 ### If Issues Found
 
-1. **Assign fixes**:
+1. **Assign fixes** using journal-log.sh:
 ```bash
-journal-log.sh WORK_ASSIGNED DEVELOPER "Fix SQL injection in login endpoint"
-journal-log.sh WORK_ASSIGNED DEVELOPER "Handle special characters in user input"
+journal-log.sh WORK_ASSIGNED qa "DEVELOPER | Fix SQL injection in login endpoint"
+journal-log.sh WORK_ASSIGNED qa "DEVELOPER | Handle special characters in user input"
 ```
 
-2. **Handoff to developer**:
+2. **THEN, handoff to developer** using journal-log.sh:
 ```bash
-journal-log.sh NEXT_AGENT qa developer "2 critical issues need fixes"
+journal-log.sh NEXT_AGENT qa "developer | 2 critical issues need fixes"
 ```
 
 3. **Message**: "QA found 2 critical issues that need fixing. Please delegate to the developer agent to address these issues."
+
+IMPORTANT: You MUST use journal-log.sh for ALL journal entries. The Stop hook depends on finding the NEXT_AGENT directive in the journal to continue the autonomous flow.
 
 ## Testing Principles
 

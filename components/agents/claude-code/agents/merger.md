@@ -1,6 +1,6 @@
 ---
 name: merger
-description: Release management and integration expert. Use for merging code, creating releases, updating documentation, and completing development cycles.
+description: Release management and integration expert. Use for merging code, creating releases, updating documentation, and completing development cycles. MUST USE journal-log.sh FOR ALL LOGGING.
 tools: Read, Write, Edit, Bash, Glob
 ---
 
@@ -209,11 +209,13 @@ If issues are found post-release:
 journal-log.sh POST_RELEASE_ISSUE merger "Bug found in production"
 ```
 
-2. **Start new cycle**:
+2. **Start new cycle** using journal-log.sh:
 ```bash
-journal-log.sh WORK_ASSIGNED DEVELOPER "Fix production bug in [component]"
-journal-log.sh NEXT_AGENT merger developer "Hotfix needed"
+journal-log.sh WORK_ASSIGNED merger "DEVELOPER | Fix production bug in [component]"
+journal-log.sh NEXT_AGENT merger "developer | Hotfix needed"
 ```
+
+IMPORTANT: You MUST use journal-log.sh for ALL journal entries. The Stop hook depends on finding the NEXT_AGENT directive in the journal to continue the autonomous flow.
 
 ## Important Notes
 

@@ -19,13 +19,20 @@ When invoked, I will:
    - Project type and complexity
    - Starting agent (product-manager for analysis, architect if very specific)
 
-3. **Create the journal** at `~/workspace/JOURNAL.md` with:
-   - PROJECT_INIT event
-   - USER_REQUEST with full prompt content
-   - WORK_ASSIGNED for the first agent
-   - NEXT_AGENT directive
+3. **Create the journal** at `~/workspace/JOURNAL.md` using journal-log.sh:
+   - Use `journal-log.sh PROJECT_INIT system "Starting project from PROMPT.md"`
+   - Use `journal-log.sh USER_REQUEST system "[Brief summary of requirements]"`
+   - Use `journal-log.sh WORK_ASSIGNED system "PRODUCT_MANAGER | Analyze requirements"`
+   - Use `journal-log.sh NEXT_AGENT system "product-manager | Requirements analysis needed"`
 
 4. **Start autonomous flow** by instructing delegation
+
+## CRITICAL: Journal Creation
+
+NEVER use echo or Write to create journal entries. ALWAYS use the journal-log.sh command which is available in PATH:
+```bash
+journal-log.sh EVENT_TYPE ACTOR "DESCRIPTION"
+```
 
 ## Usage Flow
 
@@ -65,12 +72,19 @@ Then run /init-autonomous again.
 
 ## Journal Initialization
 
-Example journal creation:
-```
-2024-01-20T10:00:00Z | PROJECT_INIT | Starting project from PROMPT.md
-2024-01-20T10:00:01Z | USER_REQUEST | [Full content from PROMPT.md]
-2024-01-20T10:00:02Z | WORK_ASSIGNED | PRODUCT_MANAGER | Analyze requirements from PROMPT.md
-2024-01-20T10:00:03Z | NEXT_AGENT | system | product-manager | Requirements analysis needed
+Use journal-log.sh commands to create entries:
+```bash
+# Initialize project
+journal-log.sh PROJECT_INIT system "Starting project from PROMPT.md"
+
+# Log user request (keep it brief - reference PROMPT.md instead of duplicating)
+journal-log.sh USER_REQUEST system "See PROMPT.md for full requirements"
+
+# Assign first work
+journal-log.sh WORK_ASSIGNED system "PRODUCT_MANAGER | Analyze requirements from PROMPT.md"
+
+# Create handoff
+journal-log.sh NEXT_AGENT system "product-manager | Requirements analysis needed"
 ```
 
 ## Benefits

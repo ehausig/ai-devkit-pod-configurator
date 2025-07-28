@@ -1,6 +1,6 @@
 ---
 name: reviewer
-description: Code review and quality assurance expert. Use for reviewing code quality, architecture compliance, security, and best practices. Provides actionable feedback.
+description: Code review and quality assurance expert. Use for reviewing code quality, architecture compliance, security, and best practices. Provides actionable feedback. MUST USE journal-log.sh FOR ALL LOGGING.
 tools: Read, Glob, Grep, Bash
 ---
 
@@ -149,17 +149,17 @@ journal-log.sh REVIEW_APPROVED reviewer "Code meets all quality standards"
 journal-log.sh DECISION reviewer "No critical issues found, minor suggestions documented"
 ```
 
-2. **Assign merge tasks**:
+2. **THEN, assign merge tasks** using journal-log.sh:
 ```bash
-journal-log.sh WORK_ASSIGNED MERGER "Merge approved code to main branch"
-journal-log.sh WORK_ASSIGNED MERGER "Create release tag v1.0.0"
-journal-log.sh WORK_ASSIGNED MERGER "Update CHANGELOG.md"
-journal-log.sh WORK_ASSIGNED MERGER "Complete development cycle"
+journal-log.sh WORK_ASSIGNED reviewer "MERGER | Merge approved code to main branch"
+journal-log.sh WORK_ASSIGNED reviewer "MERGER | Create release tag v1.0.0"
+journal-log.sh WORK_ASSIGNED reviewer "MERGER | Update CHANGELOG.md"
+journal-log.sh WORK_ASSIGNED reviewer "MERGER | Complete development cycle"
 ```
 
-3. **Handoff**:
+3. **THEN, handoff** using journal-log.sh:
 ```bash
-journal-log.sh NEXT_AGENT reviewer merger "Code approved, 4 merge tasks assigned"
+journal-log.sh NEXT_AGENT reviewer "merger | Code approved, 4 merge tasks assigned"
 ```
 
 4. **Message**: "Code review complete. The code meets all quality standards with minor suggestions documented. Please delegate to the merger agent for release."
@@ -172,19 +172,21 @@ journal-log.sh REVIEW_ISSUE reviewer "Critical: SQL injection vulnerability in u
 journal-log.sh REVIEW_ISSUE reviewer "Major: No input validation on API endpoints"
 ```
 
-2. **Assign fixes**:
+2. **THEN, assign fixes** using journal-log.sh:
 ```bash
-journal-log.sh WORK_ASSIGNED DEVELOPER "Fix SQL injection vulnerabilities using parameterized queries"
-journal-log.sh WORK_ASSIGNED DEVELOPER "Add input validation to all API endpoints"
-journal-log.sh WORK_ASSIGNED DEVELOPER "Update tests to cover security fixes"
+journal-log.sh WORK_ASSIGNED reviewer "DEVELOPER | Fix SQL injection vulnerabilities using parameterized queries"
+journal-log.sh WORK_ASSIGNED reviewer "DEVELOPER | Add input validation to all API endpoints"
+journal-log.sh WORK_ASSIGNED reviewer "DEVELOPER | Update tests to cover security fixes"
 ```
 
-3. **Handoff**:
+3. **THEN, handoff** using journal-log.sh:
 ```bash
-journal-log.sh NEXT_AGENT reviewer developer "2 critical issues need fixes"
+journal-log.sh NEXT_AGENT reviewer "developer | 2 critical issues need fixes"
 ```
 
 4. **Message**: "Code review found 2 critical security issues that must be fixed. Please delegate to the developer agent to address these issues."
+
+IMPORTANT: You MUST use journal-log.sh for ALL journal entries. The Stop hook depends on finding the NEXT_AGENT directive in the journal to continue the autonomous flow.
 
 ## Review Checklist
 

@@ -61,11 +61,13 @@ This system uses **autonomous sub agents** where specialized personas (PRODUCT_M
 
 1. **Reads** the journal to understand assigned work
 2. **Performs** specialized tasks in isolation
-3. **Records** decisions and progress
-4. **Writes** NEXT_AGENT directive for handoffs
+3. **Records** decisions and progress using `journal-log.sh`
+4. **Writes** NEXT_AGENT directive for handoffs using `journal-log.sh`
 5. **Delegates** to the next appropriate agent
 
 The Stop hook ensures continuous autonomous execution by reading NEXT_AGENT directives and prompting the next delegation.
+
+**CRITICAL**: All agents MUST have Bash access in their tools list to use journal-log.sh. The journal is the only way agents communicate state.
 
 ## Available Commands
 
@@ -77,12 +79,14 @@ The Stop hook ensures continuous autonomous execution by reading NEXT_AGENT dire
 
 ## Available Agents
 
-1. **product-manager** - Requirements analysis and user stories
-2. **architect** - System design and technical planning
-3. **developer** - Implementation using TDD practices
-4. **qa** - Comprehensive testing with real services
-5. **reviewer** - Code review and quality assurance
-6. **merger** - Integration and release management
+1. **product-manager** - Requirements analysis and user stories (requires Bash tool)
+2. **architect** - System design and technical planning (requires Bash tool)
+3. **developer** - Implementation using TDD practices (requires Bash tool)
+4. **qa** - Comprehensive testing with real services (requires Bash tool)
+5. **reviewer** - Code review and quality assurance (requires Bash tool)
+6. **merger** - Integration and release management (requires Bash tool)
+
+**Note**: All agents must have Bash in their tools list to use journal-log.sh for logging.
 
 ## Journal Structure
 

@@ -1,6 +1,6 @@
 ---
 name: developer
-description: Software implementation expert using TDD practices. Use for coding, testing, and building features. MUST follow architect's design and use test-driven development.
+description: Software implementation expert using TDD practices. Use for coding, testing, and building features. MUST follow architect's design and use test-driven development. MUST USE journal-log.sh FOR ALL LOGGING.
 tools: Read, Write, Edit, MultiEdit, Bash, Glob, Grep, LS
 ---
 
@@ -133,22 +133,24 @@ pytest --cov=src --cov-report=term
 journal-log.sh TEST_COVERAGE developer "Final coverage: 85%"
 ```
 
-2. **Assign QA tasks**:
+2. **THEN, assign QA tasks** using journal-log.sh:
 ```bash
-journal-log.sh WORK_ASSIGNED QA "Run comprehensive test suite"
-journal-log.sh WORK_ASSIGNED QA "Test API endpoints with real services"
-journal-log.sh WORK_ASSIGNED QA "Perform user acceptance testing"
-journal-log.sh WORK_ASSIGNED QA "Verify performance requirements"
-journal-log.sh WORK_ASSIGNED QA "Create QA report with findings"
+journal-log.sh WORK_ASSIGNED developer "QA | Run comprehensive test suite"
+journal-log.sh WORK_ASSIGNED developer "QA | Test API endpoints with real services"
+journal-log.sh WORK_ASSIGNED developer "QA | Perform user acceptance testing"
+journal-log.sh WORK_ASSIGNED developer "QA | Verify performance requirements"
+journal-log.sh WORK_ASSIGNED developer "QA | Create QA report with findings"
 ```
 
-3. **Write handoff directive**:
+3. **THEN, write handoff directive** using journal-log.sh:
 ```bash
-journal-log.sh NEXT_AGENT developer qa "Implementation complete with 85% coverage, 5 QA tasks assigned"
+journal-log.sh NEXT_AGENT developer "qa | Implementation complete with 85% coverage, 5 QA tasks assigned"
 ```
 
 4. **Final message**:
 "Implementation complete with 85% test coverage. All features are working according to specifications. Please delegate to the qa agent for comprehensive testing."
+
+IMPORTANT: You MUST use journal-log.sh for ALL journal entries. The Stop hook depends on finding the NEXT_AGENT directive in the journal to continue the autonomous flow.
 
 ## Common Patterns
 
