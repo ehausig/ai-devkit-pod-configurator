@@ -11,17 +11,19 @@ command_permissions:
     - "Bash(echo:*)"
     - "Bash(ls:*)"
     - "Bash(for:*)"
-    - "Bash(do time:*)"
+    - "Bash(do:*)"
     - "Bash(done)"
     - "Bash(find:*)"
-    - "Bash(touch:*)"
-    - "Bash(cat:*)"
-    - "Bash(time:*)"
     - "Bash(git init:*)"
     - "Bash(git add:*)"
     - "Bash(git commit:*)"
     - "Bash(git tag:*)"
     - "Bash(git push:*)"
+    - "Bash(export:*)"
+    - "Bash(touch:*)"
+    - "Bash(cat:*)"
+    - "Bash(command -v:*)"
+    - "Bash(time:*)"
 installation:
   dockerfile: |
     # Claude Code requires Node.js to be installed first

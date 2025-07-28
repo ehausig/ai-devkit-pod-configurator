@@ -23,6 +23,15 @@ When using sub agent commands that delegate to agents:
 - Allow back-and-forth conversation between user and agent
 - Treat agent responses as if they ARE the conversation, not data about a conversation
 
+## Environment Variables
+
+When setting environment variables in bash commands, always use the `export` command:
+
+✅ CORRECT: `export VARIABLE_NAME="value"`
+❌ AVOID: `VARIABLE_NAME="value"`
+
+This ensures proper permission handling in the environment.
+
 ## Quick Start
 
 ### Option 1: Interactive Requirements (Easier)
