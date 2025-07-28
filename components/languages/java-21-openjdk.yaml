@@ -4,6 +4,11 @@ version: "21"
 group: java
 requires: []
 description: OpenJDK 21 - Open source Java implementation
+command_permissions:
+  allow:
+    - "Bash(java:*)"
+    - "Bash(javac:*)"
+    - "Bash(jar:*)"
 installation:
   dockerfile: |
     RUN export DEBIAN_FRONTEND=noninteractive && \

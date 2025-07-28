@@ -4,6 +4,16 @@ version: "latest"
 group: ruby-version
 requires: []
 description: Ruby installed from Ubuntu package repositories
+command_permissions:
+  allow:
+    - "Bash(ruby:*)"
+    - "Bash(bundle:*)"
+    - "Bash(bundle exec:*)"
+    - "Bash(gem:*)"
+    - "Bash(rake:*)"
+    - "Bash(rspec:*)"
+    - "Bash(rubocop:*)"
+    - "Bash(irb:*)"
 installation:
   dockerfile: |
     RUN export DEBIAN_FRONTEND=noninteractive && \
