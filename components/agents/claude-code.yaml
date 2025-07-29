@@ -7,6 +7,7 @@ pre_build_script: claude-code/claude-code-setup.sh
 command_permissions:
   allow:
     - "Bash(journal-log.sh:*)"
+    - "Bash(generate-card-id.sh:*)"
     - "Bash(mkdir:*)"
     - "Bash(echo:*)"
     - "Bash(ls:*)"
@@ -51,9 +52,6 @@ installation:
     - source: commands/
       destination: /tmp/claude-commands/
       permissions: 755
-    - source: hooks/
-      destination: /tmp/claude-hooks/
-      permissions: 755
     - source: agents/
       destination: /tmp/claude-agents/
       permissions: 755
@@ -73,36 +71,43 @@ entrypoint_setup: |
   # Create .claude directory for global Claude configuration
   if command -v claude &> /dev/null 2>&1 || [ -f /tmp/user-CLAUDE.md ]; then
       mkdir -p /home/devuser/.claude
-      mkdir -p /home/devuser/.claude/hooks
-      mkdir -p /home/devuser/.claude/commands
       mkdir -p /home/devuser/.claude/agents
+      mkdir -p /home/devuser/.claude/commands
   fi
   
-  # Install journal logging script
-  if [ -f /tmp/claude-scripts/journal-log.sh ]; then
-      echo "Installing journal logging utility..."
+  # Install utility scripts
+  if [ -d /tmp/claude-scripts ]; then
+      echo "Installing utility scripts..."
       mkdir -p /home/devuser/bin
-      cp /tmp/claude-scripts/journal-log.sh /home/devuser/bin/journal-log.sh
-      chmod +x /home/devuser/bin/journal-log.sh
+      
+      # Install journal logging script
+      if [ -f /tmp/claude-scripts/journal-log.sh ]; then
+          cp /tmp/claude-scripts/journal-log.sh /home/devuser/bin/journal-log.sh
+          chmod +x /home/devuser/bin/journal-log.sh
+          ln -sf /home/devuser/bin/journal-log.sh /usr/local/bin/journal-log.sh 2>/dev/null || true
+          echo "✓ Journal logging utility installed"
+      fi
+      
+      # Install card ID generator script
+      if [ -f /tmp/claude-scripts/generate-card-id.sh ]; then
+          cp /tmp/claude-scripts/generate-card-id.sh /home/devuser/bin/generate-card-id.sh
+          chmod +x /home/devuser/bin/generate-card-id.sh
+          ln -sf /home/devuser/bin/generate-card-id.sh /usr/local/bin/generate-card-id.sh 2>/dev/null || true
+          echo "✓ Card ID generator installed"
+      fi
+      
       # Add to PATH if not already there
       if ! echo "$PATH" | grep -q "/home/devuser/bin"; then
           echo 'export PATH="/home/devuser/bin:$PATH"' >> /home/devuser/.bashrc
           echo 'export PATH="/home/devuser/bin:$PATH"' >> /home/devuser/.profile
       fi
-      # Also make it available system-wide
-      ln -sf /home/devuser/bin/journal-log.sh /usr/local/bin/journal-log.sh 2>/dev/null || true
-      echo "✓ Journal logging utility installed"
-  else
-      echo "⚠️ Journal logging script not found in /tmp/claude-scripts/"
   fi
   
-  # Copy settings.json from template
+  # Copy settings.json from template (NO HOOKS)
   if [ -f /tmp/claude-settings.json.template ]; then
       echo "Installing Claude Code settings..."
       cp /tmp/claude-settings.json.template /home/devuser/.claude/settings.json
-      echo "✓ Settings installed with autonomous stop hook"
-  else
-      echo "⚠️ Settings template not found in /tmp/"
+      echo "✓ Settings installed (no hooks configured)"
   fi
   
   # Copy workspace settings to workspace directory
@@ -112,16 +117,6 @@ entrypoint_setup: |
       cp /tmp/claude-workspace-settings.json /home/devuser/workspace/.claude/settings.local.json
       chown -R devuser:devuser /home/devuser/workspace/.claude
       echo "✓ Workspace settings installed with component permissions"
-  else
-      echo "⚠️ Workspace settings not found in /tmp/"
-  fi
-  
-  # Install autonomous continuation hook
-  if [ -f /tmp/claude-hooks/autonomous-continue.sh ]; then
-      echo "Installing autonomous continuation hook..."
-      cp /tmp/claude-hooks/autonomous-continue.sh /home/devuser/.claude/hooks/
-      chmod +x /home/devuser/.claude/hooks/autonomous-continue.sh
-      echo "✓ Autonomous continuation hook installed"
   fi
   
   # Install commands
@@ -176,15 +171,16 @@ entrypoint_setup: |
   echo "1. Start Claude Code: 'claude'"
   echo "2. Describe your project"
   echo "3. Use: /init-autonomous"
-  echo "4. The system will autonomously develop your application"
+  echo "4. The system will orchestrate development automatically"
   echo ""
   echo "Available Commands:"
   echo "  /init-autonomous - Start a new autonomous project"
   echo "  /show-journal    - View development progress"
+  echo "  /kanban-status   - View Kanban board state"
   echo "  /event-query     - Query specific events"
   echo ""
-  echo "The system will automatically progress through:"
-  echo "PRODUCT_MANAGER → ARCHITECT → DEVELOPER → QA → REVIEWER → MERGER"
+  echo "The Product Manager (main thread) orchestrates teams:"
+  echo "Stream-Aligned → Platform → Enabling → Subsystem"
   echo "═══════════════════════════════════════════════════════════"
   
   # Verify Claude Code is available

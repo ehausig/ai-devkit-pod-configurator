@@ -11,19 +11,6 @@
     "DISABLE_NON_ESSENTIAL_MODEL_CALLS": "0",
     "DISABLE_TELEMETRY": "1"
   },
-  "hooks": {
-    "Stop": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/devuser/.claude/hooks/autonomous-continue.sh"
-          }
-        ]
-      }
-    ]
-  },
   "permissions": {
     "defaultMode": "acceptEdits",
     "allow": [],

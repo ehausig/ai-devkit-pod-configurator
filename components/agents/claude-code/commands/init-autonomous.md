@@ -4,7 +4,7 @@ description: Initialize autonomous development project from PROMPT.md
 
 # Initialize Autonomous Project
 
-Start a new project using the autonomous sub agent development system by reading requirements from `~/workspace/PROMPT.md`.
+Start a new project using the Team Topologies-based autonomous development system by reading requirements from `~/workspace/PROMPT.md`.
 
 ## Process
 
@@ -15,24 +15,26 @@ When invoked, I will:
    - If not found, instruct user to create it
    - Read the contents as project requirements
 
-2. **Parse requirements** to determine:
-   - Project type and complexity
-   - Starting agent (product-manager for analysis, architect if very specific)
+2. **Initialize the Kanban system**:
+   - Reset card counter to 0
+   - Create JOURNAL.md if it doesn't exist
 
-3. **Create the journal** at `~/workspace/JOURNAL.md` using journal-log.sh:
-   - Use `journal-log.sh PROJECT_INIT system "Starting project from PROMPT.md"`
-   - Use `journal-log.sh USER_REQUEST system "[Brief summary of requirements]"`
-   - Use `journal-log.sh WORK_ASSIGNED system "PRODUCT-MANAGER | Analyze requirements"`
-   - Use `journal-log.sh NEXT_AGENT system "PRODUCT-MANAGER | Requirements analysis needed"`
+3. **Create initial project state**:
+   - Log PROJECT_INIT event
+   - Log USER_REQUEST with brief summary
+   - Create initial Kanban cards based on requirements
 
-4. **Start autonomous flow** by instructing delegation
+4. **Start orchestration** as Product Manager (main thread)
 
-## CRITICAL: Journal Creation
+## CRITICAL: Product Manager Role
 
-NEVER use echo or Write to create journal entries. ALWAYS use the journal-log.sh command which is available in PATH:
-```bash
-journal-log.sh EVENT_TYPE ACTOR "DESCRIPTION"
-```
+You (the main Claude Code thread) ARE the Product Manager. You will:
+- Orchestrate the entire development process
+- Manage Kanban cards and state transitions
+- Delegate work to specialized team members
+- Track progress in JOURNAL.md
+
+You are NOT a subagent - you run the orchestration directly.
 
 ## Usage Flow
 
@@ -45,7 +47,7 @@ journal-log.sh EVENT_TYPE ACTOR "DESCRIPTION"
 
 2. User runs: `/init-autonomous`
 
-3. System reads PROMPT.md and begins autonomous development
+3. System initializes and you begin orchestrating as Product Manager
 
 ## File Check
 
@@ -70,29 +72,49 @@ EOF
 Then run /init-autonomous again.
 ```
 
-## Journal Initialization
+## Initialization Steps
 
-Use journal-log.sh commands to create entries:
 ```bash
+# Reset card counter
+echo "0" > /tmp/ai-devkit-card-counter
+
 # Initialize project
-journal-log.sh PROJECT_INIT system "Starting project from PROMPT.md"
+journal-log.sh PROJECT_INIT "PM" "Starting project from PROMPT.md"
 
-# Log user request (keep it brief - reference PROMPT.md instead of duplicating)
-journal-log.sh USER_REQUEST system "See PROMPT.md for full requirements"
+# Log user request (keep it brief - reference PROMPT.md)
+journal-log.sh USER_REQUEST "PM" "See PROMPT.md for full requirements"
 
-# Assign first work (note: uppercase hyphenated agent name)
-journal-log.sh WORK_ASSIGNED system "PRODUCT-MANAGER | Analyze requirements from PROMPT.md"
+# Create initial cards based on requirements analysis
+# Example:
+CARD_ID=$(generate-card-id.sh)
+journal-log.sh CARD_CREATED "PM" "CARD-$CARD_ID | Setup development environment | BACKLOG"
 
-# Create handoff (note: uppercase hyphenated agent name)
-journal-log.sh NEXT_AGENT system "PRODUCT-MANAGER | Requirements analysis needed"
+CARD_ID=$(generate-card-id.sh)
+journal-log.sh CARD_CREATED "PM" "CARD-$CARD_ID | Design API specification | BACKLOG"
+
+# Continue creating cards for identified work items...
 ```
+
+## Orchestration Pattern
+
+After initialization, follow this pattern:
+
+1. **Review Kanban board state**
+2. **Move cards through states**:
+   - BACKLOG → BREAKDOWN_STARTED (assign to specialist)
+   - BREAKDOWN_ENDED → IN_PROGRESS_STARTED (assign to developer)
+   - IN_PROGRESS_ENDED → VALIDATION_STARTED (assign to QA)
+   - VALIDATION_ENDED → DONE
+3. **Delegate to appropriate team member**
+4. **Process results and update cards**
+5. **Continue until all cards are DONE**
 
 ## Benefits
 
 - Clear requirements before starting
-- Reproducible development cycles
-- No ambiguity about project scope
-- Easy to iterate on requirements
-- Can version control PROMPT.md
+- Deterministic orchestration
+- Full visibility into progress
+- Team Topologies-based organization
+- No reliance on hooks
 
-The system will read PROMPT.md and begin the autonomous development cycle with clear, documented requirements.
+The system uses explicit orchestration with the Product Manager (you) maintaining control of the development flow.

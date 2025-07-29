@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Code pre-build script - Sets up autonomous development system with sub agents
+# Claude Code pre-build script - Sets up autonomous development system with Team Topologies
 # Generates component imports and prepares files for Docker build
 
 # Standard arguments
@@ -31,11 +31,10 @@ WORKSPACE_SETTINGS_TEMPLATE="$SCRIPT_DIR/claude-code/claude-workspace-settings.j
 [[ ! -f "$SETTINGS_TEMPLATE" ]] && error "claude-settings.json.template not found in $SCRIPT_DIR/claude-code"
 [[ ! -f "$WORKSPACE_SETTINGS_TEMPLATE" ]] && error "claude-workspace-settings.json.template not found in $SCRIPT_DIR/claude-code"
 
-log "Setting up Claude Code autonomous development system with sub agents..."
+log "Setting up Claude Code autonomous development system with Team Topologies..."
 
 # Create necessary directories
 mkdir -p "$TEMP_DIR/commands"
-mkdir -p "$TEMP_DIR/hooks"
 mkdir -p "$TEMP_DIR/agents"
 mkdir -p "$TEMP_DIR/scripts"
 
@@ -44,21 +43,21 @@ log "Copying user documentation..."
 cp "$USER_CLAUDE" "$TEMP_DIR/"
 success "Copied user-CLAUDE.md"
 
-# Copy settings template
+# Copy settings template (no hooks)
 log "Copying settings template..."
 cp "$SETTINGS_TEMPLATE" "$TEMP_DIR/"
-success "Copied claude-settings.json.template"
+success "Copied claude-settings.json.template (no hooks configured)"
 
 # Copy workspace settings template
 log "Copying workspace settings template..."
 cp "$WORKSPACE_SETTINGS_TEMPLATE" "$TEMP_DIR/"
 success "Copied claude-workspace-settings.json.template"
 
-# Copy commands (only the ones we need for sub agent system)
+# Copy commands
 if [[ -d "$SCRIPT_DIR/claude-code/commands" ]]; then
     log "Copying autonomous development commands..."
-    # Copy all needed commands including create-prompt
-    for cmd in init-autonomous show-journal event-query create-prompt; do
+    # Copy all needed commands
+    for cmd in init-autonomous show-journal event-query kanban-status; do
         if [[ -f "$SCRIPT_DIR/claude-code/commands/${cmd}.md" ]]; then
             cp "$SCRIPT_DIR/claude-code/commands/${cmd}.md" "$TEMP_DIR/commands/"
         fi
@@ -66,25 +65,49 @@ if [[ -d "$SCRIPT_DIR/claude-code/commands" ]]; then
     success "Copied $(ls -1 "$TEMP_DIR/commands/"*.md 2>/dev/null | wc -l) commands"
 fi
 
-# Copy autonomous continuation hook
-if [[ -f "$SCRIPT_DIR/claude-code/hooks/autonomous-continue.sh" ]]; then
-    log "Copying autonomous continuation hook..."
-    cp "$SCRIPT_DIR/claude-code/hooks/autonomous-continue.sh" "$TEMP_DIR/hooks/"
-    chmod +x "$TEMP_DIR/hooks/autonomous-continue.sh"
-    success "Copied autonomous-continue.sh"
-fi
-
-# Copy sub agents
+# Copy Team Topologies agents
 if [[ -d "$SCRIPT_DIR/claude-code/agents" ]]; then
-    log "Copying sub agent definitions..."
-    cp -r "$SCRIPT_DIR/claude-code/agents/"*.md "$TEMP_DIR/agents/" 2>/dev/null || true
-    success "Copied $(ls -1 "$TEMP_DIR/agents/"*.md 2>/dev/null | wc -l) sub agents"
+    log "Copying Team Topologies agent definitions..."
+    
+    # Stream-Aligned Team
+    for agent in feature-developer qa-engineer; do
+        [[ -f "$SCRIPT_DIR/claude-code/agents/${agent}.md" ]] && cp "$SCRIPT_DIR/claude-code/agents/${agent}.md" "$TEMP_DIR/agents/"
+    done
+    
+    # Platform Team
+    for agent in platform-engineer database-engineer; do
+        [[ -f "$SCRIPT_DIR/claude-code/agents/${agent}.md" ]] && cp "$SCRIPT_DIR/claude-code/agents/${agent}.md" "$TEMP_DIR/agents/"
+    done
+    
+    # Enabling Team
+    for agent in api-designer security-specialist performance-engineer solution-architect data-architect cloud-architect; do
+        [[ -f "$SCRIPT_DIR/claude-code/agents/${agent}.md" ]] && cp "$SCRIPT_DIR/claude-code/agents/${agent}.md" "$TEMP_DIR/agents/"
+    done
+    
+    # Complicated Subsystem Team
+    for agent in integration-specialist algorithm-developer; do
+        [[ -f "$SCRIPT_DIR/claude-code/agents/${agent}.md" ]] && cp "$SCRIPT_DIR/claude-code/agents/${agent}.md" "$TEMP_DIR/agents/"
+    done
+    
+    success "Copied $(ls -1 "$TEMP_DIR/agents/"*.md 2>/dev/null | wc -l) Team Topologies agents"
 fi
 
 # Copy utility scripts
 if [[ -d "$SCRIPT_DIR/claude-code/scripts" ]]; then
     log "Copying utility scripts..."
-    cp -r "$SCRIPT_DIR/claude-code/scripts/"*.sh "$TEMP_DIR/scripts/" 2>/dev/null || true
+    
+    # Copy journal logging script
+    if [[ -f "$SCRIPT_DIR/claude-code/scripts/journal-log.sh" ]]; then
+        cp "$SCRIPT_DIR/claude-code/scripts/journal-log.sh" "$TEMP_DIR/scripts/"
+        chmod +x "$TEMP_DIR/scripts/journal-log.sh"
+    fi
+    
+    # Copy card ID generator
+    if [[ -f "$SCRIPT_DIR/claude-code/scripts/generate-card-id.sh" ]]; then
+        cp "$SCRIPT_DIR/claude-code/scripts/generate-card-id.sh" "$TEMP_DIR/scripts/"
+        chmod +x "$TEMP_DIR/scripts/generate-card-id.sh"
+    fi
+    
     success "Copied $(ls -1 "$TEMP_DIR/scripts/"*.sh 2>/dev/null | wc -l) scripts"
 fi
 
@@ -310,11 +333,11 @@ fi
 
 log "Found ${#all_allow_perms[@]} unique allow permissions and ${#all_deny_perms[@]} unique deny permissions from components"
 
-# Generate the final settings.json (copy template as-is)
+# Generate the final settings.json (copy template as-is - no hooks)
 log "Copying claude-settings.json template..."
 cp "$SETTINGS_TEMPLATE" "$TEMP_DIR/claude-settings.json"
 cp "$SETTINGS_TEMPLATE" "$TEMP_DIR/claude-settings.json.template"
-success "Copied claude-settings.json"
+success "Copied claude-settings.json (no hooks configured)"
 
 # Generate the workspace settings with dynamic permissions
 log "Generating claude-workspace-settings.json with dynamic permissions..."
@@ -439,26 +462,43 @@ cat > "$TEMP_DIR/MANIFEST.txt" << EOF
 # Claude Code Autonomous Development System Manifest
 
 ## Core Files
-- user-CLAUDE.md: User documentation
-- claude-settings.json: Global settings with stop hook
+- user-CLAUDE.md: Product Manager orchestration guide
+- claude-settings.json: Global settings (no hooks)
 - claude-workspace-settings.json: Workspace settings with dynamic permissions
 
 ## Commands ($(ls -1 "$TEMP_DIR/commands/"*.md 2>/dev/null | wc -l))
 $(ls -1 "$TEMP_DIR/commands/"*.md 2>/dev/null | sed 's|.*/|  - |')
 
-## Hooks
-- autonomous-continue.sh: Stop hook for autonomous agent delegation
+## Team Topologies Agents ($(ls -1 "$TEMP_DIR/agents/"*.md 2>/dev/null | wc -l))
 
-## Sub Agents ($(ls -1 "$TEMP_DIR/agents/"*.md 2>/dev/null | wc -l))
-$(ls -1 "$TEMP_DIR/agents/"*.md 2>/dev/null | sed 's|.*/|  - |')
+### Stream-Aligned Team
+- feature-developer.md: Implements features and business logic
+- qa-engineer.md: Validates implementations
+
+### Platform Team
+- platform-engineer.md: Infrastructure and CI/CD
+- database-engineer.md: Data models and schemas
+
+### Enabling Team
+- api-designer.md: API specifications
+- security-specialist.md: Security reviews
+- performance-engineer.md: Performance optimization
+- solution-architect.md: High-level system architecture
+- data-architect.md: Enterprise data architecture
+- cloud-architect.md: Cloud infrastructure and migration
+
+### Complicated Subsystem Team
+- integration-specialist.md: Third-party integrations
+- algorithm-developer.md: Complex algorithms
 
 ## System Overview
 The autonomous development system uses:
-1. Sub agents for each persona (product-manager, architect, developer, qa, reviewer, merger)
-2. A journal (~/workspace/JOURNAL.md) for state persistence
-3. A stop hook that reads NEXT_AGENT directives and continues autonomously
-4. Clear handoff protocols between agents
-5. Dynamic permissions based on selected components (workspace-level)
+1. Product Manager (main thread) as orchestrator
+2. Team Topologies-based organization
+3. Kanban card system for work tracking
+4. JOURNAL.md for state persistence
+5. Deterministic handoffs between teams
+6. No reliance on hooks for orchestration
 
 To start: Use "/init-autonomous" command after describing your project.
 EOF
@@ -475,6 +515,7 @@ if [ ${#all_allow_perms[@]} -gt 0 ]; then
 fi
 
 log "Claude Code autonomous development system setup completed successfully!"
-info "The system will activate when users run /init-autonomous"
-info "Agents will work autonomously through the Stop hook"
+info "The system uses Team Topologies principles for realistic team modeling"
+info "Product Manager runs in main thread for deterministic orchestration"
+info "Kanban cards track work progress through JOURNAL.md"
 info "Permissions have been dynamically generated from ${#SELECTED_YAML_FILES} components"
