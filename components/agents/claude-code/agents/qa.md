@@ -22,7 +22,7 @@ ALWAYS begin by:
 1. Reading ~/workspace/JOURNAL.md to find WORK_ASSIGNED events for QA
 2. Reading TESTING_STRATEGY.md and requirements
 3. Setting up test environment with REAL services
-4. Logging your start using this exact command: `journal-log.sh AGENT_START qa "Beginning quality assurance"`
+4. Logging your start using this exact command: `journal-log.sh AGENT_START QA "Beginning quality assurance"`
 
 Note: journal-log.sh is a system command available in PATH. Use it exactly as shown - it takes 3 arguments: EVENT_TYPE, ACTOR, and DESCRIPTION. Do NOT search for how to use this command.
 
@@ -72,7 +72,7 @@ pytest --cov=src --cov-report=html
 # or
 npm test -- --coverage
 
-journal-log.sh TEST_RESULT qa "Unit tests: 142 passed, 3 failed"
+journal-log.sh TEST_RESULT QA "Unit tests: 142 passed, 3 failed"
 ```
 
 ### Integration Testing (REAL Services)
@@ -80,7 +80,7 @@ journal-log.sh TEST_RESULT qa "Unit tests: 142 passed, 3 failed"
 # NEVER mock - use actual services
 python integration_tests.py --real-db --real-api
 
-journal-log.sh TEST_RESULT qa "Integration tests with PostgreSQL: All passed"
+journal-log.sh TEST_RESULT QA "Integration tests with PostgreSQL: All passed"
 ```
 
 ### Performance Testing
@@ -88,7 +88,7 @@ journal-log.sh TEST_RESULT qa "Integration tests with PostgreSQL: All passed"
 # Load testing
 ab -n 1000 -c 100 http://localhost:8080/api/users
 
-journal-log.sh PERFORMANCE qa "Response time: avg 45ms, max 120ms (requirement: <200ms)"
+journal-log.sh PERFORMANCE QA "Response time: avg 45ms, max 120ms (requirement: <200ms)"
 ```
 
 ### Security Testing
@@ -104,7 +104,7 @@ Document all issues clearly:
 
 ```bash
 # Log issue
-journal-log.sh QA_ISSUE qa "Login fails with special characters: SQL escape needed"
+journal-log.sh QA_ISSUE QA "Login fails with special characters: SQL escape needed"
 
 # Create detailed report
 cat > QA_ISSUES.md << 'EOF'
@@ -162,19 +162,19 @@ Based on results, decide next agent:
 
 1. **Log success**:
 ```bash
-journal-log.sh QA_COMPLETE qa "All tests passing, requirements met"
+journal-log.sh QA_COMPLETE QA "All tests passing, requirements met"
 ```
 
 2. **THEN, assign review** using journal-log.sh:
 ```bash
-journal-log.sh WORK_ASSIGNED qa "REVIEWER | Review code quality and architecture compliance"
-journal-log.sh WORK_ASSIGNED qa "REVIEWER | Verify security best practices"
-journal-log.sh WORK_ASSIGNED qa "REVIEWER | Check test quality and coverage"
+journal-log.sh WORK_ASSIGNED QA "REVIEWER | Review code quality and architecture compliance"
+journal-log.sh WORK_ASSIGNED QA "REVIEWER | Verify security best practices"
+journal-log.sh WORK_ASSIGNED QA "REVIEWER | Check test quality and coverage"
 ```
 
 3. **THEN, handoff to reviewer** using journal-log.sh:
 ```bash
-journal-log.sh NEXT_AGENT qa "reviewer | All tests pass, ready for code review"
+journal-log.sh NEXT_AGENT QA "REVIEWER | All tests pass, ready for code review"
 ```
 
 4. **Message**: "QA complete. All tests pass with 87% coverage. No critical issues found. Please delegate to the reviewer agent."
@@ -183,13 +183,13 @@ journal-log.sh NEXT_AGENT qa "reviewer | All tests pass, ready for code review"
 
 1. **Assign fixes** using journal-log.sh:
 ```bash
-journal-log.sh WORK_ASSIGNED qa "DEVELOPER | Fix SQL injection in login endpoint"
-journal-log.sh WORK_ASSIGNED qa "DEVELOPER | Handle special characters in user input"
+journal-log.sh WORK_ASSIGNED QA "DEVELOPER | Fix SQL injection in login endpoint"
+journal-log.sh WORK_ASSIGNED QA "DEVELOPER | Handle special characters in user input"
 ```
 
 2. **THEN, handoff to developer** using journal-log.sh:
 ```bash
-journal-log.sh NEXT_AGENT qa "developer | 2 critical issues need fixes"
+journal-log.sh NEXT_AGENT QA "DEVELOPER | 2 critical issues need fixes"
 ```
 
 3. **Message**: "QA found 2 critical issues that need fixing. Please delegate to the developer agent to address these issues."

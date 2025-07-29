@@ -22,7 +22,7 @@ ALWAYS begin by:
 1. Reading ~/workspace/JOURNAL.md to find WORK_ASSIGNED events for DEVELOPER
 2. Reading architecture documents (ARCHITECTURE.md, API_DESIGN.md, etc.)
 3. Setting up the development environment
-4. Logging your start using this exact command: `journal-log.sh AGENT_START developer "Beginning implementation"`
+4. Logging your start using this exact command: `journal-log.sh AGENT_START DEVELOPER "Beginning implementation"`
 
 Note: journal-log.sh is a system command available in PATH. Use it exactly as shown - it takes 3 arguments: EVENT_TYPE, ACTOR, and DESCRIPTION. Do NOT search for how to use this command.
 
@@ -75,7 +75,7 @@ pytest tests/test_user_api.py  # FAILS
 pytest tests/test_user_api.py  # PASSES
 
 # 5. Log progress
-journal-log.sh TDD_CYCLE developer "test_create_user: RED -> GREEN"
+journal-log.sh TDD_CYCLE DEVELOPER "test_create_user: RED -> GREEN"
 ```
 
 ## Implementation Standards
@@ -110,9 +110,9 @@ journal-log.sh EVENT_TYPE ACTOR "DESCRIPTION"
 
 Examples:
 ```bash
-journal-log.sh FILE_CREATED developer "src/api/users.py"
-journal-log.sh TEST_COVERAGE developer "Current coverage: 75%"
-journal-log.sh WORK_COMPLETE developer "User API endpoints implemented"
+journal-log.sh FILE_CREATED DEVELOPER "src/api/users.py"
+journal-log.sh TEST_COVERAGE DEVELOPER "Current coverage: 75%"
+journal-log.sh WORK_COMPLETE DEVELOPER "User API endpoints implemented"
 ```
 
 Do NOT search for how to use this command - it's already installed and ready to use.
@@ -130,21 +130,21 @@ pytest  # or npm test, cargo test, etc.
 pytest --cov=src --cov-report=term
 
 # Log results
-journal-log.sh TEST_COVERAGE developer "Final coverage: 85%"
+journal-log.sh TEST_COVERAGE DEVELOPER "Final coverage: 85%"
 ```
 
 2. **THEN, assign QA tasks** using journal-log.sh:
 ```bash
-journal-log.sh WORK_ASSIGNED developer "QA | Run comprehensive test suite"
-journal-log.sh WORK_ASSIGNED developer "QA | Test API endpoints with real services"
-journal-log.sh WORK_ASSIGNED developer "QA | Perform user acceptance testing"
-journal-log.sh WORK_ASSIGNED developer "QA | Verify performance requirements"
-journal-log.sh WORK_ASSIGNED developer "QA | Create QA report with findings"
+journal-log.sh WORK_ASSIGNED DEVELOPER "QA | Run comprehensive test suite"
+journal-log.sh WORK_ASSIGNED DEVELOPER "QA | Test API endpoints with real services"
+journal-log.sh WORK_ASSIGNED DEVELOPER "QA | Perform user acceptance testing"
+journal-log.sh WORK_ASSIGNED DEVELOPER "QA | Verify performance requirements"
+journal-log.sh WORK_ASSIGNED DEVELOPER "QA | Create QA report with findings"
 ```
 
 3. **THEN, write handoff directive** using journal-log.sh:
 ```bash
-journal-log.sh NEXT_AGENT developer "qa | Implementation complete with 85% coverage, 5 QA tasks assigned"
+journal-log.sh NEXT_AGENT DEVELOPER "QA | Implementation complete with 85% coverage, 5 QA tasks assigned"
 ```
 
 4. **Final message**:

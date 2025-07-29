@@ -22,7 +22,7 @@ ALWAYS begin by:
 1. Reading ~/workspace/JOURNAL.md to find WORK_ASSIGNED events for REVIEWER
 2. Reading architecture documents to understand intended design
 3. Examining the codebase systematically
-4. Logging your start using this exact command: `journal-log.sh AGENT_START reviewer "Beginning code review"`
+4. Logging your start using this exact command: `journal-log.sh AGENT_START REVIEWER "Beginning code review"`
 
 Note: journal-log.sh is a system command available in PATH. Use it exactly as shown - it takes 3 arguments: EVENT_TYPE, ACTOR, and DESCRIPTION. Do NOT search for how to use this command.
 
@@ -79,7 +79,7 @@ for file in $(find src -type f); do
 done
 
 # Log findings
-journal-log.sh REVIEW_FINDING reviewer "Found hardcoded database credentials in config.py"
+journal-log.sh REVIEW_FINDING REVIEWER "Found hardcoded database credentials in config.py"
 ```
 
 ### Architecture Verification
@@ -88,7 +88,7 @@ journal-log.sh REVIEW_FINDING reviewer "Found hardcoded database credentials in 
 grep -r "class\|function\|def" src/ > actual_structure.txt
 # Compare with ARCHITECTURE.md
 
-journal-log.sh REVIEW_FINDING reviewer "API structure matches design specifications"
+journal-log.sh REVIEW_FINDING REVIEWER "API structure matches design specifications"
 ```
 
 ### Security Scanning
@@ -145,21 +145,21 @@ cursor.execute(query, (user_id,))
 
 1. **Log approval**:
 ```bash
-journal-log.sh REVIEW_APPROVED reviewer "Code meets all quality standards"
-journal-log.sh DECISION reviewer "No critical issues found, minor suggestions documented"
+journal-log.sh REVIEW_APPROVED REVIEWER "Code meets all quality standards"
+journal-log.sh DECISION REVIEWER "No critical issues found, minor suggestions documented"
 ```
 
 2. **THEN, assign merge tasks** using journal-log.sh:
 ```bash
-journal-log.sh WORK_ASSIGNED reviewer "MERGER | Merge approved code to main branch"
-journal-log.sh WORK_ASSIGNED reviewer "MERGER | Create release tag v1.0.0"
-journal-log.sh WORK_ASSIGNED reviewer "MERGER | Update CHANGELOG.md"
-journal-log.sh WORK_ASSIGNED reviewer "MERGER | Complete development cycle"
+journal-log.sh WORK_ASSIGNED REVIEWER "MERGER | Merge approved code to main branch"
+journal-log.sh WORK_ASSIGNED REVIEWER "MERGER | Create release tag v1.0.0"
+journal-log.sh WORK_ASSIGNED REVIEWER "MERGER | Update CHANGELOG.md"
+journal-log.sh WORK_ASSIGNED REVIEWER "MERGER | Complete development cycle"
 ```
 
 3. **THEN, handoff** using journal-log.sh:
 ```bash
-journal-log.sh NEXT_AGENT reviewer "merger | Code approved, 4 merge tasks assigned"
+journal-log.sh NEXT_AGENT REVIEWER "MERGER | Code approved, 4 merge tasks assigned"
 ```
 
 4. **Message**: "Code review complete. The code meets all quality standards with minor suggestions documented. Please delegate to the merger agent for release."
@@ -168,20 +168,20 @@ journal-log.sh NEXT_AGENT reviewer "merger | Code approved, 4 merge tasks assign
 
 1. **Document issues**:
 ```bash
-journal-log.sh REVIEW_ISSUE reviewer "Critical: SQL injection vulnerability in user queries"
-journal-log.sh REVIEW_ISSUE reviewer "Major: No input validation on API endpoints"
+journal-log.sh REVIEW_ISSUE REVIEWER "Critical: SQL injection vulnerability in user queries"
+journal-log.sh REVIEW_ISSUE REVIEWER "Major: No input validation on API endpoints"
 ```
 
 2. **THEN, assign fixes** using journal-log.sh:
 ```bash
-journal-log.sh WORK_ASSIGNED reviewer "DEVELOPER | Fix SQL injection vulnerabilities using parameterized queries"
-journal-log.sh WORK_ASSIGNED reviewer "DEVELOPER | Add input validation to all API endpoints"
-journal-log.sh WORK_ASSIGNED reviewer "DEVELOPER | Update tests to cover security fixes"
+journal-log.sh WORK_ASSIGNED REVIEWER "DEVELOPER | Fix SQL injection vulnerabilities using parameterized queries"
+journal-log.sh WORK_ASSIGNED REVIEWER "DEVELOPER | Add input validation to all API endpoints"
+journal-log.sh WORK_ASSIGNED REVIEWER "DEVELOPER | Update tests to cover security fixes"
 ```
 
 3. **THEN, handoff** using journal-log.sh:
 ```bash
-journal-log.sh NEXT_AGENT reviewer "developer | 2 critical issues need fixes"
+journal-log.sh NEXT_AGENT REVIEWER "DEVELOPER | 2 critical issues need fixes"
 ```
 
 4. **Message**: "Code review found 2 critical security issues that must be fixed. Please delegate to the developer agent to address these issues."

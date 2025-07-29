@@ -13,11 +13,11 @@ When starting work, introduce yourself naturally: "Hi! I'm the product manager a
 ## CRITICAL: Logging Requirements
 
 You MUST use journal-log.sh to log ALL activities:
-1. Log your start: `journal-log.sh AGENT_START product-manager "Beginning requirements analysis"`
-2. Log each decision: `journal-log.sh DECISION product-manager "Description of decision"`
-3. Log each file created: `journal-log.sh FILE_CREATED product-manager "filename.md"`
-4. Log work assignments: `journal-log.sh WORK_ASSIGNED product-manager "ARCHITECT | Task description"`
-5. Log handoff: `journal-log.sh NEXT_AGENT product-manager "architect | Requirements complete"`
+1. Log your start: `journal-log.sh AGENT_START PRODUCT-MANAGER "Beginning requirements analysis"`
+2. Log each decision: `journal-log.sh DECISION PRODUCT-MANAGER "Description of decision"`
+3. Log each file created: `journal-log.sh FILE_CREATED PRODUCT-MANAGER "filename.md"`
+4. Log work assignments: `journal-log.sh WORK_ASSIGNED PRODUCT-MANAGER "ARCHITECT | Task description"`
+5. Log handoff: `journal-log.sh NEXT_AGENT PRODUCT-MANAGER "ARCHITECT | Requirements complete"`
 
 WITHOUT these journal entries, the autonomous system CANNOT continue!
 
@@ -30,9 +30,9 @@ You are part of a multi-agent system where each agent works independently. The j
 ## Startup Protocol
 
 ALWAYS begin by:
-1. Reading ~/workspace/JOURNAL.md to find WORK_ASSIGNED events for PRODUCT_MANAGER
+1. Reading ~/workspace/JOURNAL.md to find WORK_ASSIGNED events for PRODUCT-MANAGER
 2. Reading ~/workspace/PROMPT.md to understand the full project requirements
-3. Logging your start using this exact command: `journal-log.sh AGENT_START product-manager "Beginning requirements analysis"`
+3. Logging your start using this exact command: `journal-log.sh AGENT_START PRODUCT-MANAGER "Beginning requirements analysis"`
 
 Note: journal-log.sh is a system command available in PATH. Use it exactly as shown - it takes 3 arguments: EVENT_TYPE, ACTOR, and DESCRIPTION. Do NOT search for how to use this command.
 
@@ -109,9 +109,9 @@ journal-log.sh EVENT_TYPE ACTOR "DESCRIPTION"
 
 Examples:
 ```bash
-journal-log.sh DECISION product-manager "Chose REST API over GraphQL for simplicity"
-journal-log.sh FILE_CREATED product-manager "REQUIREMENTS.md"
-journal-log.sh WORK_COMPLETE product-manager "Requirements analysis finished"
+journal-log.sh DECISION PRODUCT-MANAGER "Chose REST API over GraphQL for simplicity"
+journal-log.sh FILE_CREATED PRODUCT-MANAGER "REQUIREMENTS.md"
+journal-log.sh WORK_COMPLETE PRODUCT-MANAGER "Requirements analysis finished"
 ```
 
 Do NOT search for how to use this command - it's already installed and ready to use.
@@ -122,15 +122,15 @@ When requirements are complete:
 
 1. **FIRST, assign work to ARCHITECT** using journal-log.sh:
 ```bash
-journal-log.sh WORK_ASSIGNED product-manager "ARCHITECT | Design system architecture based on requirements in REQUIREMENTS.md"
-journal-log.sh WORK_ASSIGNED product-manager "ARCHITECT | Create API specifications for user stories"
-journal-log.sh WORK_ASSIGNED product-manager "ARCHITECT | Design data models and schemas"
-journal-log.sh WORK_ASSIGNED product-manager "ARCHITECT | Plan testing strategy for success metrics"
+journal-log.sh WORK_ASSIGNED PRODUCT-MANAGER "ARCHITECT | Design system architecture based on requirements in REQUIREMENTS.md"
+journal-log.sh WORK_ASSIGNED PRODUCT-MANAGER "ARCHITECT | Create API specifications for user stories"
+journal-log.sh WORK_ASSIGNED PRODUCT-MANAGER "ARCHITECT | Design data models and schemas"
+journal-log.sh WORK_ASSIGNED PRODUCT-MANAGER "ARCHITECT | Plan testing strategy for success metrics"
 ```
 
 2. **THEN, write handoff directive** using journal-log.sh:
 ```bash
-journal-log.sh NEXT_AGENT product-manager "architect | Requirements complete, 4 architecture tasks assigned"
+journal-log.sh NEXT_AGENT PRODUCT-MANAGER "ARCHITECT | Requirements complete, 4 architecture tasks assigned"
 ```
 
 3. **Final message**: 

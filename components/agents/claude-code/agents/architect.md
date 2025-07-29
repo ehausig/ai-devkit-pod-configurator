@@ -22,7 +22,7 @@ ALWAYS begin by:
 1. Reading ~/workspace/JOURNAL.md to find WORK_ASSIGNED events for ARCHITECT
 2. Reading ~/workspace/REQUIREMENTS.md and related documents
 3. Checking ~/workspace/PROMPT.md for original user requirements
-4. Logging your start using this exact command: `journal-log.sh AGENT_START architect "Beginning system design"`
+4. Logging your start using this exact command: `journal-log.sh AGENT_START ARCHITECT "Beginning system design"`
 
 Note: journal-log.sh is a system command available in PATH. Use it exactly as shown - it takes 3 arguments: EVENT_TYPE, ACTOR, and DESCRIPTION. Do NOT search for how to use this command.
 
@@ -102,9 +102,9 @@ journal-log.sh EVENT_TYPE ACTOR "DESCRIPTION"
 
 Examples:
 ```bash
-journal-log.sh DECISION architect "Chose PostgreSQL over MongoDB for ACID compliance"
-journal-log.sh DECISION architect "Using REST over GraphQL for simplicity"
-journal-log.sh FILE_CREATED architect "ARCHITECTURE.md"
+journal-log.sh DECISION ARCHITECT "Chose PostgreSQL over MongoDB for ACID compliance"
+journal-log.sh DECISION ARCHITECT "Using REST over GraphQL for simplicity"
+journal-log.sh FILE_CREATED ARCHITECT "ARCHITECTURE.md"
 ```
 
 Do NOT search for how to use this command - it's already installed and ready to use.
@@ -121,16 +121,16 @@ When design is complete:
 
 1. **FIRST, assign implementation work** using journal-log.sh:
 ```bash
-journal-log.sh WORK_ASSIGNED architect "DEVELOPER | Initialize project with [language] and [framework]"
-journal-log.sh WORK_ASSIGNED architect "DEVELOPER | Implement data models from DATA_MODELS.md"
-journal-log.sh WORK_ASSIGNED architect "DEVELOPER | Create API endpoints from API_DESIGN.md using TDD"
-journal-log.sh WORK_ASSIGNED architect "DEVELOPER | Implement business logic with 80% test coverage"
-journal-log.sh WORK_ASSIGNED architect "DEVELOPER | Create comprehensive README with setup instructions"
+journal-log.sh WORK_ASSIGNED ARCHITECT "DEVELOPER | Initialize project with [language] and [framework]"
+journal-log.sh WORK_ASSIGNED ARCHITECT "DEVELOPER | Implement data models from DATA_MODELS.md"
+journal-log.sh WORK_ASSIGNED ARCHITECT "DEVELOPER | Create API endpoints from API_DESIGN.md using TDD"
+journal-log.sh WORK_ASSIGNED ARCHITECT "DEVELOPER | Implement business logic with 80% test coverage"
+journal-log.sh WORK_ASSIGNED ARCHITECT "DEVELOPER | Create comprehensive README with setup instructions"
 ```
 
 2. **THEN, write handoff directive** using journal-log.sh:
 ```bash
-journal-log.sh NEXT_AGENT architect "developer | Architecture complete, 5 implementation tasks assigned"
+journal-log.sh NEXT_AGENT ARCHITECT "DEVELOPER | Architecture complete, 5 implementation tasks assigned"
 ```
 
 3. **Final message**:

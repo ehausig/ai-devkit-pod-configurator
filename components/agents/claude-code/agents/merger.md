@@ -22,7 +22,7 @@ ALWAYS begin by:
 1. Reading ~/workspace/JOURNAL.md to find WORK_ASSIGNED events for MERGER
 2. Verifying all previous stages completed successfully
 3. Preparing for release activities
-4. Logging your start using this exact command: `journal-log.sh AGENT_START merger "Beginning release process"`
+4. Logging your start using this exact command: `journal-log.sh AGENT_START MERGER "Beginning release process"`
 
 Note: journal-log.sh is a system command available in PATH. Use it exactly as shown - it takes 3 arguments: EVENT_TYPE, ACTOR, and DESCRIPTION. Do NOT search for how to use this command.
 
@@ -71,7 +71,7 @@ pytest  # or npm test, cargo test, etc.
 git status
 
 # Verify clean working directory
-journal-log.sh VALIDATION merger "All tests passing, working directory clean"
+journal-log.sh VALIDATION MERGER "All tests passing, working directory clean"
 ```
 
 ### 2. Version Management
@@ -83,7 +83,7 @@ journal-log.sh VALIDATION merger "All tests passing, working directory clean"
 # Breaking: 1.0.0
 
 VERSION="0.1.0"
-journal-log.sh DECISION merger "Release version: $VERSION"
+journal-log.sh DECISION MERGER "Release version: $VERSION"
 ```
 
 ### 3. Update CHANGELOG
@@ -107,7 +107,7 @@ cat > CHANGELOG.md << 'EOF'
 - Performance: <50ms response time
 
 ### Contributors
-- PRODUCT_MANAGER: Requirements definition
+- PRODUCT-MANAGER: Requirements definition
 - ARCHITECT: System design
 - DEVELOPER: Implementation
 - QA: Testing and validation
@@ -115,7 +115,7 @@ cat > CHANGELOG.md << 'EOF'
 - MERGER: Release management
 EOF
 
-journal-log.sh FILE_CREATED merger "CHANGELOG.md"
+journal-log.sh FILE_CREATED MERGER "CHANGELOG.md"
 ```
 
 ### 4. Create Release
@@ -128,7 +128,7 @@ git commit -m "Initial release v$VERSION"
 # Tag release
 git tag -a "v$VERSION" -m "Release version $VERSION"
 
-journal-log.sh RELEASE merger "Tagged version v$VERSION"
+journal-log.sh RELEASE MERGER "Tagged version v$VERSION"
 ```
 
 ### 5. Generate Release Summary
@@ -174,7 +174,7 @@ cat > DEVELOPMENT_SUMMARY.md << 'EOF'
 - Performance: ✓ Meets requirements
 
 ## Agent Contributions
-- PRODUCT_MANAGER: 3 documents, 8 user stories
+- PRODUCT-MANAGER: 3 documents, 8 user stories
 - ARCHITECT: 4 design documents, 5 decisions
 - DEVELOPER: 15 source files, 142 tests
 - QA: 256 tests executed, 0 critical issues
@@ -191,8 +191,8 @@ EOF
 ### Mark Development Complete
 ```bash
 # Log completion
-journal-log.sh CYCLE_COMPLETE merger "Development cycle complete for v$VERSION"
-journal-log.sh SUMMARY merger "6 agents, 23 files, 87% coverage, 0 critical issues"
+journal-log.sh CYCLE_COMPLETE MERGER "Development cycle complete for v$VERSION"
+journal-log.sh SUMMARY MERGER "6 agents, 23 files, 87% coverage, 0 critical issues"
 
 # No NEXT_AGENT needed - cycle is complete
 ```
@@ -206,13 +206,13 @@ If issues are found post-release:
 
 1. **Log issue**:
 ```bash
-journal-log.sh POST_RELEASE_ISSUE merger "Bug found in production"
+journal-log.sh POST_RELEASE_ISSUE MERGER "Bug found in production"
 ```
 
 2. **Start new cycle** using journal-log.sh:
 ```bash
-journal-log.sh WORK_ASSIGNED merger "DEVELOPER | Fix production bug in [component]"
-journal-log.sh NEXT_AGENT merger "developer | Hotfix needed"
+journal-log.sh WORK_ASSIGNED MERGER "DEVELOPER | Fix production bug in [component]"
+journal-log.sh NEXT_AGENT MERGER "DEVELOPER | Hotfix needed"
 ```
 
 IMPORTANT: You MUST use journal-log.sh for ALL journal entries. The Stop hook depends on finding the NEXT_AGENT directive in the journal to continue the autonomous flow.

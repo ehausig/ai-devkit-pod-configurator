@@ -22,8 +22,8 @@ When invoked, I will:
 3. **Create the journal** at `~/workspace/JOURNAL.md` using journal-log.sh:
    - Use `journal-log.sh PROJECT_INIT system "Starting project from PROMPT.md"`
    - Use `journal-log.sh USER_REQUEST system "[Brief summary of requirements]"`
-   - Use `journal-log.sh WORK_ASSIGNED system "PRODUCT_MANAGER | Analyze requirements"`
-   - Use `journal-log.sh NEXT_AGENT system "product-manager | Requirements analysis needed"`
+   - Use `journal-log.sh WORK_ASSIGNED system "PRODUCT-MANAGER | Analyze requirements"`
+   - Use `journal-log.sh NEXT_AGENT system "PRODUCT-MANAGER | Requirements analysis needed"`
 
 4. **Start autonomous flow** by instructing delegation
 
@@ -80,11 +80,11 @@ journal-log.sh PROJECT_INIT system "Starting project from PROMPT.md"
 # Log user request (keep it brief - reference PROMPT.md instead of duplicating)
 journal-log.sh USER_REQUEST system "See PROMPT.md for full requirements"
 
-# Assign first work
-journal-log.sh WORK_ASSIGNED system "PRODUCT_MANAGER | Analyze requirements from PROMPT.md"
+# Assign first work (note: uppercase hyphenated agent name)
+journal-log.sh WORK_ASSIGNED system "PRODUCT-MANAGER | Analyze requirements from PROMPT.md"
 
-# Create handoff
-journal-log.sh NEXT_AGENT system "product-manager | Requirements analysis needed"
+# Create handoff (note: uppercase hyphenated agent name)
+journal-log.sh NEXT_AGENT system "PRODUCT-MANAGER | Requirements analysis needed"
 ```
 
 ## Benefits
