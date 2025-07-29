@@ -53,43 +53,39 @@ log "Copying workspace settings template..."
 cp "$WORKSPACE_SETTINGS_TEMPLATE" "$TEMP_DIR/"
 success "Copied claude-workspace-settings.json.template"
 
-# Copy commands
+# Copy commands (all .md files)
 if [[ -d "$SCRIPT_DIR/claude-code/commands" ]]; then
     log "Copying autonomous development commands..."
-    # Copy all needed commands
-    for cmd in init-autonomous show-journal event-query kanban-status; do
-        if [[ -f "$SCRIPT_DIR/claude-code/commands/${cmd}.md" ]]; then
-            cp "$SCRIPT_DIR/claude-code/commands/${cmd}.md" "$TEMP_DIR/commands/"
-        fi
-    done
-    success "Copied $(ls -1 "$TEMP_DIR/commands/"*.md 2>/dev/null | wc -l) commands"
+    if ls "$SCRIPT_DIR/claude-code/commands/"*.md >/dev/null 2>&1; then
+        cp "$SCRIPT_DIR/claude-code/commands/"*.md "$TEMP_DIR/commands/"
+        success "Copied $(ls -1 "$TEMP_DIR/commands/"*.md 2>/dev/null | wc -l) commands"
+    else
+        log "No command files found"
+    fi
 fi
 
-# Copy Team Topologies agents
+# Copy agents (all .md files)
 if [[ -d "$SCRIPT_DIR/claude-code/agents" ]]; then
-    log "Copying Team Topologies agent definitions..."
-    
-    # Stream-Aligned Team
-    for agent in feature-developer qa-engineer; do
-        [[ -f "$SCRIPT_DIR/claude-code/agents/${agent}.md" ]] && cp "$SCRIPT_DIR/claude-code/agents/${agent}.md" "$TEMP_DIR/agents/"
-    done
-    
-    # Platform Team
-    for agent in platform-engineer database-engineer; do
-        [[ -f "$SCRIPT_DIR/claude-code/agents/${agent}.md" ]] && cp "$SCRIPT_DIR/claude-code/agents/${agent}.md" "$TEMP_DIR/agents/"
-    done
-    
-    # Enabling Team
-    for agent in api-designer security-specialist performance-engineer solution-architect data-architect cloud-architect; do
-        [[ -f "$SCRIPT_DIR/claude-code/agents/${agent}.md" ]] && cp "$SCRIPT_DIR/claude-code/agents/${agent}.md" "$TEMP_DIR/agents/"
-    done
-    
-    # Complicated Subsystem Team
-    for agent in integration-specialist algorithm-developer; do
-        [[ -f "$SCRIPT_DIR/claude-code/agents/${agent}.md" ]] && cp "$SCRIPT_DIR/claude-code/agents/${agent}.md" "$TEMP_DIR/agents/"
-    done
-    
-    success "Copied $(ls -1 "$TEMP_DIR/agents/"*.md 2>/dev/null | wc -l) Team Topologies agents"
+    log "Copying agent definitions..."
+    if ls "$SCRIPT_DIR/claude-code/agents/"*.md >/dev/null 2>&1; then
+        cp "$SCRIPT_DIR/claude-code/agents/"*.md "$TEMP_DIR/agents/"
+        success "Copied $(ls -1 "$TEMP_DIR/agents/"*.md 2>/dev/null | wc -l) agents"
+    else
+        log "No agent files found"
+    fi
+fi
+
+# Copy hooks (all .sh files if directory exists)
+if [[ -d "$SCRIPT_DIR/claude-code/hooks" ]]; then
+    log "Copying hook scripts..."
+    mkdir -p "$TEMP_DIR/hooks"
+    if ls "$SCRIPT_DIR/claude-code/hooks/"*.sh >/dev/null 2>&1; then
+        cp "$SCRIPT_DIR/claude-code/hooks/"*.sh "$TEMP_DIR/hooks/"
+        chmod +x "$TEMP_DIR/hooks/"*.sh
+        success "Copied $(ls -1 "$TEMP_DIR/hooks/"*.sh 2>/dev/null | wc -l) hooks"
+    else
+        log "No hook files found"
+    fi
 fi
 
 # Copy utility scripts
@@ -467,29 +463,16 @@ cat > "$TEMP_DIR/MANIFEST.txt" << EOF
 - claude-workspace-settings.json: Workspace settings with dynamic permissions
 
 ## Commands ($(ls -1 "$TEMP_DIR/commands/"*.md 2>/dev/null | wc -l))
-$(ls -1 "$TEMP_DIR/commands/"*.md 2>/dev/null | sed 's|.*/|  - |')
+$(ls -1 "$TEMP_DIR/commands/"*.md 2>/dev/null | sed 's|.*/|  - |' | sort)
 
-## Team Topologies Agents ($(ls -1 "$TEMP_DIR/agents/"*.md 2>/dev/null | wc -l))
+## Agents ($(ls -1 "$TEMP_DIR/agents/"*.md 2>/dev/null | wc -l))
+$(ls -1 "$TEMP_DIR/agents/"*.md 2>/dev/null | sed 's|.*/|  - |' | sort)
 
-### Stream-Aligned Team
-- feature-developer.md: Implements features and business logic
-- qa-engineer.md: Validates implementations
+## Utility Scripts ($(ls -1 "$TEMP_DIR/scripts/"*.sh 2>/dev/null | wc -l))
+$(ls -1 "$TEMP_DIR/scripts/"*.sh 2>/dev/null | sed 's|.*/|  - |' | sort)
 
-### Platform Team
-- platform-engineer.md: Infrastructure and CI/CD
-- database-engineer.md: Data models and schemas
-
-### Enabling Team
-- api-designer.md: API specifications
-- security-specialist.md: Security reviews
-- performance-engineer.md: Performance optimization
-- solution-architect.md: High-level system architecture
-- data-architect.md: Enterprise data architecture
-- cloud-architect.md: Cloud infrastructure and migration
-
-### Complicated Subsystem Team
-- integration-specialist.md: Third-party integrations
-- algorithm-developer.md: Complex algorithms
+## Hooks ($(ls -1 "$TEMP_DIR/hooks/"*.sh 2>/dev/null | wc -l))
+$(ls -1 "$TEMP_DIR/hooks/"*.sh 2>/dev/null | sed 's|.*/|  - |' | sort)
 
 ## System Overview
 The autonomous development system uses:
@@ -498,7 +481,7 @@ The autonomous development system uses:
 3. Kanban card system for work tracking
 4. JOURNAL.md for state persistence
 5. Deterministic handoffs between teams
-6. No reliance on hooks for orchestration
+6. No reliance on hooks for orchestration (hooks are optional)
 
 To start: Use "/init-autonomous" command after describing your project.
 EOF
