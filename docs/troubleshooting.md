@@ -424,7 +424,7 @@ find . -name "*.sh" -type f -exec chmod +x {} \;
 1. **Check aggregated permissions**:
    ```bash
    # Inside container
-   cat ~/workspace/.claude/user-local-settings.json
+   cat ~/workspace/.claude/settings.local.json
    ```
 
 2. **Verify component permissions**:
@@ -632,7 +632,7 @@ done
 **Debug steps**:
 ```bash
 # Check generated permissions file
-cat .build-temp/user-local-settings.json | jq .
+cat .build-temp/settings.local.json | jq .
 
 # Verify component permissions are defined
 yq eval '.command_permissions.allow' components/*/*.yaml

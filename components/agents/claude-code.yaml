@@ -50,8 +50,8 @@ installation:
     - source: settings.json
       destination: /tmp/settings.json
       permissions: 644
-    - source: user-local-settings.json
-      destination: /tmp/user-local-settings.json
+    - source: settings.local.json
+      destination: /tmp/settings.local.json
       permissions: 644
     - source: commands/
       destination: /tmp/commands/
@@ -114,7 +114,7 @@ entrypoint_setup: |
   fi
   
   cp /tmp/settings.json /home/devuser/.claude/settings.json
-  cp /tmp/user-local-settings.json /home/devuser/workspace/.claude/user-local-settings.json
+  cp /tmp/settings.local.json /home/devuser/workspace/.claude/settings.local.json
  
   if [ -d /tmp/commands ] && [ "$(ls -A /tmp/commands/*.md 2>/dev/null)" ]; then
       cp /tmp/commands/*.md /home/devuser/.claude/commands/

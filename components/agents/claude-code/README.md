@@ -18,8 +18,8 @@ claude-code/
 ├── claude-code.yaml          # Component definition
 ├── claude-code-setup.sh      # Pre-build configuration script
 ├── CLAUDE.md.template        # Product Manager orchestration guide
-├── claude-settings.json.template     # Global settings
-├── claude-user-local-settings.json.template  # Workspace settings
+├── settings.json.template    # Global settings
+├── settings.local.json.template  # Workspace settings
 ├── agents/                   # Team Topologies sub-agents
 ├── commands/                 # Utility commands
 ├── scripts/                  # Helper scripts

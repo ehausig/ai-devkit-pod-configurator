@@ -24,14 +24,14 @@ info() { echo -e "${BLUE}ℹ $1${NC}"; }
 
 # Verify required files exist
 CLAUDE_TEMPLATE="$SCRIPT_DIR/claude-code/CLAUDE.md.template"
-SETTINGS_TEMPLATE="$SCRIPT_DIR/claude-code/claude-settings.json.template"
-USER_LOCAL_SETTINGS="$SCRIPT_DIR/claude-code/claude-user-local-settings.json.template"
+SETTINGS_TEMPLATE="$SCRIPT_DIR/claude-code/settings.json.template"
+USER_LOCAL_SETTINGS="$SCRIPT_DIR/claude-code/settings.local.json.template"
 
-[[ ! -f "$CLAUDE_TEMPLATE" ]] && error "CLAUDE.md.template not found in $SCRIPT_DIR/claude-code"
-[[ ! -f "$SETTINGS_TEMPLATE" ]] && error "claude-settings.json.template not found in $SCRIPT_DIR/claude-code"
-[[ ! -f "$USER_LOCAL_SETTINGS" ]] && error "claude-user-local-settings.json.template not found in $SCRIPT_DIR/claude-code"
+[[ ! -f "$CLAUDE_TEMPLATE" ]] && error "$CLAUDE_TEMPLATE not found in $SCRIPT_DIR/claude-code"
+[[ ! -f "$SETTINGS_TEMPLATE" ]] && error "$SETTINGS_TEMPLATE not found in $SCRIPT_DIR/claude-code"
+[[ ! -f "$USER_LOCAL_SETTINGS" ]] && error "$USER_LOCAL_SETTINGS not found in $SCRIPT_DIR/claude-code"
 
-log "Setting up Claude Code autonomous development system with Team Topologies..."
+log "Setting up Claude Code autonomous development system..."
 
 # Create necessary directories
 mkdir -p "$TEMP_DIR/commands"
@@ -47,7 +47,7 @@ cp "$CLAUDE_TEMPLATE" "$TEMP_DIR/CLAUDE.md"
 cp "$SETTINGS_TEMPLATE" "$TEMP_DIR/settings.json"
 
 # Copy workspace settings template
-cp "$USER_LOCAL_SETTINGS" "$TEMP_DIR/user-local-settings.json"
+cp "$USER_LOCAL_SETTINGS" "$TEMP_DIR/settings.local.json"
 
 # Copy commands (all .md files)
 if [[ -d "$SCRIPT_DIR/claude-code/commands" ]]; then
@@ -256,22 +256,22 @@ fi
 
 log "Found ${#all_allow_perms[@]} unique allow permissions and ${#all_deny_perms[@]} unique deny permissions from components"
 
-log "Copying claude-settings.json template..."
+log "Copying settings.json template..."
 cp "$SETTINGS_TEMPLATE" "$TEMP_DIR/settings.json"
 
-# Generate the workspace settings with dynamic permissions using jq
-log "Generating user-local-settings.json with dynamic permissions..."
+# Generate the workspace settings
+log "Generating settings.local.json with dynamic permissions..."
 
 # Create the JSON structure using jq
 jq -n \
   --argjson allow "$(printf '%s\n' "${all_allow_perms[@]}" | jq -R . | jq -s .)" \
   --argjson deny "$(printf '%s\n' "${all_deny_perms[@]}" | jq -R . | jq -s .)" \
-  '{permissions: {allow: $allow, deny: $deny}}' > "$TEMP_DIR/user-local-settings.json"
+  '{permissions: {allow: $allow, deny: $deny}}' > "$TEMP_DIR/settings.local.json"
 
-success "Generated user-local-settings.json with permissions"
+success "Generated settings.local.json with permissions"
 
 # Verify the JSON is valid
-if jq . "$TEMP_DIR/user-local-settings.json" >/dev/null 2>&1; then
+if jq . "$TEMP_DIR/settings.local.json" >/dev/null 2>&1; then
     success "JSON validation passed"
 else
     error "Generated JSON is invalid!"
@@ -282,9 +282,9 @@ cat > "$TEMP_DIR/MANIFEST.txt" << EOF
 # Claude Code Autonomous Development System Manifest
 
 ## Core Files
-- CLAUDE.md.template: Product Manager orchestration guide template
-- claude-settings.json: Global settings (no hooks)
-- user-local-settings.json: Workspace settings with dynamic permissions
+- CLAUDE.md: Product Manager orchestration guide with dynamic refs
+- settings.json: Global settings
+- settings.local.json: Workspace settings with dynamic permissions
 
 ## Commands ($(ls -1 "$TEMP_DIR/commands/"*.md 2>/dev/null | wc -l))
 $(ls -1 "$TEMP_DIR/commands/"*.md 2>/dev/null | sed 's|.*/|  - |' | sort)
@@ -325,8 +325,4 @@ if [ ${#all_allow_perms[@]} -gt 0 ]; then
 fi
 
 log "Claude Code autonomous development system setup completed successfully!"
-info "The system uses Team Topologies principles for realistic team modeling"
-info "Product Manager runs in main thread for deterministic orchestration"
-info "Kanban cards track work progress through JOURNAL.md"
-info "Permissions have been dynamically generated from ${#SELECTED_YAML_FILES} components"
-info "Component documentation will be available via @import syntax"
+
