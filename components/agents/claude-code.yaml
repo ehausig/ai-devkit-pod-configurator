@@ -40,20 +40,23 @@ installation:
         /home/devuser/.npm-global/bin/claude --version || (echo "Claude Code installation failed" && exit 1) && \
         chown -R devuser:devuser /home/devuser/.npm-global
   inject_files:
-    - source: user-CLAUDE.md
-      destination: /tmp/user-CLAUDE.md
+    - source: CLAUDE.md
+      destination: /tmp/CLAUDE.md
       permissions: 644
-    - source: claude-settings.json.template
-      destination: /tmp/claude-settings.json.template
+    - source: settings.json
+      destination: /tmp/settings.json
       permissions: 644
-    - source: claude-workspace-settings.json
-      destination: /tmp/claude-workspace-settings.json
+    - source: user-local-settings.json
+      destination: /tmp/user-local-settings.json
       permissions: 644
     - source: commands/
       destination: /tmp/claude-commands/
       permissions: 755
     - source: agents/
       destination: /tmp/claude-agents/
+      permissions: 755
+    - source: hooks/
+      destination: /tmp/claude-hooks/
       permissions: 755
     - source: scripts/
       destination: /tmp/claude-scripts/
@@ -65,126 +68,58 @@ installation:
       destination: /tmp/MANIFEST.txt
       permissions: 644
 entrypoint_setup: |
-  # Claude Code specific setup
   echo "Setting up Claude Code autonomous development environment..."
   
-  # Create .claude directory for global Claude configuration
-  if command -v claude &> /dev/null 2>&1 || [ -f /tmp/user-CLAUDE.md ]; then
-      mkdir -p /home/devuser/.claude
-      mkdir -p /home/devuser/.claude/agents
-      mkdir -p /home/devuser/.claude/commands
-  fi
+  mkdir -p /home/devuser/.claude
+  mkdir -p /home/devuser/.claude/agents
+  mkdir -p /home/devuser/.claude/commands
+  mkdir -p /home/devuser/.claude/docs
+  mkdir -p /home/devuser/.claude/hooks
+  mkdir -p /home/devuser/.claude/scripts
+  mkdir -p /home/devuser/workspace/.claude
+
+  cp /tmp/CLAUDE.md /home/devuser/.claude/CLAUDE.md
   
-  # Install utility scripts
+  if [ -f /tmp/component-imports.txt ]; then
+      cat /tmp/component-imports.txt >> /home/devuser/.claude/CLAUDE.md
+  fi
+ 
+  # Note: claude-docs directory is not currently created by setup script
+  # Commenting out until needed
+  # if [ -d /tmp/claude-docs ]; then
+  #     for md_file in /tmp/claude-docs/*.md; do
+  #         if [ -f "$md_file" ]; then
+  #             basename_file=$(basename "$md_file")
+  #             cp "$md_file" "/home/devuser/.claude/docs/$basename_file"
+  #         fi
+  #     done
+  # fi
+  
   if [ -d /tmp/claude-scripts ]; then
-      echo "Installing utility scripts..."
-      mkdir -p /home/devuser/bin
-      
-      # Install journal logging script
-      if [ -f /tmp/claude-scripts/journal-log.sh ]; then
-          cp /tmp/claude-scripts/journal-log.sh /home/devuser/bin/journal-log.sh
-          chmod +x /home/devuser/bin/journal-log.sh
-          ln -sf /home/devuser/bin/journal-log.sh /usr/local/bin/journal-log.sh 2>/dev/null || true
-          echo "✓ Journal logging utility installed"
-      fi
-      
-      # Install card ID generator script
-      if [ -f /tmp/claude-scripts/generate-card-id.sh ]; then
-          cp /tmp/claude-scripts/generate-card-id.sh /home/devuser/bin/generate-card-id.sh
-          chmod +x /home/devuser/bin/generate-card-id.sh
-          ln -sf /home/devuser/bin/generate-card-id.sh /usr/local/bin/generate-card-id.sh 2>/dev/null || true
-          echo "✓ Card ID generator installed"
-      fi
-      
-      # Add to PATH if not already there
-      if ! echo "$PATH" | grep -q "/home/devuser/bin"; then
-          echo 'export PATH="/home/devuser/bin:$PATH"' >> /home/devuser/.bashrc
-          echo 'export PATH="/home/devuser/bin:$PATH"' >> /home/devuser/.profile
-      fi
+      cp /tmp/claude-scripts/*.sh /home/devuser/.claude/scripts/
+      chmod +x /home/devuser/.claude/scripts/*.sh
+
+      for sh_file in /home/devuser/.claude/scripts/*.sh; do
+          if [ -f "$sh_file" ]; then
+              basename_file=$(basename "$sh_file")
+              ln -sf "$sh_file" "/usr/local/bin/$basename_file" 2>/dev/null || true
+          fi
+      done
   fi
   
-  # Copy settings.json from template (NO HOOKS)
-  if [ -f /tmp/claude-settings.json.template ]; then
-      echo "Installing Claude Code settings..."
-      cp /tmp/claude-settings.json.template /home/devuser/.claude/settings.json
-      echo "✓ Settings installed (no hooks configured)"
-  fi
-  
-  # Copy workspace settings to workspace directory
-  if [ -f /tmp/claude-workspace-settings.json ]; then
-      echo "Installing workspace-specific Claude Code settings..."
-      mkdir -p /home/devuser/workspace/.claude
-      cp /tmp/claude-workspace-settings.json /home/devuser/workspace/.claude/settings.local.json
-      chown -R devuser:devuser /home/devuser/workspace/.claude
-      echo "✓ Workspace settings installed with component permissions"
-  fi
-  
-  # Install commands
+  cp /tmp/settings.json /home/devuser/.claude/settings.json
+  cp /tmp/user-local-settings.json /home/devuser/workspace/.claude/user-local-settings.json
+ 
   if [ -d /tmp/claude-commands ] && [ "$(ls -A /tmp/claude-commands/*.md 2>/dev/null)" ]; then
-      echo "Installing autonomous development commands..."
       cp /tmp/claude-commands/*.md /home/devuser/.claude/commands/
-      
-      # List installed commands
-      echo "Installed commands:"
-      for cmd in /home/devuser/.claude/commands/*.md; do
-          echo "  - /$(basename "$cmd" .md)"
-      done
-      echo "✓ Commands installed successfully"
   fi
   
-  # Install sub agents
+  # Copy agents - THIS WAS MISSING
   if [ -d /tmp/claude-agents ] && [ "$(ls -A /tmp/claude-agents/*.md 2>/dev/null)" ]; then
-      echo "Installing autonomous development agents..."
       cp /tmp/claude-agents/*.md /home/devuser/.claude/agents/
-      
-      # List installed agents
-      echo "Installed agents:"
-      for agent in /home/devuser/.claude/agents/*.md; do
-          agent_name=$(basename "$agent" .md)
-          echo "  - $agent_name"
-      done
-      echo "✓ Sub agents installed successfully"
   fi
   
-  # Append component imports to user documentation
-  if [ -f /tmp/component-imports.txt ] && [ -f /tmp/user-CLAUDE.md ]; then
-      echo "Appending component information..."
-      cat /tmp/user-CLAUDE.md > /home/devuser/.claude/user-CLAUDE.md
-      cat /tmp/component-imports.txt >> /home/devuser/.claude/user-CLAUDE.md
-      echo "✓ User documentation updated with components"
-  fi
-  
-  # Create workspace directory for journal
-  mkdir -p /home/devuser/workspace
-  chown devuser:devuser /home/devuser/workspace
-  
-  # Ensure proper ownership
-  chown -R devuser:devuser /home/devuser/.claude
-  
-  # Display setup summary
-  echo ""
-  echo "═══════════════════════════════════════════════════════════"
-  echo "Claude Code Autonomous Development System Ready!"
-  echo "═══════════════════════════════════════════════════════════"
-  echo ""
-  echo "Quick Start:"
-  echo "1. Start Claude Code: 'claude'"
-  echo "2. Describe your project"
-  echo "3. Use: /init-autonomous"
-  echo "4. The system will orchestrate development automatically"
-  echo ""
-  echo "Available Commands:"
-  echo "  /init-autonomous - Start a new autonomous project"
-  echo "  /show-journal    - View development progress"
-  echo "  /kanban-status   - View Kanban board state"
-  echo "  /event-query     - Query specific events"
-  echo ""
-  echo "The Product Manager (main thread) orchestrates teams:"
-  echo "Stream-Aligned → Platform → Enabling → Subsystem"
-  echo "═══════════════════════════════════════════════════════════"
-  
-  # Verify Claude Code is available
-  if command -v claude &> /dev/null 2>&1; then
-      echo ""
-      echo "Claude Code is available at: $(which claude)"
+  if [ -d /tmp/claude-hooks ] && [ "$(ls -A /tmp/claude-hooks/*.sh 2>/dev/null)" ]; then
+      cp /tmp/claude-hooks/*.sh /home/devuser/.claude/hooks/
+      chmod +x /home/devuser/.claude/hooks/*.sh
   fi

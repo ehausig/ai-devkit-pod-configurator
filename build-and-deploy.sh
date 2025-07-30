@@ -2925,7 +2925,6 @@ create_custom_dockerfile() {
     generate_component_imports
     
     # Create placeholder files if they don't exist (for when no components are selected)
-    touch "$TEMP_DIR/user-CLAUDE.md" 2>/dev/null || true
     touch "$TEMP_DIR/component-imports.txt" 2>/dev/null || true
     
     # Sort components by dependencies

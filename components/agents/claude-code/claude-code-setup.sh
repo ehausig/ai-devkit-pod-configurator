@@ -23,13 +23,13 @@ error() { echo -e "${RED}✗ $1${NC}"; exit 1; }
 info() { echo -e "${BLUE}ℹ $1${NC}"; }
 
 # Verify required files exist
-USER_CLAUDE="$SCRIPT_DIR/claude-code/user-CLAUDE.md"
+CLAUDE_TEMPLATE="$SCRIPT_DIR/claude-code/CLAUDE.md.template"
 SETTINGS_TEMPLATE="$SCRIPT_DIR/claude-code/claude-settings.json.template"
-WORKSPACE_SETTINGS_TEMPLATE="$SCRIPT_DIR/claude-code/claude-workspace-settings.json.template"
+USER_LOCAL_SETTINGS="$SCRIPT_DIR/claude-code/claude-user-local-settings.json.template"
 
-[[ ! -f "$USER_CLAUDE" ]] && error "user-CLAUDE.md not found in $SCRIPT_DIR/claude-code"
+[[ ! -f "$CLAUDE_TEMPLATE" ]] && error "CLAUDE.md.template not found in $SCRIPT_DIR/claude-code"
 [[ ! -f "$SETTINGS_TEMPLATE" ]] && error "claude-settings.json.template not found in $SCRIPT_DIR/claude-code"
-[[ ! -f "$WORKSPACE_SETTINGS_TEMPLATE" ]] && error "claude-workspace-settings.json.template not found in $SCRIPT_DIR/claude-code"
+[[ ! -f "$USER_LOCAL_SETTINGS" ]] && error "claude-user-local-settings.json.template not found in $SCRIPT_DIR/claude-code"
 
 log "Setting up Claude Code autonomous development system with Team Topologies..."
 
@@ -37,21 +37,17 @@ log "Setting up Claude Code autonomous development system with Team Topologies..
 mkdir -p "$TEMP_DIR/commands"
 mkdir -p "$TEMP_DIR/agents"
 mkdir -p "$TEMP_DIR/scripts"
+mkdir -p "$TEMP_DIR/docs"
+mkdir -p "$TEMP_DIR/hooks"
 
-# Copy user documentation
-log "Copying user documentation..."
-cp "$USER_CLAUDE" "$TEMP_DIR/"
-success "Copied user-CLAUDE.md"
+# Copy CLAUDE template
+cp "$CLAUDE_TEMPLATE" "$TEMP_DIR/CLAUDE.md"
 
-# Copy settings template (no hooks)
-log "Copying settings template..."
-cp "$SETTINGS_TEMPLATE" "$TEMP_DIR/"
-success "Copied claude-settings.json.template (no hooks configured)"
+# Copy settings template with FINAL name (not template name)
+cp "$SETTINGS_TEMPLATE" "$TEMP_DIR/settings.json"
 
 # Copy workspace settings template
-log "Copying workspace settings template..."
-cp "$WORKSPACE_SETTINGS_TEMPLATE" "$TEMP_DIR/"
-success "Copied claude-workspace-settings.json.template"
+cp "$USER_LOCAL_SETTINGS" "$TEMP_DIR/user-local-settings.json"
 
 # Copy commands (all .md files)
 if [[ -d "$SCRIPT_DIR/claude-code/commands" ]]; then
@@ -78,7 +74,6 @@ fi
 # Copy hooks (all .sh files if directory exists)
 if [[ -d "$SCRIPT_DIR/claude-code/hooks" ]]; then
     log "Copying hook scripts..."
-    mkdir -p "$TEMP_DIR/hooks"
     if ls "$SCRIPT_DIR/claude-code/hooks/"*.sh >/dev/null 2>&1; then
         cp "$SCRIPT_DIR/claude-code/hooks/"*.sh "$TEMP_DIR/hooks/"
         chmod +x "$TEMP_DIR/hooks/"*.sh
@@ -91,20 +86,13 @@ fi
 # Copy utility scripts
 if [[ -d "$SCRIPT_DIR/claude-code/scripts" ]]; then
     log "Copying utility scripts..."
-    
-    # Copy journal logging script
-    if [[ -f "$SCRIPT_DIR/claude-code/scripts/journal-log.sh" ]]; then
-        cp "$SCRIPT_DIR/claude-code/scripts/journal-log.sh" "$TEMP_DIR/scripts/"
-        chmod +x "$TEMP_DIR/scripts/journal-log.sh"
+    if ls "$SCRIPT_DIR/claude-code/scripts/"*.sh >/dev/null 2>&1; then
+        cp "$SCRIPT_DIR/claude-code/scripts/"*.sh "$TEMP_DIR/scripts/"
+        chmod +x "$TEMP_DIR/scripts/"*.sh
+        success "Copied $(ls -1 "$TEMP_DIR/scripts/"*.sh 2>/dev/null | wc -l) scripts"
+    else
+        log "No script files found"
     fi
-    
-    # Copy card ID generator
-    if [[ -f "$SCRIPT_DIR/claude-code/scripts/generate-card-id.sh" ]]; then
-        cp "$SCRIPT_DIR/claude-code/scripts/generate-card-id.sh" "$TEMP_DIR/scripts/"
-        chmod +x "$TEMP_DIR/scripts/generate-card-id.sh"
-    fi
-    
-    success "Copied $(ls -1 "$TEMP_DIR/scripts/"*.sh 2>/dev/null | wc -l) scripts"
 fi
 
 # Generate component imports file
@@ -209,61 +197,8 @@ extract_permissions_from_yaml() {
     local yaml_file="$1"
     local perm_type="$2"  # "allow" or "deny"
     
-    # Check if yq is available
-    if command -v yq >/dev/null 2>&1; then
-        # Use yq for proper YAML parsing
-        yq eval ".command_permissions.${perm_type}[]" "$yaml_file" 2>/dev/null || true
-    else
-        # Fallback to manual parsing if yq is not available
-        local in_permissions=false
-        local in_target=false
-        local indent_count=0
-        local target_indent=0
-        
-        while IFS= read -r line; do
-            # Check for command_permissions section
-            if [[ "$line" =~ ^command_permissions:[[:space:]]*$ ]]; then
-                in_permissions=true
-                continue
-            fi
-            
-            # Exit if we hit a top-level key
-            if [[ "$in_permissions" == true ]] && [[ "$line" =~ ^[^[:space:]] ]]; then
-                break
-            fi
-            
-            # Check for our target section (allow/deny)
-            if [[ "$in_permissions" == true ]] && [[ "$line" =~ ^([[:space:]]+)${perm_type}:[[:space:]]*$ ]]; then
-                in_target=true
-                # Count the indent level
-                target_indent="${#BASH_REMATCH[1]}"
-                continue
-            fi
-            
-            # Exit target section if we hit another key at the same indent level
-            if [[ "$in_target" == true ]]; then
-                # Check if line starts with spaces
-                if [[ "$line" =~ ^([[:space:]]+) ]]; then
-                    current_indent="${#BASH_REMATCH[1]}"
-                    # If we're back at the same level as allow/deny but it's not an array item
-                    if [[ $current_indent -le $target_indent ]] && [[ ! "$line" =~ ^[[:space:]]+-[[:space:]] ]]; then
-                        break
-                    fi
-                fi
-            fi
-            
-            # Extract array items
-            if [[ "$in_target" == true ]] && [[ "$line" =~ ^[[:space:]]+-[[:space:]](.*)$ ]]; then
-                local perm="${BASH_REMATCH[1]}"
-                # Remove quotes if present
-                if [[ "$perm" =~ ^\"(.*)\"$ ]] || [[ "$perm" =~ ^\'(.*)\'$ ]]; then
-                    perm="${BASH_REMATCH[1]}"
-                fi
-                # Output the permission if not empty
-                [[ -n "$perm" ]] && echo "$perm"
-            fi
-        done < "$yaml_file"
-    fi
+    # Use yq for proper YAML parsing
+    yq eval ".command_permissions.${perm_type}[]" "$yaml_file" 2>/dev/null || true
 }
 
 # Process each selected YAML file for permissions
@@ -329,14 +264,11 @@ fi
 
 log "Found ${#all_allow_perms[@]} unique allow permissions and ${#all_deny_perms[@]} unique deny permissions from components"
 
-# Generate the final settings.json (copy template as-is - no hooks)
 log "Copying claude-settings.json template..."
-cp "$SETTINGS_TEMPLATE" "$TEMP_DIR/claude-settings.json"
-cp "$SETTINGS_TEMPLATE" "$TEMP_DIR/claude-settings.json.template"
-success "Copied claude-settings.json (no hooks configured)"
+cp "$SETTINGS_TEMPLATE" "$TEMP_DIR/settings.json"
 
 # Generate the workspace settings with dynamic permissions
-log "Generating claude-workspace-settings.json with dynamic permissions..."
+log "Generating user-local-settings.json with dynamic permissions..."
 
 # Function to escape JSON string
 json_escape() {
@@ -394,7 +326,7 @@ if command -v jq >/dev/null 2>&1; then
         
         echo '  }'
         echo '}'
-    } | jq . > "$TEMP_DIR/claude-workspace-settings.json"
+    } | jq . > "$TEMP_DIR/user-local-settings.json"
     
 else
     # Fallback without jq
@@ -439,14 +371,14 @@ else
         echo '    ]'
         echo '  }'
         echo '}'
-    } > "$TEMP_DIR/claude-workspace-settings.json"
+    } > "$TEMP_DIR/user-local-settings.json"
 fi
 
-success "Generated claude-workspace-settings.json with permissions"
+success "Generated user-local-settings.json with permissions"
 
 # Verify the JSON is valid
 if command -v jq >/dev/null 2>&1; then
-    if jq . "$TEMP_DIR/claude-workspace-settings.json" >/dev/null 2>&1; then
+    if jq . "$TEMP_DIR/user-local-settings.json" >/dev/null 2>&1; then
         success "JSON validation passed"
     else
         error "Generated JSON is invalid!"
@@ -458,9 +390,9 @@ cat > "$TEMP_DIR/MANIFEST.txt" << EOF
 # Claude Code Autonomous Development System Manifest
 
 ## Core Files
-- user-CLAUDE.md: Product Manager orchestration guide
+- CLAUDE.md.template: Product Manager orchestration guide template
 - claude-settings.json: Global settings (no hooks)
-- claude-workspace-settings.json: Workspace settings with dynamic permissions
+- user-local-settings.json: Workspace settings with dynamic permissions
 
 ## Commands ($(ls -1 "$TEMP_DIR/commands/"*.md 2>/dev/null | wc -l))
 $(ls -1 "$TEMP_DIR/commands/"*.md 2>/dev/null | sed 's|.*/|  - |' | sort)
