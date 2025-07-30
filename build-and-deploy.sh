@@ -1391,8 +1391,6 @@ render_cart() {
         "Filebrowser (port 8090)"
         "Git"
         "GitHub CLI (gh)"
-        "Microsoft TUI Test"
-        "Node.js 20.18.0"
         "SSH Server (port 2222)"
     )
     
@@ -2354,8 +2352,6 @@ display_selection_summary() {
         "Filebrowser (port 8090)"
         "Git"
         "GitHub CLI (gh)"
-        "Microsoft TUI Test"
-        "Node.js 20.18.0"
         "SSH Server (port 2222)"
     )
 

@@ -1,9 +1,9 @@
 id: NODEJS_22
-name: Node.js 22.x (Current)
+name: Node.js 22.x
 version: "22.11.0"
 group: nodejs-version
 requires: []
-description: Node.js 22.x Current - Latest features
+description: Node.js 22.x - Latest features (non-LTS)
 command_permissions:
   allow:
     - "Bash(node:*)"

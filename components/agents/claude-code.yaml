@@ -1,7 +1,7 @@
 id: CLAUDE_CODE
-name: Claude Code (Autonomous Development)
+name: Claude Code
 group: ai-agents
-requires: []
+requires: nodejs-version
 description: AI coding assistant with autonomous development system using sub agents
 pre_build_script: claude-code/claude-code-setup.sh
 command_permissions:
@@ -36,7 +36,7 @@ installation:
         export PATH="/home/devuser/.npm-global/bin:/usr/local/bin:${PATH}" && \
         mkdir -p /home/devuser/.npm-global && \
         chown -R devuser:devuser /home/devuser/.npm-global && \
-        /usr/local/bin/npm install -g @anthropic-ai/claude-code && \
+        npm install -g @anthropic-ai/claude-code && \
         ls -la /home/devuser/.npm-global/bin/ && \
         /home/devuser/.npm-global/bin/claude --version || (echo "Claude Code installation failed" && exit 1) && \
         chown -R devuser:devuser /home/devuser/.npm-global
