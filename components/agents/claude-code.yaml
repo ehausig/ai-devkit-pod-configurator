@@ -25,6 +25,7 @@ command_permissions:
     - "Bash(cat:*)"
     - "Bash(command -v:*)"
     - "Bash(time:*)"
+    - "Bash(source:*)"
 installation:
   dockerfile: |
     # Claude Code requires Node.js to be installed first
