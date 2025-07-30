@@ -1,7 +1,7 @@
 id: TUI_TEST
 name: Microsoft TUI Test
 group: testing-tools
-requires: nodejs-version
+requires: nodejs
 description: End-to-end terminal testing framework from Microsoft
 installation:
   dockerfile: |

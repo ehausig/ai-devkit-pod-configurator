@@ -1,7 +1,7 @@
 id: NODEJS_20
 name: Node.js 20.x LTS
 version: "20.18.0"
-group: nodejs-version
+group: nodejs
 requires: []
 description: Node.js 20.x LTS - JavaScript runtime built on Chrome's V8
 command_permissions:

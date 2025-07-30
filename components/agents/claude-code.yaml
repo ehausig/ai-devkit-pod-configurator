@@ -1,7 +1,7 @@
 id: CLAUDE_CODE
 name: Claude Code
 group: ai-agents
-requires: nodejs-version
+requires: nodejs
 description: AI coding assistant with autonomous development system using sub agents
 pre_build_script: claude-code/claude-code-setup.sh
 command_permissions:
