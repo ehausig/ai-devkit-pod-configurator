@@ -1,227 +1,291 @@
-# Claude Code Autonomous Development System
+# Claude Code Component
 
-An AI-powered autonomous software development system that leverages Claude Code's sub-agent architecture to design, implement, test, review, and release software projects with minimal human intervention.
+An AI-powered coding assistant integrated into the AI DevKit Pod Configurator. This component provides Claude Code with a Team Topologies-based autonomous development system for orchestrating complex software projects.
 
 ## Overview
 
-This system orchestrates specialized AI agents through a complete software development lifecycle:
+Claude Code is configured with:
+- Custom settings optimized for development workflows
+- Team Topologies-based sub-agents for specialized tasks
+- Kanban-style project management commands
+- Utility scripts for development automation
+- Dynamic permission aggregation from selected components
 
-- **Product Manager** - Requirements analysis and user story creation
-- **Architect** - System design and technical planning
-- **Developer** - Implementation using Test-Driven Development (TDD)
-- **QA** - Comprehensive testing with real services
-- **Reviewer** - Code quality and security review
-- **Merger** - Release management and deployment
+## Component Structure
+
+```
+claude-code/
+├── claude-code.yaml          # Component definition
+├── claude-code-setup.sh      # Pre-build configuration script
+├── CLAUDE.md.template        # Product Manager orchestration guide
+├── claude-settings.json.template     # Global settings
+├── claude-user-local-settings.json.template  # Workspace settings
+├── agents/                   # Team Topologies sub-agents
+├── commands/                 # Utility commands
+├── scripts/                  # Helper scripts
+└── hooks/                    # Event hooks (optional)
+```
+
+## Team Topologies Structure
+
+The system implements Team Topologies patterns with specialized agents:
+
+### Stream-Aligned Team
+- **Feature Developer** - Implements features and business logic
+- **QA Engineer** - Tests and validates implementations
+
+### Platform Team  
+- **Platform Engineer** - Handles setup, build, deployment
+- **Database Engineer** - Designs data models and schemas
+
+### Enabling Team
+- **API Designer** - Creates API specifications
+- **Security Specialist** - Reviews security aspects
+- **Performance Engineer** - Optimizes performance
+- **Solution Architect** - High-level system design
+- **Cloud Architect** - Cloud infrastructure design
+- **Data Architect** - Enterprise data architecture
+
+### Complicated Subsystem Team
+- **Integration Specialist** - Handles third-party integrations
+- **Algorithm Developer** - Implements complex algorithms
+- **Requirements Analyst** - Interactive requirements gathering
 
 ## How It Works
 
-The system uses an event-driven architecture with:
+### 1. Installation Process
 
-1. **Requirements File** - `~/workspace/PROMPT.md` contains project specifications
-2. **Sub Agents** - Each persona is a specialized Claude Code sub-agent with its own context
-3. **Journal** - `~/workspace/JOURNAL.md` maintains state across agents
-4. **Stop Hook** - Automatically continues the workflow by reading NEXT_AGENT directives
-5. **Autonomous Flow** - Agents delegate to each other without manual intervention
+When Claude Code is selected in the build system:
 
-## Quick Start
+1. **Pre-build Script** (`claude-code-setup.sh`):
+   - Generates `component-imports.txt` from selected components
+   - Aggregates command permissions from all components
+   - Creates dynamic `user-local-settings.json` with permissions
+   - Copies agent definitions and command utilities
 
-1. Create your project requirements:
+2. **Docker Build**:
+   - Installs Claude Code globally via npm
+   - Injects all configuration files to `/tmp/`
+
+3. **Runtime Setup** (entrypoint):
+   - Moves files to proper locations in `~/.claude/`
+   - Sets up documentation imports for AI context
+   - Configures scripts in PATH
+
+### 2. Autonomous Development Flow
+
+The system uses a Product Manager (main Claude Code thread) to orchestrate development:
+
+```mermaid
+graph TD
+    PM[Product Manager] --> REQ[Requirements Analysis]
+    REQ --> ARCH[Architecture Design]
+    ARCH --> DEV[Development]
+    DEV --> TEST[Testing]
+    TEST --> REV[Review]
+    REV --> DONE[Complete]
+    TEST -.->|Issues| DEV
+    REV -.->|Changes| DEV
+```
+
+### 3. Kanban Card System
+
+Work is tracked through cards with states:
+- **BACKLOG** - Not started
+- **BREAKDOWN_STARTED/ENDED** - Requirements analysis
+- **IN_PROGRESS_STARTED/ENDED** - Active development
+- **BLOCKED** - Waiting on dependencies
+- **VALIDATION_STARTED/ENDED** - Testing
+- **DONE** - Completed
+
+## Configuration
+
+### Settings Files
+
+The component creates two settings files:
+
+1. **`~/.claude/settings.json`** - Global settings:
+   ```json
+   {
+     "theme": "dark",
+     "verbose": true,
+     "includeCoAuthoredBy": true,
+     "env": {
+       "CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR": "0"
+     }
+   }
+   ```
+
+2. **`/home/devuser/workspace/.claude/user-local-settings.json`** - Dynamic permissions:
+   ```json
+   {
+     "permissions": {
+       "allow": [
+         "Bash(python:*)",
+         "Bash(npm:*)",
+         // Aggregated from all selected components
+       ],
+       "deny": []
+     }
+   }
+   ```
+
+### Command Permissions
+
+Components can define permissions in their YAML:
+
+```yaml
+command_permissions:
+  allow:
+    - "Bash(npm:*)"
+    - "Bash(node:*)"
+    - "Read(*.js)"
+  deny:
+    - "Bash(rm -rf /*)"
+```
+
+These are automatically aggregated during build and injected into Claude Code's configuration.
+
+## Usage
+
+### Starting a Project
+
+1. Create requirements:
    ```bash
    cat > ~/workspace/PROMPT.md << 'EOF'
-   # Project: Todo Management API
+   # Project: My Application
    
-   Create a REST API for managing todos with:
-   - CRUD operations (Create, Read, Update, Delete)
-   - Status filtering (all, active, completed)
-   - PostgreSQL for data storage
-   - Support for 100 concurrent users
+   Build a REST API with authentication...
    EOF
    ```
 
-2. Start Claude Code:
-   ```bash
-   claude
-   ```
-
-3. Initialize the autonomous system:
+2. Initialize autonomous development:
    ```
    /init-autonomous
    ```
 
-4. The system will automatically progress through all development phases
+3. Monitor progress:
+   ```
+   /show-journal
+   /kanban-status
+   ```
 
-## Available Commands
+### Available Commands
 
-- `/init-autonomous` - Start a new project (reads requirements from ~/workspace/PROMPT.md)
-- `/show-journal` - View the development progress and agent activity
-- `/event-query [type]` - Query specific events from the journal
+- `/init-autonomous` - Start from PROMPT.md
+- `/show-journal` - View development timeline
+- `/kanban-status` - Current card states
+- `/event-query TYPE` - Filter journal events
+- `/create-prompt` - Interactive requirements gathering
 
-## Agent Workflow
+### Manual Control
 
-```mermaid
-graph LR
-    PM[Product Manager] --> A[Architect]
-    A --> D[Developer]
-    D --> Q[QA]
-    Q --> R[Reviewer]
-    R --> M[Merger]
-    R -.->|fixes needed| D
-    Q -.->|issues found| D
+You can also manually delegate to agents:
+```
+Use the api-designer agent to create OpenAPI specification for the user service
 ```
 
-### Product Manager
-- Analyzes vague requirements
-- Creates detailed user stories
-- Defines success metrics
-- Sets technical constraints
+## Sub-Agents
 
-### Architect
-- Designs system architecture
-- Selects technology stack
-- Creates API specifications
-- Plans data models
+Each agent has:
+- Specific expertise domain
+- Custom system prompt
+- Optional tool restrictions
+- Clear handoff patterns
 
-### Developer
-- Implements using TDD
-- Writes tests first
-- Achieves 80%+ coverage
-- Documents code
-
-### QA
-- Tests with real services (no mocks)
-- Performs integration testing
-- Validates performance
-- Documents bugs clearly
-
-### Reviewer
-- Reviews code quality
-- Checks security
-- Verifies architecture compliance
-- Provides actionable feedback
-
-### Merger
-- Creates releases
-- Updates documentation
-- Tags versions
-- Completes development cycle
-
-## Journal Structure
-
-The journal tracks all activities:
-
-```
-2024-01-20T10:00:00Z | PROJECT_INIT | Starting todo API
-2024-01-20T10:00:01Z | WORK_ASSIGNED | PRODUCT_MANAGER | Define requirements
-2024-01-20T10:00:02Z | NEXT_AGENT | system | product-manager | Requirements needed
-2024-01-20T10:15:00Z | DECISION | architect | Using PostgreSQL for persistence
-2024-01-20T10:30:00Z | FILE_CREATED | developer | src/api/todos.py
-```
-
-## Key Features
-
-- **Fully Autonomous** - Requires no manual intervention after initialization
-- **Context Isolation** - Each agent has its own context window
-- **Flexible Workflow** - Supports non-linear flows (e.g., reviewer sending work back)
-- **Real Testing** - QA always uses actual services, never mocks
-- **Complete Visibility** - Journal provides full audit trail
-- **Quality Focus** - TDD, code review, and comprehensive testing built-in
-
-## Configuration
-
-The system is configured through:
-
-- **Settings** - `claude-settings.json.template` with Stop hook
-- **Sub Agents** - Individual agent definitions in `agents/`
-- **Commands** - Utility commands in `commands/`
-- **Hook** - `autonomous-continue.sh` for autonomous flow
-
-## Example PROMPT.md
-
-Here's a template for creating your requirements:
-
+Example agent structure:
 ```markdown
-# Project: [Your Project Name]
+---
+name: feature-developer
+description: Stream-aligned team member implementing features
+tools: Read, Write, Edit, Bash, Glob
+---
 
-[Brief description of what you want to build]
-
-## Functional Requirements
-- [Feature 1]
-- [Feature 2]
-- [Feature 3]
-
-## Technical Requirements
-- Language: [Python/Node.js/Rust/Go]
-- Database: [PostgreSQL/MongoDB/SQLite]
-- Framework preferences: [any specific preferences]
-
-## Performance Requirements
-- Concurrent users: [number]
-- Response time: [target in ms]
-- Uptime: [availability target]
-
-## Constraints
-- [Time constraints]
-- [Resource limitations]
-- [Security requirements]
-
-## Out of Scope (Future Phases)
-- [Feature to implement later]
-- [Another future feature]
+You are the FEATURE DEVELOPER...
 ```
 
-## Development Principles
+## Scripts and Utilities
 
-1. **Requirements First** - Clear requirements prevent costly revisions
-2. **Test-Driven** - Tests written before implementation
-3. **Real Services** - Integration tests use actual databases/APIs
-4. **Clean Architecture** - Separation of concerns enforced
-5. **Continuous Progress** - Automatic handoffs between agents
+### Journal Logging
+```bash
+journal-log.sh EVENT_TYPE ACTOR "Description"
+```
 
-## Example Projects
+### Card ID Generation
+```bash
+CARD_ID=$(generate-card-id.sh)
+```
 
-The system can build:
+## Integration with Components
 
-- REST APIs with CRUD operations
-- CLI tools with argument parsing
-- Web scrapers with data processing
-- Real-time applications with WebSockets
-- Microservices with event-driven architecture
+### Documentation Imports
+
+Component documentation (`.md` files) are:
+1. Copied to `~/.claude/docs/`
+2. Referenced in CLAUDE.md via `@import`
+3. Available to Claude for context
+
+Example:
+```markdown
+## Languages
+- **Python 3.11** @/home/devuser/.claude/docs/python-3.11.md
+```
+
+### Dynamic Configuration
+
+The pre-build script:
+1. Detects all selected components
+2. Extracts their permissions
+3. Generates appropriate configuration
+4. Ensures compatibility
 
 ## Troubleshooting
 
-### System Stops Unexpectedly
-- Check journal for `CYCLE_COMPLETE` - system stops when done
-- Look for `stop_hook_active` events to prevent loops
-- Verify Stop hook is properly configured
+### Common Issues
 
-### Agent Not Starting
-- Ensure PROMPT.md exists in ~/workspace/
-- Check work is assigned in journal
-- Check NEXT_AGENT directive exists
-- Verify agent file exists in `~/.claude/agents/`
+1. **Claude Code not starting**: Check npm installation in build log
+2. **Missing permissions**: Verify component has `command_permissions` defined
+3. **Agents not working**: Ensure `/init-autonomous` was run first
+4. **Journal not updating**: Check write permissions on JOURNAL.md
 
-### Tests Failing
-- QA uses real services - ensure Docker/services are running
-- Check database connections
-- Verify API endpoints are accessible
+### Debug Mode
 
-## Contributing
+View Claude Code debug output:
+```bash
+claude --debug
+```
 
-To modify or extend the system:
+## Development
 
-1. **Add New Agents** - Create agent definition in `agents/`
-2. **Modify Workflow** - Update NEXT_AGENT logic in agents
-3. **Add Commands** - Create new command files in `commands/`
-4. **Enhance Agents** - Improve prompts and decision logic
+### Adding New Agents
 
-## Technical Details
+1. Create `.md` file in `agents/`
+2. Define frontmatter with name, description, tools
+3. Write detailed system prompt
+4. Test delegation patterns
 
-- Built for Claude Code with sub-agent support
-- Uses bash for scripting (Python-free)
-- Event-sourced architecture via journal
-- Leverages Claude Code's Stop hook for automation
-- Supports all major programming languages
+### Extending Commands
 
-## License
+1. Create `.md` file in `commands/`
+2. Define command behavior
+3. Update command list in documentation
 
-This component is part of the AI DevKit Pod Configurator project.
+### Custom Hooks
+
+While the autonomous system doesn't rely on hooks, you can add them for specific workflows in the `hooks/` directory.
+
+## Best Practices
+
+1. **Clear Requirements**: Start with detailed PROMPT.md
+2. **Let PM Orchestrate**: Don't manually control agents unless needed
+3. **Monitor Progress**: Use `/show-journal` regularly
+4. **Trust the Process**: Agents will handle handoffs automatically
+5. **Component Selection**: Choose components that match your project needs
+
+## Technical Notes
+
+- Claude Code is installed globally to `/home/devuser/.npm-global/`
+- All configuration is user-specific (not system-wide)
+- The system works without hooks through explicit orchestration
+- JOURNAL.md serves as the single source of truth
+- Each agent operates in its own context window

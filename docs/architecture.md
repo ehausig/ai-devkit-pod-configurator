@@ -4,7 +4,7 @@ This document describes the architecture and design of the AI DevKit Pod Configu
 
 ## System Overview
 
-The AI DevKit Pod Configurator is a modular system for creating customized development environments in Kubernetes. It uses a component-based architecture where users can select exactly what tools they need.
+The AI DevKit Pod Configurator is a modular system for creating customized development environments in Kubernetes. It uses a component-based architecture where users can select exactly what tools they need, with sophisticated dependency management and dynamic configuration generation.
 
 ## High-Level Architecture
 
@@ -17,15 +17,17 @@ The AI DevKit Pod Configurator is a modular system for creating customized devel
 ┌───────────────────────────▼─────────────────────────────────┐
 │                    Component System                         │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
-│  │   Agents    │  │  Languages  │  │Build Tools  │  ...    │
+│  │   Agents    │  │  Languages  │  │Build Tools  │  Tools  │
 │  └─────────────┘  └─────────────┘  └─────────────┘        │
 └───────────────────────────┬─────────────────────────────────┘
                             │
 ┌───────────────────────────▼─────────────────────────────────┐
 │                     Build Engine                            │
+│  • YAML parsing with yq/jq                                  │
 │  • Dockerfile generation                                    │
 │  • Component dependency resolution                          │
 │  • Pre-build script execution                               │
+│  • Permission aggregation                                   │
 └───────────────────────────┬─────────────────────────────────┘
                             │
 ┌───────────────────────────▼─────────────────────────────────┐
@@ -35,6 +37,7 @@ The AI DevKit Pod Configurator is a modular system for creating customized devel
 │  │  • Ubuntu 22.04 base         │                          │
 │  │  • Selected components       │                          │
 │  │  • SSH server (port 2222)    │                          │
+│  │  • Filebrowser (port 8090)   │                          │
 │  └──────────────────────────────┘                          │
 └───────────────────────────┬─────────────────────────────────┘
                             │
@@ -60,10 +63,11 @@ The TUI is built into `build-and-deploy.sh` and provides:
 
 **Key Features:**
 - Written in pure Bash for portability
-- No external dependencies
+- No external UI framework dependencies
 - ANSI escape sequences for colors and positioning
 - Box-drawing characters for visual structure
 - Responsive design adapts to terminal size
+- Animated spinners for deployment progress
 
 **TUI States:**
 1. **Component Selection** - Browse and select components
@@ -78,18 +82,24 @@ Components are the building blocks of the system. Each component is:
 - Optional markdown documentation
 - Optional pre-build script
 - Dependency aware
+- Can define command permissions
 
 **Component Structure:**
 ```
 components/
 ├── agents/
 │   ├── .category.yaml
-│   └── [agent components]
+│   ├── claude-code.yaml
+│   └── claude-code/
+│       ├── claude-code-setup.sh
+│       ├── agents/
+│       ├── commands/
+│       └── scripts/
 ├── languages/
 │   ├── .category.yaml
-│   ├── python-miniconda.yaml
-│   └── python-miniconda.md
-└── build-tools/
+│   ├── python-3.11.yaml
+│   └── python-3.11.md
+└── build-deploy/
     ├── .category.yaml
     ├── maven.yaml
     └── maven.md
@@ -103,26 +113,31 @@ version: "1.0.0"
 group: mutual-exclusion-group
 requires: [dependency-groups]
 description: Brief description
+command_permissions:
+  allow: ["Bash(command:*)", "Read(*.ext)"]
+  deny: ["Bash(dangerous:*)]
+pre_build_script: relative/path/script.sh
 installation:
   dockerfile: |
     # Docker commands
   nexus_config: |
     # Optional Nexus-specific config
-inject_files:
-  - source: file.txt
-    destination: /path/to/file
-    permissions: 644
+  inject_files:
+    - source: file.txt
+      destination: /path/to/file
+      permissions: 644
 entrypoint_setup: |
   # Runtime initialization
 ```
 
 ### 3. Build Engine
 
-The build engine handles:
+The build engine has been significantly refactored to use modern tools:
 
 #### Component Loading
+- Uses `yq` for YAML parsing instead of sed/awk
 - Discovers categories from directories
-- Parses YAML definitions
+- Parses YAML definitions with proper error handling
 - Validates component structure
 - Builds dependency graph
 
@@ -131,62 +146,86 @@ The build engine handles:
 - Validates dependency availability
 - Detects circular dependencies
 - Handles mutual exclusion groups
+- Clear error messages for conflicts
 
 #### Dockerfile Generation
 - Starts from `docker/Dockerfile.base`
-- Injects component installations
-- Handles file copying
+- Dynamically injects component installations
+- Handles file copying via inject_files
 - Configures entrypoint setup
+- Preserves proper ordering
 
 #### Pre-build Scripts
 - Executes component-specific setup
 - Generates dynamic configurations
 - Aggregates documentation
+- Processes command permissions
 - Prepares build context
 
-### 4. Optional Components
+### 4. Key Components
 
-The system supports various optional components that can be selected during build:
+#### Claude Code Integration
 
-#### AI Assistants
-- **Claude Code** - Advanced AI coding assistant with autonomous capabilities
-- Other AI tools can be added as components
+Claude Code is a sophisticated AI assistant component that includes:
+
+**Team Topologies Implementation:**
+- Stream-Aligned Team (Feature Developer, QA)
+- Platform Team (Platform/Database Engineers)
+- Enabling Team (API/Security/Performance specialists)
+- Complicated Subsystem Team (Integration/Algorithm specialists)
+
+**Autonomous Development System:**
+- Product Manager orchestration (main thread)
+- Kanban card-based workflow
+- State persistence via JOURNAL.md
+- Deterministic agent handoffs
+- No reliance on hooks
+
+**Dynamic Configuration:**
+- Permission aggregation from all components
+- Documentation import system
+- Custom commands and scripts
+- Flexible agent definitions
 
 #### Programming Languages
-- Multiple versions of Python, Java, Go, Rust, Ruby, Scala, Kotlin
-- Each language is a separate component with proper dependency management
+- Multiple versions with mutual exclusion
+- Architecture-aware installations (ARM64/AMD64)
+- Package manager configuration
+- Development tool integration
 
 #### Build Tools
 - Maven, Gradle, SBT
-- Automatically configured for Nexus proxy when available
-
-Each component can include:
-- Installation instructions
-- Runtime configuration
-- Documentation for AI assistants
-- Pre-build scripts for complex setup
+- Automatic Nexus proxy detection
+- Repository configuration
+- Dependency caching
 
 ### 5. Container Image
 
 Built on Ubuntu 22.04 LTS with:
 
-**Base Tools** (always included):
+**Base Layer** (always included):
 - Git with GitHub CLI
 - SSH server (OpenSSH)
 - Filebrowser web UI
-- Node.js 20.18.0
-- Microsoft TUI Test
 - Basic development utilities
+- Locale configuration (UTF-8)
+
+**Dynamic Layer** (based on selections):
+- Selected programming languages
+- Build tools and package managers
+- AI assistants with configurations
+- Testing frameworks
 
 **User Configuration**:
 - Non-root user: `devuser` (UID 1000)
 - Home directory: `/home/devuser`
 - Sudo access without password
 - Default shell: bash
+- npm global directory: `~/.npm-global`
 
 **Persistent Paths**:
 - `/home/devuser/workspace` - Code and projects
-- `/home/devuser/.config` - User configuration
+- `/home/devuser/.config/ai-devkit` - User configuration
 
 **Service Ports**:
 - 2222: SSH server
@@ -206,7 +245,7 @@ spec:
   template:
     spec:
       containers:
-      - name: main
+      - name: ai-devkit
         image: ai-devkit:latest
         ports:
         - containerPort: 22
@@ -217,8 +256,8 @@ spec:
 ```
 
 #### Persistent Storage
-- **workspace-data**: 10Gi for user code
-- **config-data**: 1Gi for configuration
+- **workspace-pvc**: 5Gi for user code
+- **config-pvc**: 1Gi for configuration
 - Storage class: Default (cluster-dependent)
 
 #### Services
@@ -226,92 +265,66 @@ spec:
 - **Port Forwarding**: Local development access
 - No external LoadBalancer by default
 
-#### Secrets
+#### Secrets and ConfigMaps
 - **ssh-host-keys**: Persistent SSH identity
 - **git-config**: Optional git credentials
-
-#### ConfigMaps
-- **nexus-config**: Optional proxy settings
+- **nexus-proxy-config**: Package manager configurations
+- **nexus-env-config**: Environment variables
 
 ## Data Flow
 
 ### Build Process
 
 ```
-┌─────────────────────────────┐
-│   Run build-and-deploy.sh   │
-└──────────────┬──────────────┘
-               │
-               ▼
-┌─────────────────────────────┐
-│   TUI Component Selection   │
-└──────────────┬──────────────┘
-               │
-               ▼
-┌─────────────────────────────┐
-│  Load Component Definitions │
-└──────────────┬──────────────┘
-               │
-               ▼
-┌─────────────────────────────┐
-│    Resolve Dependencies     │
-└──────────────┬──────────────┘
-               │
-               ▼
-┌─────────────────────────────┐
-│  Execute Pre-build Scripts  │
-└──────────────┬──────────────┘
-               │
-               ▼
-┌─────────────────────────────┐
-│    Generate Dockerfile      │
-└──────────────┬──────────────┘
-               │
-               ▼
-┌─────────────────────────────┐
-│   Build Container Image     │
-└──────────────┬──────────────┘
-               │
-               ▼
-┌─────────────────────────────┐
-│   Deploy to Kubernetes      │
-└──────────────┬──────────────┘
-               │
-               ▼
-┌─────────────────────────────┐
-│   Setup Port Forwarding     │
-└─────────────────────────────┘
+User Selection → Component Loading → Dependency Resolution → Pre-build Scripts
+                                                                    ↓
+Container Deploy ← Docker Build ← Dockerfile Generation ← Permission Aggregation
 ```
 
-### Component Installation Flow
+### Component Processing Pipeline
 
-1. **Selection**: User selects components in TUI
-2. **Validation**: Check dependencies and conflicts
-3. **Sorting**: Topological sort by dependencies
-4. **Pre-build**: Run component pre-build scripts
-5. **Generation**: Create Dockerfile with installations
-6. **Building**: Docker builds the image
-7. **Deployment**: Image deployed to Kubernetes
+1. **Selection Phase**
+   - User selects components via TUI
+   - Dependencies validated in real-time
+   - Conflicts prevented by mutual exclusion
+
+2. **Pre-build Phase**
+   - Execute pre-build scripts
+   - Generate dynamic configurations
+   - Aggregate permissions and documentation
+   - Prepare build context
+
+3. **Build Phase**
+   - Generate customized Dockerfile
+   - Process inject_files directives
+   - Build container with selected components
+   - Handle Nexus proxy if available
+
+4. **Deployment Phase**
+   - Deploy to Kubernetes
+   - Configure persistent storage
+   - Set up port forwarding
+   - Display connection info
 
 ## Security Architecture
 
 ### Container Security
 - Runs as non-root user (`devuser`)
-- SSH requires authentication (password: devuser)
+- SSH requires authentication
 - Minimal base image (Ubuntu 22.04)
 - No unnecessary privileges
-- Sudo access for development needs
+- Proper file permissions
 
 ### Secret Management
 - SSH host keys in Kubernetes secrets
 - Git credentials isolated to container
 - Optional host credential injection
-- Proper file permissions (600 for keys)
+- Environment-specific configurations
 - No secrets in image layers
 
 ### Network Security
-- Services use ClusterIP (not exposed externally)
-- Port forwarding for local access only
+- Services use ClusterIP (internal only)
+- Port forwarding for local access
 - SSH on non-standard port (2222)
 - Filebrowser requires authentication
 - No public LoadBalancer by default
@@ -325,144 +338,103 @@ spec:
 3. Create component YAML definition
 4. Optional: Add markdown documentation
 5. Optional: Create pre-build script
-6. Define dependencies via `requires` field
+6. Define dependencies and permissions
 
 ### Custom Themes
 
 Themes are defined in `build-and-deploy.sh`:
-```bash
-"custom-theme")
-    CATALOG_BORDER_COLOR="$COLOR_BRIGHT_CYAN"
-    CATALOG_TITLE_STYLE="$BOLD_CYAN"
-    # ... more color definitions
-    ;;
-```
-
-Available style elements:
-- Border and box colors
-- Title and text styles
-- Icon colors
-- Status indicators
-- Animation colors
+- Color definitions using ANSI codes
+- Consistent styling across UI elements
+- Support for 256-color terminals
+- Accessibility considerations
 
 ### Pre-build Scripts
 
-Components can include pre-build scripts that:
-- Generate configuration files
-- Download additional resources
-- Create documentation aggregates
-- Set up component-specific structures
+Components can include sophisticated pre-build scripts:
+- Process multiple configuration files
+- Generate dynamic content
+- Aggregate data from other components
+- Set up complex directory structures
+- Handle conditional logic
 
 ## Configuration Management
 
-### Host Configuration
-- Git credentials via `configure-git-host.sh`
-- Stored in `~/.ai-devkit/`
-- Injected as Kubernetes secrets
-- Includes GitHub CLI authentication
+### Build-time Configuration
+- Component selection via TUI
+- Dependency resolution
+- Permission aggregation
+- Dynamic file generation
 
-### Container Configuration
-- Environment variables for tools
+### Runtime Configuration
+- Environment variables
 - Dotfiles in home directory
-- Package manager configurations
-- Persistent across restarts
-- Component-specific configs
+- Package manager configs
+- Component-specific settings
 
-### Nexus Proxy Support (Optional)
-- Auto-detected on port 8081
-- Configures package managers:
-  - npm registry
-  - pip index URL
-  - Maven repositories
-  - Go proxy
-  - APT proxy
+### Nexus Proxy Support
+- Auto-detection on port 8081
+- Configures all package managers
 - Transparent to components
 - Falls back gracefully
 
 ## Performance Considerations
 
 ### Build Optimization
-- Minimal base image
 - Docker layer caching
-- Conditional installations
-- Cleanup after each component
-- Parallel downloads when possible
+- Parallel component processing where possible
+- Efficient YAML parsing with yq
+- Minimal base image size
+- Cleanup after installations
 
 ### Runtime Performance
-- Resource limits in Kubernetes
+- Lazy loading of optional components
 - Efficient file watching
-- Lazy loading of tools
-- Minimal background processes
-- SSH connection pooling
+- Resource limits in Kubernetes
+- Optimized terminal operations
 
 ### TUI Performance
-- Direct terminal manipulation
 - Minimal screen updates
-- Efficient pagination
-- Responsive to terminal size
-- Animation frame limiting
+- Efficient pagination algorithms
+- Debounced keyboard input
+- Optimized animation frames
 
-## Monitoring and Debugging
+## Modern Tooling
 
-### Build Logs
-- Detailed logging to `build-and-deploy.log`
-- Component installation tracking
-- Error capture with context
-- Dockerfile generation logs
-- Pre-build script output
+### Replaced Legacy Approaches
+- `yq` for YAML parsing (replaced sed/awk)
+- `jq` for JSON processing
+- Structured data handling
+- Type-safe parsing
 
-### Runtime Debugging
-- SSH access for troubleshooting
-- Container logs: `kubectl logs -n ai-devkit`
-- Filebrowser for file inspection
-- Standard Kubernetes tooling
+### Benefits
+- More reliable parsing
+- Better error messages
+- Easier maintenance
+- Cross-platform compatibility
 
 ## Technical Decisions
 
-### Why Bash for TUI?
-- No additional dependencies
-- Works on all POSIX systems
-- Direct terminal control
-- Fast and responsive
-- Universal availability
+### Why yq and jq?
+- Industry-standard tools
+- Reliable YAML/JSON parsing
+- Better than regex-based parsing
+- Handles edge cases properly
+- Good error reporting
 
-### Why YAML for Components?
-- Human readable
-- Simple parsing in bash
-- Widely understood
-- Supports multiline strings
-- Good for configuration
+### Why Component Permissions?
+- Claude Code security model
+- Granular control over AI capabilities
+- Aggregated from all components
+- Flexible allow/deny rules
 
-### Why Ubuntu Base?
-- Excellent package availability
-- Long-term support (LTS)
-- Familiar to developers
-- Good container support
-- Regular security updates
+### Why Team Topologies for Claude Code?
+- Proven organizational patterns
+- Clear separation of concerns
+- Realistic development workflow
+- Scalable agent architecture
 
-### Why Kubernetes?
-- Persistent storage management
-- Service discovery
-- Secret management
-- Platform agnostic
-- Industry standard
-
-## Future Considerations
-
-### Scalability
-- Multi-user support
-- Remote cluster deployment
-- Team workspaces
-- Shared component libraries
-
-### Extensibility
-- Plugin architecture
-- External component sources
-- Custom hook types
-- API for automation
-
-### Performance
-- Build caching service
-- Distributed builds
-- Component registry
-- Incremental updates
+### Why Separate Pre-build Scripts?
+- Complex setup logic isolation
+- Reusable across components
+- Easier testing and debugging
+- Clear separation of concerns

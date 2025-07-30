@@ -26,9 +26,10 @@ AI DevKit Pod Configurator provides a beautiful TUI (Terminal User Interface) fo
 
 - 🎨 **Beautiful TUI** - Interactive component selection with theme support
 - 🧩 **Modular Architecture** - Add only what you need: languages, tools, AI assistants
-- 🔧 **Language Support** - Python, Java, Go, Rust, Ruby, Scala, Kotlin, and more
+- 🔧 **Language Support** - Python, Java, Go, Rust, Ruby, Scala, Kotlin, Node.js, and more
+- 🤖 **AI Integration** - Claude Code with Team Topologies-based autonomous development
 - 📦 **Build Tools** - Maven, Gradle, SBT with optional Nexus proxy support
-- 🧪 **TUI Testing** - Microsoft TUI Test pre-installed for testing terminal apps
+- 🧪 **Testing Tools** - Microsoft TUI Test for terminal application testing
 - 💾 **Persistent Storage** - Your code and configuration persist across restarts
 - 🌐 **Web File Manager** - Built-in Filebrowser for easy file management
 - 🔒 **Secure** - Runs as non-root user with proper isolation
@@ -57,13 +58,14 @@ AI DevKit Pod Configurator provides a beautiful TUI (Terminal User Interface) fo
 - Kubernetes cluster (k3s, minikube, Colima, or any Kubernetes distribution)
 - kubectl configured to access your cluster
 - Docker or compatible container runtime
+- `yq` and `jq` for YAML/JSON processing
 - For macOS users: [Colima](https://github.com/abiosoft/colima) is recommended
 
 ### macOS Quick Setup with Colima
 
 ```bash
-# Install Colima
-brew install colima kubectl
+# Install dependencies
+brew install colima kubectl yq jq
 
 # Start Colima with Kubernetes
 colima start --kubernetes --cpu 4 --memory 8
@@ -145,7 +147,8 @@ Access the built-in Filebrowser at [http://localhost:8090](http://localhost:8090
 ## 🧩 Available Components
 
 ### Programming Languages
-- **Python** - System, 3.11, or Miniconda versions
+- **Python** - System (3.10), 3.11, or Miniconda versions
+- **Node.js** - 20.x (LTS) and 22.x (Current)
 - **Java** - OpenJDK or Adoptium (11, 17, 21)
 - **Go** - Versions 1.21 and 1.22
 - **Rust** - Stable and nightly channels
@@ -159,7 +162,44 @@ Access the built-in Filebrowser at [http://localhost:8090](http://localhost:8090
 - **SBT** - Scala build tool
 
 ### AI Assistants
-- **Claude Code** - Advanced AI coding assistant (see [Claude Code Documentation](components/agents/claude-code/README.md))
+- **Claude Code** - Advanced AI coding assistant with Team Topologies-based autonomous development system (see [Claude Code Documentation](components/agents/claude-code/README.md))
+
+### Testing Tools
+- **Microsoft TUI Test** - End-to-end terminal testing framework
+
+## 🤖 Claude Code Integration
+
+The AI DevKit includes Claude Code with a sophisticated autonomous development system based on Team Topologies principles:
+
+### Team Structure
+- **Stream-Aligned Team**: Feature Developer, QA Engineer
+- **Platform Team**: Platform Engineer, Database Engineer
+- **Enabling Team**: API Designer, Security Specialist, Performance Engineer, Solution Architect, Cloud Architect, Data Architect
+- **Complicated Subsystem Team**: Integration Specialist, Algorithm Developer
+
+### Key Features
+- **Kanban-based workflow** - Track work through cards and states
+- **Autonomous orchestration** - Product Manager (main thread) coordinates teams
+- **Deterministic handoffs** - Clear state transitions via JOURNAL.md
+- **No hooks required** - Explicit orchestration without relying on hooks
+- **Requirements-driven** - Start with PROMPT.md for project specifications
+
+### Quick Start with Claude Code
+```bash
+# Inside your container, create requirements
+cat > ~/workspace/PROMPT.md << 'EOF'
+# Project: Todo API
+
+Create a REST API with CRUD operations for todos
+EOF
+
+# Initialize autonomous development
+/init-autonomous
+
+# Monitor progress
+/show-journal
+/kanban-status
+```
 
 ## 🎨 Theme Support
 
@@ -219,6 +259,9 @@ version: "1.0.0"
 group: component-group
 requires: []
 description: What this component does
+command_permissions:
+  allow:
+    - "Bash(my-tool:*)"
 installation:
   dockerfile: |
     # Installation commands
@@ -227,7 +270,7 @@ installation:
 
 ### Component Documentation (Optional)
 
-Components can include markdown documentation that gets injected into LLM system prompts:
+Components can include markdown documentation that gets injected into AI assistant prompts:
 
 ```markdown
 # components/category/my-component.md
@@ -241,6 +284,20 @@ my-tool --help
 ```
 
 ## 🛠️ Advanced Features
+
+### Command Permissions
+
+Components can specify Claude Code command permissions that get aggregated:
+
+```yaml
+command_permissions:
+  allow:
+    - "Bash(npm:*)"
+    - "Bash(node:*)"
+    - "Read(*.js)"
+  deny:
+    - "Bash(rm -rf:*)"
+```
 
 ### Nexus Repository Proxy
 
@@ -265,6 +322,7 @@ Components can include pre-build scripts for complex setup:
 - Download additional resources
 - Create documentation aggregates
 - Set up component-specific structures
+- Process command permissions for Claude Code
 
 ### Dependency Management
 
@@ -292,6 +350,7 @@ For maintainers, see the [Maintainer Guide](docs/maintainer.md) for release proc
 2. **Kubernetes Connection**: Ensure your cluster is running and `kubectl` is configured
 3. **Build Failures**: Check `build-and-deploy.log` for detailed error messages
 4. **Disk Space**: Use `cleanup-colima.sh` to free up space in Colima
+5. **Missing Dependencies**: Install `yq` and `jq` with your package manager
 
 See the [Troubleshooting Guide](docs/troubleshooting.md) for comprehensive solutions.
 
@@ -344,6 +403,7 @@ This project builds upon excellent work from these organizations and projects:
 - **[Git](https://git-scm.com)** - Version control system
 - **[GitHub CLI](https://cli.github.com)** - GitHub's official command line tool
 - **[Filebrowser](https://filebrowser.org)** - Web-based file management
+- **[Claude Code](https://claude.ai)** - AI coding assistant by Anthropic
 
 ### Languages and Runtimes
 
