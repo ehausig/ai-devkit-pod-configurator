@@ -129,26 +129,10 @@ TEMP_COMPONENTS="$TEMP_DIR/.components.tmp"
 # Process each YAML file
 for yaml_file in $SELECTED_YAML_FILES; do
     if [ -f "$yaml_file" ]; then
-        # Extract component info
-        comp_name=""
-        comp_version=""
-        comp_description=""
-        
-        while IFS= read -r line; do
-            if [[ "$line" =~ ^name:[[:space:]]*(.+)$ ]]; then
-                comp_name="${BASH_REMATCH[1]}"
-                comp_name="${comp_name#[\"\']}"
-                comp_name="${comp_name%[\"\']}"
-            elif [[ "$line" =~ ^version:[[:space:]]*(.+)$ ]]; then
-                comp_version="${BASH_REMATCH[1]}"
-                comp_version="${comp_version#[\"\']}"
-                comp_version="${comp_version%[\"\']}"
-            elif [[ "$line" =~ ^description:[[:space:]]*(.+)$ ]]; then
-                comp_description="${BASH_REMATCH[1]}"
-                comp_description="${comp_description#[\"\']}"
-                comp_description="${comp_description%[\"\']}"
-            fi
-        done < "$yaml_file"
+        # Extract component info using yq
+        comp_name=$(yq eval '.name // ""' "$yaml_file")
+        comp_version=$(yq eval '.version // ""' "$yaml_file")
+        comp_description=$(yq eval '.description // ""' "$yaml_file")
         
         # Extract category
         category=$(basename "$(dirname "$yaml_file")")
@@ -222,66 +206,32 @@ success "Component imports generated with @import syntax"
 # Process command permissions from all selected components
 log "Processing command permissions from selected components..."
 
-# Check if yq is available
-if command -v yq >/dev/null 2>&1; then
-    log "Using yq for YAML parsing"
-else
-    log "yq not found, using fallback YAML parser"
-fi
-
 # Initialize arrays for permissions
 declare -a all_allow_perms=()
 declare -a all_deny_perms=()
 
-# Function to extract permissions from YAML
-extract_permissions_from_yaml() {
-    local yaml_file="$1"
-    local perm_type="$2"  # "allow" or "deny"
-    
-    # Use yq for proper YAML parsing
-    yq eval ".command_permissions.${perm_type}[]" "$yaml_file" 2>/dev/null || true
-}
-
-# Process each selected YAML file for permissions
+# Process each selected YAML file for permissions using yq
 for yaml_file in $SELECTED_YAML_FILES; do
     if [ -f "$yaml_file" ]; then
         log "Checking $(basename "$yaml_file") for command permissions..."
         
-        # Debug: Check if the file has command_permissions section
-        if grep -q "command_permissions:" "$yaml_file"; then
-            log "  Found command_permissions section"
-        else
-            log "  No command_permissions section found"
-            continue
-        fi
-        
-        # Extract allow permissions
-        log "  Extracting allow permissions..."
-        extracted_count=0
+        # Extract allow permissions using yq
         while IFS= read -r perm; do
             if [ -n "$perm" ]; then
                 all_allow_perms+=("$perm")
-                ((extracted_count++))
-                log "    Added: $perm"
             fi
-        done < <(extract_permissions_from_yaml "$yaml_file" "allow")
-        log "  Extracted $extracted_count allow permissions"
+        done < <(yq eval '.command_permissions.allow[]' "$yaml_file" 2>/dev/null || true)
         
-        # Extract deny permissions
-        log "  Extracting deny permissions..."
-        extracted_count=0
+        # Extract deny permissions using yq
         while IFS= read -r perm; do
             if [ -n "$perm" ]; then
                 all_deny_perms+=("$perm")
-                ((extracted_count++))
-                log "    Added: $perm"
             fi
-        done < <(extract_permissions_from_yaml "$yaml_file" "deny")
-        log "  Extracted $extracted_count deny permissions"
+        done < <(yq eval '.command_permissions.deny[]' "$yaml_file" 2>/dev/null || true)
     fi
 done
 
-# Deduplicate permissions - MUST preserve array elements with spaces
+# Deduplicate permissions while preserving array elements with spaces
 if [ ${#all_allow_perms[@]} -gt 0 ]; then
     # Use a temporary file to preserve spaces during deduplication
     temp_allow="$TEMP_DIR/temp_allow_perms.txt"
@@ -292,6 +242,7 @@ if [ ${#all_allow_perms[@]} -gt 0 ]; then
     done < "$temp_allow"
     rm -f "$temp_allow"
 fi
+
 if [ ${#all_deny_perms[@]} -gt 0 ]; then
     # Use a temporary file to preserve spaces during deduplication
     temp_deny="$TEMP_DIR/temp_deny_perms.txt"
@@ -308,122 +259,22 @@ log "Found ${#all_allow_perms[@]} unique allow permissions and ${#all_deny_perms
 log "Copying claude-settings.json template..."
 cp "$SETTINGS_TEMPLATE" "$TEMP_DIR/settings.json"
 
-# Generate the workspace settings with dynamic permissions
+# Generate the workspace settings with dynamic permissions using jq
 log "Generating user-local-settings.json with dynamic permissions..."
 
-# Function to escape JSON string
-json_escape() {
-    local str="$1"
-    # Use jq if available for proper JSON escaping
-    if command -v jq >/dev/null 2>&1; then
-        echo -n "$str" | jq -Rs .
-    else
-        # Fallback: basic escaping
-        str="${str//\\/\\\\}"
-        str="${str//\"/\\\"}"
-        str="${str//$'\n'/\\n}"
-        str="${str//$'\r'/\\r}"
-        str="${str//$'\t'/\\t}"
-        echo "\"$str\""
-    fi
-}
-
 # Create the JSON structure using jq
-if command -v jq >/dev/null 2>&1; then
-    log "Using jq to create proper JSON structure..."
-    
-    # Create a temporary file with the permissions as JSON arrays
-    {
-        echo '{'
-        echo '  "permissions": {'
-        
-        # Allow permissions
-        echo '    "allow": ['
-        first=true
-        for perm in "${all_allow_perms[@]}"; do
-            if [ "$first" = true ]; then
-                first=false
-            else
-                echo ","
-            fi
-            printf "      %s" "$(json_escape "$perm")"
-        done
-        [ ${#all_allow_perms[@]} -gt 0 ] && echo
-        echo '    ],'
-        
-        # Deny permissions
-        echo '    "deny": ['
-        first=true
-        for perm in "${all_deny_perms[@]}"; do
-            if [ "$first" = true ]; then
-                first=false
-            else
-                echo ","
-            fi
-            printf "      %s" "$(json_escape "$perm")"
-        done
-        [ ${#all_deny_perms[@]} -gt 0 ] && echo
-        echo '    ]'
-        
-        echo '  }'
-        echo '}'
-    } | jq . > "$TEMP_DIR/user-local-settings.json"
-    
-else
-    # Fallback without jq
-    log "Creating JSON manually (jq not found)..."
-    
-    {
-        echo '{'
-        echo '  "permissions": {'
-        echo '    "allow": ['
-        
-        # Add allow permissions
-        first=true
-        for perm in "${all_allow_perms[@]}"; do
-            if [ "$first" = true ]; then
-                first=false
-            else
-                echo ","
-            fi
-            # Basic JSON escaping
-            escaped_perm="${perm//\\/\\\\}"
-            escaped_perm="${escaped_perm//\"/\\\"}"
-            echo -n "      \"$escaped_perm\""
-        done
-        [ ${#all_allow_perms[@]} -gt 0 ] && echo
-        echo '    ],'
-        
-        echo '    "deny": ['
-        # Add deny permissions
-        first=true
-        for perm in "${all_deny_perms[@]}"; do
-            if [ "$first" = true ]; then
-                first=false
-            else
-                echo ","
-            fi
-            # Basic JSON escaping
-            escaped_perm="${perm//\\/\\\\}"
-            escaped_perm="${escaped_perm//\"/\\\"}"
-            echo -n "      \"$escaped_perm\""
-        done
-        [ ${#all_deny_perms[@]} -gt 0 ] && echo
-        echo '    ]'
-        echo '  }'
-        echo '}'
-    } > "$TEMP_DIR/user-local-settings.json"
-fi
+jq -n \
+  --argjson allow "$(printf '%s\n' "${all_allow_perms[@]}" | jq -R . | jq -s .)" \
+  --argjson deny "$(printf '%s\n' "${all_deny_perms[@]}" | jq -R . | jq -s .)" \
+  '{permissions: {allow: $allow, deny: $deny}}' > "$TEMP_DIR/user-local-settings.json"
 
 success "Generated user-local-settings.json with permissions"
 
 # Verify the JSON is valid
-if command -v jq >/dev/null 2>&1; then
-    if jq . "$TEMP_DIR/user-local-settings.json" >/dev/null 2>&1; then
-        success "JSON validation passed"
-    else
-        error "Generated JSON is invalid!"
-    fi
+if jq . "$TEMP_DIR/user-local-settings.json" >/dev/null 2>&1; then
+    success "JSON validation passed"
+else
+    error "Generated JSON is invalid!"
 fi
 
 # Create a manifest of included files
