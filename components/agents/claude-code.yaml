@@ -51,19 +51,19 @@ installation:
       destination: /tmp/user-local-settings.json
       permissions: 644
     - source: commands/
-      destination: /tmp/claude-commands/
+      destination: /tmp/commands/
       permissions: 755
     - source: agents/
-      destination: /tmp/claude-agents/
+      destination: /tmp/agents/
       permissions: 755
     - source: hooks/
-      destination: /tmp/claude-hooks/
+      destination: /tmp/hooks/
       permissions: 755
     - source: scripts/
-      destination: /tmp/claude-scripts/
+      destination: /tmp/scripts/
       permissions: 755
     - source: docs/
-      destination: /tmp/claude-docs/
+      destination: /tmp/docs/
       permissions: 755
     - source: component-imports.txt
       destination: /tmp/component-imports.txt
@@ -89,8 +89,8 @@ entrypoint_setup: |
   fi
  
   # Copy component documentation files
-  if [ -d /tmp/claude-docs ]; then
-      for md_file in /tmp/claude-docs/*.md; do
+  if [ -d /tmp/docs ]; then
+      for md_file in /tmp/docs/*.md; do
           if [ -f "$md_file" ]; then
               basename_file=$(basename "$md_file")
               cp "$md_file" "/home/devuser/.claude/docs/$basename_file"
@@ -98,8 +98,8 @@ entrypoint_setup: |
       done
   fi
   
-  if [ -d /tmp/claude-scripts ]; then
-      cp /tmp/claude-scripts/*.sh /home/devuser/.claude/scripts/
+  if [ -d /tmp/scripts ]; then
+      cp /tmp/scripts/*.sh /home/devuser/.claude/scripts/
       chmod +x /home/devuser/.claude/scripts/*.sh
 
       for sh_file in /home/devuser/.claude/scripts/*.sh; do
@@ -113,16 +113,16 @@ entrypoint_setup: |
   cp /tmp/settings.json /home/devuser/.claude/settings.json
   cp /tmp/user-local-settings.json /home/devuser/workspace/.claude/user-local-settings.json
  
-  if [ -d /tmp/claude-commands ] && [ "$(ls -A /tmp/claude-commands/*.md 2>/dev/null)" ]; then
-      cp /tmp/claude-commands/*.md /home/devuser/.claude/commands/
+  if [ -d /tmp/commands ] && [ "$(ls -A /tmp/commands/*.md 2>/dev/null)" ]; then
+      cp /tmp/commands/*.md /home/devuser/.claude/commands/
   fi
   
   # Copy agents
-  if [ -d /tmp/claude-agents ] && [ "$(ls -A /tmp/claude-agents/*.md 2>/dev/null)" ]; then
-      cp /tmp/claude-agents/*.md /home/devuser/.claude/agents/
+  if [ -d /tmp/agents ] && [ "$(ls -A /tmp/agents/*.md 2>/dev/null)" ]; then
+      cp /tmp/agents/*.md /home/devuser/.claude/agents/
   fi
   
-  if [ -d /tmp/claude-hooks ] && [ "$(ls -A /tmp/claude-hooks/*.sh 2>/dev/null)" ]; then
-      cp /tmp/claude-hooks/*.sh /home/devuser/.claude/hooks/
+  if [ -d /tmp/hooks ] && [ "$(ls -A /tmp/hooks/*.sh 2>/dev/null)" ]; then
+      cp /tmp/hooks/*.sh /home/devuser/.claude/hooks/
       chmod +x /home/devuser/.claude/hooks/*.sh
   fi

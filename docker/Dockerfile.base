@@ -116,7 +116,7 @@ RUN mkdir /var/run/sshd && \
     echo "PrintLastLog no" >> /etc/ssh/sshd_config
 
 # Copy MOTD script WITH .sh extension
-COPY scripts/motd-ai-devkit.sh /tmp/motd-ai-devkit.sh
+COPY docker/scripts/motd-ai-devkit.sh /tmp/motd-ai-devkit.sh
 
 # Configure MOTD and remove default Ubuntu components
 RUN cp /tmp/motd-ai-devkit.sh /etc/update-motd.d/00-ai-devkit && \
@@ -138,8 +138,8 @@ RUN cp /tmp/motd-ai-devkit.sh /etc/update-motd.d/00-ai-devkit && \
     /etc/update-motd.d/00-ai-devkit || echo "MOTD script failed to execute"
 
 # Copy configuration files
-COPY config/bashrc /home/devuser/.bashrc
-COPY config/profile /home/devuser/.profile
+COPY docker/config/bashrc /home/devuser/.bashrc
+COPY docker/config/profile /home/devuser/.profile
 
 # Set proper ownership for config files
 RUN chown devuser:devuser /home/devuser/.bashrc /home/devuser/.profile
@@ -178,7 +178,7 @@ COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 # Copy git setup script WITH .sh extension
-COPY scripts/setup-git.sh /usr/local/bin/setup-git.sh
+COPY docker/scripts/setup-git.sh /usr/local/bin/setup-git.sh
 RUN chmod +x /usr/local/bin/setup-git.sh
 
 # Create work directories that will be used by the work queue system
@@ -200,6 +200,8 @@ WORKDIR /home/devuser
 # Switch back to root for the entrypoint
 USER root
 ENTRYPOINT ["/entrypoint.sh"]
+
+# INJECT_FILES_PLACEHOLDER
 
 # Set up volume mount points for persistence - MUST be last!
 VOLUME ["/home/devuser/.config/claude-code", "/home/devuser/workspace"]
