@@ -61,6 +61,9 @@ installation:
     - source: scripts/
       destination: /tmp/claude-scripts/
       permissions: 755
+    - source: docs/
+      destination: /tmp/claude-docs/
+      permissions: 755
     - source: component-imports.txt
       destination: /tmp/component-imports.txt
       permissions: 644
@@ -84,16 +87,15 @@ entrypoint_setup: |
       cat /tmp/component-imports.txt >> /home/devuser/.claude/CLAUDE.md
   fi
  
-  # Note: claude-docs directory is not currently created by setup script
-  # Commenting out until needed
-  # if [ -d /tmp/claude-docs ]; then
-  #     for md_file in /tmp/claude-docs/*.md; do
-  #         if [ -f "$md_file" ]; then
-  #             basename_file=$(basename "$md_file")
-  #             cp "$md_file" "/home/devuser/.claude/docs/$basename_file"
-  #         fi
-  #     done
-  # fi
+  # Copy component documentation files
+  if [ -d /tmp/claude-docs ]; then
+      for md_file in /tmp/claude-docs/*.md; do
+          if [ -f "$md_file" ]; then
+              basename_file=$(basename "$md_file")
+              cp "$md_file" "/home/devuser/.claude/docs/$basename_file"
+          fi
+      done
+  fi
   
   if [ -d /tmp/claude-scripts ]; then
       cp /tmp/claude-scripts/*.sh /home/devuser/.claude/scripts/
@@ -114,7 +116,7 @@ entrypoint_setup: |
       cp /tmp/claude-commands/*.md /home/devuser/.claude/commands/
   fi
   
-  # Copy agents - THIS WAS MISSING
+  # Copy agents
   if [ -d /tmp/claude-agents ] && [ "$(ls -A /tmp/claude-agents/*.md 2>/dev/null)" ]; then
       cp /tmp/claude-agents/*.md /home/devuser/.claude/agents/
   fi

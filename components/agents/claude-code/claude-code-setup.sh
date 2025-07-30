@@ -95,8 +95,19 @@ if [[ -d "$SCRIPT_DIR/claude-code/scripts" ]]; then
     fi
 fi
 
-# Generate component imports file
-log "Generating component imports for user CLAUDE.md..."
+# Note: Component documentation files are already copied to $TEMP_DIR/docs/ by build-and-deploy.sh
+# This script only needs to generate the import references
+
+# Count component docs for logging
+local docs_count=$(ls -1 "$TEMP_DIR/docs/"*.md 2>/dev/null | wc -l)
+if [[ $docs_count -gt 0 ]]; then
+    log "Found $docs_count component documentation files in docs folder"
+else
+    log "No component documentation files found in docs folder"
+fi
+
+# Generate component imports file with import syntax
+log "Generating component imports with @import syntax..."
 
 IMPORTS_OUTPUT="$TEMP_DIR/component-imports.txt"
 cat > "$IMPORTS_OUTPUT" << 'EOF'
@@ -142,8 +153,11 @@ for yaml_file in $SELECTED_YAML_FILES; do
         # Extract category
         category=$(basename "$(dirname "$yaml_file")")
         
+        # Get the yaml basename for checking if md file exists
+        yaml_basename=$(basename "$yaml_file" .yaml)
+        
         # Record component
-        echo "${category}|${comp_name}|${comp_version}|${comp_description}" >> "$TEMP_COMPONENTS"
+        echo "${category}|${comp_name}|${comp_version}|${comp_description}|${yaml_basename}" >> "$TEMP_COMPONENTS"
         
         # Record category if new
         if ! grep -q "^${category}$" "$TEMP_CATEGORIES"; then
@@ -156,17 +170,44 @@ done
 while IFS= read -r category; do
     [ -z "$category" ] && continue
     
-    # Category header (capitalize first letter)
-    cat_display=$(echo "$category" | sed 's/^\(.\)/\U\1/')
+    # Category header - properly format the display name
+    case "$category" in
+        "languages")
+            cat_display="Languages"
+            ;;
+        "agents")
+            cat_display="AI Agents"
+            ;;
+        "databases")
+            cat_display="Databases"
+            ;;
+        "tools")
+            cat_display="Development Tools"
+            ;;
+        "frameworks")
+            cat_display="Frameworks"
+            ;;
+        *)
+            # Default: capitalize first letter using awk (more portable)
+            cat_display=$(echo "$category" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')
+            ;;
+    esac
+    
     echo "## $cat_display" >> "$IMPORTS_OUTPUT"
     echo "" >> "$IMPORTS_OUTPUT"
     
     # List components in category
-    while IFS='|' read -r cat name ver desc; do
+    while IFS='|' read -r cat name ver desc basename; do
         if [ "$cat" = "$category" ]; then
             echo -n "- **$name**" >> "$IMPORTS_OUTPUT"
             [ -n "$ver" ] && echo -n " v$ver" >> "$IMPORTS_OUTPUT"
             [ -n "$desc" ] && echo -n " - $desc" >> "$IMPORTS_OUTPUT"
+            
+            # Add import reference if md file exists
+            if [[ -f "$TEMP_DIR/docs/${basename}.md" ]]; then
+                echo -n " @/home/devuser/.claude/docs/${basename}.md" >> "$IMPORTS_OUTPUT"
+            fi
+            
             echo "" >> "$IMPORTS_OUTPUT"
         fi
     done < "$TEMP_COMPONENTS"
@@ -176,7 +217,7 @@ done < "$TEMP_CATEGORIES"
 # Cleanup temp files
 rm -f "$TEMP_CATEGORIES" "$TEMP_COMPONENTS"
 
-success "Component imports generated"
+success "Component imports generated with @import syntax"
 
 # Process command permissions from all selected components
 log "Processing command permissions from selected components..."
@@ -406,6 +447,9 @@ $(ls -1 "$TEMP_DIR/scripts/"*.sh 2>/dev/null | sed 's|.*/|  - |' | sort)
 ## Hooks ($(ls -1 "$TEMP_DIR/hooks/"*.sh 2>/dev/null | wc -l))
 $(ls -1 "$TEMP_DIR/hooks/"*.sh 2>/dev/null | sed 's|.*/|  - |' | sort)
 
+## Component Documentation ($(ls -1 "$TEMP_DIR/docs/"*.md 2>/dev/null | wc -l))
+$(ls -1 "$TEMP_DIR/docs/"*.md 2>/dev/null | sed 's|.*/|  - |' | sort)
+
 ## System Overview
 The autonomous development system uses:
 1. Product Manager (main thread) as orchestrator
@@ -434,3 +478,4 @@ info "The system uses Team Topologies principles for realistic team modeling"
 info "Product Manager runs in main thread for deterministic orchestration"
 info "Kanban cards track work progress through JOURNAL.md"
 info "Permissions have been dynamically generated from ${#SELECTED_YAML_FILES} components"
+info "Component documentation will be available via @import syntax"

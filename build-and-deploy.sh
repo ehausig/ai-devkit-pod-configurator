@@ -2521,7 +2521,8 @@ execute_pre_build_scripts() {
     local selected_names="${SELECTED_NAMES[*]}"
     local selected_yaml_files="${SELECTED_YAML_FILES[*]}"
     
-    # First, copy ALL component markdown files to the build directory
+    # First, create docs directory and copy ALL component markdown files to it
+    mkdir -p "$TEMP_DIR/docs"
     log "Copying component documentation files..."
     for i in "${!SELECTED_YAML_FILES[@]}"; do
         local yaml_file="${SELECTED_YAML_FILES[$i]}"
@@ -2530,7 +2531,7 @@ execute_pre_build_scripts() {
         local md_source="$(dirname "$yaml_file")/${yaml_basename}.md"
         
         if [[ -f "$md_source" ]]; then
-            cp "$md_source" "$TEMP_DIR/"
+            cp "$md_source" "$TEMP_DIR/docs/"
             success "Copied ${yaml_basename}.md for ${component_name}"
         else
             log "No documentation file ${yaml_basename}.md found for ${component_name}"
