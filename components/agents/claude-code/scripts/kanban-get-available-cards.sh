@@ -115,60 +115,94 @@ reduce .[] as $event ({};
         if .[$event.card_id] then
             .[$event.card_id].state = $event.data.state |
             if $event.data.assigned_to then
-                .[$event.card_id].assigned_to = $event.data.assigned_to
+                if $event.data.assigned_to == "null" then
+                    .[$event.card_id].assigned_to = null
+                else
+                    .[$event.card_id].assigned_to = $event.data.assigned_to
+                end
+            else
+                .
             end |
             if $event.data.notes then
                 .[$event.card_id].notes = $event.data.notes
+            else
+                .
             end |
             if $event.data.blocked != null then
                 .[$event.card_id].blocked = $event.data.blocked
+            else
+                .
             end |
             if $event.data.blocked_reason then
                 .[$event.card_id].blocked_reason = $event.data.blocked_reason
+            else
+                .
             end
+        else
+            .
         end
     elif $event.event_type == "kanban.card.blocked" then
         if .[$event.card_id] then
             .[$event.card_id].blocked = true |
             .[$event.card_id].blocked_reason = $event.data.reason
+        else
+            .
         end
     elif $event.event_type == "kanban.card.unblocked" then
         if .[$event.card_id] then
             .[$event.card_id].blocked = false |
             .[$event.card_id].blocked_reason = null
+        else
+            .
         end
     elif $event.event_type == "kanban.card.assigned" then
         if .[$event.card_id] then
             .[$event.card_id].assigned_to = $event.data.to
+        else
+            .
         end
     # Handle old event types for backward compatibility
     elif $event.event_type == "kanban.card.breakdown.started" then
         if .[$event.card_id] then
             .[$event.card_id].state = "breakdown_started"
+        else
+            .
         end
     elif $event.event_type == "kanban.card.breakdown.ended" then
         if .[$event.card_id] then
             .[$event.card_id].state = "breakdown_ended"
+        else
+            .
         end
     elif $event.event_type == "kanban.card.work.started" then
         if .[$event.card_id] then
             .[$event.card_id].state = "work_started"
+        else
+            .
         end
     elif $event.event_type == "kanban.card.work.ended" then
         if .[$event.card_id] then
             .[$event.card_id].state = "work_ended"
+        else
+            .
         end
     elif $event.event_type == "kanban.card.validation.started" then
         if .[$event.card_id] then
             .[$event.card_id].state = "validation_started"
+        else
+            .
         end
     elif $event.event_type == "kanban.card.validation.ended" then
         if .[$event.card_id] then
             .[$event.card_id].state = "validation_ended"
+        else
+            .
         end
     elif $event.event_type == "kanban.card.completed" then
         if .[$event.card_id] then
             .[$event.card_id].state = "done"
+        else
+            .
         end
     else
         .

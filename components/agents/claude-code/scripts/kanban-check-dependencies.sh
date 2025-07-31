@@ -32,10 +32,14 @@ RESULT=$(cat "$JOURNAL_PATH" | jq -s "
     elif \$event.event_type == \"kanban.card.state_changed\" then
         if .[\$event.card_id] then
             .[\$event.card_id].state = \$event.data.state
+        else
+            .
         end
     elif \$event.event_type == \"kanban.card.completed\" then
         if .[\$event.card_id] then
             .[\$event.card_id].state = \"done\"
+        else
+            .
         end
     # Handle old event types
     elif \$event.event_type | test(\"kanban\\\\.card\\\\..*\\\\.started|kanban\\\\.card\\\\..*\\\\.ended\") then
@@ -52,7 +56,11 @@ RESULT=$(cat "$JOURNAL_PATH" | jq -s "
                 .[\$event.card_id].state = \"validation_started\"
             elif \$event.event_type == \"kanban.card.validation.ended\" then
                 .[\$event.card_id].state = \"validation_ended\"
+            else
+                .
             end
+        else
+            .
         end
     else
         .

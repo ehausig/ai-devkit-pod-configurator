@@ -17,7 +17,7 @@ NEW_STATE="$2"
 TARGET_STATE="${3:-}"  # Optional: expected current state
 
 # Detect who's trying to assign
-ACTOR=$(detect_actor() {
+detect_actor() {
     # Same logic as journal-log-json.sh
     if [ -n "$CLAUDE_AGENT_NAME" ]; then
         echo "$CLAUDE_AGENT_NAME"
@@ -41,7 +41,7 @@ ACTOR=$(detect_actor() {
     esac
     
     echo "PM"
-})
+}
 
 AGENT=$(detect_actor)
 
