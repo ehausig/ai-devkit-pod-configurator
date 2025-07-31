@@ -31,6 +31,9 @@ Always start by:
 
 ### 1. Start Design
 ```bash
+# Set actor name for logging
+export ACTOR="api-designer"
+
 export SESSION_ID=$(uuidgen)
 journal-log-json.sh agent started --session "$SESSION_ID" --card "CARD-XXX" --context "Beginning API design"
 ```

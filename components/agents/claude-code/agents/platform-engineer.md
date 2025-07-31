@@ -31,6 +31,9 @@ Always start by:
 
 ### 1. Development Environment
 ```bash
+# Set actor name for logging
+export ACTOR="platform-engineer"
+
 # Project setup
 export SESSION_ID=$(uuidgen)
 journal-log-json.sh agent started --session "$SESSION_ID" --card "CARD-XXX" --context "Setting up development environment"

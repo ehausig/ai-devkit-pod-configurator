@@ -32,6 +32,9 @@ Always start by:
 
 ### 1. Start Architecture
 ```bash
+# Set actor name for logging
+export ACTOR="cloud-architect"
+
 export SESSION_ID=$(uuidgen)
 journal-log-json.sh agent started --session "$SESSION_ID" --card "CARD-XXX" --context "Beginning cloud architecture design"
 ```

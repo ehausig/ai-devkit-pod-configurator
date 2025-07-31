@@ -31,6 +31,9 @@ Always start by:
 
 ### 1. Start Review
 ```bash
+# Set actor name for logging
+export ACTOR="security-specialist"
+
 export SESSION_ID=$(uuidgen)
 journal-log-json.sh agent started --session "$SESSION_ID" --card "CARD-XXX" --context "Beginning security review"
 ```

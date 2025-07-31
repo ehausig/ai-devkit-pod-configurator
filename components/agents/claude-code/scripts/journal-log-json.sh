@@ -15,24 +15,45 @@ get_timestamp() {
 
 # Function to detect actor (agent name or system)
 detect_actor() {
-    # Try multiple methods to detect the actor
+    # Priority order for actor detection:
     
-    # 1. Check if we're in a Claude Code subagent context
+    # 1. Explicit ACTOR parameter (for testing or override)
+    if [ -n "$ACTOR" ]; then
+        echo "$ACTOR"
+        return
+    fi
+    
+    # 2. Check if we're in a Claude Code subagent context
+    # Claude sets specific environment variables when running subagents
     if [ -n "$CLAUDE_AGENT_NAME" ]; then
         echo "$CLAUDE_AGENT_NAME"
         return
     fi
     
-    # 2. Check if actor was passed as environment variable
+    # 3. Check for explicitly set ACTOR_NAME
     if [ -n "$ACTOR_NAME" ]; then
         echo "$ACTOR_NAME"
         return
     fi
     
-    # 3. Try to detect from current process context
-    # Look for agent name in parent process command line
-    PARENT_CMD=$(ps -o comm= -p $PPID 2>/dev/null || true)
-    case "$PARENT_CMD" in
+    # 4. Try to detect from current working directory or context
+    # When agents are run, they might be in specific directories
+    local cwd=$(pwd)
+    if [[ "$cwd" == *"platform-engineer"* ]]; then
+        echo "platform-engineer"
+        return
+    elif [[ "$cwd" == *"feature-developer"* ]]; then
+        echo "feature-developer"
+        return
+    elif [[ "$cwd" == *"qa-engineer"* ]]; then
+        echo "qa-engineer"
+        return
+    fi
+    
+    # 5. Check if this is being run by a specific agent script
+    # Look at the calling script name
+    local caller=$(ps -o args= -p $PPID 2>/dev/null | awk '{print $1}' || true)
+    case "$caller" in
         *platform-engineer*) echo "platform-engineer"; return ;;
         *feature-developer*) echo "feature-developer"; return ;;
         *qa-engineer*) echo "qa-engineer"; return ;;
@@ -47,12 +68,8 @@ detect_actor() {
         *data-architect*) echo "data-architect"; return ;;
     esac
     
-    # 4. Default to PM for main thread or system
-    if [ -n "$USER" ]; then
-        echo "PM"
-    else
-        echo "system"
-    fi
+    # 6. Default to PM for main thread
+    echo "PM"
 }
 
 # Function to escape JSON strings

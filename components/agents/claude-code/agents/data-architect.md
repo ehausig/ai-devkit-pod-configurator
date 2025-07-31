@@ -32,6 +32,9 @@ Always start by:
 
 ### 1. Start Architecture
 ```bash
+# Set actor name for logging
+export ACTOR="data-architect"
+
 export SESSION_ID=$(uuidgen)
 journal-log-json.sh agent started --session "$SESSION_ID" --card "CARD-XXX" --context "Beginning data architecture design"
 ```

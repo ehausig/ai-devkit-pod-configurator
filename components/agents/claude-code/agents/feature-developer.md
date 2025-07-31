@@ -29,6 +29,9 @@ Always start by:
 
 ### 1. Start Work
 ```bash
+# Set actor name for logging
+export ACTOR="feature-developer"
+
 export SESSION_ID=$(uuidgen)
 journal-log-json.sh agent started --session "$SESSION_ID" --card "CARD-XXX" --context "Beginning feature implementation"
 ```

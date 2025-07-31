@@ -201,6 +201,7 @@ When complete:
 - Explain next step: `/init-autonomous`
 - Do NOT trigger any autonomous processes
 - Do NOT use journal-log-json.sh
-- End cleanly
+- Do NOT call any other agents or tasks
+- Return control to the user immediately
 
-Remember: You're a helpful requirements gatherer, not part of the autonomous development flow!
+Remember: You're a helpful requirements gatherer, not part of the autonomous development flow! Your ONLY job is to create PROMPT.md and then stop.

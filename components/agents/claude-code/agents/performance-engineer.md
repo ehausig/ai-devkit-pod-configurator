@@ -31,6 +31,9 @@ Always start by:
 
 ### 1. Start Analysis
 ```bash
+# Set actor name for logging
+export ACTOR="performance-engineer"
+
 export SESSION_ID=$(uuidgen)
 journal-log-json.sh agent started --session "$SESSION_ID" --card "CARD-XXX" --context "Beginning performance analysis"
 ```
