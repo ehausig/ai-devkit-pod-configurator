@@ -44,6 +44,8 @@ Use `kanban-create-card-id.sh` with command substitution:
 journal-log-json.sh kanban card.created "$(kanban-create-card-id.sh)" --title "User authentication"
 ```
 
+**CRITICAL**: Never make up card IDs manually (like "CARD-001"). Always use the kanban-create-card-id.sh script. If the script fails due to permissions, fix the permission issue first.
+
 ### Card Event Logging
 Always log card events to JOURNAL.md using the JSON format:
 ```bash

@@ -144,6 +144,10 @@ entrypoint_setup: |
   mkdir -p /home/devuser/.claude/scripts
   mkdir -p /home/devuser/.claude/data
   mkdir -p /home/devuser/workspace/.claude
+  
+  # Ensure data directory has proper permissions
+  chmod 755 /home/devuser/.claude/data
+  chown devuser:devuser /home/devuser/.claude/data
 
   cp /tmp/CLAUDE.md /home/devuser/.claude/CLAUDE.md
   

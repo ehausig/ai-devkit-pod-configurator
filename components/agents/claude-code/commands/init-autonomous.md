@@ -78,6 +78,12 @@ Then run /init-autonomous again.
 # Reset card counter
 kanban-reset-card-id.sh
 
+# Verify the counter was reset successfully
+if [ ! -f "/home/devuser/.claude/data/kanban-last-card-id" ]; then
+    echo "Error: Failed to initialize card counter. Please check permissions."
+    exit 1
+fi
+
 # Initialize project with JSON logging
 journal-log-json.sh system project.initialized --name "Project Name" --prompt "PROMPT.md"
 
@@ -92,6 +98,8 @@ journal-log-json.sh kanban card.created "$(kanban-create-card-id.sh)" --title "D
 
 # Continue creating cards for identified work items...
 ```
+
+**IMPORTANT**: If kanban-create-card-id.sh fails, DO NOT make up card IDs manually. Fix the permission issue first.
 
 ## Orchestration Pattern
 
