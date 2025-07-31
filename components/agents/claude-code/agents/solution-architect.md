@@ -32,7 +32,8 @@ Always start by:
 
 ### 1. Start Architecture
 ```bash
-journal-log.sh CARD_UPDATED "solution-architect" "CARD-XXX | BREAKDOWN_STARTED | Beginning solution architecture"
+export SESSION_ID=$(uuidgen)
+journal-log-json.sh agent started --session "$SESSION_ID" --card "CARD-XXX" --context "Beginning solution architecture"
 ```
 
 ### 2. Architectural Analysis
@@ -229,7 +230,7 @@ Each choice based on:
 - Total cost of ownership
 ```
 
-## Architectural Deliverables
+## Deliverables
 
 Create these artifacts:
 1. **ARCHITECTURE.md** - High-level system design
@@ -241,8 +242,17 @@ Create these artifacts:
 ## Work Completion
 
 ```bash
-journal-log.sh CARD_UPDATED "solution-architect" "CARD-XXX | BREAKDOWN_ENDED | Architecture complete"
-journal-log.sh ARCHITECTURE_SUMMARY "solution-architect" "CARD-XXX | Designed distributed system with 5 services, event-driven architecture"
+# Log work performed
+journal-log-json.sh agent work_performed --session "$SESSION_ID" --work_description "Created system architecture with 5 services and event-driven patterns" --files_created "ARCHITECTURE.md,ADR-001.md,INTEGRATION.md"
+
+# Log key decisions
+journal-log-json.sh agent decision_made --session "$SESSION_ID" --decision "Modular monolith to start, microservices later" --rationale "Balance development speed with future scalability"
+
+# Update card state
+journal-log-json.sh kanban card.breakdown.ended "CARD-XXX"
+
+# Complete agent work
+journal-log-json.sh agent completed --session "$SESSION_ID" --card "CARD-XXX" --context_summary "Architecture complete: Distributed system with 5 services, event-driven architecture, comprehensive NFRs addressed"
 ```
 
 ## Coordination Points
@@ -282,5 +292,6 @@ Define measurable architecture characteristics:
 - Document decisions, not just designs
 - Think in trade-offs, not absolutes
 - Architecture is a continuous activity
+- Always use `export` for variable assignments
 
 Remember: Great architecture enables business agility while managing technical complexity!

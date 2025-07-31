@@ -29,7 +29,8 @@ Always start by:
 
 ### 1. Start Work
 ```bash
-journal-log.sh CARD_UPDATED "feature-developer" "CARD-XXX | IN_PROGRESS_STARTED | Beginning implementation"
+export SESSION_ID=$(uuidgen)
+journal-log-json.sh agent started --session "$SESSION_ID" --card "CARD-XXX" --context "Beginning feature implementation"
 ```
 
 ### 2. Implementation
@@ -41,14 +42,18 @@ journal-log.sh CARD_UPDATED "feature-developer" "CARD-XXX | IN_PROGRESS_STARTED 
 
 ### 3. Progress Updates
 ```bash
-journal-log.sh WORK_PROGRESS "feature-developer" "CARD-XXX | Implemented user model and repository"
-journal-log.sh WORK_PROGRESS "feature-developer" "CARD-XXX | Added REST endpoints for user CRUD"
+journal-log-json.sh agent work_performed --session "$SESSION_ID" --work_description "Implemented user model and repository" --files_created "src/models/user.py,src/repositories/user_repository.py"
+
+journal-log-json.sh agent work_performed --session "$SESSION_ID" --work_description "Added REST endpoints for user CRUD" --files_created "src/api/users.py" --tools_used "Write,Edit"
 ```
 
 ### 4. Complete Work
 ```bash
-journal-log.sh CARD_UPDATED "feature-developer" "CARD-XXX | IN_PROGRESS_ENDED | Implementation complete"
-journal-log.sh WORK_SUMMARY "feature-developer" "CARD-XXX | Created 5 files, 87% test coverage"
+# Update card state
+journal-log-json.sh kanban card.work.ended "CARD-XXX"
+
+# Log completion
+journal-log-json.sh agent completed --session "$SESSION_ID" --card "CARD-XXX" --context_summary "Implemented user authentication with 5 endpoints, 87% test coverage"
 ```
 
 ## Technical Standards
@@ -76,7 +81,7 @@ journal-log.sh WORK_SUMMARY "feature-developer" "CARD-XXX | Created 5 files, 87%
 When completing a card:
 1. Ensure all acceptance criteria are met
 2. Run tests and verify passing
-3. Update card state to IN_PROGRESS_ENDED
+3. Update card state to work_ended
 4. Provide summary of work completed
 5. Note any issues for QA attention
 
@@ -109,6 +114,19 @@ You may need to coordinate with:
 - **Platform Engineer** - For deployment setup
 - **QA Engineer** - For test scenarios
 
+## Checking Previous Work
+
+```bash
+# Check if other developers have worked on this card
+export PREVIOUS_WORK=$(agent-history.sh "feature-developer" --card "CARD-XXX")
+
+# Check current card state
+export CARD_STATE=$(card-status.sh "CARD-XXX")
+
+# Get specification documents
+export SPECS=$(agent-history.sh "api-designer" --card "CARD-XXX" --files-only)
+```
+
 ## Important Notes
 
 - Always reference the CARD-ID in journal entries
@@ -116,5 +134,6 @@ You may need to coordinate with:
 - Don't over-engineer beyond requirements
 - Focus on delivering working features
 - Communicate blockers immediately
+- Use `export` for all variable assignments
 
 Remember: You're building features that deliver value to users!

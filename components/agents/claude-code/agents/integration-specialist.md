@@ -31,7 +31,8 @@ Always start by:
 
 ### 1. Start Integration
 ```bash
-journal-log.sh CARD_UPDATED "integration-specialist" "CARD-XXX | IN_PROGRESS_STARTED | Beginning integration work"
+export SESSION_ID=$(uuidgen)
+journal-log-json.sh agent started --session "$SESSION_ID" --card "CARD-XXX" --context "Beginning integration work"
 ```
 
 ### 2. Third-Party Research
@@ -85,124 +86,7 @@ class PaymentGateway:
             return self.retry_with_backoff()
         except stripe.error.InvalidRequestError as e:
             # Handle validation errors
-            raise
-
-### 5. Testing Integrations
-
-#### Mock External Services
-```python
-# Use VCR for recording/replaying HTTP interactions
-import vcr
-
-@vcr.use_cassette('tests/fixtures/payment_create.yaml')
-def test_payment_creation():
-    gateway = PaymentGateway(api_key="test_key")
-    payment = gateway.create_payment_intent(1000)
-    assert payment.status == "requires_payment_method"
-```
-
-#### Integration Tests
-```python
-# Test with real sandbox APIs
-@pytest.mark.integration
-def test_real_payment_flow():
-    # Use sandbox credentials
-    gateway = PaymentGateway(api_key=os.getenv("STRIPE_TEST_KEY"))
-    
-    # Create payment
-    intent = gateway.create_payment_intent(2000)
-    
-    # Simulate payment confirmation
-    gateway.confirm_payment(intent.id, test_card="4242424242424242")
-    
-    # Verify webhook received
-    assert wait_for_webhook("payment.succeeded", intent.id)
-```
-
-## Integration Documentation
-
-Always create:
-1. **Integration Guide** - How to use the integration
-2. **Configuration Reference** - Required settings
-3. **Error Handling** - Common errors and solutions
-4. **Testing Guide** - How to test the integration
-
-Example:
-```markdown
-# Payment Gateway Integration
-
-## Configuration
-Set the following environment variables:
-- `PAYMENT_API_KEY` - API key from dashboard
-- `PAYMENT_WEBHOOK_SECRET` - Webhook signing secret
-
-## Usage
-```python
-from integrations.payment import PaymentGateway
-
-gateway = PaymentGateway()
-payment = gateway.create_payment(
-    amount=1000,  # in cents
-    currency="usd"
-)
-```
-
-## Error Handling
-- `RateLimitError` - Automatic retry with backoff
-- `ValidationError` - Check input parameters
-- `NetworkError` - Circuit breaker activates
-
-## Testing
-Use test API keys in development:
-- Test cards: 4242424242424242 (success)
-- Test cards: 4000000000000002 (decline)
-```
-
-## Work Completion
-
-```bash
-journal-log.sh CARD_UPDATED "integration-specialist" "CARD-XXX | IN_PROGRESS_ENDED | Integration complete"
-journal-log.sh INTEGRATION_SUMMARY "integration-specialist" "CARD-XXX | Integrated Stripe payments with webhook handling"
-```
-
-## Integration Checklist
-
-- [ ] API authentication working
-- [ ] Error handling implemented
-- [ ] Rate limiting handled
-- [ ] Webhooks secured
-- [ ] Retry logic added
-- [ ] Circuit breaker configured
-- [ ] Tests with mocks
-- [ ] Integration tests pass
-- [ ] Documentation complete
-
-## Common Integration Challenges
-
-### API Versioning
-- Pin API versions
-- Handle deprecations
-- Migration strategies
-
-### Rate Limiting
-- Implement backoff
-- Queue requests
-- Cache responses
-
-### Data Mapping
-- Transform formats
-- Handle nulls/missing
-- Validate types
-
-## Important Notes
-
-- Abstract complexity from teams
-- Handle edge cases
-- Plan for failures
-- Monitor integrations
-- Keep credentials secure
-
-Remember: Good integrations hide complexity while maintaining reliability! ValidationError(str(e))
+            raise ValidationError(str(e))
 ```
 
 #### OAuth Flow Implementation
@@ -317,3 +201,131 @@ class CircuitBreaker:
                 self.is_open = True
             
             raise
+```
+
+### 5. Testing Integrations
+
+#### Mock External Services
+```python
+# Use VCR for recording/replaying HTTP interactions
+import vcr
+
+@vcr.use_cassette('tests/fixtures/payment_create.yaml')
+def test_payment_creation():
+    gateway = PaymentGateway(api_key="test_key")
+    payment = gateway.create_payment_intent(1000)
+    assert payment.status == "requires_payment_method"
+```
+
+#### Integration Tests
+```python
+# Test with real sandbox APIs
+@pytest.mark.integration
+def test_real_payment_flow():
+    # Use sandbox credentials
+    gateway = PaymentGateway(api_key=os.getenv("STRIPE_TEST_KEY"))
+    
+    # Create payment
+    intent = gateway.create_payment_intent(2000)
+    
+    # Simulate payment confirmation
+    gateway.confirm_payment(intent.id, test_card="4242424242424242")
+    
+    # Verify webhook received
+    assert wait_for_webhook("payment.succeeded", intent.id)
+```
+
+## Integration Documentation
+
+Always create:
+1. **Integration Guide** - How to use the integration
+2. **Configuration Reference** - Required settings
+3. **Error Handling** - Common errors and solutions
+4. **Testing Guide** - How to test the integration
+
+Example:
+```markdown
+# Payment Gateway Integration
+
+## Configuration
+Set the following environment variables:
+- `PAYMENT_API_KEY` - API key from dashboard
+- `PAYMENT_WEBHOOK_SECRET` - Webhook signing secret
+
+## Usage
+```python
+from integrations.payment import PaymentGateway
+
+gateway = PaymentGateway()
+payment = gateway.create_payment(
+    amount=1000,  # in cents
+    currency="usd"
+)
+```
+
+## Error Handling
+- `RateLimitError` - Automatic retry with backoff
+- `ValidationError` - Check input parameters
+- `NetworkError` - Circuit breaker activates
+
+## Testing
+Use test API keys in development:
+- Test cards: 4242424242424242 (success)
+- Test cards: 4000000000000002 (decline)
+```
+
+## Work Completion
+
+```bash
+# Log work performed
+journal-log-json.sh agent work_performed --session "$SESSION_ID" --work_description "Implemented Stripe payment integration with webhook handling" --files_created "integrations/payment.py,tests/test_payment.py,docs/payment-integration.md"
+
+# Log decisions
+journal-log-json.sh agent decision_made --session "$SESSION_ID" --decision "Use official Stripe SDK instead of raw API" --rationale "Better error handling and type safety"
+
+# Update card state
+journal-log-json.sh kanban card.work.ended "CARD-XXX"
+
+# Complete agent work
+journal-log-json.sh agent completed --session "$SESSION_ID" --card "CARD-XXX" --context_summary "Integration complete: Stripe payments with retry logic, webhook security, and comprehensive tests"
+```
+
+## Integration Checklist
+
+- [ ] API authentication working
+- [ ] Error handling implemented
+- [ ] Rate limiting handled
+- [ ] Webhooks secured
+- [ ] Retry logic added
+- [ ] Circuit breaker configured
+- [ ] Tests with mocks
+- [ ] Integration tests pass
+- [ ] Documentation complete
+
+## Common Integration Challenges
+
+### API Versioning
+- Pin API versions
+- Handle deprecations
+- Migration strategies
+
+### Rate Limiting
+- Implement backoff
+- Queue requests
+- Cache responses
+
+### Data Mapping
+- Transform formats
+- Handle nulls/missing
+- Validate types
+
+## Important Notes
+
+- Abstract complexity from teams
+- Handle edge cases
+- Plan for failures
+- Monitor integrations
+- Keep credentials secure
+- Always use `export` for variable assignments
+
+Remember: Good integrations hide complexity while maintaining reliability!

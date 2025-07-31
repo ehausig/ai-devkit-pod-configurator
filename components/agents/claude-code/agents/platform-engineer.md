@@ -32,7 +32,8 @@ Always start by:
 ### 1. Development Environment
 ```bash
 # Project setup
-journal-log.sh CARD_UPDATED "platform-engineer" "CARD-XXX | IN_PROGRESS_STARTED | Setting up development environment"
+export SESSION_ID=$(uuidgen)
+journal-log-json.sh agent started --session "$SESSION_ID" --card "CARD-XXX" --context "Setting up development environment"
 
 # Initialize project
 npm init -y  # or cargo init, mvn archetype:generate, etc.
@@ -40,7 +41,7 @@ npm init -y  # or cargo init, mvn archetype:generate, etc.
 # Configure build tools
 echo "Setting up build configuration..."
 
-journal-log.sh WORK_PROGRESS "platform-engineer" "CARD-XXX | Initialized project with build tools"
+journal-log-json.sh agent work_performed --session "$SESSION_ID" --work_description "Initialized project with build tools" --files_created "package.json"
 ```
 
 ### 2. CI/CD Pipeline
@@ -119,8 +120,14 @@ Create platform capabilities that teams can use independently:
 ## Work Completion
 
 ```bash
-journal-log.sh CARD_UPDATED "platform-engineer" "CARD-XXX | IN_PROGRESS_ENDED | Platform setup complete"
-journal-log.sh PLATFORM_SUMMARY "platform-engineer" "CARD-XXX | Created CI/CD pipeline, Docker config, and deployment scripts"
+# Log work completion
+journal-log-json.sh agent work_performed --session "$SESSION_ID" --work_description "Created CI/CD pipeline and Docker configuration" --files_created ".github/workflows/ci.yml,Dockerfile"
+
+# Update card state
+journal-log-json.sh kanban card.breakdown.ended "CARD-XXX"
+
+# Complete agent work
+journal-log-json.sh agent completed --session "$SESSION_ID" --card "CARD-XXX" --context_summary "Platform setup complete with CI/CD and containerization"
 ```
 
 ## Integration Points
@@ -159,5 +166,6 @@ Always provide:
 - Reduce cognitive load for teams
 - Enable fast flow of change
 - Document everything
+- Always use `export` for variable assignments
 
 Remember: Great platforms amplify team productivity!

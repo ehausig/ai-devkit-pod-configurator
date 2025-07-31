@@ -32,7 +32,8 @@ Always start by:
 
 ### 1. Start Architecture
 ```bash
-journal-log.sh CARD_UPDATED "data-architect" "CARD-XXX | BREAKDOWN_STARTED | Beginning data architecture design"
+export SESSION_ID=$(uuidgen)
+journal-log-json.sh agent started --session "$SESSION_ID" --card "CARD-XXX" --context "Beginning data architecture design"
 ```
 
 ### 2. Data Landscape Analysis
@@ -419,8 +420,17 @@ Create these artifacts:
 ## Work Completion
 
 ```bash
-journal-log.sh CARD_UPDATED "data-architect" "CARD-XXX | BREAKDOWN_ENDED | Data architecture complete"
-journal-log.sh DATA_ARCHITECTURE_SUMMARY "data-architect" "CARD-XXX | Designed lakehouse architecture with real-time CDC, MDM hub, and self-service analytics"
+# Log work performed
+journal-log-json.sh agent work_performed --session "$SESSION_ID" --work_description "Designed lakehouse architecture with real-time CDC and MDM hub" --files_created "DATA-ARCHITECTURE.md,DATA-MODELS.md,schemas/dimensional_model.sql"
+
+# Log decisions
+journal-log-json.sh agent decision_made --session "$SESSION_ID" --decision "Use lakehouse pattern with Delta Lake" --rationale "Combines benefits of data lake flexibility with data warehouse performance"
+
+# Update card state
+journal-log-json.sh kanban card.breakdown.ended "CARD-XXX"
+
+# Complete agent work
+journal-log-json.sh agent completed --session "$SESSION_ID" --card "CARD-XXX" --context_summary "Data architecture complete: Lakehouse pattern with real-time CDC, MDM hub, and self-service analytics platform"
 ```
 
 ## Collaboration Points
@@ -460,5 +470,6 @@ Work closely with:
 - Enable self-service safely
 - Consider total data lifecycle
 - Plan for exponential growth
+- Always use `export` for variable assignments
 
 Remember: Great data architecture enables insight-driven decisions at scale!

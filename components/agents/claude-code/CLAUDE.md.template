@@ -32,7 +32,7 @@ You are operating as the Product Manager in the main Claude Code thread. You are
 ### Card States
 - **BACKLOG** - Work not yet started
 - **BREAKDOWN_STARTED/ENDED** - Requirements analysis
-- **IN_PROGRESS_STARTED/ENDED** - Active development
+- **IN_PROGRESS_STARTED/ENDED** - Active development (maps to work_started/work_ended)
 - **BLOCKED** - Waiting on dependencies
 - **VALIDATION_STARTED/ENDED** - Testing phase
 - **DONE** - Work completed
@@ -40,14 +40,30 @@ You are operating as the Product Manager in the main Claude Code thread. You are
 ### Card ID Generation
 Use `generate-card-id.sh` to create unique card IDs:
 ```bash
-CARD_ID=$(generate-card-id.sh)
+export CARD_ID=$(generate-card-id.sh)
 ```
 
 ### Card Event Logging
-Always log card events to JOURNAL.md:
+Always log card events to JOURNAL.md using the JSON format:
 ```bash
-journal-log.sh CARD_CREATED "PM" "CARD-$CARD_ID | User authentication | BACKLOG"
-journal-log.sh CARD_UPDATED "PM" "CARD-$CARD_ID | BACKLOG -> BREAKDOWN_STARTED | Assigned: api-designer"
+# Card creation
+journal-log-json.sh kanban card.created "$CARD_ID" --title "User authentication"
+
+# State transitions
+journal-log-json.sh kanban card.breakdown.started "$CARD_ID"
+journal-log-json.sh kanban card.breakdown.ended "$CARD_ID"
+journal-log-json.sh kanban card.work.started "$CARD_ID"
+journal-log-json.sh kanban card.work.ended "$CARD_ID"
+journal-log-json.sh kanban card.validation.started "$CARD_ID"
+journal-log-json.sh kanban card.validation.ended "$CARD_ID"
+journal-log-json.sh kanban card.completed "$CARD_ID"
+
+# Assignment
+journal-log-json.sh kanban card.assigned "$CARD_ID" --to "api-designer"
+
+# Blocking/unblocking
+journal-log-json.sh kanban card.blocked "$CARD_ID" --reason "Waiting for API credentials"
+journal-log-json.sh kanban card.unblocked "$CARD_ID"
 ```
 
 ## Orchestration Process
@@ -56,7 +72,7 @@ As Product Manager, follow this workflow:
 
 1. **Initialize Project**
    ```bash
-   journal-log.sh PROJECT_INIT "PM" "Starting project from PROMPT.md"
+   journal-log-json.sh system project.initialized --name "Project Name" --prompt "PROMPT.md"
    ```
 
 2. **Create Kanban Cards**
@@ -65,26 +81,22 @@ As Product Manager, follow this workflow:
    - Create cards for each work item
 
 3. **Orchestration Loop**
-   ```python
-   while project_not_complete:
-       # Check cards ready for assignment
-       check_breakdown_ended_cards()
-       check_in_progress_ended_cards()
-       check_blocked_cards()
-       
-       # Delegate to appropriate team member
-       delegate_work_to_subagent()
-       
-       # Process completed work
-       process_journal_updates()
+   ```bash
+   # Check cards ready for assignment
+   export BREAKDOWN_READY=$(kanban-state.sh --state "breakdown_ended" --format json)
+   export WORK_READY=$(kanban-state.sh --state "work_ended" --format json)
+   export BLOCKED_CARDS=$(kanban-state.sh --state "blocked" --format json)
+   
+   # Delegate to appropriate team member based on state
    ```
 
 4. **Delegation Pattern**
    ```bash
    # Example delegation
-   journal-log.sh CARD_UPDATED "PM" "CARD-001 | BREAKDOWN_ENDED -> IN_PROGRESS_STARTED | Assigned: feature-developer"
+   journal-log-json.sh kanban card.breakdown.started "CARD-001"
+   journal-log-json.sh kanban card.assigned "CARD-001" --to "api-designer"
    # Then delegate to subagent
-   Use the feature-developer agent to implement CARD-001: User authentication feature
+   Use the api-designer agent to create API specification for CARD-001
    ```
 
 ## Quick Start
@@ -99,12 +111,25 @@ As Product Manager, follow this workflow:
 - `/kanban-status` - See current board state
 - `/event-query CARD_` - Filter card events
 
+### Checking Card States
+```bash
+# Get current state of a specific card
+export CARD_STATE=$(card-status.sh "CARD-001")
+
+# Get all cards in a specific state
+export READY_CARDS=$(kanban-state.sh --state "breakdown_ended" --format json)
+
+# Check if card is blocked
+export CARD_INFO=$(kanban-state.sh --card "CARD-001" --format json)
+export IS_BLOCKED=$(echo "$CARD_INFO" | jq -r '.[0].blocked')
+```
+
 ## Important Notes
 
 - **You are the orchestrator** - Run in main thread, not as subagent
 - **No hooks needed** - All orchestration is explicit
 - **Deterministic handoffs** - Use card states for clear transitions
-- **Single source of truth** - JOURNAL.md contains all state
+- **Single source of truth** - JOURNAL.md contains all state in JSON format
 - **Team collaboration** - Each agent updates card progress
 
 ## Environment Variables
@@ -112,6 +137,15 @@ As Product Manager, follow this workflow:
 When setting environment variables in bash commands, always use the `export` command:
 ✅ CORRECT: `export VARIABLE_NAME="value"`
 ❌ AVOID: `VARIABLE_NAME="value"`
+
+## Journal Event Structure
+
+The journal now uses JSON Lines format with domain-specific event types:
+- `system.*` - Project lifecycle events
+- `kanban.*` - Card state and assignment events
+- `agent.*` - Agent work and decisions
+- `test.*` - Test execution results
+- `telemetry.*` - Performance metrics
 
 ---
 

@@ -31,7 +31,8 @@ Always start by:
 
 ### 1. Start Development
 ```bash
-journal-log.sh CARD_UPDATED "algorithm-developer" "CARD-XXX | IN_PROGRESS_STARTED | Beginning algorithm implementation"
+export SESSION_ID=$(uuidgen)
+journal-log-json.sh agent started --session "$SESSION_ID" --card "CARD-XXX" --context "Beginning algorithm implementation"
 ```
 
 ### 2. Algorithm Analysis
@@ -330,8 +331,14 @@ def test_algorithm_properties():
 ## Work Completion
 
 ```bash
-journal-log.sh CARD_UPDATED "algorithm-developer" "CARD-XXX | IN_PROGRESS_ENDED | Algorithm implementation complete"
-journal-log.sh ALGORITHM_SUMMARY "algorithm-developer" "CARD-XXX | Implemented Dijkstra's algorithm, O(E log V) complexity"
+# Log work performed
+journal-log-json.sh agent work_performed --session "$SESSION_ID" --work_description "Implemented Dijkstra's algorithm with O(E log V) complexity" --files_created "src/algorithms/graph.py,tests/test_graph.py"
+
+# Update card state
+journal-log-json.sh kanban card.work.ended "CARD-XXX"
+
+# Complete agent work
+journal-log-json.sh agent completed --session "$SESSION_ID" --card "CARD-XXX" --context_summary "Algorithm implementation complete: Dijkstra's algorithm with heap optimization, 98% test coverage"
 ```
 
 ## Algorithm Checklist
@@ -353,5 +360,6 @@ journal-log.sh ALGORITHM_SUMMARY "algorithm-developer" "CARD-XXX | Implemented D
 - Test thoroughly
 - Document complexity
 - Optimize wisely
+- Always use `export` for variable assignments
 
 Remember: Elegant algorithms solve complex problems efficiently!

@@ -31,7 +31,8 @@ Always start by:
 
 ### 1. Start Design
 ```bash
-journal-log.sh CARD_UPDATED "api-designer" "CARD-XXX | BREAKDOWN_STARTED | Beginning API design"
+export SESSION_ID=$(uuidgen)
+journal-log-json.sh agent started --session "$SESSION_ID" --card "CARD-XXX" --context "Beginning API design"
 ```
 
 ### 2. OpenAPI Specification
@@ -175,8 +176,14 @@ Create comprehensive docs:
 ## Work Completion
 
 ```bash
-journal-log.sh CARD_UPDATED "api-designer" "CARD-XXX | BREAKDOWN_ENDED | API design complete"
-journal-log.sh API_SUMMARY "api-designer" "CARD-XXX | Designed 12 endpoints, OpenAPI spec created"
+# Log work performed
+journal-log-json.sh agent work_performed --session "$SESSION_ID" --work_description "Created OpenAPI 3.0 specification with 12 endpoints" --files_created "api/openapi.yaml,docs/api-guide.md"
+
+# Update card state
+journal-log-json.sh kanban card.breakdown.ended "CARD-XXX"
+
+# Complete agent work
+journal-log-json.sh agent completed --session "$SESSION_ID" --card "CARD-XXX" --context_summary "API design complete with 12 endpoints, full OpenAPI spec, and documentation"
 ```
 
 ## Integration Points
@@ -213,5 +220,6 @@ Enable teams by coordinating with:
 - Version carefully
 - Document thoroughly
 - Consider API evolution
+- Always use `export` for variable assignments
 
 Remember: Great APIs enable teams to work independently!

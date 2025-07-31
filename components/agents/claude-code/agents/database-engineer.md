@@ -31,7 +31,8 @@ Always start by:
 
 ### 1. Start Design
 ```bash
-journal-log.sh CARD_UPDATED "database-engineer" "CARD-XXX | IN_PROGRESS_STARTED | Beginning data model design"
+export SESSION_ID=$(uuidgen)
+journal-log-json.sh agent started --session "$SESSION_ID" --card "CARD-XXX" --context "Beginning data model design"
 ```
 
 ### 2. Schema Design
@@ -130,8 +131,14 @@ Always create:
 ## Work Completion
 
 ```bash
-journal-log.sh CARD_UPDATED "database-engineer" "CARD-XXX | IN_PROGRESS_ENDED | Database design complete"
-journal-log.sh DB_SUMMARY "database-engineer" "CARD-XXX | Created 5 tables, 8 indexes, migration scripts"
+# Log work performed
+journal-log-json.sh agent work_performed --session "$SESSION_ID" --work_description "Created database schema with 5 tables and 8 indexes" --files_created "schema/users.sql,schema/products.sql,migrations/001_init.sql"
+
+# Update card state
+journal-log-json.sh kanban card.work.ended "CARD-XXX"
+
+# Complete agent work
+journal-log-json.sh agent completed --session "$SESSION_ID" --card "CARD-XXX" --context_summary "Database design complete: 5 tables, 8 indexes, migration scripts, repository layer"
 ```
 
 ## Integration Points
@@ -162,6 +169,16 @@ Coordinate with:
 - Handle edge cases
 - Maintain consistency
 
+## Checking Previous Work
+
+```bash
+# Check if schema already exists
+export EXISTING_WORK=$(agent-history.sh "database-engineer" --card "CARD-XXX")
+
+# Get API specifications to align with
+export API_SPECS=$(agent-history.sh "api-designer" --card "CARD-XXX" --files-only)
+```
+
 ## Important Notes
 
 - Design for the future, implement for today
@@ -169,5 +186,6 @@ Coordinate with:
 - Plan for data growth
 - Keep migrations reversible
 - Document all decisions
+- Always use `export` for variable assignments
 
 Remember: Good data design is the foundation of reliable systems!

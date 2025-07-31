@@ -6,8 +6,23 @@ description: AI coding assistant with autonomous development system using sub ag
 pre_build_script: claude-code/claude-code-setup.sh
 command_permissions:
   allow:
-    - "Bash(journal-log.sh:*)"
+    # Journal write operations (JSON format)
+    - "Bash(journal-log-json.sh:*)"
+    
+    # Journal read operations
+    - "Bash(journal-query.sh:*)"
+    - "Bash(kanban-state.sh:*)"
+    - "Bash(agent-history.sh:*)"
+    - "Bash(card-timeline.sh:*)"
+    - "Bash(test-results.sh:*)"
+    - "Bash(metrics-summary.sh:*)"
+    - "Bash(agent-context.sh:*)"
+    - "Bash(card-status.sh:*)"
+    
+    # Card ID generation
     - "Bash(generate-card-id.sh:*)"
+    
+    # Core bash operations
     - "Bash(mkdir:*)"
     - "Bash(echo:*)"
     - "Bash(ls:*)"
@@ -15,24 +30,78 @@ command_permissions:
     - "Bash(do:*)"
     - "Bash(done)"
     - "Bash(find:*)"
-    - "Bash(git init:*)"
-    - "Bash(git add:*)"
-    - "Bash(git commit:*)"
-    - "Bash(git tag:*)"
-    - "Bash(git push:*)"
     - "Bash(export:*)"
     - "Bash(touch:*)"
     - "Bash(cat:*)"
     - "Bash(command -v:*)"
     - "Bash(time:*)"
     - "Bash(source:*)"
+    - "Bash(if:*)"
+    - "Bash(grep:*)"
+    - "Bash(test:*)"
+    - "Bash([:*)"
+    - "Bash(uuidgen:*)"
+    - "Bash(jq:*)"
+    - "Bash(tail:*)"
+    - "Bash(date:*)"
+    - "Bash(wc:*)"
+    - "Bash(cut:*)"
+    - "Bash(sed:*)"
+    - "Bash(printf:*)"
+    - "Bash(while:*)"
+    - "Bash(IFS:*)"
+    - "Bash(read:*)"
+    - "Bash(shift:*)"
+    - "Bash(case:*)"
+    - "Bash(esac:*)"
+    - "Bash(true:*)"
+    - "Bash(false:*)"
+    - "Bash(return:*)"
+    - "Bash(exit:*)"
+    - "Bash(cp:*)"
+    - "Bash(mv:*)"
+    - "Bash(rm:*)"
+    - "Bash(basename:*)"
+    - "Bash(dirname:*)"
+    - "Bash(pwd:*)"
+    - "Bash(cd:*)"
+    
+    # Git operations
+    - "Bash(git init:*)"
+    - "Bash(git add:*)"
+    - "Bash(git commit:*)"
+    - "Bash(git tag:*)"
+    - "Bash(git push:*)"
+    - "Bash(git diff:*)"
+    - "Bash(git status:*)"
+    
+    # Development tools
+    - "Bash(npm:*)"
+    - "Bash(python:*)"
+    - "Bash(pip:*)"
+    - "Bash(pytest:*)"
+    - "Bash(cargo:*)"
+    - "Bash(docker:*)"
+    - "Bash(docker-compose:*)"
+    - "Bash(kubectl:*)"
+    
+    # File operations
     - "Edit(*)"
     - "Read(*)"
     - "Write(*)"
+    - "Glob(*)"
+    - "MultiEdit(*)"
 installation:
   dockerfile: |
     # Claude Code requires Node.js to be installed first
     # The build system should ensure nodejs-version components are installed before this
+    
+    # Install additional utilities needed by journal scripts
+    RUN apt-get update && apt-get install -y \
+        uuid-runtime \
+        --no-install-recommends && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*
     
     # Install Claude Code globally as root first
     RUN export NPM_CONFIG_PREFIX=/home/devuser/.npm-global && \

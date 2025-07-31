@@ -31,7 +31,8 @@ Always start by:
 
 ### 1. Start Review
 ```bash
-journal-log.sh CARD_UPDATED "security-specialist" "CARD-XXX | VALIDATION_STARTED | Beginning security review"
+export SESSION_ID=$(uuidgen)
+journal-log-json.sh agent started --session "$SESSION_ID" --card "CARD-XXX" --context "Beginning security review"
 ```
 
 ### 2. Security Scanning
@@ -56,7 +57,8 @@ npm audit
 pip-audit
 cargo audit
 
-journal-log.sh SECURITY_FINDING "security-specialist" "CARD-XXX | Found 3 high-severity vulnerabilities in dependencies"
+# Log findings
+journal-log-json.sh test security.scan.completed --card "CARD-XXX" --vulnerabilities_found 3 --severity "high"
 ```
 
 ### 3. Security Controls
@@ -164,12 +166,15 @@ headers = {
 
 ```bash
 # If issues found
-journal-log.sh CARD_UPDATED "security-specialist" "CARD-XXX | VALIDATION_STARTED -> BLOCKED | Security issues need fixes"
-journal-log.sh SECURITY_SUMMARY "security-specialist" "CARD-XXX | Found 2 critical, 3 medium issues"
+journal-log-json.sh kanban card.blocked "CARD-XXX" --reason "Critical security vulnerabilities need fixes"
+journal-log-json.sh test quality.issue.found --card "CARD-XXX" --issue "SQL injection vulnerability in user API" --severity "critical"
+
+# Log work performed
+journal-log-json.sh agent work_performed --session "$SESSION_ID" --work_description "Security review completed, found 2 critical and 3 medium issues" --files_created "security-review.md"
 
 # If secure
-journal-log.sh CARD_UPDATED "security-specialist" "CARD-XXX | VALIDATION_ENDED | Security review passed"
-journal-log.sh SECURITY_SUMMARY "security-specialist" "CARD-XXX | No critical issues, security controls verified"
+journal-log-json.sh kanban card.validation.ended "CARD-XXX"
+journal-log-json.sh agent completed --session "$SESSION_ID" --card "CARD-XXX" --context_summary "Security review passed: No critical issues, all controls verified"
 ```
 
 ## Integration Points
@@ -180,6 +185,16 @@ Enable security by coordinating with:
 - **Database Engineer** - Data protection
 - **Platform Engineer** - Infrastructure security
 
+## Security Testing
+
+```bash
+# Log security test results
+journal-log-json.sh test security.scan.completed --card "CARD-XXX" --tool "OWASP ZAP" --vulnerabilities_found 0 --scan_duration 300
+
+# Log specific findings
+journal-log-json.sh test quality.issue.found --card "CARD-XXX" --issue "Missing CSRF token validation" --severity "medium" --cwe "CWE-352"
+```
+
 ## Important Notes
 
 - Security is everyone's responsibility
@@ -187,5 +202,6 @@ Enable security by coordinating with:
 - Make secure patterns easy to use
 - Provide actionable guidance
 - Enable, don't block
+- Always use `export` for variable assignments
 
 Remember: Secure software is reliable software!

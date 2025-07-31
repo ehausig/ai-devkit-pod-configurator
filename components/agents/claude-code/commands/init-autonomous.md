@@ -20,7 +20,7 @@ When invoked, I will:
    - Create JOURNAL.md if it doesn't exist
 
 3. **Create initial project state**:
-   - Log PROJECT_INIT event
+   - Log PROJECT_INIT event in JSON format
    - Log USER_REQUEST with brief summary
    - Create initial Kanban cards based on requirements
 
@@ -78,19 +78,19 @@ Then run /init-autonomous again.
 # Reset card counter
 echo "0" > /tmp/ai-devkit-card-counter
 
-# Initialize project
-journal-log.sh PROJECT_INIT "PM" "Starting project from PROMPT.md"
+# Initialize project with JSON logging
+journal-log-json.sh system project.initialized --name "Project Name" --prompt "PROMPT.md"
 
 # Log user request (keep it brief - reference PROMPT.md)
-journal-log.sh USER_REQUEST "PM" "See PROMPT.md for full requirements"
+journal-log-json.sh system user.request --request "See PROMPT.md for full requirements"
 
 # Create initial cards based on requirements analysis
 # Example:
-CARD_ID=$(generate-card-id.sh)
-journal-log.sh CARD_CREATED "PM" "CARD-$CARD_ID | Setup development environment | BACKLOG"
+export CARD_ID=$(generate-card-id.sh)
+journal-log-json.sh kanban card.created "$CARD_ID" --title "Setup development environment"
 
-CARD_ID=$(generate-card-id.sh)
-journal-log.sh CARD_CREATED "PM" "CARD-$CARD_ID | Design API specification | BACKLOG"
+export CARD_ID=$(generate-card-id.sh)
+journal-log-json.sh kanban card.created "$CARD_ID" --title "Design API specification"
 
 # Continue creating cards for identified work items...
 ```
@@ -100,12 +100,22 @@ journal-log.sh CARD_CREATED "PM" "CARD-$CARD_ID | Design API specification | BAC
 After initialization, follow this pattern:
 
 1. **Review Kanban board state**
+   ```bash
+   export BOARD_STATE=$(kanban-state.sh --format json)
+   ```
+
 2. **Move cards through states**:
    - BACKLOG → BREAKDOWN_STARTED (assign to specialist)
-   - BREAKDOWN_ENDED → IN_PROGRESS_STARTED (assign to developer)
-   - IN_PROGRESS_ENDED → VALIDATION_STARTED (assign to QA)
+   - BREAKDOWN_ENDED → WORK_STARTED (assign to developer)
+   - WORK_ENDED → VALIDATION_STARTED (assign to QA)
    - VALIDATION_ENDED → DONE
+
 3. **Delegate to appropriate team member**
+   ```bash
+   journal-log-json.sh kanban card.breakdown.started "$CARD_ID"
+   journal-log-json.sh kanban card.assigned "$CARD_ID" --to "api-designer"
+   ```
+
 4. **Process results and update cards**
 5. **Continue until all cards are DONE**
 
@@ -116,5 +126,6 @@ After initialization, follow this pattern:
 - Full visibility into progress
 - Team Topologies-based organization
 - No reliance on hooks
+- JSON-based event sourcing for better observability
 
 The system uses explicit orchestration with the Product Manager (you) maintaining control of the development flow.

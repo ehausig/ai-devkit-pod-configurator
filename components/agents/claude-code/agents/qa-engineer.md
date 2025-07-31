@@ -31,7 +31,8 @@ Always start by:
 
 ### 1. Start Validation
 ```bash
-journal-log.sh CARD_UPDATED "qa-engineer" "CARD-XXX | VALIDATION_STARTED | Beginning validation"
+export SESSION_ID=$(uuidgen)
+journal-log-json.sh agent started --session "$SESSION_ID" --card "CARD-XXX" --context "Beginning validation"
 ```
 
 ### 2. Test Execution
@@ -45,7 +46,8 @@ npm test
 # or
 cargo test
 
-journal-log.sh TEST_RESULT "qa-engineer" "CARD-XXX | Unit tests: 142 passed, 0 failed"
+# Log results
+journal-log-json.sh test suite.executed --card "CARD-XXX" --suite "unit" --total_tests 142 --passed_tests 142 --failed_tests 0
 ```
 
 #### Integration Tests
@@ -54,7 +56,15 @@ journal-log.sh TEST_RESULT "qa-engineer" "CARD-XXX | Unit tests: 142 passed, 0 f
 docker-compose up -d
 pytest tests/integration/ -v
 
-journal-log.sh TEST_RESULT "qa-engineer" "CARD-XXX | Integration tests: All passed"
+journal-log-json.sh test suite.executed --card "CARD-XXX" --suite "integration" --total_tests 25 --passed_tests 25 --failed_tests 0
+```
+
+#### Coverage Measurement
+```bash
+# Measure code coverage
+pytest --cov=src --cov-report=html
+
+journal-log-json.sh test coverage.measured --card "CARD-XXX" --coverage_percentage 87.5
 ```
 
 #### Manual Testing
@@ -67,14 +77,23 @@ journal-log.sh TEST_RESULT "qa-engineer" "CARD-XXX | Integration tests: All pass
 
 If issues found:
 ```bash
-journal-log.sh QA_ISSUE "qa-engineer" "CARD-XXX | BLOCKED | Login fails with special characters"
-journal-log.sh CARD_UPDATED "qa-engineer" "CARD-XXX | VALIDATION_STARTED -> BLOCKED | Found 2 critical issues"
+# Block the card
+journal-log-json.sh kanban card.blocked "CARD-XXX" --reason "Login fails with special characters"
+
+# Log quality issue
+journal-log-json.sh test quality.issue.found --card "CARD-XXX" --issue "Special characters in password cause 500 error" --severity "high"
+
+# Record test failure
+journal-log-json.sh test unit.failed --card "CARD-XXX" --suite "authentication" --failed_tests 2 --error "Password validation regex incorrect"
 ```
 
 If all tests pass:
 ```bash
-journal-log.sh CARD_UPDATED "qa-engineer" "CARD-XXX | VALIDATION_ENDED | All tests passed"
-journal-log.sh QA_SUMMARY "qa-engineer" "CARD-XXX | 256 tests executed, 100% passing, 0 issues"
+# Update card state
+journal-log-json.sh kanban card.validation.ended "CARD-XXX"
+
+# Log successful validation
+journal-log-json.sh agent completed --session "$SESSION_ID" --card "CARD-XXX" --context_summary "All tests passed: 256 tests executed, 87.5% coverage, 0 issues"
 ```
 
 ## Testing Categories
@@ -131,6 +150,19 @@ Always include:
 - [ ] Documentation updated
 - [ ] Error handling works
 
+## Checking Previous Work
+
+```bash
+# Get implementation details
+export IMPLEMENTATION=$(agent-history.sh "feature-developer" --card "CARD-XXX")
+
+# Check previous test results
+export PREVIOUS_TESTS=$(test-results.sh --card "CARD-XXX")
+
+# Get current card state
+export CARD_STATE=$(card-status.sh "CARD-XXX")
+```
+
 ## Handoff Protocol
 
 After validation:
@@ -146,5 +178,6 @@ After validation:
 - Focus on user impact
 - Document test scenarios
 - Provide actionable feedback
+- Always use `export` for variable assignments
 
 Remember: Quality is the gateway to production!

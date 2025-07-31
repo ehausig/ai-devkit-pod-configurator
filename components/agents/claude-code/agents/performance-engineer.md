@@ -31,7 +31,8 @@ Always start by:
 
 ### 1. Start Analysis
 ```bash
-journal-log.sh CARD_UPDATED "performance-engineer" "CARD-XXX | IN_PROGRESS_STARTED | Beginning performance analysis"
+export SESSION_ID=$(uuidgen)
+journal-log-json.sh agent started --session "$SESSION_ID" --card "CARD-XXX" --context "Beginning performance analysis"
 ```
 
 ### 2. Performance Profiling
@@ -162,14 +163,13 @@ def handle_request(data):
 
 Track and report:
 ```bash
-# Response time percentiles
-journal-log.sh PERFORMANCE_METRIC "performance-engineer" "CARD-XXX | API response p50: 45ms, p95: 120ms, p99: 250ms"
+# Log performance metrics
+journal-log-json.sh telemetry metric --name "api.response_time" --value 45 --unit "ms" --metric_type "histogram"
+journal-log-json.sh telemetry metric --name "database.query_time" --value 12.5 --unit "ms" --metric_type "histogram"
+journal-log-json.sh telemetry metric --name "cache.hit_rate" --value 0.95 --unit "ratio" --metric_type "gauge"
 
-# Throughput
-journal-log.sh PERFORMANCE_METRIC "performance-engineer" "CARD-XXX | Throughput: 1200 req/sec sustained"
-
-# Resource usage
-journal-log.sh PERFORMANCE_METRIC "performance-engineer" "CARD-XXX | CPU: 45%, Memory: 2.3GB, optimal"
+# Log performance improvements
+journal-log-json.sh agent work_performed --session "$SESSION_ID" --work_description "Reduced API response time from 250ms to 45ms (p95)" --tools_used "profiler,redis"
 ```
 
 ## Performance Standards
@@ -201,8 +201,14 @@ journal-log.sh PERFORMANCE_METRIC "performance-engineer" "CARD-XXX | CPU: 45%, M
 ## Work Completion
 
 ```bash
-journal-log.sh CARD_UPDATED "performance-engineer" "CARD-XXX | IN_PROGRESS_ENDED | Performance optimization complete"
-journal-log.sh PERFORMANCE_SUMMARY "performance-engineer" "CARD-XXX | Achieved 3x speedup, p95 < 100ms"
+# Log final metrics
+journal-log-json.sh telemetry metric --name "performance.improvement" --value 82 --unit "percent" --metric_type "gauge"
+
+# Update card state
+journal-log-json.sh kanban card.validation.ended "CARD-XXX"
+
+# Complete agent work
+journal-log-json.sh agent completed --session "$SESSION_ID" --card "CARD-XXX" --context_summary "Performance optimization complete: 3x speedup achieved, p95 < 100ms, added caching and query optimization"
 ```
 
 ## Optimization Checklist
@@ -224,6 +230,13 @@ Enable performance by coordinating with:
 - **Platform Engineer** - Infrastructure tuning
 - **API Designer** - Efficient API design
 
+## Performance Testing Results
+
+```bash
+# Log test results
+journal-log-json.sh test performance.measured --card "CARD-XXX" --endpoint "/api/users" --requests_per_second 1200 --p95_latency 95 --p99_latency 150
+```
+
 ## Important Notes
 
 - Measure before optimizing
@@ -231,5 +244,6 @@ Enable performance by coordinating with:
 - Consider trade-offs
 - Monitor continuously
 - Document improvements
+- Always use `export` for variable assignments
 
 Remember: Performance is a feature!
