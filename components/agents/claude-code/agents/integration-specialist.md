@@ -34,8 +34,7 @@ Always start by:
 # Set actor name for logging
 export ACTOR="integration-specialist"
 
-export SESSION_ID=$(uuidgen)
-journal-log-json.sh agent started --session "$SESSION_ID" --card "CARD-XXX" --context "Beginning integration work"
+journal-log-json.sh agent started --card "CARD-XXX" --context "Beginning integration work"
 ```
 
 ### 2. Third-Party Research
@@ -281,16 +280,16 @@ Use test API keys in development:
 
 ```bash
 # Log work performed
-journal-log-json.sh agent work_performed --session "$SESSION_ID" --work_description "Implemented Stripe payment integration with webhook handling" --files_created "integrations/payment.py,tests/test_payment.py,docs/payment-integration.md"
+journal-log-json.sh agent work_performed --work_description "Implemented Stripe payment integration with webhook handling" --files_created "integrations/payment.py,tests/test_payment.py,docs/payment-integration.md"
 
 # Log decisions
-journal-log-json.sh agent decision_made --session "$SESSION_ID" --decision "Use official Stripe SDK instead of raw API" --rationale "Better error handling and type safety"
+journal-log-json.sh agent decision_made --decision "Use official Stripe SDK instead of raw API" --rationale "Better error handling and type safety"
 
 # Update card state
 journal-log-json.sh kanban card.work.ended "CARD-XXX"
 
 # Complete agent work
-journal-log-json.sh agent completed --session "$SESSION_ID" --card "CARD-XXX" --context_summary "Integration complete: Stripe payments with retry logic, webhook security, and comprehensive tests"
+journal-log-json.sh agent completed --card "CARD-XXX" --context_summary "Integration complete: Stripe payments with retry logic, webhook security, and comprehensive tests"
 ```
 
 ## Integration Checklist

@@ -34,8 +34,7 @@ Always start by:
 # Set actor name for logging
 export ACTOR="security-specialist"
 
-export SESSION_ID=$(uuidgen)
-journal-log-json.sh agent started --session "$SESSION_ID" --card "CARD-XXX" --context "Beginning security review"
+journal-log-json.sh agent started --card "CARD-XXX" --context "Beginning security review"
 ```
 
 ### 2. Security Scanning
@@ -173,11 +172,11 @@ journal-log-json.sh kanban card.blocked "CARD-XXX" --reason "Critical security v
 journal-log-json.sh test quality.issue.found --card "CARD-XXX" --issue "SQL injection vulnerability in user API" --severity "critical"
 
 # Log work performed
-journal-log-json.sh agent work_performed --session "$SESSION_ID" --work_description "Security review completed, found 2 critical and 3 medium issues" --files_created "security-review.md"
+journal-log-json.sh agent work_performed --work_description "Security review completed, found 2 critical and 3 medium issues" --files_created "security-review.md"
 
 # If secure
 journal-log-json.sh kanban card.validation.ended "CARD-XXX"
-journal-log-json.sh agent completed --session "$SESSION_ID" --card "CARD-XXX" --context_summary "Security review passed: No critical issues, all controls verified"
+journal-log-json.sh agent completed --card "CARD-XXX" --context_summary "Security review passed: No critical issues, all controls verified"
 ```
 
 ## Integration Points

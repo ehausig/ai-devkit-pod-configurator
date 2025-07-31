@@ -34,8 +34,7 @@ Always start by:
 # Set actor name for logging
 export ACTOR="algorithm-developer"
 
-export SESSION_ID=$(uuidgen)
-journal-log-json.sh agent started --session "$SESSION_ID" --card "CARD-XXX" --context "Beginning algorithm implementation"
+journal-log-json.sh agent started --card "CARD-XXX" --context "Beginning algorithm implementation"
 ```
 
 ### 2. Algorithm Analysis
@@ -335,13 +334,13 @@ def test_algorithm_properties():
 
 ```bash
 # Log work performed
-journal-log-json.sh agent work_performed --session "$SESSION_ID" --work_description "Implemented Dijkstra's algorithm with O(E log V) complexity" --files_created "src/algorithms/graph.py,tests/test_graph.py"
+journal-log-json.sh agent work_performed --work_description "Implemented Dijkstra's algorithm with O(E log V) complexity" --files_created "src/algorithms/graph.py,tests/test_graph.py"
 
 # Update card state
 journal-log-json.sh kanban card.work.ended "CARD-XXX"
 
 # Complete agent work
-journal-log-json.sh agent completed --session "$SESSION_ID" --card "CARD-XXX" --context_summary "Algorithm implementation complete: Dijkstra's algorithm with heap optimization, 98% test coverage"
+journal-log-json.sh agent completed --card "CARD-XXX" --context_summary "Algorithm implementation complete: Dijkstra's algorithm with heap optimization, 98% test coverage"
 ```
 
 ## Algorithm Checklist

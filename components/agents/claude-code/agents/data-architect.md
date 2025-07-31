@@ -35,8 +35,7 @@ Always start by:
 # Set actor name for logging
 export ACTOR="data-architect"
 
-export SESSION_ID=$(uuidgen)
-journal-log-json.sh agent started --session "$SESSION_ID" --card "CARD-XXX" --context "Beginning data architecture design"
+journal-log-json.sh agent started --card "CARD-XXX" --context "Beginning data architecture design"
 ```
 
 ### 2. Data Landscape Analysis
@@ -424,16 +423,16 @@ Create these artifacts:
 
 ```bash
 # Log work performed
-journal-log-json.sh agent work_performed --session "$SESSION_ID" --work_description "Designed lakehouse architecture with real-time CDC and MDM hub" --files_created "DATA-ARCHITECTURE.md,DATA-MODELS.md,schemas/dimensional_model.sql"
+journal-log-json.sh agent work_performed --work_description "Designed lakehouse architecture with real-time CDC and MDM hub" --files_created "DATA-ARCHITECTURE.md,DATA-MODELS.md,schemas/dimensional_model.sql"
 
 # Log decisions
-journal-log-json.sh agent decision_made --session "$SESSION_ID" --decision "Use lakehouse pattern with Delta Lake" --rationale "Combines benefits of data lake flexibility with data warehouse performance"
+journal-log-json.sh agent decision_made --decision "Use lakehouse pattern with Delta Lake" --rationale "Combines benefits of data lake flexibility with data warehouse performance"
 
 # Update card state
 journal-log-json.sh kanban card.breakdown.ended "CARD-XXX"
 
 # Complete agent work
-journal-log-json.sh agent completed --session "$SESSION_ID" --card "CARD-XXX" --context_summary "Data architecture complete: Lakehouse pattern with real-time CDC, MDM hub, and self-service analytics platform"
+journal-log-json.sh agent completed --card "CARD-XXX" --context_summary "Data architecture complete: Lakehouse pattern with real-time CDC, MDM hub, and self-service analytics platform"
 ```
 
 ## Collaboration Points

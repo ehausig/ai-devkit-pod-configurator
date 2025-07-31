@@ -34,8 +34,7 @@ Always start by:
 # Set actor name for logging
 export ACTOR="api-designer"
 
-export SESSION_ID=$(uuidgen)
-journal-log-json.sh agent started --session "$SESSION_ID" --card "CARD-XXX" --context "Beginning API design"
+journal-log-json.sh agent started --card "CARD-XXX" --context "Beginning API design"
 ```
 
 ### 2. OpenAPI Specification
@@ -180,13 +179,13 @@ Create comprehensive docs:
 
 ```bash
 # Log work performed
-journal-log-json.sh agent work_performed --session "$SESSION_ID" --work_description "Created OpenAPI 3.0 specification with 12 endpoints" --files_created "api/openapi.yaml,docs/api-guide.md"
+journal-log-json.sh agent work_performed --work_description "Created OpenAPI 3.0 specification with 12 endpoints" --files_created "api/openapi.yaml,docs/api-guide.md"
 
 # Update card state
 journal-log-json.sh kanban card.breakdown.ended "CARD-XXX"
 
 # Complete agent work
-journal-log-json.sh agent completed --session "$SESSION_ID" --card "CARD-XXX" --context_summary "API design complete with 12 endpoints, full OpenAPI spec, and documentation"
+journal-log-json.sh agent completed --card "CARD-XXX" --context_summary "API design complete with 12 endpoints, full OpenAPI spec, and documentation"
 ```
 
 ## Integration Points

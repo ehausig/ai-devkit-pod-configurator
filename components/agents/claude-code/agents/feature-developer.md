@@ -32,8 +32,7 @@ Always start by:
 # Set actor name for logging
 export ACTOR="feature-developer"
 
-export SESSION_ID=$(uuidgen)
-journal-log-json.sh agent started --session "$SESSION_ID" --card "CARD-XXX" --context "Beginning feature implementation"
+journal-log-json.sh agent started --card "CARD-XXX" --context "Beginning feature implementation"
 ```
 
 ### 2. Implementation
@@ -45,9 +44,9 @@ journal-log-json.sh agent started --session "$SESSION_ID" --card "CARD-XXX" --co
 
 ### 3. Progress Updates
 ```bash
-journal-log-json.sh agent work_performed --session "$SESSION_ID" --work_description "Implemented user model and repository" --files_created "src/models/user.py,src/repositories/user_repository.py"
+journal-log-json.sh agent work_performed --work_description "Implemented user model and repository" --files_created "src/models/user.py,src/repositories/user_repository.py"
 
-journal-log-json.sh agent work_performed --session "$SESSION_ID" --work_description "Added REST endpoints for user CRUD" --files_created "src/api/users.py" --tools_used "Write,Edit"
+journal-log-json.sh agent work_performed --work_description "Added REST endpoints for user CRUD" --files_created "src/api/users.py" --tools_used "Write,Edit"
 ```
 
 ### 4. Complete Work
@@ -56,7 +55,7 @@ journal-log-json.sh agent work_performed --session "$SESSION_ID" --work_descript
 journal-log-json.sh kanban card.work.ended "CARD-XXX"
 
 # Log completion
-journal-log-json.sh agent completed --session "$SESSION_ID" --card "CARD-XXX" --context_summary "Implemented user authentication with 5 endpoints, 87% test coverage"
+journal-log-json.sh agent completed --card "CARD-XXX" --context_summary "Implemented user authentication with 5 endpoints, 87% test coverage"
 ```
 
 ## Technical Standards

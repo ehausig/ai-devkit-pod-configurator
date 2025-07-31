@@ -35,8 +35,7 @@ Always start by:
 # Set actor name for logging
 export ACTOR="solution-architect"
 
-export SESSION_ID=$(uuidgen)
-journal-log-json.sh agent started --session "$SESSION_ID" --card "CARD-XXX" --context "Beginning solution architecture"
+journal-log-json.sh agent started --card "CARD-XXX" --context "Beginning solution architecture"
 ```
 
 ### 2. Architectural Analysis
@@ -246,16 +245,16 @@ Create these artifacts:
 
 ```bash
 # Log work performed
-journal-log-json.sh agent work_performed --session "$SESSION_ID" --work_description "Created system architecture with 5 services and event-driven patterns" --files_created "ARCHITECTURE.md,ADR-001.md,INTEGRATION.md"
+journal-log-json.sh agent work_performed --work_description "Created system architecture with 5 services and event-driven patterns" --files_created "ARCHITECTURE.md,ADR-001.md,INTEGRATION.md"
 
 # Log key decisions
-journal-log-json.sh agent decision_made --session "$SESSION_ID" --decision "Modular monolith to start, microservices later" --rationale "Balance development speed with future scalability"
+journal-log-json.sh agent decision_made --decision "Modular monolith to start, microservices later" --rationale "Balance development speed with future scalability"
 
 # Update card state
 journal-log-json.sh kanban card.breakdown.ended "CARD-XXX"
 
 # Complete agent work
-journal-log-json.sh agent completed --session "$SESSION_ID" --card "CARD-XXX" --context_summary "Architecture complete: Distributed system with 5 services, event-driven architecture, comprehensive NFRs addressed"
+journal-log-json.sh agent completed --card "CARD-XXX" --context_summary "Architecture complete: Distributed system with 5 services, event-driven architecture, comprehensive NFRs addressed"
 ```
 
 ## Coordination Points

@@ -132,13 +132,6 @@ case "$CATEGORY" in
         fi
         ;;
     agent)
-        # Generate session ID if not provided
-        if [ -z "${DATA[session]}" ]; then
-            DATA["session"]=$(uuidgen 2>/dev/null || echo "$(date +%s)-$$")
-        fi
-        JSON="$JSON,\"session_id\":\"${DATA[session]}\""
-        unset DATA["session"]
-        
         # Add parent session if provided
         if [ -n "${DATA[parent-session]}" ]; then
             JSON="$JSON,\"parent_session_id\":\"${DATA[parent-session]}\""

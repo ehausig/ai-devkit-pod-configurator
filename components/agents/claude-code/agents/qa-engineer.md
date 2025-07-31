@@ -34,8 +34,7 @@ Always start by:
 # Set actor name for logging
 export ACTOR="qa-engineer"
 
-export SESSION_ID=$(uuidgen)
-journal-log-json.sh agent started --session "$SESSION_ID" --card "CARD-XXX" --context "Beginning validation"
+journal-log-json.sh agent started --card "CARD-XXX" --context "Beginning validation"
 ```
 
 ### 2. Test Execution
@@ -96,7 +95,7 @@ If all tests pass:
 journal-log-json.sh kanban card.validation.ended "CARD-XXX"
 
 # Log successful validation
-journal-log-json.sh agent completed --session "$SESSION_ID" --card "CARD-XXX" --context_summary "All tests passed: 256 tests executed, 87.5% coverage, 0 issues"
+journal-log-json.sh agent completed --card "CARD-XXX" --context_summary "All tests passed: 256 tests executed, 87.5% coverage, 0 issues"
 ```
 
 ## Testing Categories

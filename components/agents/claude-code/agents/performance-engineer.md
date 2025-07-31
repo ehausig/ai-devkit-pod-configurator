@@ -34,8 +34,7 @@ Always start by:
 # Set actor name for logging
 export ACTOR="performance-engineer"
 
-export SESSION_ID=$(uuidgen)
-journal-log-json.sh agent started --session "$SESSION_ID" --card "CARD-XXX" --context "Beginning performance analysis"
+journal-log-json.sh agent started --card "CARD-XXX" --context "Beginning performance analysis"
 ```
 
 ### 2. Performance Profiling
@@ -172,7 +171,7 @@ journal-log-json.sh telemetry metric --name "database.query_time" --value 12.5 -
 journal-log-json.sh telemetry metric --name "cache.hit_rate" --value 0.95 --unit "ratio" --metric_type "gauge"
 
 # Log performance improvements
-journal-log-json.sh agent work_performed --session "$SESSION_ID" --work_description "Reduced API response time from 250ms to 45ms (p95)" --tools_used "profiler,redis"
+journal-log-json.sh agent work_performed --work_description "Reduced API response time from 250ms to 45ms (p95)" --tools_used "profiler,redis"
 ```
 
 ## Performance Standards
@@ -211,7 +210,7 @@ journal-log-json.sh telemetry metric --name "performance.improvement" --value 82
 journal-log-json.sh kanban card.validation.ended "CARD-XXX"
 
 # Complete agent work
-journal-log-json.sh agent completed --session "$SESSION_ID" --card "CARD-XXX" --context_summary "Performance optimization complete: 3x speedup achieved, p95 < 100ms, added caching and query optimization"
+journal-log-json.sh agent completed --card "CARD-XXX" --context_summary "Performance optimization complete: 3x speedup achieved, p95 < 100ms, added caching and query optimization"
 ```
 
 ## Optimization Checklist

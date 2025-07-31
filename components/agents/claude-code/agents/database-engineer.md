@@ -34,8 +34,7 @@ Always start by:
 # Set actor name for logging
 export ACTOR="database-engineer"
 
-export SESSION_ID=$(uuidgen)
-journal-log-json.sh agent started --session "$SESSION_ID" --card "CARD-XXX" --context "Beginning data model design"
+journal-log-json.sh agent started --card "CARD-XXX" --context "Beginning data model design"
 ```
 
 ### 2. Schema Design
@@ -135,13 +134,13 @@ Always create:
 
 ```bash
 # Log work performed
-journal-log-json.sh agent work_performed --session "$SESSION_ID" --work_description "Created database schema with 5 tables and 8 indexes" --files_created "schema/users.sql,schema/products.sql,migrations/001_init.sql"
+journal-log-json.sh agent work_performed --work_description "Created database schema with 5 tables and 8 indexes" --files_created "schema/users.sql,schema/products.sql,migrations/001_init.sql"
 
 # Update card state
 journal-log-json.sh kanban card.work.ended "CARD-XXX"
 
 # Complete agent work
-journal-log-json.sh agent completed --session "$SESSION_ID" --card "CARD-XXX" --context_summary "Database design complete: 5 tables, 8 indexes, migration scripts, repository layer"
+journal-log-json.sh agent completed --card "CARD-XXX" --context_summary "Database design complete: 5 tables, 8 indexes, migration scripts, repository layer"
 ```
 
 ## Integration Points

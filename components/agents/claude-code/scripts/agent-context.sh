@@ -38,7 +38,6 @@ map(select(.agent_id == \"$AGENT_ID\" and .data.card_id == \"$CARD_ID\")) |
         timestamp: .timestamp,
         error: .data.error
     }),
-    last_session: map(select(.session_id)) | last | .session_id,
     last_activity: map(.timestamp) | last,
     context_summary: map(select(.data.context_summary)) | last | .data.context_summary
 }

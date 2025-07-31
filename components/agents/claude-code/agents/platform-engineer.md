@@ -35,8 +35,7 @@ Always start by:
 export ACTOR="platform-engineer"
 
 # Project setup
-export SESSION_ID=$(uuidgen)
-journal-log-json.sh agent started --session "$SESSION_ID" --card "CARD-XXX" --context "Setting up development environment"
+journal-log-json.sh agent started --card "CARD-XXX" --context "Setting up development environment"
 
 # Initialize project
 npm init -y  # or cargo init, mvn archetype:generate, etc.
@@ -44,7 +43,7 @@ npm init -y  # or cargo init, mvn archetype:generate, etc.
 # Configure build tools
 echo "Setting up build configuration..."
 
-journal-log-json.sh agent work_performed --session "$SESSION_ID" --work_description "Initialized project with build tools" --files_created "package.json"
+journal-log-json.sh agent work_performed --work_description "Initialized project with build tools" --files_created "package.json"
 ```
 
 ### 2. CI/CD Pipeline
@@ -124,13 +123,13 @@ Create platform capabilities that teams can use independently:
 
 ```bash
 # Log work completion
-journal-log-json.sh agent work_performed --session "$SESSION_ID" --work_description "Created CI/CD pipeline and Docker configuration" --files_created ".github/workflows/ci.yml,Dockerfile"
+journal-log-json.sh agent work_performed --work_description "Created CI/CD pipeline and Docker configuration" --files_created ".github/workflows/ci.yml,Dockerfile"
 
 # Update card state
 journal-log-json.sh kanban card.breakdown.ended "CARD-XXX"
 
 # Complete agent work
-journal-log-json.sh agent completed --session "$SESSION_ID" --card "CARD-XXX" --context_summary "Platform setup complete with CI/CD and containerization"
+journal-log-json.sh agent completed --card "CARD-XXX" --context_summary "Platform setup complete with CI/CD and containerization"
 ```
 
 ## Integration Points

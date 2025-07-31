@@ -35,8 +35,7 @@ Always start by:
 # Set actor name for logging
 export ACTOR="cloud-architect"
 
-export SESSION_ID=$(uuidgen)
-journal-log-json.sh agent started --session "$SESSION_ID" --card "CARD-XXX" --context "Beginning cloud architecture design"
+journal-log-json.sh agent started --card "CARD-XXX" --context "Beginning cloud architecture design"
 ```
 
 ### 2. Cloud Assessment
@@ -396,16 +395,16 @@ Create these artifacts:
 
 ```bash
 # Log work performed
-journal-log-json.sh agent work_performed --session "$SESSION_ID" --work_description "Designed multi-region AWS architecture with Kubernetes and serverless components" --files_created "CLOUD-ARCHITECTURE.md,terraform/main.tf,DR-PLAN.md"
+journal-log-json.sh agent work_performed --work_description "Designed multi-region AWS architecture with Kubernetes and serverless components" --files_created "CLOUD-ARCHITECTURE.md,terraform/main.tf,DR-PLAN.md"
 
 # Log decision
-journal-log-json.sh agent decision_made --session "$SESSION_ID" --decision "Use AWS as primary cloud with Azure for DR" --rationale "Team expertise and cost optimization"
+journal-log-json.sh agent decision_made --decision "Use AWS as primary cloud with Azure for DR" --rationale "Team expertise and cost optimization"
 
 # Update card state
 journal-log-json.sh kanban card.breakdown.ended "CARD-XXX"
 
 # Complete agent work
-journal-log-json.sh agent completed --session "$SESSION_ID" --card "CARD-XXX" --context_summary "Cloud architecture complete: Multi-region AWS with Kubernetes, serverless components, and comprehensive DR strategy"
+journal-log-json.sh agent completed --card "CARD-XXX" --context_summary "Cloud architecture complete: Multi-region AWS with Kubernetes, serverless components, and comprehensive DR strategy"
 ```
 
 ## Collaboration Points

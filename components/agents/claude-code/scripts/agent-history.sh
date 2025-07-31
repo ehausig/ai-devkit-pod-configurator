@@ -3,7 +3,6 @@
 # Usage: agent-history.sh <agent_id> [options]
 # Options:
 #   --card CARD-001        Filter by card
-#   --session SESSION-ID   Filter by session
 #   --include-decisions    Include decision events
 #   --files-only          Only show file operations
 
@@ -19,7 +18,6 @@ shift
 
 # Default values
 CARD_FILTER=""
-SESSION_FILTER=""
 INCLUDE_DECISIONS=false
 FILES_ONLY=false
 
@@ -28,10 +26,6 @@ while [ $# -gt 0 ]; do
     case "$1" in
         --card)
             CARD_FILTER="$2"
-            shift 2
-            ;;
-        --session)
-            SESSION_FILTER="$2"
             shift 2
             ;;
         --include-decisions)
@@ -60,10 +54,6 @@ JQ_FILTER="select(.event_type | startswith(\"agent.\")) | select(.agent_id == \"
 # Add optional filters
 if [ -n "$CARD_FILTER" ]; then
     JQ_FILTER="$JQ_FILTER | select(.data.card_id == \"$CARD_FILTER\")"
-fi
-
-if [ -n "$SESSION_FILTER" ]; then
-    JQ_FILTER="$JQ_FILTER | select(.session_id == \"$SESSION_FILTER\")"
 fi
 
 if [ "$INCLUDE_DECISIONS" = false ]; then

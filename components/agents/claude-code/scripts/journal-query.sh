@@ -39,11 +39,6 @@ while [ $# -gt 0 ]; do
             JQ_FILTER="$JQ_FILTER | select(.card_id == \"$1\")"
             shift
             ;;
-        --session)
-            shift
-            JQ_FILTER="$JQ_FILTER | select(.session_id == \"$1\")"
-            shift
-            ;;
         --after)
             shift
             JQ_FILTER="$JQ_FILTER | select(.timestamp > \"$1\")"
