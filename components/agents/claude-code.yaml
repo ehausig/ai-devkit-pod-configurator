@@ -28,6 +28,7 @@ command_permissions:
     - "Bash(kanban-check-dependencies.sh:*)"
     - "Bash(kanban-migrate-journal.sh:*)"
     - "Bash(kanban-try-assign-card.sh:*)"
+    - "Bash(kanban-count-cards.sh:*)"
     
     # Core bash operations
     - "Bash(mkdir:*)"

@@ -101,21 +101,20 @@ As Product Manager, follow this workflow:
 
 3. **Orchestration Loop**
    ```bash
-   # Check overall board state
-   export BOARD_STATE=$(kanban-state.sh --format json)
+   # Check cards in specific states directly without storing in variables
    
    # Facilitate based on card states
-   if [ $(echo "$BOARD_STATE" | jq '[.[] | select(.state == "backlog")] | length') -gt 0 ]; then
+   if [ $(kanban-state.sh --state "backlog" --format json | jq 'length') -gt 0 ]; then
        echo "Cards in backlog need breakdown. Enabling team agents can help."
        Use the api-designer agent to check for and work on available cards
    fi
    
-   if [ $(echo "$BOARD_STATE" | jq '[.[] | select(.state == "breakdown_ended")] | length') -gt 0 ]; then
+   if [ $(kanban-state.sh --state "breakdown_ended" --format json | jq 'length') -gt 0 ]; then
        echo "Cards ready for implementation. Stream-aligned team can start work."
        Use the feature-developer agent to check for and work on available cards
    fi
    
-   if [ $(echo "$BOARD_STATE" | jq '[.[] | select(.state == "work_ended")] | length') -gt 0 ]; then
+   if [ $(kanban-state.sh --state "work_ended" --format json | jq 'length') -gt 0 ]; then
        echo "Cards ready for validation."
        Use the qa-engineer agent to check for and work on available cards
    fi

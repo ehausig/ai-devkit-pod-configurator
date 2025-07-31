@@ -111,28 +111,25 @@ journal-log-json.sh kanban card.created "$(kanban-create-card-id.sh)" \
 
 After initialization, follow this pattern:
 
-1. **Review Kanban board state**
-   ```bash
-   export BOARD_STATE=$(kanban-state.sh --format json)
-   ```
+1. **Review Kanban board state without variable assignment**
 
 2. **Facilitate work flow based on states**:
    ```bash
    # Check for cards needing breakdown
-   if [ $(echo "$BOARD_STATE" | jq '[.[] | select(.state == "backlog")] | length') -gt 0 ]; then
+   if [ $(kanban-state.sh --state "backlog" --format json | jq 'length') -gt 0 ]; then
        echo "Cards in backlog need breakdown analysis."
        # Invoke agents to check for work - DO NOT ASSIGN
        Use the platform-engineer agent to check for and work on available cards
    fi
    
    # Check for cards ready for implementation
-   if [ $(echo "$BOARD_STATE" | jq '[.[] | select(.state == "breakdown_ended")] | length') -gt 0 ]; then
+   if [ $(kanban-state.sh --state "breakdown_ended" --format json | jq 'length') -gt 0 ]; then
        echo "Cards ready for implementation."
        Use the feature-developer agent to check for and work on available cards
    fi
    
    # Check for cards ready for validation
-   if [ $(echo "$BOARD_STATE" | jq '[.[] | select(.state == "work_ended")] | length') -gt 0 ]; then
+   if [ $(kanban-state.sh --state "work_ended" --format json | jq 'length') -gt 0 ]; then
        echo "Cards ready for validation."
        Use the qa-engineer agent to check for and work on available cards
    fi
