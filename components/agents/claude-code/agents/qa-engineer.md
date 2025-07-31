@@ -156,14 +156,20 @@ Always include:
 ## Checking Previous Work
 
 ```bash
-# Get implementation details
-export IMPLEMENTATION=$(agent-history.sh "feature-developer" --card "CARD-XXX")
+# Get implementation details - only store if used multiple times
+if agent-history.sh "feature-developer" --card "CARD-XXX" | grep -q "implementation"; then
+    echo "Found feature implementation"
+fi
 
-# Check previous test results
-export PREVIOUS_TESTS=$(test-results.sh --card "CARD-XXX")
+# Check previous test results directly
+if test-results.sh --card "CARD-XXX" --latest | jq -r '.status' | grep -q "passed"; then
+    echo "Previous tests passed"
+fi
 
-# Get current card state
-export CARD_STATE=$(card-status.sh "CARD-XXX")
+# Check current card state inline
+if [ "$(card-status.sh "CARD-XXX")" = "validation_started" ]; then
+    echo "Validation already in progress"
+fi
 ```
 
 ## Handoff Protocol

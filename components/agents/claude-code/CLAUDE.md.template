@@ -38,32 +38,33 @@ You are operating as the Product Manager in the main Claude Code thread. You are
 - **DONE** - Work completed
 
 ### Card ID Generation
-Use `generate-card-id.sh` to create unique card IDs:
+Use `generate-card-id.sh` with command substitution:
 ```bash
-export CARD_ID=$(generate-card-id.sh)
+# Direct substitution - no variable needed
+journal-log-json.sh kanban card.created "$(generate-card-id.sh)" --title "User authentication"
 ```
 
 ### Card Event Logging
 Always log card events to JOURNAL.md using the JSON format:
 ```bash
-# Card creation
-journal-log-json.sh kanban card.created "$CARD_ID" --title "User authentication"
+# Card creation with auto-generated ID
+journal-log-json.sh kanban card.created "$(generate-card-id.sh)" --title "User authentication"
 
-# State transitions
-journal-log-json.sh kanban card.breakdown.started "$CARD_ID"
-journal-log-json.sh kanban card.breakdown.ended "$CARD_ID"
-journal-log-json.sh kanban card.work.started "$CARD_ID"
-journal-log-json.sh kanban card.work.ended "$CARD_ID"
-journal-log-json.sh kanban card.validation.started "$CARD_ID"
-journal-log-json.sh kanban card.validation.ended "$CARD_ID"
-journal-log-json.sh kanban card.completed "$CARD_ID"
+# State transitions (use existing card ID)
+journal-log-json.sh kanban card.breakdown.started "CARD-001"
+journal-log-json.sh kanban card.breakdown.ended "CARD-001"
+journal-log-json.sh kanban card.work.started "CARD-001"
+journal-log-json.sh kanban card.work.ended "CARD-001"
+journal-log-json.sh kanban card.validation.started "CARD-001"
+journal-log-json.sh kanban card.validation.ended "CARD-001"
+journal-log-json.sh kanban card.completed "CARD-001"
 
 # Assignment
-journal-log-json.sh kanban card.assigned "$CARD_ID" --to "api-designer"
+journal-log-json.sh kanban card.assigned "CARD-001" --to "api-designer"
 
 # Blocking/unblocking
-journal-log-json.sh kanban card.blocked "$CARD_ID" --reason "Waiting for API credentials"
-journal-log-json.sh kanban card.unblocked "$CARD_ID"
+journal-log-json.sh kanban card.blocked "CARD-001" --reason "Waiting for API credentials"
+journal-log-json.sh kanban card.unblocked "CARD-001"
 ```
 
 ## Orchestration Process
@@ -82,7 +83,12 @@ As Product Manager, follow this workflow:
 
 3. **Orchestration Loop**
    ```bash
-   # Check cards ready for assignment
+   # Check cards ready for assignment - use command substitution if checking once
+   if [ $(kanban-state.sh --state "breakdown_ended" --format json | jq 'length') -gt 0 ]; then
+       echo "Cards ready for work"
+   fi
+   
+   # Or store if needed multiple times
    export BREAKDOWN_READY=$(kanban-state.sh --state "breakdown_ended" --format json)
    export WORK_READY=$(kanban-state.sh --state "work_ended" --format json)
    export BLOCKED_CARDS=$(kanban-state.sh --state "blocked" --format json)
@@ -113,15 +119,18 @@ As Product Manager, follow this workflow:
 
 ### Checking Card States
 ```bash
-# Get current state of a specific card
-export CARD_STATE=$(card-status.sh "CARD-001")
+# Get current state of a specific card - use inline if checking once
+if [ "$(card-status.sh "CARD-001")" = "blocked" ]; then
+    echo "Card is blocked"
+fi
 
-# Get all cards in a specific state
+# Get all cards in a specific state - store only if used multiple times
 export READY_CARDS=$(kanban-state.sh --state "breakdown_ended" --format json)
 
-# Check if card is blocked
-export CARD_INFO=$(kanban-state.sh --card "CARD-001" --format json)
-export IS_BLOCKED=$(echo "$CARD_INFO" | jq -r '.[0].blocked')
+# Check if card is blocked - use command substitution
+if [ "$(kanban-state.sh --card "CARD-001" --format json | jq -r '.[0].blocked')" = "true" ]; then
+    echo "Card is blocked"
+fi
 ```
 
 ## Important Notes
@@ -131,12 +140,25 @@ export IS_BLOCKED=$(echo "$CARD_INFO" | jq -r '.[0].blocked')
 - **Deterministic handoffs** - Use card states for clear transitions
 - **Single source of truth** - JOURNAL.md contains all state in JSON format
 - **Team collaboration** - Each agent updates card progress
+- **Avoid compound commands** - Use separate Bash calls or command substitution
 
-## Environment Variables
+## Variable Usage Patterns
 
-When setting environment variables in bash commands, always use the `export` command:
-✅ CORRECT: `export VARIABLE_NAME="value"`
-❌ AVOID: `VARIABLE_NAME="value"`
+When you need to use values across commands:
+
+```bash
+# ❌ AVOID: Compound commands with semicolons
+export CARD_ID=$(generate-card-id.sh); journal-log-json.sh kanban card.created "$CARD_ID" --title "Task"
+
+# ✅ GOOD: Direct command substitution
+journal-log-json.sh kanban card.created "$(generate-card-id.sh)" --title "Task"
+
+# ✅ GOOD: Separate Bash tool calls when variable is needed later
+# First call:
+export CARD_ID=$(generate-card-id.sh)
+# Second call:
+journal-log-json.sh kanban card.created "$CARD_ID" --title "Task"
+```
 
 ## Journal Event Structure
 

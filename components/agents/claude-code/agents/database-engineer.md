@@ -175,11 +175,15 @@ Coordinate with:
 ## Checking Previous Work
 
 ```bash
-# Check if schema already exists
-export EXISTING_WORK=$(agent-history.sh "database-engineer" --card "CARD-XXX")
+# Check if schema already exists inline
+if agent-history.sh "database-engineer" --card "CARD-XXX" | grep -q "schema"; then
+    echo "Schema already created"
+fi
 
-# Get API specifications to align with
-export API_SPECS=$(agent-history.sh "api-designer" --card "CARD-XXX" --files-only)
+# Get API specifications to align with - only if needed multiple times
+if agent-history.sh "api-designer" --card "CARD-XXX" --files-only | grep -q "openapi.yaml"; then
+    echo "Found API specifications to align with"
+fi
 ```
 
 ## Important Notes

@@ -85,12 +85,10 @@ journal-log-json.sh system project.initialized --name "Project Name" --prompt "P
 journal-log-json.sh system user.request --request "See PROMPT.md for full requirements"
 
 # Create initial cards based on requirements analysis
-# Example:
-export CARD_ID=$(generate-card-id.sh)
-journal-log-json.sh kanban card.created "$CARD_ID" --title "Setup development environment"
+# Example using direct command substitution:
+journal-log-json.sh kanban card.created "$(generate-card-id.sh)" --title "Setup development environment"
 
-export CARD_ID=$(generate-card-id.sh)
-journal-log-json.sh kanban card.created "$CARD_ID" --title "Design API specification"
+journal-log-json.sh kanban card.created "$(generate-card-id.sh)" --title "Design API specification"
 
 # Continue creating cards for identified work items...
 ```

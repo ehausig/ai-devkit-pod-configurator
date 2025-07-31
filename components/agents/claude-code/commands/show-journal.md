@@ -76,11 +76,15 @@ fi
 # Determine number of lines to show
 LINES="${1:-30}"
 
-# Get events (all or last N)
+# Get events (all or last N) - use command substitution directly
 if [ "$LINES" = "all" ]; then
-    EVENTS=$(cat ~/workspace/JOURNAL.md)
+    cat ~/workspace/JOURNAL.md | while IFS= read -r line; do
+        # Process each line
+    done
 else
-    EVENTS=$(tail -n "$LINES" ~/workspace/JOURNAL.md)
+    tail -n "$LINES" ~/workspace/JOURNAL.md | while IFS= read -r line; do
+        # Process each line
+    done
 fi
 
 # Format and display events
@@ -88,56 +92,13 @@ echo "=== Autonomous Development Journal ==="
 echo ""
 
 # Process each JSON line
-echo "$EVENTS" | while IFS= read -r line; do
+while IFS= read -r line; do
     [ -z "$line" ] && continue
     
-    # Parse JSON fields
-    TIMESTAMP=$(echo "$line" | jq -r '.timestamp')
-    EVENT_TYPE=$(echo "$line" | jq -r '.event_type')
-    ACTOR=$(echo "$line" | jq -r '.actor')
-    
-    # Format timestamp to time only
-    TIME=$(echo "$TIMESTAMP" | cut -d'T' -f2 | cut -d'+' -f1)
-    
-    # Get appropriate emoji
-    case "$EVENT_TYPE" in
-        system.project.initialized) EMOJI="📋" ;;
-        kanban.card.created) EMOJI="🎫" ;;
-        kanban.card.work.started) EMOJI="🔨" ;;
-        agent.started) EMOJI="🚀" ;;
-        test.suite.executed) EMOJI="🧪" ;;
-        # ... etc
-    esac
-    
-    # Build message based on event type
-    case "$EVENT_TYPE" in
-        kanban.card.*)
-            CARD_ID=$(echo "$line" | jq -r '.card_id // ""')
-            MESSAGE="$CARD_ID"
-            
-            # Add specific details
-            case "$EVENT_TYPE" in
-                kanban.card.created)
-                    TITLE=$(echo "$line" | jq -r '.data.title // ""')
-                    MESSAGE="$MESSAGE | $TITLE"
-                    ;;
-                kanban.card.assigned)
-                    ASSIGNED_TO=$(echo "$line" | jq -r '.data.assigned_to // ""')
-                    MESSAGE="$MESSAGE | Assigned to: $ASSIGNED_TO"
-                    ;;
-            esac
-            ;;
-        *)
-            # Extract relevant data for other event types
-            MESSAGE=$(echo "$line" | jq -r '.data | to_entries | map("\(.key): \(.value)") | join(", ")')
-            ;;
-    esac
-    
-    # Display formatted event
-    printf "[%s] %s %s by %s: %s\n" "$TIME" "$EMOJI" "$EVENT_TYPE" "$ACTOR" "$MESSAGE"
-done
+    # Parse JSON fields inline
+    echo "$line" | jq -r '"[\(.timestamp | split("T")[1] | split("+")[0])] \(.event_type) - \(.actor) - \(.card_id // .data // "")"'
+done < <(tail -n "$LINES" ~/workspace/JOURNAL.md)
 
-# Show current card status summary
 echo ""
 echo "=== Current Card Status ==="
 kanban-state.sh --format table

@@ -121,12 +121,16 @@ You may need to coordinate with:
 
 ```bash
 # Check if other developers have worked on this card
-export PREVIOUS_WORK=$(agent-history.sh "feature-developer" --card "CARD-XXX")
+if agent-history.sh "feature-developer" --card "CARD-XXX" | grep -q "previous_work"; then
+    echo "Found previous work on this card"
+fi
 
-# Check current card state
-export CARD_STATE=$(card-status.sh "CARD-XXX")
+# Check current card state directly
+if [ "$(card-status.sh "CARD-XXX")" = "work_started" ]; then
+    echo "Card already in progress"
+fi
 
-# Get specification documents
+# Get specification documents - only if needed multiple times
 export SPECS=$(agent-history.sh "api-designer" --card "CARD-XXX" --files-only)
 ```
 
