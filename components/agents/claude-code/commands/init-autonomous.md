@@ -22,7 +22,7 @@ When invoked, I will:
 3. **Create initial project state**:
    - Log PROJECT_INIT event in JSON format
    - Log USER_REQUEST with brief summary
-   - Create initial Kanban cards based on requirements
+   - Create initial Kanban cards with full details based on requirements
 
 4. **Start orchestration** as Product Manager (main thread)
 
@@ -30,8 +30,8 @@ When invoked, I will:
 
 You (the main Claude Code thread) ARE the Product Manager. You will:
 - Orchestrate the entire development process
-- Manage Kanban cards and state transitions
-- Delegate work to specialized team members
+- Create detailed Kanban cards
+- Facilitate work flow (NOT assign work)
 - Track progress in JOURNAL.md
 
 You are NOT a subagent - you run the orchestration directly.
@@ -90,18 +90,24 @@ journal-log-json.sh system project.initialized --name "Project Name" --prompt "P
 # Log user request (keep it brief - reference PROMPT.md)
 journal-log-json.sh system user.request --request "See PROMPT.md for full requirements"
 
-# Create initial cards based on requirements analysis
+# Create initial cards based on requirements analysis WITH FULL DETAILS
 # Example using direct command substitution:
-journal-log-json.sh kanban card.created "$(kanban-create-card-id.sh)" --title "Setup development environment"
+journal-log-json.sh kanban card.created "$(kanban-create-card-id.sh)" \
+  --title "Setup development environment" \
+  --description "Initialize project structure, install dependencies, configure development tools" \
+  --dependencies '[]'
 
-journal-log-json.sh kanban card.created "$(kanban-create-card-id.sh)" --title "Design API specification"
+journal-log-json.sh kanban card.created "$(kanban-create-card-id.sh)" \
+  --title "Design API specification" \
+  --description "Create OpenAPI specification for all endpoints, define data models and authentication" \
+  --dependencies '["CARD-001"]'
 
 # Continue creating cards for identified work items...
 ```
 
 **IMPORTANT**: If kanban-create-card-id.sh fails, DO NOT make up card IDs manually. Fix the permission issue first.
 
-## Orchestration Pattern
+## Pull-Based Orchestration Pattern
 
 After initialization, follow this pattern:
 
@@ -110,28 +116,48 @@ After initialization, follow this pattern:
    export BOARD_STATE=$(kanban-state.sh --format json)
    ```
 
-2. **Move cards through states**:
-   - BACKLOG → BREAKDOWN_STARTED (assign to specialist)
-   - BREAKDOWN_ENDED → WORK_STARTED (assign to developer)
-   - WORK_ENDED → VALIDATION_STARTED (assign to QA)
-   - VALIDATION_ENDED → DONE
-
-3. **Delegate to appropriate team member**
+2. **Facilitate work flow based on states**:
    ```bash
-   journal-log-json.sh kanban card.breakdown.started "$CARD_ID"
-   journal-log-json.sh kanban card.assigned "$CARD_ID" --to "api-designer"
+   # Check for cards needing breakdown
+   if [ $(echo "$BOARD_STATE" | jq '[.[] | select(.state == "backlog")] | length') -gt 0 ]; then
+       echo "Cards in backlog need breakdown analysis."
+       # Invoke agents to check for work - DO NOT ASSIGN
+       Use the platform-engineer agent to check for and work on available cards
+   fi
+   
+   # Check for cards ready for implementation
+   if [ $(echo "$BOARD_STATE" | jq '[.[] | select(.state == "breakdown_ended")] | length') -gt 0 ]; then
+       echo "Cards ready for implementation."
+       Use the feature-developer agent to check for and work on available cards
+   fi
+   
+   # Check for cards ready for validation
+   if [ $(echo "$BOARD_STATE" | jq '[.[] | select(.state == "work_ended")] | length') -gt 0 ]; then
+       echo "Cards ready for validation."
+       Use the qa-engineer agent to check for and work on available cards
+   fi
    ```
 
-4. **Process results and update cards**
+3. **Never assign cards directly** - Agents will:
+   - Check for available work using `kanban-get-available-cards.sh`
+   - Self-assign by changing state with their name
+   - Complete work and unassign themselves
+
+4. **Monitor progress**
+   - Watch for state changes
+   - Check for blocked cards
+   - Verify dependencies are being met
+
 5. **Continue until all cards are DONE**
 
 ## Benefits
 
-- Clear requirements before starting
-- Deterministic orchestration
+- True pull-based Kanban system
+- Agents have autonomy to select work
+- No permission prompts from ACTOR exports
+- Clear requirements with descriptions
+- Dependency management built-in
 - Full visibility into progress
-- Team Topologies-based organization
-- No reliance on hooks
 - JSON-based event sourcing for better observability
 
-The system uses explicit orchestration with the Product Manager (you) maintaining control of the development flow.
+The system uses explicit orchestration with the Product Manager (you) facilitating work flow rather than directing it.

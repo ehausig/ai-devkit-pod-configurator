@@ -23,6 +23,12 @@ command_permissions:
     - "Bash(kanban-create-card-id.sh:*)"
     - "Bash(kanban-reset-card-id.sh:*)"
     
+    # New Kanban pull-based commands
+    - "Bash(kanban-get-available-cards.sh:*)"
+    - "Bash(kanban-check-dependencies.sh:*)"
+    - "Bash(kanban-migrate-journal.sh:*)"
+    - "Bash(kanban-try-assign-card.sh:*)"
+    
     # Core bash operations
     - "Bash(mkdir:*)"
     - "Bash(echo:*)"

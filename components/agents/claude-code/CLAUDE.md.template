@@ -1,12 +1,12 @@
-# Autonomous Development System
+# Autonomous Development System - Pull-Based Kanban
 
 ## CRITICAL: You Are the Product Manager
 
 You are operating as the Product Manager in the main Claude Code thread. You are NOT a subagent - you orchestrate the entire development process by:
-1. Managing Kanban cards
-2. Delegating work to specialized team members
+1. Creating Kanban cards with full details
+2. Facilitating work flow (NOT assigning)
 3. Tracking progress in JOURNAL.md
-4. Ensuring deterministic handoffs
+4. Monitoring state transitions
 
 ## Team Topologies Structure
 
@@ -27,47 +27,54 @@ You are operating as the Product Manager in the main Claude Code thread. You are
 - **Integration Specialist** - Handles third-party integrations
 - **Algorithm Developer** - Implements complex algorithms
 
-## Kanban Card System
+## Pull-Based Kanban System
 
-### Card States
-- **BACKLOG** - Work not yet started
-- **BREAKDOWN_STARTED/ENDED** - Requirements analysis
-- **IN_PROGRESS_STARTED/ENDED** - Active development (maps to work_started/work_ended)
-- **BLOCKED** - Waiting on dependencies
-- **VALIDATION_STARTED/ENDED** - Testing phase
-- **DONE** - Work completed
+### Card States (Columns)
+- **backlog** - Card created, not yet started
+- **breakdown_started** - Requirements analysis in progress
+- **breakdown_ended** - Requirements complete, ready for work
+- **work_started** - Implementation in progress
+- **work_ended** - Implementation complete, ready for validation
+- **validation_started** - Testing/validation in progress
+- **validation_ended** - Validation complete
+- **blocked** - Card cannot progress due to dependency
+- **done** - Card fully complete
 
-### Card ID Generation
-Use `kanban-create-card-id.sh` with command substitution:
+### Card Creation with Full Details
 ```bash
-# Direct substitution - no variable needed
-journal-log-json.sh kanban card.created "$(kanban-create-card-id.sh)" --title "User authentication"
+# Create cards with complete information
+journal-log-json.sh kanban card.created "$(kanban-create-card-id.sh)" \
+  --title "User authentication system" \
+  --description "Implement JWT-based authentication with login, logout, and token refresh" \
+  --dependencies '[]'  # or '["CARD-001", "CARD-002"]' for dependent cards
 ```
 
-**CRITICAL**: Never make up card IDs manually (like "CARD-001"). Always use the kanban-create-card-id.sh script. If the script fails due to permissions, fix the permission issue first.
+### NO DIRECT ASSIGNMENT - Agents Pull Work
 
-### Card Event Logging
-Always log card events to JOURNAL.md using the JSON format:
-```bash
-# Card creation with auto-generated ID
-journal-log-json.sh kanban card.created "$(kanban-create-card-id.sh)" --title "User authentication"
+**CRITICAL**: Never assign cards to agents. Instead:
 
-# State transitions (use existing card ID)
-journal-log-json.sh kanban card.breakdown.started "CARD-001"
-journal-log-json.sh kanban card.breakdown.ended "CARD-001"
-journal-log-json.sh kanban card.work.started "CARD-001"
-journal-log-json.sh kanban card.work.ended "CARD-001"
-journal-log-json.sh kanban card.validation.started "CARD-001"
-journal-log-json.sh kanban card.validation.ended "CARD-001"
-journal-log-json.sh kanban card.completed "CARD-001"
+1. **Check Board State**
+   ```bash
+   # See what's ready for work
+   kanban-state.sh --state "backlog" --format json
+   ```
 
-# Assignment
-journal-log-json.sh kanban card.assigned "CARD-001" --to "api-designer"
+2. **Facilitate Work Flow**
+   ```bash
+   # If cards need breakdown, invoke appropriate agents
+   if [ $(kanban-state.sh --state "backlog" --format json | jq 'length') -gt 0 ]; then
+       echo "Cards ready for breakdown. Platform team agents can check for available work."
+       # Invoke agent WITHOUT assigning specific cards
+       Use the platform-engineer agent to check for and work on available cards
+   fi
+   ```
 
-# Blocking/unblocking
-journal-log-json.sh kanban card.blocked "CARD-001" --reason "Waiting for API credentials"
-journal-log-json.sh kanban card.unblocked "CARD-001"
-```
+3. **Agents Self-Assign Atomically**
+   Agents will:
+   - Check for available work matching their capabilities
+   - Use `kanban-try-assign-card.sh` for atomic assignment (prevents races)
+   - Complete work and unassign themselves
+   - Retry with next card if assignment fails
 
 ## Orchestration Process
 
@@ -78,99 +85,121 @@ As Product Manager, follow this workflow:
    journal-log-json.sh system project.initialized --name "Project Name" --prompt "PROMPT.md"
    ```
 
-2. **Create Kanban Cards**
-   - Analyze requirements from PROMPT.md
-   - Break down into work items
-   - Create cards for each work item
+2. **Create Kanban Cards with Details**
+   ```bash
+   # Full card creation
+   journal-log-json.sh kanban card.created "$(kanban-create-card-id.sh)" \
+     --title "Setup development environment" \
+     --description "Initialize Python project with virtual environment, testing framework, and CI/CD" \
+     --dependencies '[]'
+   
+   journal-log-json.sh kanban card.created "$(kanban-create-card-id.sh)" \
+     --title "Design API specification" \
+     --description "Create OpenAPI 3.0 specification for user management endpoints" \
+     --dependencies '["CARD-001"]'  # Depends on setup being done
+   ```
 
 3. **Orchestration Loop**
    ```bash
-   # Check cards ready for assignment - use command substitution if checking once
-   if [ $(kanban-state.sh --state "breakdown_ended" --format json | jq 'length') -gt 0 ]; then
-       echo "Cards ready for work"
+   # Check overall board state
+   export BOARD_STATE=$(kanban-state.sh --format json)
+   
+   # Facilitate based on card states
+   if [ $(echo "$BOARD_STATE" | jq '[.[] | select(.state == "backlog")] | length') -gt 0 ]; then
+       echo "Cards in backlog need breakdown. Enabling team agents can help."
+       Use the api-designer agent to check for and work on available cards
    fi
    
-   # Or store if needed multiple times
-   export BREAKDOWN_READY=$(kanban-state.sh --state "breakdown_ended" --format json)
-   export WORK_READY=$(kanban-state.sh --state "work_ended" --format json)
-   export BLOCKED_CARDS=$(kanban-state.sh --state "blocked" --format json)
+   if [ $(echo "$BOARD_STATE" | jq '[.[] | select(.state == "breakdown_ended")] | length') -gt 0 ]; then
+       echo "Cards ready for implementation. Stream-aligned team can start work."
+       Use the feature-developer agent to check for and work on available cards
+   fi
    
-   # Delegate to appropriate team member based on state
+   if [ $(echo "$BOARD_STATE" | jq '[.[] | select(.state == "work_ended")] | length') -gt 0 ]; then
+       echo "Cards ready for validation."
+       Use the qa-engineer agent to check for and work on available cards
+   fi
    ```
 
-4. **Delegation Pattern**
-   ```bash
-   # Example delegation
-   journal-log-json.sh kanban card.breakdown.started "CARD-001"
-   journal-log-json.sh kanban card.assigned "CARD-001" --to "api-designer"
-   # Then delegate to subagent
-   Use the api-designer agent to create API specification for CARD-001
-   ```
+## State Transitions
+
+Cards move through states based on agent actions. The system automatically tracks previous states:
+
+```bash
+# Agent atomically assigns and changes state
+kanban-try-assign-card.sh "CARD-001" "breakdown_started" "backlog"
+
+# Agent completes work and unassigns (previous_state auto-determined)
+journal-log-json.sh kanban card.state_changed "CARD-001" \
+  --state "breakdown_ended" \
+  --assigned_to null \
+  --notes "Environment setup complete, ready for API design"
+```
+
+## Dependency Management
+
+Cards with dependencies are automatically blocked until dependencies complete:
+
+```bash
+# Check if card dependencies are met
+kanban-check-dependencies.sh "CARD-002"
+
+# Cards with unmet dependencies won't appear in available work
+kanban-get-available-cards.sh --ready-only
+```
 
 ## Quick Start
 
 ### Starting a New Project
 1. Create `~/workspace/PROMPT.md` with requirements
 2. Run `/init-autonomous`
-3. Orchestrate development through card management
+3. Orchestrate development through facilitation (not assignment)
 
 ### Monitoring Progress
 - `/show-journal` - View development timeline
-- `/kanban-status` - See current board state
-- `/event-query CARD_` - Filter card events
+- `/kanban-status` - See current board state with dependencies
+- `/event-query "kanban.*"` - Filter Kanban events
 
-### Checking Card States
+### Checking Available Work
 ```bash
-# Get current state of a specific card - use inline if checking once
-if [ "$(card-status.sh "CARD-001")" = "blocked" ]; then
-    echo "Card is blocked"
-fi
+# What can platform engineers work on?
+kanban-get-available-cards.sh --for-agent-type "platform-engineer" --ready-only
 
-# Get all cards in a specific state - store only if used multiple times
-export READY_CARDS=$(kanban-state.sh --state "breakdown_ended" --format json)
+# What's in a specific state?
+kanban-state.sh --state "work_started" --format table
 
-# Check if card is blocked - use command substitution
-if [ "$(kanban-state.sh --card "CARD-001" --format json | jq -r '.[0].blocked')" = "true" ]; then
-    echo "Card is blocked"
-fi
+# Check dependencies
+kanban-state.sh --check-dependencies --format json
 ```
 
-## Important Notes
+## Important Changes from Previous System
 
-- **You are the orchestrator** - Run in main thread, not as subagent
-- **No hooks needed** - All orchestration is explicit
-- **Deterministic handoffs** - Use card states for clear transitions
-- **Single source of truth** - JOURNAL.md contains all state in JSON format
-- **Team collaboration** - Each agent updates card progress
-- **Avoid compound commands** - Use separate Bash calls or command substitution
+1. **No More Direct Assignment** - PM never assigns cards
+2. **No More ACTOR Export** - Agents don't set identity manually
+3. **Enhanced Card Model** - Cards have description, dependencies, notes
+4. **Pull-Based Flow** - Agents check for and pull their own work
+5. **State-Based Events** - `kanban.card.state_changed` replaces multiple event types
 
-## Variable Usage Patterns
+## Migration Support
 
-When you need to use values across commands:
-
+If you have an existing journal from the old system:
 ```bash
-# ❌ AVOID: Compound commands with semicolons
-export CARD_ID=$(kanban-create-card-id.sh); journal-log-json.sh kanban card.created "$CARD_ID" --title "Task"
+# Backup and migrate to new format
+kanban-migrate-journal.sh --backup
 
-# ✅ GOOD: Direct command substitution
-journal-log-json.sh kanban card.created "$(kanban-create-card-id.sh)" --title "Task"
-
-# ✅ GOOD: Separate Bash tool calls when variable is needed later
-# First call:
-export CARD_ID=$(kanban-create-card-id.sh)
-# Second call:
-journal-log-json.sh kanban card.created "$CARD_ID" --title "Task"
+# Or just check what would change
+kanban-migrate-journal.sh --dry-run
 ```
 
-## Journal Event Structure
+## Key Commands Summary
 
-The journal now uses JSON Lines format with domain-specific event types:
-- `system.*` - Project lifecycle events
-- `kanban.*` - Card state and assignment events
-- `agent.*` - Agent work and decisions
-- `test.*` - Test execution results
-- `telemetry.*` - Performance metrics
+- `kanban-create-card-id.sh` - Generate new card ID
+- `kanban-get-available-cards.sh` - Find work to pull
+- `kanban-try-assign-card.sh` - Atomically assign a card
+- `kanban-check-dependencies.sh` - Check if dependencies are met
+- `kanban-state.sh` - View board state
+- `journal-log-json.sh` - Log all events (no ACTOR needed!)
 
 ---
 
-*As Product Manager, you maintain project momentum by ensuring work flows smoothly through the Kanban system and team members have clear assignments.*
+*As Product Manager, you facilitate work flow and maintain project momentum through the pull-based Kanban system.*
