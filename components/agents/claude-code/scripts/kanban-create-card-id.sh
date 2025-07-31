@@ -2,7 +2,10 @@
 # Card ID generator for Kanban system
 # Generates sequential three-digit IDs for tracking work items
 
-COUNTER_FILE="/tmp/ai-devkit-card-counter"
+COUNTER_FILE="/home/devuser/.claude/data/kanban-last-card-id"
+
+# Ensure data directory exists
+mkdir -p "$(dirname "$COUNTER_FILE")"
 
 # Initialize counter file if it doesn't exist
 if [ ! -f "$COUNTER_FILE" ]; then
@@ -19,4 +22,4 @@ NEXT=$((CURRENT + 1))
 echo "$NEXT" > "$COUNTER_FILE"
 
 # Output formatted ID (three digits with leading zeros)
-printf "%03d\n" "$NEXT"
+printf "CARD-%03d\n" "$NEXT"

@@ -76,7 +76,7 @@ Then run /init-autonomous again.
 
 ```bash
 # Reset card counter
-echo "0" > /tmp/ai-devkit-card-counter
+kanban-reset-card-id.sh
 
 # Initialize project with JSON logging
 journal-log-json.sh system project.initialized --name "Project Name" --prompt "PROMPT.md"
@@ -86,9 +86,9 @@ journal-log-json.sh system user.request --request "See PROMPT.md for full requir
 
 # Create initial cards based on requirements analysis
 # Example using direct command substitution:
-journal-log-json.sh kanban card.created "$(generate-card-id.sh)" --title "Setup development environment"
+journal-log-json.sh kanban card.created "$(kanban-create-card-id.sh)" --title "Setup development environment"
 
-journal-log-json.sh kanban card.created "$(generate-card-id.sh)" --title "Design API specification"
+journal-log-json.sh kanban card.created "$(kanban-create-card-id.sh)" --title "Design API specification"
 
 # Continue creating cards for identified work items...
 ```

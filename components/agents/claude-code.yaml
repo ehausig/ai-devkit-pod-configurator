@@ -19,8 +19,9 @@ command_permissions:
     - "Bash(agent-context.sh:*)"
     - "Bash(card-status.sh:*)"
     
-    # Card ID generation
-    - "Bash(generate-card-id.sh:*)"
+    # Kanban card ID management
+    - "Bash(kanban-create-card-id.sh:*)"
+    - "Bash(kanban-reset-card-id.sh:*)"
     
     # Core bash operations
     - "Bash(mkdir:*)"
@@ -141,6 +142,7 @@ entrypoint_setup: |
   mkdir -p /home/devuser/.claude/docs
   mkdir -p /home/devuser/.claude/hooks
   mkdir -p /home/devuser/.claude/scripts
+  mkdir -p /home/devuser/.claude/data
   mkdir -p /home/devuser/workspace/.claude
 
   cp /tmp/CLAUDE.md /home/devuser/.claude/CLAUDE.md

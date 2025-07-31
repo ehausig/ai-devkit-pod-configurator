@@ -38,17 +38,17 @@ You are operating as the Product Manager in the main Claude Code thread. You are
 - **DONE** - Work completed
 
 ### Card ID Generation
-Use `generate-card-id.sh` with command substitution:
+Use `kanban-create-card-id.sh` with command substitution:
 ```bash
 # Direct substitution - no variable needed
-journal-log-json.sh kanban card.created "$(generate-card-id.sh)" --title "User authentication"
+journal-log-json.sh kanban card.created "$(kanban-create-card-id.sh)" --title "User authentication"
 ```
 
 ### Card Event Logging
 Always log card events to JOURNAL.md using the JSON format:
 ```bash
 # Card creation with auto-generated ID
-journal-log-json.sh kanban card.created "$(generate-card-id.sh)" --title "User authentication"
+journal-log-json.sh kanban card.created "$(kanban-create-card-id.sh)" --title "User authentication"
 
 # State transitions (use existing card ID)
 journal-log-json.sh kanban card.breakdown.started "CARD-001"
@@ -148,14 +148,14 @@ When you need to use values across commands:
 
 ```bash
 # ❌ AVOID: Compound commands with semicolons
-export CARD_ID=$(generate-card-id.sh); journal-log-json.sh kanban card.created "$CARD_ID" --title "Task"
+export CARD_ID=$(kanban-create-card-id.sh); journal-log-json.sh kanban card.created "$CARD_ID" --title "Task"
 
 # ✅ GOOD: Direct command substitution
-journal-log-json.sh kanban card.created "$(generate-card-id.sh)" --title "Task"
+journal-log-json.sh kanban card.created "$(kanban-create-card-id.sh)" --title "Task"
 
 # ✅ GOOD: Separate Bash tool calls when variable is needed later
 # First call:
-export CARD_ID=$(generate-card-id.sh)
+export CARD_ID=$(kanban-create-card-id.sh)
 # Second call:
 journal-log-json.sh kanban card.created "$CARD_ID" --title "Task"
 ```

@@ -325,4 +325,3 @@ if [ ${#all_allow_perms[@]} -gt 0 ]; then
 fi
 
 log "Claude Code autonomous development system setup completed successfully!"
-

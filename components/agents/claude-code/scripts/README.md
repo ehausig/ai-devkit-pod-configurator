@@ -32,20 +32,33 @@ journal-log.sh WORK_PROGRESS "developer" "Implemented user authentication"
 - `DECISION` - Technical decision made
 - `TEST_RESULT` - Test execution results
 
-### `generate-card-id.sh`
+### `kanban-create-card-id.sh`
 Generates sequential three-digit IDs for Kanban cards.
 
 **Usage:**
 ```bash
-CARD_ID=$(generate-card-id.sh)
-echo "Created card: CARD-$CARD_ID"
+CARD_ID=$(kanban-create-card-id.sh)
+echo "Created card: $CARD_ID"
 ```
 
 **Features:**
-- Sequential numbering (001, 002, 003...)
-- Persistent counter in `/tmp/ai-devkit-card-counter`
+- Sequential numbering (CARD-001, CARD-002, CARD-003...)
+- Persistent counter in `/home/devuser/.claude/data/kanban-last-card-id`
 - Thread-safe for concurrent use
-- Always returns 3-digit formatted ID
+- Always returns formatted ID with CARD- prefix
+
+### `kanban-reset-card-id.sh`
+Resets the Kanban card ID counter to zero.
+
+**Usage:**
+```bash
+kanban-reset-card-id.sh
+```
+
+**Features:**
+- Resets counter to 0 for new projects
+- Creates data directory if it doesn't exist
+- Used during project initialization
 
 ## How Scripts Work
 
@@ -123,7 +136,7 @@ bash -x script.sh arguments
 grep "script-name" ~/workspace/JOURNAL.md
 
 # Verify counter state
-cat /tmp/ai-devkit-card-counter
+cat /home/devuser/.claude/data/kanban-last-card-id
 ```
 
 See the main [Claude Code README](../README.md) for more details on the autonomous development system.
