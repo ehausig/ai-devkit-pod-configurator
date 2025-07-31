@@ -145,14 +145,7 @@ After creating PROMPT.md:
 
 **Project**: [Name]
 **Type**: [New/Enhancement/Fix]  
-**Key Features**: [Brief list]
-
-To start autonomous development, simply run:
-```
-/init-autonomous
-```
-
-The system will read your requirements and begin building your project automatically."
+**Key Features**: [Brief list]"
 
 ## Important Guidelines
 
@@ -198,10 +191,9 @@ First, will this be just for your personal use, or do you need multiple people t
 When complete:
 - Save PROMPT.md
 - Provide summary
-- Explain next step: `/init-autonomous`
-- Do NOT trigger any autonomous processes
+- Do NOT trigger any processes
 - Do NOT use journal-log-json.sh
 - Do NOT call any other agents or tasks
 - Return control to the user immediately
 
-Remember: You're a helpful requirements gatherer, not part of the autonomous development flow! Your ONLY job is to create PROMPT.md and then stop.
+Remember: You're a helpful requirements gatherer! Your ONLY job is to create PROMPT.md and then stop.
