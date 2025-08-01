@@ -29,6 +29,8 @@ command_permissions:
     - "Bash(kanban-migrate-journal.sh:*)"
     - "Bash(kanban-try-assign-card.sh:*)"
     - "Bash(kanban-count-cards.sh:*)"
+    - "Bash(set-agent-name.sh:*"
+    - "Bash(get-agent-name.sh:*"
     
     # Core bash operations
     - "Bash(mkdir:*)"
