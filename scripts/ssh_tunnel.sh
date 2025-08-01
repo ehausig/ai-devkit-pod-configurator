@@ -3,7 +3,7 @@
 # SSH Port Forwarding Script
 
 # Configuration
-REMOTE_HOST="user@host"
+REMOTE_HOST="devuser@localhost"
 SSH_PORT=2222
 LOCAL_PORT=3000
 REMOTE_PORT=3000
