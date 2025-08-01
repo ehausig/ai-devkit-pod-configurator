@@ -1,0 +1,385 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #1a1a1a;
+    color: #e0e0e0;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.container {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Header */
+header {
+    background-color: #2d2d2d;
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #404040;
+}
+
+h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #ffffff;
+}
+
+.status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.status-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    transition: background-color 0.3s;
+}
+
+.status-indicator.connected {
+    background-color: #4ade80;
+}
+
+.status-indicator.disconnected {
+    background-color: #ef4444;
+}
+
+/* Metrics Bar */
+.metrics-bar {
+    background-color: #242424;
+    padding: 1rem 2rem;
+    display: flex;
+    gap: 2rem;
+    border-bottom: 1px solid #404040;
+}
+
+.metric {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.metric-label {
+    font-size: 0.75rem;
+    color: #9ca3af;
+    text-transform: uppercase;
+}
+
+.metric-value {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #60a5fa;
+}
+
+/* Kanban Board */
+.kanban-board {
+    flex: 1;
+    display: flex;
+    gap: 1rem;
+    padding: 1rem;
+    overflow-x: auto;
+    background-color: #1a1a1a;
+}
+
+.kanban-column {
+    min-width: 280px;
+    background-color: #242424;
+    border-radius: 8px;
+    border: 1px solid #404040;
+    display: flex;
+    flex-direction: column;
+}
+
+.column-header {
+    padding: 1rem;
+    border-bottom: 1px solid #404040;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.column-header h3 {
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #9ca3af;
+}
+
+.card-count {
+    background-color: #374151;
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    color: #d1d5db;
+}
+
+.column-cards {
+    flex: 1;
+    padding: 0.5rem;
+    overflow-y: auto;
+    max-height: calc(100vh - 400px);
+}
+
+/* Cards */
+.kanban-card {
+    background-color: #2d2d2d;
+    border: 1px solid #404040;
+    border-radius: 6px;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.kanban-card:hover {
+    border-color: #60a5fa;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.kanban-card.blocked {
+    border-color: #ef4444;
+    background-color: #3f2929;
+}
+
+.card-id {
+    font-size: 0.75rem;
+    color: #60a5fa;
+    font-weight: 600;
+}
+
+.card-title {
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+    color: #e5e7eb;
+}
+
+.card-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    color: #9ca3af;
+}
+
+.card-assigned {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.card-dependencies {
+    color: #fbbf24;
+}
+
+/* Bottom Panels */
+.bottom-panels {
+    display: flex;
+    height: 200px;
+    border-top: 1px solid #404040;
+}
+
+.panel {
+    flex: 1;
+    background-color: #242424;
+    padding: 1rem;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.panel:first-child {
+    border-right: 1px solid #404040;
+}
+
+.panel h3 {
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #9ca3af;
+    margin-bottom: 0.75rem;
+}
+
+.event-list, .agent-list {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.event-item {
+    padding: 0.5rem;
+    border-bottom: 1px solid #333;
+    font-size: 0.75rem;
+}
+
+.event-time {
+    color: #6b7280;
+    margin-right: 0.5rem;
+}
+
+.event-type {
+    color: #60a5fa;
+    margin-right: 0.5rem;
+}
+
+.event-details {
+    color: #d1d5db;
+}
+
+.agent-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    border-bottom: 1px solid #333;
+}
+
+.agent-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.agent-status-dot.active {
+    background-color: #4ade80;
+}
+
+.agent-status-dot.idle {
+    background-color: #6b7280;
+}
+
+.agent-name {
+    font-size: 0.875rem;
+    color: #e5e7eb;
+}
+
+.agent-card {
+    font-size: 0.75rem;
+    color: #9ca3af;
+}
+
+/* Modal */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+}
+
+.modal-content {
+    background-color: #2d2d2d;
+    margin: 5% auto;
+    padding: 2rem;
+    border: 1px solid #404040;
+    border-radius: 8px;
+    width: 80%;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.close {
+    color: #9ca3af;
+    float: right;
+    font-size: 1.5rem;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close:hover {
+    color: #e5e7eb;
+}
+
+.modal h2 {
+    color: #60a5fa;
+    margin-bottom: 0.5rem;
+}
+
+.modal h3 {
+    color: #e5e7eb;
+    margin-bottom: 1rem;
+}
+
+.modal-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.modal-details div {
+    color: #d1d5db;
+}
+
+.modal-details strong {
+    color: #9ca3af;
+    margin-right: 0.5rem;
+}
+
+.state-history {
+    border-top: 1px solid #404040;
+    padding-top: 1rem;
+}
+
+.state-history h4 {
+    color: #9ca3af;
+    margin-bottom: 0.75rem;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+}
+
+.history-item {
+    padding: 0.5rem;
+    border-left: 2px solid #404040;
+    margin-left: 0.5rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+}
+
+.history-time {
+    color: #6b7280;
+    font-size: 0.75rem;
+}
+
+.history-state {
+    color: #60a5fa;
+    font-weight: 600;
+}
+
+.history-actor {
+    color: #9ca3af;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #1a1a1a;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #404040;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #525252;
+}
