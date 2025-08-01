@@ -16,6 +16,12 @@ const stateBuilder = new StateBuilder();
 const metricsCalculator = new MetricsCalculator();
 const journalReader = new JournalReader(journalPath);
 
+// Track current status
+let currentStatus = {
+  type: 'initializing',
+  message: 'Starting up...'
+};
+
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -23,7 +29,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('/api/state', (req, res) => {
   res.json({
     cards: stateBuilder.getCurrentState(),
-    metrics: metricsCalculator.getMetrics(stateBuilder.getCurrentState(), stateBuilder.getEvents())
+    metrics: metricsCalculator.getMetrics(stateBuilder.getCurrentState(), stateBuilder.getEvents()),
+    status: currentStatus
   });
 });
 
@@ -37,6 +44,10 @@ app.get('/api/agents', (req, res) => {
   res.json(stateBuilder.getActiveAgents());
 });
 
+app.get('/api/status', (req, res) => {
+  res.json(currentStatus);
+});
+
 // WebSocket connection handling
 wss.on('connection', (ws) => {
   console.log('New WebSocket connection established');
@@ -48,7 +59,8 @@ wss.on('connection', (ws) => {
       cards: stateBuilder.getCurrentState(),
       metrics: metricsCalculator.getMetrics(stateBuilder.getCurrentState(), stateBuilder.getEvents()),
       agents: stateBuilder.getActiveAgents(),
-      recentEvents: stateBuilder.getEvents().slice(-20)
+      recentEvents: stateBuilder.getEvents().slice(-20),
+      status: currentStatus
     }
   }));
   
@@ -66,6 +78,13 @@ function broadcastUpdate(type, data) {
     }
   });
 }
+
+// Handle journal reader status updates
+journalReader.on('status', (status) => {
+  console.log('Journal reader status:', status);
+  currentStatus = status;
+  broadcastUpdate('status', status);
+});
 
 // Process journal events
 journalReader.on('event', (event) => {
@@ -88,6 +107,12 @@ journalReader.on('event', (event) => {
 
 journalReader.on('error', (error) => {
   console.error('Journal reader error:', error);
+  currentStatus = {
+    type: 'error',
+    message: 'Error reading journal file',
+    details: error.message
+  };
+  broadcastUpdate('status', currentStatus);
 });
 
 // Start the journal reader

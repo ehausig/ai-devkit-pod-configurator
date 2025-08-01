@@ -14,9 +14,20 @@ get_timestamp() {
     date -u +"%Y-%m-%dT%H:%M:%S+00:00"
 }
 
-# Function to detect actor (agent name or system) - NO MANUAL ACTOR SETTING NEEDED
-detect_actor() {
-    # Priority order for actor detection:
+# Function to detect agent (agent name or system)
+detect_agent() {
+    # First check if set via set-agent-name.sh
+    DATA_DIR="/home/devuser/.claude/data"
+    AGENT_FILE="$DATA_DIR/current-agent-name"
+    if [ -f "$AGENT_FILE" ] && [ -r "$AGENT_FILE" ]; then
+        STORED_AGENT=$(cat "$AGENT_FILE" 2>/dev/null)
+        if [ -n "$STORED_AGENT" ]; then
+            echo "$STORED_AGENT"
+            return
+        fi
+    fi
+    
+    # Priority order for agent detection:
     
     # 1. Check if we're in a Claude Code subagent context
     # Claude sets specific environment variables when running subagents
@@ -99,8 +110,8 @@ detect_actor() {
         depth=$((depth + 1))
     done
     
-    # 6. Default to PM for main thread
-    echo "PM"
+    # 6. Default to product-manager for main thread
+    echo "product-manager"
 }
 
 # Function to escape JSON strings
@@ -149,7 +160,7 @@ done
 
 # Build JSON event
 TIMESTAMP=$(get_timestamp)
-ACTOR=$(detect_actor)
+AGENT=$(detect_agent)
 FULL_EVENT_TYPE="${CATEGORY}.${EVENT_TYPE}"
 
 # Handle backward compatibility for old kanban event types
@@ -253,8 +264,8 @@ if [ "$FULL_EVENT_TYPE" = "kanban.card.state_changed" ] && [ -z "${DATA[previous
     fi
 fi
 
-# Start building JSON
-JSON="{\"timestamp\":\"$TIMESTAMP\",\"event_type\":\"$FULL_EVENT_TYPE\",\"actor\":\"$ACTOR\""
+# Start building JSON - NOTE: Using "agent" instead of "actor" now
+JSON="{\"timestamp\":\"$TIMESTAMP\",\"event_type\":\"$FULL_EVENT_TYPE\",\"agent\":\"$AGENT\""
 
 # Add primary ID fields based on category
 case "$CATEGORY" in

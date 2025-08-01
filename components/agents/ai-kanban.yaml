@@ -44,8 +44,14 @@ entrypoint_setup: |
   # Move files from temp to final location
   cp /tmp/ai-kanban-package.json /opt/ai-kanban/package.json
   cp /tmp/ai-kanban-server.js /opt/ai-kanban/server.js
-  cp -r /tmp/ai-kanban-lib /opt/ai-kanban/
-  cp -r /tmp/ai-kanban-public /opt/ai-kanban/
+  
+  # Create target directories
+  mkdir -p /opt/ai-kanban/lib
+  mkdir -p /opt/ai-kanban/public
+  
+  # Copy directory contents (not the directories themselves)
+  cp -r /tmp/ai-kanban-lib/* /opt/ai-kanban/lib/
+  cp -r /tmp/ai-kanban-public/* /opt/ai-kanban/public/
   
   # Clean up temp files
   rm -rf /tmp/ai-kanban-*
@@ -54,10 +60,17 @@ entrypoint_setup: |
   cd /opt/ai-kanban
   npm install --production --no-fund --no-audit
   
+  # Create user-writable directory for logs and PID file
+  mkdir -p /home/devuser/.ai-kanban
+  chown -R devuser:devuser /home/devuser/.ai-kanban
+  
   # Create start script
   cat > /usr/local/bin/ai-kanban-start.sh << 'EOF'
   #!/bin/bash
   # Start AI Kanban Dashboard
+  
+  # Ensure log directory exists
+  mkdir -p /home/devuser/.ai-kanban
   
   # Check if already running
   if lsof -Pi :3000 -sTCP:LISTEN -t >/dev/null ; then
@@ -67,8 +80,8 @@ entrypoint_setup: |
   
   echo "Starting AI Kanban Dashboard..."
   cd /opt/ai-kanban
-  nohup node server.js > /var/log/ai-kanban.log 2>&1 &
-  echo $! > /var/run/ai-kanban.pid
+  nohup node server.js > /home/devuser/.ai-kanban/ai-kanban.log 2>&1 &
+  echo $! > /home/devuser/.ai-kanban/ai-kanban.pid
   
   # Wait a moment for startup
   sleep 2
@@ -76,10 +89,10 @@ entrypoint_setup: |
   if lsof -Pi :3000 -sTCP:LISTEN -t >/dev/null ; then
       echo "AI Kanban Dashboard started successfully!"
       echo "Access at: http://localhost:3000"
-      echo "Logs at: /var/log/ai-kanban.log"
+      echo "Logs at: /home/devuser/.ai-kanban/ai-kanban.log"
   else
       echo "Failed to start AI Kanban Dashboard"
-      echo "Check logs at: /var/log/ai-kanban.log"
+      echo "Check logs at: /home/devuser/.ai-kanban/ai-kanban.log"
       exit 1
   fi
   EOF
@@ -90,16 +103,16 @@ entrypoint_setup: |
   #!/bin/bash
   # Stop AI Kanban Dashboard
   
-  if [ -f /var/run/ai-kanban.pid ]; then
-      PID=$(cat /var/run/ai-kanban.pid)
+  if [ -f /home/devuser/.ai-kanban/ai-kanban.pid ]; then
+      PID=$(cat /home/devuser/.ai-kanban/ai-kanban.pid)
       if kill -0 $PID 2>/dev/null; then
           echo "Stopping AI Kanban Dashboard (PID: $PID)..."
           kill $PID
-          rm -f /var/run/ai-kanban.pid
+          rm -f /home/devuser/.ai-kanban/ai-kanban.pid
           echo "AI Kanban Dashboard stopped"
       else
           echo "AI Kanban Dashboard not running (stale PID file)"
-          rm -f /var/run/ai-kanban.pid
+          rm -f /home/devuser/.ai-kanban/ai-kanban.pid
       fi
   else
       # Try to find by port
@@ -124,6 +137,7 @@ entrypoint_setup: |
       PID=$(lsof -ti:3000)
       echo "AI Kanban Dashboard is running (PID: $PID)"
       echo "Access at: http://localhost:3000"
+      echo "Logs at: /home/devuser/.ai-kanban/ai-kanban.log"
   else
       echo "AI Kanban Dashboard is not running"
       echo "Start with: ai-kanban-start.sh"

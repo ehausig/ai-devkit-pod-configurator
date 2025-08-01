@@ -9,6 +9,8 @@ class JournalReader extends EventEmitter {
     this.filePath = filePath;
     this.tail = null;
     this.isRunning = false;
+    this.fileCheckInterval = null;
+    this.fileExists = false;
   }
 
   start() {
@@ -20,6 +22,22 @@ class JournalReader extends EventEmitter {
     console.log(`Starting journal reader for: ${this.filePath}`);
     this.isRunning = true;
 
+    // Check if file exists
+    if (!fs.existsSync(this.filePath)) {
+      console.log('Journal file does not exist yet, will check periodically...');
+      this.emit('status', { 
+        type: 'waiting', 
+        message: 'Waiting for JOURNAL.md to be created...',
+        details: 'The autonomous development system will create this file when you start a project.'
+      });
+      this.startFileWatcher();
+      return;
+    }
+
+    // File exists, proceed with reading
+    this.fileExists = true;
+    this.emit('status', { type: 'connected', message: 'Connected to JOURNAL.md' });
+    
     // First, read existing content
     this.readExistingContent().then(() => {
       // Then start tailing for new events
@@ -28,6 +46,31 @@ class JournalReader extends EventEmitter {
       console.error('Error reading existing journal:', err);
       this.emit('error', err);
     });
+  }
+
+  startFileWatcher() {
+    // Check every 5 seconds if the file has been created
+    this.fileCheckInterval = setInterval(() => {
+      if (fs.existsSync(this.filePath)) {
+        console.log('Journal file detected! Starting to read...');
+        clearInterval(this.fileCheckInterval);
+        this.fileCheckInterval = null;
+        this.fileExists = true;
+        
+        this.emit('status', { 
+          type: 'connected', 
+          message: 'JOURNAL.md found! Loading events...' 
+        });
+        
+        // Start reading the file
+        this.readExistingContent().then(() => {
+          this.startTailing();
+        }).catch(err => {
+          console.error('Error reading journal:', err);
+          this.emit('error', err);
+        });
+      }
+    }, 5000); // Check every 5 seconds
   }
 
   async readExistingContent() {
@@ -61,10 +104,13 @@ class JournalReader extends EventEmitter {
 
   startTailing() {
     try {
+      // Use fromBeginning: false and useWatchFile for better compatibility
       this.tail = new Tail(this.filePath, {
         fromBeginning: false,
         follow: true,
-        logger: console
+        logger: console,
+        useWatchFile: true,  // Better for files that might not exist initially
+        flushAtEOF: true     // Ensure we get all content
       });
 
       this.tail.on('line', (line) => {
@@ -73,13 +119,26 @@ class JournalReader extends EventEmitter {
 
       this.tail.on('error', (error) => {
         console.error('Tail error:', error);
-        this.emit('error', error);
+        // Don't emit error for ENOENT as we handle this case
+        if (error.code !== 'ENOENT') {
+          this.emit('error', error);
+        }
       });
 
       console.log('Started tailing journal file');
     } catch (error) {
       console.error('Error starting tail:', error);
-      this.emit('error', error);
+      if (error.code === 'ENOENT') {
+        // File was deleted after we started, go back to watching
+        this.fileExists = false;
+        this.emit('status', { 
+          type: 'waiting', 
+          message: 'JOURNAL.md was removed, waiting for it to be recreated...' 
+        });
+        this.startFileWatcher();
+      } else {
+        this.emit('error', error);
+      }
     }
   }
 
@@ -102,6 +161,12 @@ class JournalReader extends EventEmitter {
       this.tail.unwatch();
       this.tail = null;
     }
+    
+    if (this.fileCheckInterval) {
+      clearInterval(this.fileCheckInterval);
+      this.fileCheckInterval = null;
+    }
+    
     this.isRunning = false;
     console.log('Journal reader stopped');
   }

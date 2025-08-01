@@ -16,34 +16,8 @@ CARD_ID="$1"
 NEW_STATE="$2"
 TARGET_STATE="${3:-}"  # Optional: expected current state
 
-# Detect who's trying to assign
-detect_actor() {
-    # Same logic as journal-log-json.sh
-    if [ -n "$CLAUDE_AGENT_NAME" ]; then
-        echo "$CLAUDE_AGENT_NAME"
-        return
-    fi
-    
-    local parent_cmd=$(ps -o args= -p $PPID 2>/dev/null | head -n1 || true)
-    case "$parent_cmd" in
-        *"platform-engineer"*) echo "platform-engineer"; return ;;
-        *"feature-developer"*) echo "feature-developer"; return ;;
-        *"qa-engineer"*) echo "qa-engineer"; return ;;
-        *"api-designer"*) echo "api-designer"; return ;;
-        *"database-engineer"*) echo "database-engineer"; return ;;
-        *"security-specialist"*) echo "security-specialist"; return ;;
-        *"performance-engineer"*) echo "performance-engineer"; return ;;
-        *"algorithm-developer"*) echo "algorithm-developer"; return ;;
-        *"integration-specialist"*) echo "integration-specialist"; return ;;
-        *"solution-architect"*) echo "solution-architect"; return ;;
-        *"cloud-architect"*) echo "cloud-architect"; return ;;
-        *"data-architect"*) echo "data-architect"; return ;;
-    esac
-    
-    echo "PM"
-}
-
-AGENT=$(detect_actor)
+# Get the current agent using the getter script
+AGENT=$(get-agent-name.sh)  # Will return "product-manager" by default
 
 # Get current card state atomically
 CURRENT_STATE=$(kanban-state.sh --card "$CARD_ID" --format json 2>/dev/null | jq -r '.[0] | {state: .state, assigned_to: .assigned_to, blocked: .blocked}')

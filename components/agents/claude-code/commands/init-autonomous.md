@@ -15,7 +15,8 @@ When invoked, I will:
    - If not found, instruct user to create it
    - Read the contents as project requirements
 
-2. **Initialize the Kanban system**:
+2. **Clean up any previous state**:
+   - Remove agent name file if it exists
    - Reset card counter to 0
    - Create JOURNAL.md if it doesn't exist
 
@@ -75,6 +76,9 @@ Then run /init-autonomous again.
 ## Initialization Steps
 
 ```bash
+# Clean up any existing agent name file
+rm -f /home/devuser/.claude/data/current-agent-name
+
 # Reset card counter
 kanban-reset-card-id.sh
 
@@ -156,5 +160,6 @@ After initialization, follow this pattern:
 - Dependency management built-in
 - Full visibility into progress
 - JSON-based event sourcing for better observability
+- Clean state management - no leftover agent names between runs
 
 The system uses explicit orchestration with the Product Manager (you) facilitating work flow rather than directing it.

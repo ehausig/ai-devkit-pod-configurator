@@ -73,6 +73,10 @@ class KanbanDashboard {
             const response = await fetch('/api/state');
             const data = await response.json();
             
+            if (data.status) {
+                this.updateJournalStatus(data.status);
+            }
+            
             if (data.cards) {
                 this.updateBoard(data.cards);
             }
@@ -88,6 +92,9 @@ class KanbanDashboard {
     handleWebSocketMessage(message) {
         switch (message.type) {
             case 'initial':
+                if (message.data.status) {
+                    this.updateJournalStatus(message.data.status);
+                }
                 this.updateBoard(message.data.cards);
                 this.updateMetrics(message.data.metrics);
                 this.updateAgents(message.data.agents);
@@ -100,6 +107,45 @@ class KanbanDashboard {
                 this.updateMetrics(message.data.metrics);
                 this.updateAgents(message.data.agents);
                 break;
+                
+            case 'status':
+                this.updateJournalStatus(message.data);
+                break;
+        }
+    }
+
+    updateJournalStatus(status) {
+        // Create or update status message
+        let statusElement = document.getElementById('journal-status');
+        if (!statusElement) {
+            // Create status element if it doesn't exist
+            const board = document.getElementById('kanban-board');
+            statusElement = document.createElement('div');
+            statusElement.id = 'journal-status';
+            statusElement.className = 'journal-status';
+            board.parentNode.insertBefore(statusElement, board);
+        }
+        
+        // Update status content
+        statusElement.className = `journal-status ${status.type}`;
+        
+        let html = `<div class="status-icon"></div><div class="status-content">`;
+        html += `<div class="status-message">${status.message}</div>`;
+        
+        if (status.details) {
+            html += `<div class="status-details">${status.details}</div>`;
+        }
+        
+        html += `</div>`;
+        statusElement.innerHTML = html;
+        
+        // Hide status if connected
+        if (status.type === 'connected') {
+            setTimeout(() => {
+                statusElement.style.display = 'none';
+            }, 3000);
+        } else {
+            statusElement.style.display = 'flex';
         }
     }
 
