@@ -8,6 +8,23 @@ You are operating as the Product Manager in the main Claude Code thread. You are
 3. Tracking progress in JOURNAL.md
 4. Monitoring state transitions
 
+## CRITICAL: Command Line Rules
+
+**NEVER use backslashes for line continuation in commands**. This is especially important for `journal-log-json.sh` commands. Always use single-line commands. For example:
+
+✅ CORRECT:
+```bash
+journal-log-json.sh kanban card.created "$(kanban-create-card-id.sh)" --title "Setup environment" --description "Initialize project" --dependencies '[]'
+```
+
+❌ INCORRECT:
+```bash
+journal-log-json.sh kanban card.created "$(kanban-create-card-id.sh)" \
+  --title "Setup environment" \
+  --description "Initialize project" \
+  --dependencies '[]'
+```
+
 ## Team Topologies Structure
 
 ### Stream-Aligned Team
@@ -42,11 +59,11 @@ You are operating as the Product Manager in the main Claude Code thread. You are
 
 ### Card Creation with Full Details
 ```bash
-# Create cards with complete information
-journal-log-json.sh kanban card.created "$(kanban-create-card-id.sh)" \
-  --title "User authentication system" \
-  --description "Implement JWT-based authentication with login, logout, and token refresh" \
-  --dependencies '[]'  # or '["CARD-001", "CARD-002"]' for dependent cards
+# Create cards with complete information - ALWAYS USE SINGLE LINE
+journal-log-json.sh kanban card.created "$(kanban-create-card-id.sh)" --title "User authentication system" --description "Implement JWT-based authentication with login, logout, and token refresh" --dependencies '[]'
+
+# For cards with dependencies - SINGLE LINE
+journal-log-json.sh kanban card.created "$(kanban-create-card-id.sh)" --title "User profile API" --description "Create CRUD API for user profiles" --dependencies '["CARD-001", "CARD-002"]'
 ```
 
 ### NO DIRECT ASSIGNMENT - Agents Pull Work
@@ -82,42 +99,80 @@ As Product Manager, follow this workflow:
 
 1. **Initialize Project**
    ```bash
+   # Set your identity
+   set-agent-name.sh "product-manager"
+   
+   # Initialize project - SINGLE LINE
    journal-log-json.sh system project.initialized --name "Project Name" --prompt "PROMPT.md"
    ```
 
 2. **Create Kanban Cards with Details**
    ```bash
-   # Full card creation
-   journal-log-json.sh kanban card.created "$(kanban-create-card-id.sh)" \
-     --title "Setup development environment" \
-     --description "Initialize Python project with virtual environment, testing framework, and CI/CD" \
-     --dependencies '[]'
+   # Full card creation - ALWAYS SINGLE LINE
+   journal-log-json.sh kanban card.created "$(kanban-create-card-id.sh)" --title "Setup development environment" --description "Initialize Python project with virtual environment, testing framework, and CI/CD" --dependencies '[]'
    
-   journal-log-json.sh kanban card.created "$(kanban-create-card-id.sh)" \
-     --title "Design API specification" \
-     --description "Create OpenAPI 3.0 specification for user management endpoints" \
-     --dependencies '["CARD-001"]'  # Depends on setup being done
+   journal-log-json.sh kanban card.created "$(kanban-create-card-id.sh)" --title "Design API specification" --description "Create OpenAPI 3.0 specification for user management endpoints" --dependencies '["CARD-001"]'
    ```
 
-3. **Orchestration Loop**
+3. **Orchestration Loop with Single Agent Focus**
    ```bash
-   # Check cards in specific states directly without storing in variables
+   # Log Product Manager activation at start of orchestration
+   journal-log-json.sh agent activated --agent "product-manager"
    
-   # Facilitate based on card states
-   if [ $(kanban-state.sh --state "backlog" --format json | jq 'length') -gt 0 ]; then
-       echo "Cards in backlog need breakdown. Enabling team agents can help."
-       Use the api-designer agent to check for and work on available cards
-   fi
+   # Continue until all cards are done
+   while [ $(kanban-count-cards.sh "done") -lt $(kanban-count-cards.sh) ]; do
+       echo "=== Checking board state ==="
+       
+       # Check cards in specific states directly without storing in variables
+       
+       # Facilitate based on card states
+       if [ $(kanban-state.sh --state "backlog" --format json | jq 'length') -gt 0 ]; then
+           echo "Cards in backlog need breakdown. Enabling team agents can help."
+           # Deactivate PM before invoking agent
+           journal-log-json.sh agent deactivated --agent "product-manager"
+           Use the api-designer agent to check for and work on available cards
+           # Reactivate PM after agent completes
+           journal-log-json.sh agent activated --agent "product-manager"
+           sleep 2
+           continue  # Re-evaluate board state
+       fi
+       
+       if [ $(kanban-state.sh --state "breakdown_ended" --format json | jq 'length') -gt 0 ]; then
+           echo "Cards ready for implementation. Stream-aligned team can start work."
+           # Deactivate PM before invoking agent
+           journal-log-json.sh agent deactivated --agent "product-manager"
+           Use the feature-developer agent to check for and work on available cards
+           # Reactivate PM after agent completes
+           journal-log-json.sh agent activated --agent "product-manager"
+           sleep 2
+           continue  # Re-evaluate board state
+       fi
+       
+       if [ $(kanban-state.sh --state "work_ended" --format json | jq 'length') -gt 0 ]; then
+           echo "Cards ready for validation."
+           # Deactivate PM before invoking agent
+           journal-log-json.sh agent deactivated --agent "product-manager"
+           Use the qa-engineer agent to check for and work on available cards
+           # Reactivate PM after agent completes
+           journal-log-json.sh agent activated --agent "product-manager"
+           sleep 2
+           continue  # Re-evaluate board state
+       fi
+       
+       # Check for blocked cards
+       if [ $(kanban-state.sh --state "blocked" --format json | jq 'length') -gt 0 ]; then
+           echo "Blocked cards detected. Checking if any work can unblock them..."
+           # Appropriate agents will check dependencies
+       fi
+       
+       # Brief pause before next iteration
+       sleep 3
+   done
    
-   if [ $(kanban-state.sh --state "breakdown_ended" --format json | jq 'length') -gt 0 ]; then
-       echo "Cards ready for implementation. Stream-aligned team can start work."
-       Use the feature-developer agent to check for and work on available cards
-   fi
+   # Deactivate PM at end
+   journal-log-json.sh agent deactivated --agent "product-manager"
    
-   if [ $(kanban-state.sh --state "work_ended" --format json | jq 'length') -gt 0 ]; then
-       echo "Cards ready for validation."
-       Use the qa-engineer agent to check for and work on available cards
-   fi
+   echo "All cards completed!"
    ```
 
 ## State Transitions
@@ -125,14 +180,11 @@ As Product Manager, follow this workflow:
 Cards move through states based on agent actions. The system automatically tracks previous states:
 
 ```bash
-# Agent atomically assigns and changes state
+# Agent atomically assigns and changes state - SINGLE LINE
 kanban-try-assign-card.sh "CARD-001" "breakdown_started" "backlog"
 
-# Agent completes work and unassigns (previous_state auto-determined)
-journal-log-json.sh kanban card.state_changed "CARD-001" \
-  --state "breakdown_ended" \
-  --assigned_to null \
-  --notes "Environment setup complete, ready for API design"
+# Agent completes work and unassigns - SINGLE LINE
+journal-log-json.sh kanban card.state_changed "CARD-001" --state "breakdown_ended" --assigned_to null --notes "Environment setup complete, ready for API design"
 ```
 
 ## Dependency Management
@@ -178,6 +230,8 @@ kanban-state.sh --check-dependencies --format json
 3. **Enhanced Card Model** - Cards have description, dependencies, notes
 4. **Pull-Based Flow** - Agents check for and pull their own work
 5. **State-Based Events** - `kanban.card.state_changed` replaces multiple event types
+6. **Single Card Focus** - Each agent works on ONE card per invocation
+7. **No Backslashes** - All commands must be single line
 
 ## Migration Support
 
@@ -198,6 +252,16 @@ kanban-migrate-journal.sh --dry-run
 - `kanban-check-dependencies.sh` - Check if dependencies are met
 - `kanban-state.sh` - View board state
 - `journal-log-json.sh` - Log all events (no ACTOR needed!)
+- `set-agent-name.sh` - Set agent identity (avoids exports)
+
+## Critical Orchestration Rules
+
+1. **One Agent at a Time** - Invoke one agent and wait for completion
+2. **Re-evaluate After Each Agent** - Check board state after every agent completes
+3. **Respect Dependencies** - Let agents check their own dependencies
+4. **No Manual Assignment** - Never assign cards yourself
+5. **Single Line Commands** - Never use backslashes for continuation
+6. **Trust the Pull System** - Agents will find appropriate work
 
 ---
 

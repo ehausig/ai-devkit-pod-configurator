@@ -2,6 +2,7 @@ class KanbanDashboard {
     constructor() {
         this.ws = null;
         this.cards = new Map();
+        this.agents = new Map(); // Track all agents that have participated
         this.reconnectInterval = null;
         this.init();
     }
@@ -29,8 +30,13 @@ class KanbanDashboard {
         };
 
         this.ws.onmessage = (event) => {
-            const message = JSON.parse(event.data);
-            this.handleWebSocketMessage(message);
+            try {
+                const message = JSON.parse(event.data);
+                this.handleWebSocketMessage(message);
+            } catch (error) {
+                console.error('Error parsing WebSocket message:', error);
+                console.error('Raw message:', event.data);
+            }
         };
 
         this.ws.onclose = () => {
@@ -90,27 +96,32 @@ class KanbanDashboard {
     }
 
     handleWebSocketMessage(message) {
-        switch (message.type) {
-            case 'initial':
-                if (message.data.status) {
-                    this.updateJournalStatus(message.data.status);
-                }
-                this.updateBoard(message.data.cards);
-                this.updateMetrics(message.data.metrics);
-                this.updateAgents(message.data.agents);
-                this.updateEventLog(message.data.recentEvents);
-                break;
-                
-            case 'event':
-                this.addEvent(message.data.event);
-                this.updateBoard(message.data.cards);
-                this.updateMetrics(message.data.metrics);
-                this.updateAgents(message.data.agents);
-                break;
-                
-            case 'status':
-                this.updateJournalStatus(message.data);
-                break;
+        try {
+            switch (message.type) {
+                case 'initial':
+                    if (message.data.status) {
+                        this.updateJournalStatus(message.data.status);
+                    }
+                    this.updateBoard(message.data.cards);
+                    this.updateMetrics(message.data.metrics);
+                    this.updateAgents(message.data.agents);
+                    this.updateEventLog(message.data.recentEvents);
+                    break;
+                    
+                case 'event':
+                    this.addEvent(message.data.event);
+                    this.updateBoard(message.data.cards);
+                    this.updateMetrics(message.data.metrics);
+                    this.updateAgents(message.data.agents);
+                    break;
+                    
+                case 'status':
+                    this.updateJournalStatus(message.data);
+                    break;
+            }
+        } catch (error) {
+            console.error('Error handling WebSocket message:', error);
+            console.error('Message data:', message);
         }
     }
 
@@ -160,11 +171,19 @@ class KanbanDashboard {
         // Add cards to appropriate columns
         cards.forEach(card => {
             this.cards.set(card.id, card);
-            const column = document.querySelector(`[data-state="${card.state}"] .column-cards`);
+            let targetColumn = null;
             
-            if (column) {
+            // Handle special states
+            if (card.blocked) {
+                // If card is blocked, keep it in its current column but with blocked styling
+                targetColumn = document.querySelector(`[data-state="${card.state}"] .column-cards`);
+            } else {
+                targetColumn = document.querySelector(`[data-state="${card.state}"] .column-cards`);
+            }
+            
+            if (targetColumn) {
                 const cardElement = this.createCardElement(card);
-                column.appendChild(cardElement);
+                targetColumn.appendChild(cardElement);
                 
                 // Update count
                 counts[card.state] = (counts[card.state] || 0) + 1;
@@ -182,19 +201,53 @@ class KanbanDashboard {
     createCardElement(card) {
         const div = document.createElement('div');
         div.className = 'kanban-card';
+        
+        // Add state-specific class for styling
+        if (card.state) {
+            div.classList.add(`state-${card.state}`);
+        }
+        
         if (card.blocked) {
             div.classList.add('blocked');
         }
         
-        div.innerHTML = `
+        // Create state band explicitly
+        const stateBand = document.createElement('div');
+        stateBand.className = 'card-state-band';
+        div.appendChild(stateBand);
+        
+        // Add state icon
+        const stateIcon = document.createElement('span');
+        stateIcon.className = 'card-state-icon';
+        
+        // Set icon based on state
+        if (card.blocked || card.state === 'blocked') {
+            stateIcon.textContent = '⚠️';
+        } else if (card.state && card.state.endsWith('_started')) {
+            stateIcon.textContent = '⏳';
+        } else if (card.state && card.state.endsWith('_ended')) {
+            stateIcon.textContent = '✓';
+        } else if (card.state === 'done') {
+            stateIcon.textContent = '✨';
+        }
+        
+        if (stateIcon.textContent) {
+            div.appendChild(stateIcon);
+        }
+        
+        // Create card content
+        const content = document.createElement('div');
+        content.className = 'card-content';
+        content.innerHTML = `
             <div class="card-id">${card.id}</div>
             <div class="card-title">${this.escapeHtml(card.title)}</div>
             <div class="card-meta">
                 <span class="card-assigned">${card.assigned_to ? '👤 ' + card.assigned_to : ''}</span>
-                <span class="card-dependencies">${card.dependencies.length > 0 ? '🔗 ' + card.dependencies.length : ''}</span>
+                <span class="card-dependencies">${card.dependencies && card.dependencies.length > 0 ? '🔗 ' + card.dependencies.length : ''}</span>
             </div>
         `;
         
+        div.appendChild(content);
         div.addEventListener('click', () => this.showCardDetails(card));
         
         return div;
@@ -222,11 +275,12 @@ class KanbanDashboard {
                 item.className = 'history-item';
                 
                 const time = new Date(history.timestamp).toLocaleTimeString();
+                const actor = history.actor || 'system';
                 item.innerHTML = `
                     <div class="history-time">${time}</div>
                     <div>
                         <span class="history-state">${history.state}</span>
-                        <span class="history-actor">by ${history.actor}</span>
+                        <span class="history-actor">by ${actor}</span>
                     </div>
                 `;
                 
@@ -258,6 +312,15 @@ class KanbanDashboard {
             const div = document.createElement('div');
             div.className = 'agent-item';
             
+            // Add agent to our tracking map if not already present
+            if (!this.agents.has(agent.agent)) {
+                this.agents.set(agent.agent, {
+                    name: agent.agent,
+                    lastSeen: new Date(),
+                    status: agent.status
+                });
+            }
+            
             div.innerHTML = `
                 <span class="agent-status-dot ${agent.status}"></span>
                 <span class="agent-name">${agent.agent}</span>
@@ -282,6 +345,32 @@ class KanbanDashboard {
     }
 
     addEvent(event) {
+        try {
+            // Track agent activity from events
+            if (event.event_type === 'agent.activated') {
+                this.handleAgentActivation(event);
+            } else if (event.event_type === 'agent.deactivated') {
+                this.handleAgentDeactivation(event);
+            }
+            
+            this.addEventToLog(event);
+            
+            // Keep only last 50 events
+            const eventList = document.getElementById('event-list');
+            while (eventList.children.length > 50) {
+                eventList.removeChild(eventList.lastChild);
+            }
+        } catch (error) {
+            console.error('Error adding event:', error);
+            console.error('Event data:', event);
+        }
+    } events
+        if (event.event_type === 'agent.activated') {
+            this.handleAgentActivation(event);
+        } else if (event.event_type === 'agent.deactivated') {
+            this.handleAgentDeactivation(event);
+        }
+        
         this.addEventToLog(event);
         
         // Keep only last 50 events
@@ -291,6 +380,68 @@ class KanbanDashboard {
         }
     }
 
+    handleAgentActivation(event) {
+        // Update agent status to active
+        if (!this.agents.has(event.agent)) {
+            this.agents.set(event.agent, {
+                name: event.agent,
+                lastSeen: new Date(event.timestamp),
+                status: 'active'
+            });
+        } else {
+            const agent = this.agents.get(event.agent);
+            agent.status = 'active';
+            agent.lastSeen = new Date(event.timestamp);
+        }
+        
+        // Set all other agents to idle
+        this.agents.forEach((agent, name) => {
+            if (name !== event.agent) {
+                agent.status = 'idle';
+            }
+        });
+        
+        // Update the agent display
+        this.refreshAgentDisplay();
+    }
+
+    handleAgentDeactivation(event) {
+        // Update agent status to idle
+        if (this.agents.has(event.agent)) {
+            const agent = this.agents.get(event.agent);
+            agent.status = 'idle';
+            agent.lastSeen = new Date(event.timestamp);
+        }
+        
+        // Update the agent display
+        this.refreshAgentDisplay();
+    }
+
+    refreshAgentDisplay() {
+        const agentList = document.getElementById('agent-list');
+        agentList.innerHTML = '';
+        
+        // Sort agents: active first, then by last seen
+        const sortedAgents = Array.from(this.agents.values()).sort((a, b) => {
+            if (a.status === 'active' && b.status !== 'active') return -1;
+            if (a.status !== 'active' && b.status === 'active') return 1;
+            return b.lastSeen - a.lastSeen;
+        });
+        
+        sortedAgents.forEach(agent => {
+            const div = document.createElement('div');
+            div.className = 'agent-item';
+            
+            div.innerHTML = `
+                <span class="agent-status-dot ${agent.status}"></span>
+                <span class="agent-name">${agent.name}</span>
+                <span class="agent-message"></span>
+            `;
+            
+            agentList.appendChild(div);
+        });
+    }
+
     addEventToLog(event) {
         const eventList = document.getElementById('event-list');
         const div = document.createElement('div');
@@ -298,7 +449,7 @@ class KanbanDashboard {
         
         const time = new Date(event.timestamp).toLocaleTimeString();
         const eventType = event.event_type.replace('kanban.', '').replace('agent.', '');
-        const details = event.card_id || event.actor || '';
+        const details = event.card_id || event.agent || '';
         
         div.innerHTML = `
             <span class="event-time">${time}</span>

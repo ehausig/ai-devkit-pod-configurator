@@ -27,19 +27,24 @@ Query and filter events from the autonomous development journal using the new JS
 
 ### Kanban Events (`kanban.*`)
 - `kanban.card.created` - New card created
-- `kanban.card.breakdown.started` - Breakdown phase started
-- `kanban.card.breakdown.ended` - Breakdown phase ended
-- `kanban.card.work.started` - Work started
-- `kanban.card.work.ended` - Work ended
-- `kanban.card.validation.started` - Validation started
-- `kanban.card.validation.ended` - Validation ended
-- `kanban.card.completed` - Card completed
+- `kanban.card.state_changed` - Card state changed (replaces old event types)
 - `kanban.card.blocked` - Card blocked
 - `kanban.card.unblocked` - Card unblocked
 - `kanban.card.assigned` - Card assigned
+- `kanban.card.completed` - Card completed (legacy)
+
+#### Legacy Kanban Events (automatically converted)
+- `kanban.card.breakdown.started` → `state_changed` with state="breakdown_started"
+- `kanban.card.breakdown.ended` → `state_changed` with state="breakdown_ended"
+- `kanban.card.work.started` → `state_changed` with state="work_started"
+- `kanban.card.work.ended` → `state_changed` with state="work_ended"
+- `kanban.card.validation.started` → `state_changed` with state="validation_started"
+- `kanban.card.validation.ended` → `state_changed` with state="validation_ended"
 
 ### Agent Events (`agent.*`)
 - `agent.started` - Agent begins work
+- `agent.activated` - Agent becomes active (only one agent active at a time)
+- `agent.deactivated` - Agent becomes idle
 - `agent.decision_made` - Agent makes decision
 - `agent.work_performed` - Agent completes work
 - `agent.error_encountered` - Agent encounters error
@@ -80,6 +85,11 @@ Show agent work:
 /event-query "agent.work_performed"
 ```
 
+Show agent activity changes:
+```bash
+/event-query "agent.activated|agent.deactivated"
+```
+
 Show test results:
 ```bash
 /event-query "test.*"
@@ -87,7 +97,7 @@ Show test results:
 
 Show multiple event types:
 ```bash
-/event-query "kanban.card.created|kanban.card.completed"
+/event-query "kanban.card.created|kanban.card.state_changed"
 ```
 
 ## Implementation
@@ -107,15 +117,15 @@ echo "=== Event Query Results ==="
 echo ""
 
 # Show events
-echo "$EVENTS" | jq -r '. | "[\(.timestamp)] \(.event_type) - \(.actor) - \(.card_id // .data // "")"'
+echo "$EVENTS" | jq -r '. | "[\(.timestamp)] \(.event_type) - \(.agent) - \(.card_id // .data // "")"'
 
 echo ""
 echo "=== Summary ==="
 echo "$EVENT_COUNTS" | jq -r '.[] | "- \(.type): \(.count)"'
 
-# Show unique actors
-export ACTORS=$(echo "$EVENTS" | jq -s 'map(.actor) | unique | join(", ")')
-echo "Actors involved: $ACTORS"
+# Show unique agents (not actors)
+export AGENTS=$(echo "$EVENTS" | jq -s 'map(.agent) | unique | join(", ")')
+echo "Agents involved: $AGENTS"
 ```
 
 ## Output Format
@@ -123,18 +133,21 @@ echo "Actors involved: $ACTORS"
 ```
 === Event Query Results ===
 
-[2024-01-20T10:00:00+00:00] kanban.card.created - PM - CARD-001
-[2024-01-20T10:00:01+00:00] kanban.card.created - PM - CARD-002
-[2024-01-20T10:05:00+00:00] kanban.card.breakdown.started - PM - CARD-001
-[2024-01-20T10:05:01+00:00] kanban.card.assigned - PM - CARD-001
-[2024-01-20T10:20:00+00:00] kanban.card.breakdown.ended - platform-engineer - CARD-001
+[2024-01-20T10:00:00+00:00] kanban.card.created - product-manager - CARD-001
+[2024-01-20T10:00:01+00:00] kanban.card.created - product-manager - CARD-002
+[2024-01-20T10:05:00+00:00] kanban.card.state_changed - product-manager - CARD-001
+[2024-01-20T10:05:01+00:00] agent.activated - platform-engineer - 
+[2024-01-20T10:05:02+00:00] agent.started - platform-engineer - CARD-001
+[2024-01-20T10:20:00+00:00] kanban.card.state_changed - platform-engineer - CARD-001
+[2024-01-20T10:20:01+00:00] agent.deactivated - platform-engineer - 
 
 === Summary ===
 - kanban.card.created: 2
-- kanban.card.breakdown.started: 1
-- kanban.card.breakdown.ended: 1
-- kanban.card.assigned: 1
-Actors involved: PM, platform-engineer
+- kanban.card.state_changed: 2
+- agent.activated: 1
+- agent.started: 1
+- agent.deactivated: 1
+Agents involved: product-manager, platform-engineer
 ```
 
 ## Card State Analysis
@@ -146,3 +159,13 @@ When querying kanban events, the system also provides:
 - Assignment history
 
 This helps track the flow of work through the Kanban system and identify bottlenecks.
+
+## Agent Activity Tracking
+
+The new `agent.activated` and `agent.deactivated` events help track:
+- Which agent is currently active
+- Agent work patterns
+- Time spent by each agent
+- Handoff points between agents
+
+Use these events to monitor the autonomous development process in real-time.

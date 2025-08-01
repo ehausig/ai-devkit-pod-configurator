@@ -6,6 +6,7 @@
 #   journal-log-json.sh kanban card.created "CARD-001" --title "Setup project" --description "Create basic structure"
 #   journal-log-json.sh kanban card.state_changed "CARD-001" --state "work_started" --assigned_to "feature-developer"
 #   journal-log-json.sh agent started --card "CARD-001" --context "Beginning work"
+# IMPORTANT: Never use backslashes for line continuation - always use single line commands
 
 JOURNAL_PATH="$HOME/workspace/JOURNAL.md"
 
@@ -163,6 +164,19 @@ TIMESTAMP=$(get_timestamp)
 AGENT=$(detect_agent)
 FULL_EVENT_TYPE="${CATEGORY}.${EVENT_TYPE}"
 
+# Log agent activity events when agent changes
+if [ "$CATEGORY" = "agent" ] && [ "$EVENT_TYPE" = "started" ]; then
+    # Log agent activation
+    ACTIVATION_EVENT="{\"timestamp\":\"$TIMESTAMP\",\"event_type\":\"agent.activated\",\"agent\":\"$AGENT\",\"data\":{}}"
+    echo "$ACTIVATION_EVENT" >> "$JOURNAL_PATH"
+elif [ "$CATEGORY" = "kanban" ] && [ "$EVENT_TYPE" = "card.created" ]; then
+    # Also activate product-manager when creating cards
+    if [ "$AGENT" = "product-manager" ]; then
+        ACTIVATION_EVENT="{\"timestamp\":\"$TIMESTAMP\",\"event_type\":\"agent.activated\",\"agent\":\"$AGENT\",\"data\":{}}"
+        echo "$ACTIVATION_EVENT" >> "$JOURNAL_PATH"
+    fi
+fi
+
 # Handle backward compatibility for old kanban event types
 # Map old event types to new state_changed events
 case "$FULL_EVENT_TYPE" in
@@ -264,7 +278,19 @@ if [ "$FULL_EVENT_TYPE" = "kanban.card.state_changed" ] && [ -z "${DATA[previous
     fi
 fi
 
-# Start building JSON - NOTE: Using "agent" instead of "actor" now
+# Log agent deactivation when agent completes
+if [ "$CATEGORY" = "agent" ] && [ "$EVENT_TYPE" = "completed" ]; then
+    # We'll log the deactivation after the completion event
+    DEFER_DEACTIVATION=true
+elif [ "$CATEGORY" = "system" ] && [ "$EVENT_TYPE" = "project.initialized" ]; then
+    # Also activate product-manager when initializing project
+    if [ "$AGENT" = "product-manager" ]; then
+        ACTIVATION_EVENT="{\"timestamp\":\"$TIMESTAMP\",\"event_type\":\"agent.activated\",\"agent\":\"$AGENT\",\"data\":{}}"
+        echo "$ACTIVATION_EVENT" >> "$JOURNAL_PATH"
+    fi
+fi
+
+# Start building JSON
 JSON="{\"timestamp\":\"$TIMESTAMP\",\"event_type\":\"$FULL_EVENT_TYPE\",\"agent\":\"$AGENT\""
 
 # Add primary ID fields based on category
@@ -325,6 +351,12 @@ JSON="$JSON}"
 
 # Append to journal
 echo "$JSON" >> "$JOURNAL_PATH"
+
+# Handle deferred agent deactivation
+if [ "$DEFER_DEACTIVATION" = true ]; then
+    DEACTIVATION_EVENT="{\"timestamp\":\"$(get_timestamp)\",\"event_type\":\"agent.deactivated\",\"agent\":\"$AGENT\",\"data\":{}}"
+    echo "$DEACTIVATION_EVENT" >> "$JOURNAL_PATH"
+fi
 
 # Return success
 exit 0

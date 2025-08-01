@@ -213,10 +213,59 @@ h1 {
     background-color: #2d2d2d;
     border: 1px solid #404040;
     border-radius: 6px;
-    padding: 0.75rem;
     margin-bottom: 0.5rem;
     cursor: pointer;
     transition: all 0.2s;
+    overflow: hidden;
+    position: relative;
+}
+
+/* Card state header band - moved from ::before to ensure visibility */
+.card-state-band {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background-color: #404040;
+    transition: background-color 0.3s;
+}
+
+/* State-specific header band colors */
+.kanban-card.state-breakdown_started .card-state-band,
+.kanban-card.state-work_started .card-state-band,
+.kanban-card.state-validation_started .card-state-band {
+    background-color: #F59E0B; /* Amber/yellow for in-progress states */
+}
+
+.kanban-card.state-breakdown_ended .card-state-band,
+.kanban-card.state-work_ended .card-state-band,
+.kanban-card.state-validation_ended .card-state-band {
+    background-color: #10B981; /* Green for completed states */
+}
+
+.kanban-card.state-blocked .card-state-band,
+.kanban-card.blocked .card-state-band {
+    background-color: #EF4444; /* Red for blocked state */
+}
+
+.kanban-card.state-done .card-state-band {
+    background-color: #60A5FA; /* Blue for done state */
+}
+
+/* State icons for accessibility */
+.card-state-icon {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    font-size: 0.875rem;
+    opacity: 0.7;
+}
+
+/* Card content */
+.card-content {
+    padding: 0.75rem;
+    padding-top: 1rem; /* Extra padding to account for header band */
 }
 
 .kanban-card:hover {
@@ -330,6 +379,13 @@ h1 {
 
 .agent-status-dot.active {
     background-color: #4ade80;
+    animation: agentPulse 2s infinite;
+}
+
+@keyframes agentPulse {
+    0% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.8; transform: scale(1.2); }
+    100% { opacity: 1; transform: scale(1); }
 }
 
 .agent-status-dot.idle {
@@ -339,11 +395,18 @@ h1 {
 .agent-name {
     font-size: 0.875rem;
     color: #e5e7eb;
+    flex: 1;
 }
 
 .agent-card {
     font-size: 0.75rem;
     color: #9ca3af;
+}
+
+.agent-message {
+    font-size: 0.75rem;
+    color: #9ca3af;
+    font-style: italic;
 }
 
 /* Modal */

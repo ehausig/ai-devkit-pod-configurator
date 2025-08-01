@@ -43,7 +43,7 @@ class StateBuilder {
       state_history: [{
         state: event.data.state || 'backlog',
         timestamp: event.timestamp,
-        actor: event.actor
+        actor: event.agent || 'system'  // Use agent instead of actor
       }]
     };
     this.cards.set(event.card_id, card);
@@ -75,7 +75,7 @@ class StateBuilder {
     card.state_history.push({
       state: event.data.state,
       timestamp: event.timestamp,
-      actor: event.actor,
+      actor: event.agent || 'system',  // Use agent instead of actor
       previous_state: event.data.previous_state
     });
   }
@@ -129,13 +129,13 @@ class StateBuilder {
       card.state_history.push({
         state: newState,
         timestamp: event.timestamp,
-        actor: event.actor
+        actor: event.agent || 'system'  // Use agent instead of actor
       });
     }
   }
 
   handleAgentEvent(event) {
-    const agentId = event.actor;
+    const agentId = event.agent;  // Use agent instead of actor
     
     if (event.event_type === 'agent.started') {
       this.activeAgents.set(agentId, {
@@ -149,6 +149,30 @@ class StateBuilder {
       if (agent) {
         agent.status = 'idle';
         agent.completed_at = event.timestamp;
+      }
+    } else if (event.event_type === 'agent.activated') {
+      // Set this agent as active and all others as idle
+      this.activeAgents.forEach((agent, id) => {
+        agent.status = (id === agentId) ? 'active' : 'idle';
+      });
+      
+      // If agent not in map, add it
+      if (!this.activeAgents.has(agentId)) {
+        this.activeAgents.set(agentId, {
+          agent: agentId,
+          started_at: event.timestamp,
+          status: 'active'
+        });
+      } else {
+        // Update existing agent to active
+        const agent = this.activeAgents.get(agentId);
+        agent.status = 'active';
+        agent.started_at = event.timestamp;
+      }
+    } else if (event.event_type === 'agent.deactivated') {
+      const agent = this.activeAgents.get(agentId);
+      if (agent) {
+        agent.status = 'idle';
       }
     }
   }
@@ -179,16 +203,9 @@ class StateBuilder {
     const agents = Array.from(this.activeAgents.values());
     const now = new Date();
     
-    // Mark agents as idle if they haven't reported in 5 minutes
-    agents.forEach(agent => {
-      const lastActive = new Date(agent.completed_at || agent.started_at);
-      const minutesSinceActive = (now - lastActive) / 1000 / 60;
-      
-      if (minutesSinceActive > 5 && agent.status === 'active') {
-        agent.status = 'idle';
-      }
-    });
-
+    // Don't auto-mark as idle based on time anymore
+    // Status is now managed by activation/deactivation events
+    
     return agents;
   }
 }

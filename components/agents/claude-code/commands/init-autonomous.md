@@ -20,12 +20,16 @@ When invoked, I will:
    - Reset card counter to 0
    - Create JOURNAL.md if it doesn't exist
 
-3. **Create initial project state**:
+3. **Set Product Manager identity**:
+   - Use set-agent-name.sh to establish "product-manager" identity
+   - This prevents "undefined" actor in journal entries
+
+4. **Create initial project state**:
    - Log PROJECT_INIT event in JSON format
    - Log USER_REQUEST with brief summary
    - Create initial Kanban cards with full details based on requirements
 
-4. **Start orchestration** as Product Manager (main thread)
+5. **Start orchestration** as Product Manager (main thread)
 
 ## CRITICAL: Product Manager Role
 
@@ -79,6 +83,9 @@ Then run /init-autonomous again.
 # Clean up any existing agent name file
 rm -f /home/devuser/.claude/data/current-agent-name
 
+# Set the Product Manager identity
+set-agent-name.sh "product-manager"
+
 # Reset card counter
 kanban-reset-card-id.sh
 
@@ -96,20 +103,17 @@ journal-log-json.sh system user.request --request "See PROMPT.md for full requir
 
 # Create initial cards based on requirements analysis WITH FULL DETAILS
 # Example using direct command substitution:
-journal-log-json.sh kanban card.created "$(kanban-create-card-id.sh)" \
-  --title "Setup development environment" \
-  --description "Initialize project structure, install dependencies, configure development tools" \
-  --dependencies '[]'
+# IMPORTANT: Never use backslashes for line continuation
+journal-log-json.sh kanban card.created "$(kanban-create-card-id.sh)" --title "Setup development environment" --description "Initialize project structure, install dependencies, configure development tools" --dependencies '[]'
 
-journal-log-json.sh kanban card.created "$(kanban-create-card-id.sh)" \
-  --title "Design API specification" \
-  --description "Create OpenAPI specification for all endpoints, define data models and authentication" \
-  --dependencies '["CARD-001"]'
+journal-log-json.sh kanban card.created "$(kanban-create-card-id.sh)" --title "Design API specification" --description "Create OpenAPI specification for all endpoints, define data models and authentication" --dependencies '["CARD-001"]'
 
 # Continue creating cards for identified work items...
 ```
 
-**IMPORTANT**: If kanban-create-card-id.sh fails, DO NOT make up card IDs manually. Fix the permission issue first.
+**IMPORTANT**: 
+- If kanban-create-card-id.sh fails, DO NOT make up card IDs manually. Fix the permission issue first.
+- NEVER use backslashes for line continuation with journal-log-json.sh commands
 
 ## Pull-Based Orchestration Pattern
 
@@ -144,12 +148,26 @@ After initialization, follow this pattern:
    - Self-assign by changing state with their name
    - Complete work and unassign themselves
 
-4. **Monitor progress**
+4. **Monitor progress with dependency awareness**
    - Watch for state changes
    - Check for blocked cards
    - Verify dependencies are being met
+   - Continue orchestrating until all work is complete
 
-5. **Continue until all cards are DONE**
+5. **Orchestration loop with dependency checking**:
+   ```bash
+   # Continue until all cards are done
+   while [ $(kanban-count-cards.sh "done") -lt $(kanban-count-cards.sh) ]; do
+       # Re-evaluate board state
+       echo "Checking board state..."
+       
+       # Facilitate based on available work and dependencies
+       # Agents will check dependencies before starting work
+       
+       # Brief pause to avoid tight loop
+       sleep 2
+   done
+   ```
 
 ## Benefits
 
@@ -161,5 +179,6 @@ After initialization, follow this pattern:
 - Full visibility into progress
 - JSON-based event sourcing for better observability
 - Clean state management - no leftover agent names between runs
+- Proper actor identification prevents "undefined" in journal
 
 The system uses explicit orchestration with the Product Manager (you) facilitating work flow rather than directing it.
