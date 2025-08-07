@@ -197,146 +197,264 @@ fi
 if [ "$PHASE" = "work" ]; then
     echo "=== WORK PHASE: Implementing algorithm ==="
     
-    # Create algorithm implementation
+    # Create algorithm documentation
     mkdir -p src/algorithms
     
-    cat > src/algorithms/solution.py << 'EOF'
-"""
-Algorithm implementation for efficient data processing
-Time Complexity: O(n log n)
-Space Complexity: O(n)
-"""
+    cat > src/algorithms/algorithm_design.md << 'EOF'
+# Algorithm Design Document
 
-from typing import List, Optional, Tuple
-import math
+## Algorithm: Efficient Data Processing
+**Time Complexity**: O(n log n)  
+**Space Complexity**: O(n)  
+**Pattern**: Divide and Conquer
 
+## Pseudocode Implementation
 
-class EfficientProcessor:
-    """Main algorithm implementation using divide-and-conquer approach."""
+### Main Processing Algorithm
+```
+ALGORITHM EfficientProcessor(data)
+    INPUT: Array of comparable elements
+    OUTPUT: Processed sorted array
     
-    def __init__(self):
-        self.operations_count = 0
+    IF data is empty THEN
+        RETURN empty array
+    END IF
     
-    def process(self, data: List[int]) -> List[int]:
-        """
-        Process data using optimized merge sort variant.
-        
-        Args:
-            data: Input list of integers
-            
-        Returns:
-            Processed sorted list
-        """
-        if not data:
-            return []
-        
-        if len(data) == 1:
-            return data
-        
-        # Divide
-        mid = len(data) // 2
-        left = self.process(data[:mid])
-        right = self.process(data[mid:])
-        
-        # Conquer
-        return self._merge(left, right)
+    IF length(data) = 1 THEN
+        RETURN data
+    END IF
     
-    def _merge(self, left: List[int], right: List[int]) -> List[int]:
-        """Merge two sorted arrays efficiently."""
-        result = []
-        i = j = 0
-        
-        while i < len(left) and j < len(right):
-            self.operations_count += 1
-            if left[i] <= right[j]:
-                result.append(left[i])
-                i += 1
-            else:
-                result.append(right[j])
-                j += 1
-        
-        # Add remaining elements
-        result.extend(left[i:])
-        result.extend(right[j:])
-        
-        return result
+    // Divide phase
+    mid ← length(data) / 2
+    left ← EfficientProcessor(data[0...mid-1])
+    right ← EfficientProcessor(data[mid...end])
     
-    def analyze_complexity(self, n: int) -> dict:
-        """Analyze algorithm complexity for input size n."""
-        return {
-            "time_complexity": "O(n log n)",
-            "space_complexity": "O(n)",
-            "best_case": "O(n log n)",
-            "worst_case": "O(n log n)",
-            "expected_operations": n * math.log2(n) if n > 0 else 0
-        }
+    // Conquer phase
+    RETURN Merge(left, right)
+END ALGORITHM
 
-
-# Additional optimized algorithms as needed
-class OptimizedSearch:
-    """Binary search implementation for sorted data."""
+ALGORITHM Merge(left, right)
+    INPUT: Two sorted arrays
+    OUTPUT: Single merged sorted array
     
-    @staticmethod
-    def find(arr: List[int], target: int) -> int:
-        """
-        Binary search implementation.
-        Returns index of target or -1 if not found.
-        """
-        left, right = 0, len(arr) - 1
+    result ← empty array
+    i ← 0, j ← 0
+    
+    WHILE i < length(left) AND j < length(right) DO
+        IF left[i] ≤ right[j] THEN
+            append left[i] to result
+            i ← i + 1
+        ELSE
+            append right[j] to result
+            j ← j + 1
+        END IF
+    END WHILE
+    
+    // Add remaining elements
+    WHILE i < length(left) DO
+        append left[i] to result
+        i ← i + 1
+    END WHILE
+    
+    WHILE j < length(right) DO
+        append right[j] to result
+        j ← j + 1
+    END WHILE
+    
+    RETURN result
+END ALGORITHM
+```
+
+### Binary Search Algorithm
+```
+ALGORITHM BinarySearch(array, target)
+    INPUT: Sorted array and target value
+    OUTPUT: Index of target or -1 if not found
+    
+    left ← 0
+    right ← length(array) - 1
+    
+    WHILE left ≤ right DO
+        mid ← (left + right) / 2
         
-        while left <= right:
-            mid = (left + right) // 2
-            if arr[mid] == target:
-                return mid
-            elif arr[mid] < target:
-                left = mid + 1
-            else:
-                right = mid - 1
-        
-        return -1
+        IF array[mid] = target THEN
+            RETURN mid
+        ELSE IF array[mid] < target THEN
+            left ← mid + 1
+        ELSE
+            right ← mid - 1
+        END IF
+    END WHILE
+    
+    RETURN -1  // Target not found
+END ALGORITHM
+```
+
+## Complexity Analysis
+
+### Time Complexity Breakdown
+- **Divide Step**: O(1) - constant time to split array
+- **Recursive Calls**: 2 * T(n/2) - two subproblems of half size
+- **Merge Step**: O(n) - linear time to merge
+- **Recurrence**: T(n) = 2T(n/2) + O(n)
+- **Solution**: T(n) = O(n log n) by Master Theorem
+
+### Space Complexity Analysis
+- **Recursive Stack**: O(log n) depth
+- **Merge Arrays**: O(n) total auxiliary space
+- **Total**: O(n) space complexity
+
+## Algorithm Patterns Applied
+
+### 1. Divide and Conquer Pattern
+- **Divide**: Split problem into smaller subproblems
+- **Conquer**: Solve subproblems recursively
+- **Combine**: Merge solutions efficiently
+
+### 2. Two-Pointer Technique (in merge)
+- Maintain pointers for both arrays
+- Compare and advance strategically
+- Ensures linear merge time
+
+### 3. Binary Search Pattern
+- Eliminate half of search space each iteration
+- Logarithmic time complexity
+- Requires sorted input
+
+## Testing Strategy
+
+### Correctness Tests
+```
+TEST CASES:
+1. Empty input → Empty output
+2. Single element → Same element
+3. Already sorted → Maintains order
+4. Reverse sorted → Correct sort
+5. Duplicates → Stable sort preserving order
+6. Large dataset → Correct results
+```
+
+### Performance Validation
+```
+PERFORMANCE TESTS:
+1. Measure time for n = {100, 1000, 10000, 100000}
+2. Verify O(n log n) growth pattern
+3. Memory usage should be linear
+4. Compare against baseline algorithms
+```
+
+## Implementation Guidelines
+
+### Language-Agnostic Considerations
+1. **Memory Management**: Consider in-place variants for space optimization
+2. **Stability**: Preserve relative order of equal elements
+3. **Parallelization**: Can parallelize recursive calls
+4. **Cache Optimization**: Consider cache-friendly access patterns
+5. **Type Safety**: Use generic/template types where available
+
+### Error Handling Patterns
+```
+HANDLE NullInput:
+    IF input is null THEN
+        THROW ArgumentNullException
+    END IF
+
+HANDLE InvalidComparison:
+    IF elements not comparable THEN
+        THROW InvalidOperationException
+    END IF
+
+HANDLE MemoryExhaustion:
+    TRY allocate merge buffer
+    CATCH OutOfMemoryException
+        USE in-place merge fallback
+    END TRY
+```
+
+## Optimization Opportunities
+
+### 1. Hybrid Approach
+- Switch to insertion sort for small subarrays (n < 10)
+- Reduces recursive overhead
+
+### 2. Three-Way Partitioning
+- Handle duplicates more efficiently
+- Useful for datasets with many repeated values
+
+### 3. Parallel Processing
+- Independent recursive calls can run in parallel
+- Use thread pool for large datasets
+
+### 4. Memory Optimization
+- In-place merge for space-critical applications
+- Trade time for space when needed
 EOF
     
-    # Create test file
-    cat > src/algorithms/test_solution.py << 'EOF'
-import pytest
-from solution import EfficientProcessor, OptimizedSearch
+    # Create algorithm test specification
+    cat > src/algorithms/test_specification.md << 'EOF'
+# Algorithm Test Specification
 
+## Test Categories
 
-def test_processor_correctness():
-    processor = EfficientProcessor()
+### 1. Functional Correctness
+- Empty and null inputs
+- Single element arrays
+- Already sorted data
+- Reverse sorted data
+- Random data
+- Data with duplicates
+- Large datasets (10^6 elements)
+
+### 2. Performance Benchmarks
+- Time complexity validation
+- Space usage monitoring
+- Comparison with standard library sorts
+- Cache performance analysis
+
+### 3. Edge Cases
+- Maximum/minimum values
+- Overflow conditions
+- Memory constraints
+- Concurrent access (if applicable)
+
+### 4. Property-Based Tests
+- Idempotence: sort(sort(x)) = sort(x)
+- Preservation: set(input) = set(output)
+- Ordering: ∀i: output[i] ≤ output[i+1]
+- Stability: preserve relative order of equals
+
+## Test Implementation Pattern
+```
+TEST_SUITE AlgorithmTests:
     
-    # Test cases
-    assert processor.process([]) == []
-    assert processor.process([1]) == [1]
-    assert processor.process([3, 1, 4, 1, 5]) == [1, 1, 3, 4, 5]
-    assert processor.process([5, 4, 3, 2, 1]) == [1, 2, 3, 4, 5]
-
-
-def test_processor_performance():
-    processor = EfficientProcessor()
+    SETUP:
+        Initialize test data generators
+        Set performance baselines
     
-    # Large input test
-    import random
-    large_input = [random.randint(1, 1000) for _ in range(10000)]
+    TEST correctness_empty_input:
+        GIVEN empty array
+        WHEN algorithm processes
+        THEN returns empty array
     
-    import time
-    start = time.time()
-    result = processor.process(large_input)
-    duration = time.time() - start
+    TEST correctness_single_element:
+        GIVEN array with one element
+        WHEN algorithm processes
+        THEN returns same array
     
-    assert len(result) == len(large_input)
-    assert all(result[i] <= result[i+1] for i in range(len(result)-1))
-    assert duration < 1.0  # Should complete in under 1 second
-
-
-def test_search():
-    search = OptimizedSearch()
-    arr = [1, 3, 5, 7, 9, 11]
+    TEST performance_linear_growth:
+        FOR n IN [100, 1000, 10000, 100000]:
+            MEASURE time for input size n
+        VERIFY time growth matches O(n log n)
     
-    assert search.find(arr, 5) == 2
-    assert search.find(arr, 1) == 0
-    assert search.find(arr, 11) == 5
-    assert search.find(arr, 4) == -1
+    TEST stability_preservation:
+        GIVEN array with duplicate keys
+        WHEN algorithm processes
+        THEN relative order preserved
+    
+    TEARDOWN:
+        Clean up resources
+        Report metrics
+```
 EOF
     
     # Log work performed - single line

@@ -225,380 +225,498 @@ if [ "$PHASE" = "work" ]; then
     # Create integrations directory
     mkdir -p integrations
     
-    # Create payment gateway integration
-    cat > integrations/payment_gateway.py << 'EOF'
-"""
-Payment Gateway Integration - Stripe
-Abstraction layer for payment processing
-"""
-import stripe
-import hmac
-import hashlib
-import time
-from typing import Optional, Dict, Any
-from dataclasses import dataclass
-import logging
+    # Create integration patterns documentation
+    cat > integrations/integration_patterns.md << 'EOF'
+# Third-Party Integration Patterns
 
-logger = logging.getLogger(__name__)
+## Integration Architecture Patterns
 
+### 1. Adapter Pattern
+```
+PATTERN AdapterPattern:
+    PURPOSE: Isolate third-party API changes from core application
+    
+    STRUCTURE:
+        Application ←→ Adapter Interface ←→ Adapter Implementation ←→ Third-Party API
+    
+    INTERFACE PaymentGateway:
+        CreatePayment(amount, currency, customer) → PaymentResult
+        RefundPayment(payment_id, amount) → RefundResult
+        GetPaymentStatus(payment_id) → PaymentStatus
+    
+    IMPLEMENTATION StripeAdapter implements PaymentGateway:
+        // Translates generic calls to Stripe-specific API
+        
+    IMPLEMENTATION PayPalAdapter implements PaymentGateway:
+        // Translates generic calls to PayPal-specific API
+    
+    BENEFITS:
+    - Swappable implementations
+    - Consistent interface
+    - Isolated testing
+    - Vendor independence
+```
 
-@dataclass
-class PaymentResult:
-    """Payment operation result"""
-    success: bool
-    payment_id: Optional[str] = None
-    error: Optional[str] = None
-    data: Optional[Dict[Any, Any]] = None
+### 2. Circuit Breaker Pattern
+```
+PATTERN CircuitBreaker:
+    PURPOSE: Prevent cascading failures from unreliable services
+    
+    STATES:
+        CLOSED: Normal operation, requests pass through
+        OPEN: Service unavailable, requests fail fast
+        HALF_OPEN: Testing if service recovered
+    
+    ALGORITHM CircuitBreakerCall(service_function):
+        IF state = OPEN THEN
+            IF current_time - last_failure_time > recovery_timeout THEN
+                state ← HALF_OPEN
+            ELSE
+                RETURN CachedResponse OR ErrorResponse
+            END IF
+        END IF
+        
+        TRY
+            result ← service_function()
+            
+            IF state = HALF_OPEN THEN
+                state ← CLOSED
+                failure_count ← 0
+            END IF
+            
+            RETURN result
+            
+        CATCH exception:
+            failure_count ← failure_count + 1
+            last_failure_time ← current_time
+            
+            IF failure_count >= failure_threshold THEN
+                state ← OPEN
+            END IF
+            
+            THROW exception
+        END TRY
+    
+    CONFIGURATION:
+        failure_threshold: 5
+        recovery_timeout: 60 seconds
+        monitoring_window: 120 seconds
+```
 
+### 3. Retry with Exponential Backoff
+```
+PATTERN RetryWithBackoff:
+    PURPOSE: Handle transient failures gracefully
+    
+    ALGORITHM RetryOperation(operation, max_retries):
+        retry_count ← 0
+        base_delay ← 1 second
+        
+        WHILE retry_count < max_retries DO
+            TRY
+                result ← operation()
+                RETURN result
+            CATCH retryable_exception:
+                retry_count ← retry_count + 1
+                
+                IF retry_count >= max_retries THEN
+                    THROW exception
+                END IF
+                
+                // Exponential backoff with jitter
+                delay ← base_delay * (2 ^ retry_count) + Random(0, 1000ms)
+                delay ← MIN(delay, 30 seconds)  // Cap maximum delay
+                
+                Sleep(delay)
+            CATCH non_retryable_exception:
+                THROW exception
+            END TRY
+        END WHILE
+    
+    RETRYABLE_ERRORS:
+    - Network timeout
+    - 503 Service Unavailable
+    - 429 Too Many Requests
+    - Connection refused
+    
+    NON_RETRYABLE_ERRORS:
+    - 400 Bad Request
+    - 401 Unauthorized
+    - 404 Not Found
+```
 
-class PaymentGateway:
-    """Stripe payment gateway abstraction"""
+## Authentication Patterns
+
+### OAuth 2.0 Flow
+```
+PATTERN OAuth2Integration:
     
-    def __init__(self, api_key: str, webhook_secret: str):
-        self.api_key = api_key
-        self.webhook_secret = webhook_secret
-        stripe.api_key = api_key
+    FLOW AuthorizationCodeFlow:
+        1. Redirect user to authorization URL:
+           GET /authorize?
+               client_id={client_id}&
+               redirect_uri={redirect_uri}&
+               response_type=code&
+               scope={scopes}&
+               state={csrf_token}
         
-        # Configure client
-        stripe.max_network_retries = 3
-        self.configure_client()
+        2. User authorizes, provider redirects back:
+           GET /callback?
+               code={authorization_code}&
+               state={csrf_token}
+        
+        3. Exchange code for token:
+           POST /token
+           {
+               grant_type: "authorization_code",
+               code: {authorization_code},
+               client_id: {client_id},
+               client_secret: {client_secret},
+               redirect_uri: {redirect_uri}
+           }
+        
+        4. Receive tokens:
+           {
+               access_token: "...",
+               refresh_token: "...",
+               expires_in: 3600,
+               token_type: "Bearer"
+           }
     
-    def configure_client(self):
-        """Configure Stripe client settings"""
-        stripe.api_version = "2023-10-16"
-        
-    def create_payment_intent(
-        self, 
-        amount: int, 
-        currency: str = "usd",
-        customer_id: Optional[str] = None,
-        metadata: Optional[Dict] = None
-    ) -> PaymentResult:
-        """
-        Create a payment intent
-        
-        Args:
-            amount: Amount in cents
-            currency: Three-letter ISO currency code
-            customer_id: Optional Stripe customer ID
-            metadata: Optional metadata dict
-            
-        Returns:
-            PaymentResult with payment intent details
-        """
-        try:
-            params = {
-                "amount": amount,
-                "currency": currency,
-                "automatic_payment_methods": {"enabled": True}
-            }
-            
-            if customer_id:
-                params["customer"] = customer_id
-            
-            if metadata:
-                params["metadata"] = metadata
-            
-            intent = stripe.PaymentIntent.create(**params)
-            
-            return PaymentResult(
-                success=True,
-                payment_id=intent.id,
-                data={
-                    "client_secret": intent.client_secret,
-                    "status": intent.status
-                }
-            )
-            
-        except stripe.error.RateLimitError as e:
-            logger.warning(f"Rate limit hit: {e}")
-            return self._retry_with_backoff(
-                lambda: self.create_payment_intent(amount, currency, customer_id, metadata)
-            )
-            
-        except stripe.error.InvalidRequestError as e:
-            logger.error(f"Invalid request: {e}")
-            return PaymentResult(success=False, error=str(e))
-            
-        except Exception as e:
-            logger.error(f"Payment intent creation failed: {e}")
-            return PaymentResult(success=False, error="Payment processing failed")
+    TOKEN_REFRESH:
+        POST /token
+        {
+            grant_type: "refresh_token",
+            refresh_token: {refresh_token},
+            client_id: {client_id},
+            client_secret: {client_secret}
+        }
     
-    def create_customer(self, email: str, name: str, metadata: Optional[Dict] = None) -> PaymentResult:
-        """Create a Stripe customer"""
-        try:
-            params = {
-                "email": email,
-                "name": name
-            }
-            
-            if metadata:
-                params["metadata"] = metadata
-            
-            customer = stripe.Customer.create(**params)
-            
-            return PaymentResult(
-                success=True,
-                payment_id=customer.id,
-                data={"customer_id": customer.id}
-            )
-            
-        except Exception as e:
-            logger.error(f"Customer creation failed: {e}")
-            return PaymentResult(success=False, error=str(e))
+    SECURITY_CONSIDERATIONS:
+    - Use PKCE for public clients
+    - Validate state parameter
+    - Use secure token storage
+    - Implement token rotation
+```
+
+### API Key Management
+```
+PATTERN APIKeyManagement:
     
-    def verify_webhook_signature(self, payload: bytes, signature: str) -> bool:
-        """
-        Verify webhook signature for security
-        
-        Args:
-            payload: Raw request body bytes
-            signature: Stripe-Signature header value
-            
-        Returns:
-            True if signature is valid
-        """
-        try:
-            stripe.Webhook.construct_event(
-                payload, signature, self.webhook_secret
-            )
-            return True
-        except stripe.error.SignatureVerificationError:
-            logger.warning("Invalid webhook signature")
-            return False
-        except Exception as e:
-            logger.error(f"Webhook verification failed: {e}")
-            return False
+    STORAGE:
+    - Never hardcode keys
+    - Use environment variables
+    - Consider secret management service
+    - Encrypt at rest
     
-    def process_webhook_event(self, event: Dict) -> PaymentResult:
-        """Process incoming webhook event"""
-        event_type = event.get("type")
-        
-        handlers = {
-            "payment_intent.succeeded": self._handle_payment_success,
-            "payment_intent.failed": self._handle_payment_failure,
-            "customer.subscription.updated": self._handle_subscription_update
+    ROTATION:
+        ALGORITHM RotateAPIKey():
+            new_key ← GenerateNewAPIKey()
+            
+            // Parallel operation period
+            EnableKey(new_key)
+            
+            // Update all services
+            FOR EACH service IN dependent_services:
+                UpdateServiceKey(service, new_key)
+                VerifyServiceConnection(service)
+            END FOR
+            
+            // Grace period for propagation
+            Sleep(grace_period)
+            
+            // Disable old key
+            DisableKey(old_key)
+    
+    RATE_LIMITING:
+    - Track usage per key
+    - Implement quotas
+    - Alert on anomalies
+```
+
+## Webhook Handling Patterns
+
+### Secure Webhook Reception
+```
+PATTERN WebhookHandler:
+    
+    SECURITY_VERIFICATION:
+        ALGORITHM VerifyWebhookSignature(payload, signature, secret):
+            // HMAC verification
+            expected_signature ← HMAC_SHA256(payload, secret)
+            
+            // Constant-time comparison
+            IF NOT ConstantTimeEquals(signature, expected_signature) THEN
+                RETURN REJECT
+            END IF
+            
+            // Timestamp validation (prevent replay)
+            timestamp ← ExtractTimestamp(payload)
+            IF |current_time - timestamp| > 5 minutes THEN
+                RETURN REJECT
+            END IF
+            
+            RETURN ACCEPT
+    
+    PROCESSING_PATTERN:
+        ALGORITHM ProcessWebhook(request):
+            // 1. Immediate acknowledgment
+            IF NOT VerifySignature(request) THEN
+                RETURN HTTP_401
+            END IF
+            
+            // 2. Store for processing
+            event_id ← ExtractEventId(request.payload)
+            
+            // Idempotency check
+            IF AlreadyProcessed(event_id) THEN
+                RETURN HTTP_200  // Already handled
+            END IF
+            
+            // 3. Queue for async processing
+            QueueEvent(request.payload)
+            
+            // 4. Return immediately
+            RETURN HTTP_200
+    
+    ASYNC_PROCESSOR:
+        ALGORITHM ProcessQueuedWebhook(event):
+            TRY
+                // Idempotent processing
+                result ← HandleEvent(event)
+                MarkAsProcessed(event.id, result)
+                
+            CATCH exception:
+                RetryCount ← GetRetryCount(event.id)
+                
+                IF RetryCount < MAX_RETRIES THEN
+                    RequeueWithDelay(event, CalculateBackoff(RetryCount))
+                ELSE
+                    MoveToDeadLetterQueue(event)
+                    AlertOperations(event, exception)
+                END IF
+            END TRY
+```
+
+### Event Mapping
+```
+PATTERN EventMapping:
+    
+    EVENT_ROUTER:
+        event_handlers ← {
+            "payment.succeeded": HandlePaymentSuccess,
+            "payment.failed": HandlePaymentFailure,
+            "customer.created": HandleCustomerCreation,
+            "subscription.cancelled": HandleSubscriptionCancellation
         }
         
-        handler = handlers.get(event_type)
-        if handler:
-            return handler(event)
-        
-        logger.info(f"Unhandled webhook event type: {event_type}")
-        return PaymentResult(success=True, data={"event_type": event_type})
-    
-    def _handle_payment_success(self, event: Dict) -> PaymentResult:
-        """Handle successful payment"""
-        payment_intent = event["data"]["object"]
-        logger.info(f"Payment succeeded: {payment_intent['id']}")
-        
-        return PaymentResult(
-            success=True,
-            payment_id=payment_intent["id"],
-            data={"amount": payment_intent["amount"], "status": "succeeded"}
-        )
-    
-    def _handle_payment_failure(self, event: Dict) -> PaymentResult:
-        """Handle failed payment"""
-        payment_intent = event["data"]["object"]
-        logger.warning(f"Payment failed: {payment_intent['id']}")
-        
-        return PaymentResult(
-            success=False,
-            payment_id=payment_intent["id"],
-            error="Payment failed",
-            data={"reason": payment_intent.get("last_payment_error")}
-        )
-    
-    def _handle_subscription_update(self, event: Dict) -> PaymentResult:
-        """Handle subscription update"""
-        subscription = event["data"]["object"]
-        logger.info(f"Subscription updated: {subscription['id']}")
-        
-        return PaymentResult(
-            success=True,
-            data={"subscription_id": subscription["id"], "status": subscription["status"]}
-        )
-    
-    def _retry_with_backoff(self, func, max_retries: int = 3):
-        """Retry with exponential backoff"""
-        for attempt in range(max_retries):
-            try:
-                return func()
-            except Exception as e:
-                if attempt == max_retries - 1:
-                    raise
-                
-                delay = 2 ** attempt
-                logger.info(f"Retrying in {delay} seconds...")
-                time.sleep(delay)
-
-
-class CircuitBreaker:
-    """Circuit breaker for service protection"""
-    
-    def __init__(self, failure_threshold: int = 5, timeout: int = 60):
-        self.failure_threshold = failure_threshold
-        self.timeout = timeout
-        self.failure_count = 0
-        self.last_failure_time = None
-        self.is_open = False
-    
-    def call(self, func, *args, **kwargs):
-        """Execute function with circuit breaker protection"""
-        if self.is_open:
-            if time.time() - self.last_failure_time > self.timeout:
-                self.is_open = False
-                self.failure_count = 0
-                logger.info("Circuit breaker reset")
-            else:
-                raise Exception("Circuit breaker is open - service unavailable")
-        
-        try:
-            result = func(*args, **kwargs)
-            self.failure_count = 0
-            return result
-        except Exception as e:
-            self.failure_count += 1
-            self.last_failure_time = time.time()
+        ALGORITHM RouteEvent(event):
+            handler ← event_handlers[event.type]
             
-            if self.failure_count >= self.failure_threshold:
-                self.is_open = True
-                logger.error(f"Circuit breaker opened after {self.failure_count} failures")
-            
-            raise
-EOF
-    
-    # Create integration tests
-    cat > integrations/test_payment_gateway.py << 'EOF'
-"""
-Tests for payment gateway integration
-"""
-import pytest
-from unittest.mock import Mock, patch
-from payment_gateway import PaymentGateway, PaymentResult
+            IF handler EXISTS THEN
+                RETURN handler(event)
+            ELSE
+                LogUnhandledEvent(event)
+                RETURN SUCCESS  // Don't fail on unknown events
+            END IF
+```
 
+## Error Handling Patterns
 
-class TestPaymentGateway:
+### Graceful Degradation
+```
+PATTERN GracefulDegradation:
     
-    @pytest.fixture
-    def gateway(self):
-        return PaymentGateway(
-            api_key="test_api_key",
-            webhook_secret="test_webhook_secret"
-        )
+    STRATEGY:
+        PRIMARY: Full feature with external service
+        FALLBACK: Limited feature with cache
+        EMERGENCY: Basic feature without dependency
     
-    def test_create_payment_intent_success(self, gateway):
-        """Test successful payment intent creation"""
-        with patch('stripe.PaymentIntent.create') as mock_create:
-            mock_create.return_value = Mock(
-                id="pi_test123",
-                client_secret="secret_test",
-                status="requires_payment_method"
-            )
+    ALGORITHM GetProductRecommendations(user_id):
+        TRY
+            // Primary: ML recommendation service
+            recommendations ← CallRecommendationService(user_id)
+            RETURN recommendations
             
-            result = gateway.create_payment_intent(1000, "usd")
+        CATCH ServiceUnavailable:
+            TRY
+                // Fallback: Cached recommendations
+                cached ← GetCachedRecommendations(user_id)
+                IF cached AND age(cached) < 24 hours THEN
+                    RETURN cached
+                END IF
+            CATCH CacheMiss:
+                // Continue to emergency
+            END TRY
             
-            assert result.success is True
-            assert result.payment_id == "pi_test123"
-            assert result.data["client_secret"] == "secret_test"
+            // Emergency: Popular products
+            RETURN GetPopularProducts(limit: 10)
+        END TRY
+```
+
+### Compensation Pattern (Saga)
+```
+PATTERN CompensationPattern:
     
-    def test_webhook_signature_verification(self, gateway):
-        """Test webhook signature verification"""
-        # This would need actual Stripe test fixtures
-        pass
+    DISTRIBUTED_TRANSACTION:
+        STEPS: [
+            {action: CreateOrder, compensation: CancelOrder},
+            {action: ChargePayment, compensation: RefundPayment},
+            {action: ReserveInventory, compensation: ReleaseInventory},
+            {action: SendEmail, compensation: None}  // No compensation needed
+        ]
+        
+        ALGORITHM ExecuteSaga(steps, context):
+            completed_steps ← []
+            
+            FOR step IN steps:
+                TRY
+                    result ← step.action(context)
+                    completed_steps.push({step: step, result: result})
+                    
+                CATCH exception:
+                    // Compensate in reverse order
+                    FOR completed IN REVERSE(completed_steps):
+                        IF completed.step.compensation EXISTS THEN
+                            TRY
+                                completed.step.compensation(completed.result)
+                            CATCH compensation_error:
+                                LogCritical("Compensation failed", compensation_error)
+                                AlertOperations()
+                            END TRY
+                        END IF
+                    END FOR
+                    
+                    THROW SagaFailedException(exception)
+                END TRY
+            END FOR
+            
+            RETURN SUCCESS
+```
+
+## Testing Patterns
+
+### Mock Service Pattern
+```
+PATTERN MockService:
     
-    def test_circuit_breaker(self):
-        """Test circuit breaker functionality"""
-        from payment_gateway import CircuitBreaker
-        
-        breaker = CircuitBreaker(failure_threshold=2, timeout=1)
-        
-        def failing_function():
-            raise Exception("Service error")
-        
-        # First failure
-        with pytest.raises(Exception):
-            breaker.call(failing_function)
-        
-        # Second failure - should open circuit
-        with pytest.raises(Exception):
-            breaker.call(failing_function)
-        
-        # Circuit should be open now
-        with pytest.raises(Exception, match="Circuit breaker is open"):
-            breaker.call(failing_function)
+    INTERFACE:
+        Same as real service interface
+    
+    BEHAVIOR_SIMULATION:
+        - Success responses
+        - Error conditions
+        - Timeout scenarios
+        - Rate limiting
+    
+    USAGE:
+        IF environment = "test" THEN
+            service ← MockPaymentService()
+        ELSE
+            service ← RealPaymentService()
+        END IF
+```
+
+### Contract Testing
+```
+PATTERN ContractTesting:
+    
+    PROVIDER_CONTRACT:
+        endpoint: POST /payments
+        request: {
+            amount: number (required),
+            currency: string (required, ISO 4217),
+            customer_id: string (required)
+        }
+        response: {
+            payment_id: string,
+            status: enum ["pending", "succeeded", "failed"],
+            created_at: timestamp
+        }
+    
+    CONSUMER_TEST:
+        Verify contract expectations are met
+    
+    PROVIDER_TEST:
+        Verify implementation matches contract
+```
 EOF
     
     # Create integration documentation
     cat > integrations/README.md << 'EOF'
-# Payment Gateway Integration
+# Integration Guide
 
-## Configuration
+## Integration Principles
 
-Set the following environment variables:
-```env
-STRIPE_API_KEY=sk_test_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-STRIPE_PUBLISHABLE_KEY=pk_test_...
-```
+1. **Loose Coupling**: Use adapters to isolate external dependencies
+2. **Resilience**: Implement circuit breakers and retries
+3. **Security**: Validate all external data, use secure authentication
+4. **Monitoring**: Track integration health and performance
+5. **Testing**: Mock external services for testing
 
-## Usage
+## Integration Checklist
 
-```python
-from integrations.payment_gateway import PaymentGateway
+### Pre-Integration
+- [ ] API documentation reviewed
+- [ ] Rate limits understood
+- [ ] Authentication method determined
+- [ ] Error codes documented
+- [ ] Sandbox/test environment available
 
-# Initialize gateway
-gateway = PaymentGateway(
-    api_key=os.getenv("STRIPE_API_KEY"),
-    webhook_secret=os.getenv("STRIPE_WEBHOOK_SECRET")
-)
+### Implementation
+- [ ] Adapter pattern implemented
+- [ ] Circuit breaker configured
+- [ ] Retry logic with backoff
+- [ ] Timeout settings configured
+- [ ] Error handling comprehensive
+- [ ] Logging and monitoring added
 
-# Create payment
-result = gateway.create_payment_intent(
-    amount=1000,  # $10.00 in cents
-    currency="usd",
-    metadata={"order_id": "12345"}
-)
+### Security
+- [ ] API keys securely stored
+- [ ] Webhook signatures verified
+- [ ] Input validation implemented
+- [ ] TLS/SSL enforced
+- [ ] Rate limiting respected
 
-if result.success:
-    print(f"Payment created: {result.payment_id}")
-else:
-    print(f"Payment failed: {result.error}")
-```
+### Testing
+- [ ] Unit tests with mocks
+- [ ] Integration tests with sandbox
+- [ ] Error scenario testing
+- [ ] Performance testing
+- [ ] Contract tests defined
 
-## Webhook Handling
+### Operations
+- [ ] Monitoring dashboards created
+- [ ] Alerts configured
+- [ ] Runbook documented
+- [ ] Rollback plan defined
+- [ ] Key rotation scheduled
 
-```python
-# In your webhook endpoint
-def handle_stripe_webhook(request):
-    payload = request.body
-    signature = request.headers.get("Stripe-Signature")
-    
-    if not gateway.verify_webhook_signature(payload, signature):
-        return {"error": "Invalid signature"}, 400
-    
-    event = json.loads(payload)
-    result = gateway.process_webhook_event(event)
-    
-    return {"success": True}, 200
-```
+## Common Integration Scenarios
 
-## Error Handling
+### Payment Processing
+- Use adapter pattern for multiple providers
+- Implement idempotency for transactions
+- Store transaction logs for reconciliation
+- Handle webhook events asynchronously
 
-The integration includes:
-- Automatic retry with exponential backoff
-- Circuit breaker for service protection
-- Comprehensive error logging
-- Graceful degradation
+### Identity Providers
+- Support multiple OAuth providers
+- Implement SAML for enterprise
+- Cache user profiles appropriately
+- Handle token refresh automatically
 
-## Testing
+### Messaging Services
+- Queue messages for reliability
+- Implement retry with backoff
+- Track delivery status
+- Handle bounces and complaints
 
-Run tests with: `pytest integrations/test_payment_gateway.py`
-
-Use Stripe test cards:
-- Success: 4242424242424242
-- Decline: 4000000000000002
+### File Storage
+- Abstract storage provider
+- Implement multipart upload for large files
+- Generate presigned URLs for direct upload
+- Handle eventual consistency
 EOF
     
     # Log work performed - single line
