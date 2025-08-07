@@ -49,7 +49,7 @@ if [ ! -f "$JOURNAL_PATH" ]; then
 fi
 
 # Build jq filter
-JQ_FILTER="select(.event_type | startswith(\"agent.\")) | select(.agent_id == \"$AGENT_ID\")"
+JQ_FILTER="select(.event_type | startswith(\"agent.\")) | select(.agent == \"$AGENT_ID\")"
 
 # Add optional filters
 if [ -n "$CARD_FILTER" ]; then

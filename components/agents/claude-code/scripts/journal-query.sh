@@ -31,7 +31,7 @@ while [ $# -gt 0 ]; do
     case "$1" in
         --agent)
             shift
-            JQ_FILTER="$JQ_FILTER | select(.actor == \"$1\")"
+            JQ_FILTER="$JQ_FILTER | select(.agent == \"$1\")"
             shift
             ;;
         --card)

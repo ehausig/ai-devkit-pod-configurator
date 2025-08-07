@@ -166,9 +166,15 @@ FULL_EVENT_TYPE="${CATEGORY}.${EVENT_TYPE}"
 
 # Log agent activity events when agent changes
 if [ "$CATEGORY" = "agent" ] && [ "$EVENT_TYPE" = "started" ]; then
-    # Log agent activation
+    # Log agent activation (without agent in data field)
     ACTIVATION_EVENT="{\"timestamp\":\"$TIMESTAMP\",\"event_type\":\"agent.activated\",\"agent\":\"$AGENT\",\"data\":{}}"
     echo "$ACTIVATION_EVENT" >> "$JOURNAL_PATH"
+elif [ "$CATEGORY" = "agent" ] && [ "$EVENT_TYPE" = "activated" ]; then
+    # Don't duplicate agent field in data
+    unset DATA["agent"]
+elif [ "$CATEGORY" = "agent" ] && [ "$EVENT_TYPE" = "deactivated" ]; then
+    # Don't duplicate agent field in data
+    unset DATA["agent"]
 elif [ "$CATEGORY" = "kanban" ] && [ "$EVENT_TYPE" = "card.created" ]; then
     # Also activate product-manager when creating cards
     if [ "$AGENT" = "product-manager" ]; then

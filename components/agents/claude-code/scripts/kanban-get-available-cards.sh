@@ -52,7 +52,8 @@ get_valid_states_for_agent() {
     
     case "$agent_type" in
         "platform-engineer")
-            echo '["backlog", "blocked"]'
+            # Can handle full cycle for infrastructure cards
+            echo '["backlog", "breakdown_ended", "work_ended", "blocked"]'
             ;;
         "api-designer")
             echo '["backlog", "blocked"]'
@@ -70,7 +71,8 @@ get_valid_states_for_agent() {
             echo '["backlog", "blocked"]'
             ;;
         "feature-developer")
-            echo '["breakdown_ended", "blocked"]'
+            # Can do breakdown for feature cards and work phase
+            echo '["backlog", "breakdown_ended", "blocked"]'
             ;;
         "algorithm-developer")
             echo '["breakdown_ended", "blocked"]'
@@ -79,6 +81,7 @@ get_valid_states_for_agent() {
             echo '["breakdown_ended", "blocked"]'
             ;;
         "qa-engineer")
+            # Only handles validation
             echo '["work_ended", "blocked"]'
             ;;
         "security-specialist")

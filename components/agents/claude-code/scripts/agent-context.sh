@@ -20,7 +20,7 @@ fi
 
 # Build comprehensive context from agent events
 cat "$JOURNAL_PATH" | jq -s "
-map(select(.agent_id == \"$AGENT_ID\" and .data.card_id == \"$CARD_ID\")) |
+map(select(.agent == \"$AGENT_ID\" and .data.card_id == \"$CARD_ID\")) |
 {
     decisions: map(select(.event_type == \"agent.decision_made\") | {
         timestamp: .timestamp,

@@ -17,6 +17,7 @@ class KanbanDashboard {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${protocol}//${window.location.host}`;
         
+        console.log('Connecting to WebSocket:', wsUrl);
         this.ws = new WebSocket(wsUrl);
 
         this.ws.onopen = () => {
@@ -47,6 +48,7 @@ class KanbanDashboard {
 
         this.ws.onerror = (error) => {
             console.error('WebSocket error:', error);
+            this.updateConnectionStatus(false);
         };
     }
 
@@ -79,6 +81,11 @@ class KanbanDashboard {
             const response = await fetch('/api/state');
             const data = await response.json();
             
+            console.log('Initial data loaded:', {
+                cards: data.cards?.length || 0,
+                status: data.status
+            });
+            
             if (data.status) {
                 this.updateJournalStatus(data.status);
             }
@@ -97,6 +104,8 @@ class KanbanDashboard {
 
     handleWebSocketMessage(message) {
         try {
+            console.log('WebSocket message received:', message.type);
+            
             switch (message.type) {
                 case 'initial':
                     if (message.data.status) {
@@ -126,6 +135,8 @@ class KanbanDashboard {
     }
 
     updateJournalStatus(status) {
+        console.log('Updating journal status:', status);
+        
         // Create or update status message
         let statusElement = document.getElementById('journal-status');
         if (!statusElement) {
@@ -161,6 +172,8 @@ class KanbanDashboard {
     }
 
     updateBoard(cards) {
+        console.log('Updating board with', cards.length, 'cards');
+        
         // Clear all columns
         const columns = document.querySelectorAll('.column-cards');
         columns.forEach(col => col.innerHTML = '');
@@ -300,6 +313,8 @@ class KanbanDashboard {
     }
 
     updateAgents(agents) {
+        console.log('Updating agents:', agents);
+        
         const agentList = document.getElementById('agent-list');
         agentList.innerHTML = '';
         
@@ -346,6 +361,8 @@ class KanbanDashboard {
 
     addEvent(event) {
         try {
+            console.log('Adding event:', event.event_type, event.agent);
+            
             // Track agent activity from events
             if (event.event_type === 'agent.activated') {
                 this.handleAgentActivation(event);
@@ -363,20 +380,6 @@ class KanbanDashboard {
         } catch (error) {
             console.error('Error adding event:', error);
             console.error('Event data:', event);
-        }
-    } events
-        if (event.event_type === 'agent.activated') {
-            this.handleAgentActivation(event);
-        } else if (event.event_type === 'agent.deactivated') {
-            this.handleAgentDeactivation(event);
-        }
-        
-        this.addEventToLog(event);
-        
-        // Keep only last 50 events
-        const eventList = document.getElementById('event-list');
-        while (eventList.children.length > 50) {
-            eventList.removeChild(eventList.lastChild);
         }
     }
 

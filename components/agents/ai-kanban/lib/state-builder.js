@@ -43,7 +43,7 @@ class StateBuilder {
       state_history: [{
         state: event.data.state || 'backlog',
         timestamp: event.timestamp,
-        actor: event.agent || 'system'  // Use agent instead of actor
+        actor: event.agent || 'system'
       }]
     };
     this.cards.set(event.card_id, card);
@@ -75,7 +75,7 @@ class StateBuilder {
     card.state_history.push({
       state: event.data.state,
       timestamp: event.timestamp,
-      actor: event.agent || 'system',  // Use agent instead of actor
+      actor: event.agent || 'system',
       previous_state: event.data.previous_state
     });
   }
@@ -129,13 +129,13 @@ class StateBuilder {
       card.state_history.push({
         state: newState,
         timestamp: event.timestamp,
-        actor: event.agent || 'system'  // Use agent instead of actor
+        actor: event.agent || 'system'
       });
     }
   }
 
   handleAgentEvent(event) {
-    const agentId = event.agent;  // Use agent instead of actor
+    const agentId = event.agent;
     
     if (event.event_type === 'agent.started') {
       this.activeAgents.set(agentId, {

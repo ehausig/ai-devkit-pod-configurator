@@ -2,6 +2,8 @@ const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
 const path = require('path');
+const fs = require('fs');
+const os = require('os');
 const JournalReader = require('./lib/journal-reader');
 const StateBuilder = require('./lib/state-builder');
 const MetricsCalculator = require('./lib/metrics');
@@ -10,8 +12,14 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
+// Determine the correct journal path
+const journalPath = process.env.JOURNAL_PATH || 
+                   path.join(os.homedir(), 'workspace', 'JOURNAL.md') ||
+                   '/home/devuser/workspace/JOURNAL.md';
+
+console.log(`Looking for journal at: ${journalPath}`);
+
 // Initialize components
-const journalPath = '/home/devuser/workspace/JOURNAL.md';
 const stateBuilder = new StateBuilder();
 const metricsCalculator = new MetricsCalculator();
 const journalReader = new JournalReader(journalPath);
@@ -48,6 +56,17 @@ app.get('/api/status', (req, res) => {
   res.json(currentStatus);
 });
 
+// Add debug endpoint
+app.get('/api/debug', (req, res) => {
+  res.json({
+    journalPath: journalPath,
+    journalExists: fs.existsSync(journalPath),
+    eventCount: stateBuilder.getEvents().length,
+    cardCount: stateBuilder.getCurrentState().length,
+    status: currentStatus
+  });
+});
+
 // WebSocket connection handling
 wss.on('connection', (ws) => {
   console.log('New WebSocket connection established');
@@ -66,6 +85,10 @@ wss.on('connection', (ws) => {
   
   ws.on('close', () => {
     console.log('WebSocket connection closed');
+  });
+  
+  ws.on('error', (error) => {
+    console.error('WebSocket error:', error);
   });
 });
 
@@ -88,7 +111,12 @@ journalReader.on('status', (status) => {
 
 // Process journal events
 journalReader.on('event', (event) => {
-  console.log('New event:', event.event_type, event.card_id || '');
+  // Log event details for debugging
+  console.log('New event:', {
+    type: event.event_type,
+    agent: event.agent,
+    card: event.card_id || ''
+  });
   
   // Update state
   stateBuilder.processEvent(event);
@@ -123,6 +151,22 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`AI Kanban Dashboard running on http://localhost:${PORT}`);
   console.log(`Monitoring journal at: ${journalPath}`);
+  console.log(`Journal exists: ${fs.existsSync(journalPath)}`);
+  
+  // Create journal file if it doesn't exist
+  if (!fs.existsSync(journalPath)) {
+    console.log('Journal file not found, creating empty file...');
+    try {
+      const dir = path.dirname(journalPath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(journalPath, '');
+      console.log('Created empty journal file');
+    } catch (err) {
+      console.error('Could not create journal file:', err);
+    }
+  }
 });
 
 // Graceful shutdown
@@ -134,3 +178,8 @@ process.on('SIGTERM', () => {
     process.exit(0);
   });
 });
+
+// Add debug mode
+if (process.env.DEBUG) {
+  process.env.DEBUG_JOURNAL = 'true';
+}

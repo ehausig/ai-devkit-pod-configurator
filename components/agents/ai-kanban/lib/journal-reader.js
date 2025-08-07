@@ -1,5 +1,6 @@
 const EventEmitter = require('events');
 const fs = require('fs');
+const path = require('path');
 const readline = require('readline');
 const Tail = require('tail').Tail;
 
@@ -25,6 +26,20 @@ class JournalReader extends EventEmitter {
     // Check if file exists
     if (!fs.existsSync(this.filePath)) {
       console.log('Journal file does not exist yet, will check periodically...');
+      
+      // Try to create the directory and file
+      try {
+        const dir = path.dirname(this.filePath);
+        if (!fs.existsSync(dir)) {
+          fs.mkdirSync(dir, { recursive: true });
+          console.log(`Created directory: ${dir}`);
+        }
+        fs.writeFileSync(this.filePath, '');
+        console.log(`Created empty journal file at: ${this.filePath}`);
+      } catch (err) {
+        console.log('Could not create journal file, will wait for it to be created by the system...');
+      }
+      
       this.emit('status', { 
         type: 'waiting', 
         message: 'Waiting for JOURNAL.md to be created...',
@@ -87,12 +102,14 @@ class JournalReader extends EventEmitter {
         crlfDelay: Infinity
       });
 
+      let lineCount = 0;
       rl.on('line', (line) => {
+        lineCount++;
         this.processLine(line);
       });
 
       rl.on('close', () => {
-        console.log('Finished reading existing journal content');
+        console.log(`Finished reading existing journal content (${lineCount} lines)`);
         resolve();
       });
 
@@ -104,13 +121,26 @@ class JournalReader extends EventEmitter {
 
   startTailing() {
     try {
+      // Create file if it doesn't exist
+      if (!fs.existsSync(this.filePath)) {
+        const dir = path.dirname(this.filePath);
+        if (!fs.existsSync(dir)) {
+          fs.mkdirSync(dir, { recursive: true });
+        }
+        fs.writeFileSync(this.filePath, '');
+        console.log('Created journal file for tailing');
+      }
+
       // Use fromBeginning: false and useWatchFile for better compatibility
       this.tail = new Tail(this.filePath, {
         fromBeginning: false,
         follow: true,
         logger: console,
         useWatchFile: true,  // Better for files that might not exist initially
-        flushAtEOF: true     // Ensure we get all content
+        flushAtEOF: true,    // Ensure we get all content
+        fsWatchOptions: {
+          interval: 100      // Poll every 100ms for faster updates
+        }
       });
 
       this.tail.on('line', (line) => {
@@ -149,10 +179,20 @@ class JournalReader extends EventEmitter {
 
     try {
       const event = JSON.parse(line);
+      
+      // Debug logging for development
+      if (process.env.DEBUG_JOURNAL === 'true') {
+        console.log('Parsed event:', {
+          type: event.event_type,
+          agent: event.agent,
+          card: event.card_id
+        });
+      }
+      
       this.emit('event', event);
     } catch (error) {
       console.error('Error parsing journal line:', error);
-      console.error('Line content:', line);
+      console.error('Line content:', line.substring(0, 200) + (line.length > 200 ? '...' : ''));
     }
   }
 
