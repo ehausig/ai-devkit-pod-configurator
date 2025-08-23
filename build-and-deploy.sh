@@ -864,16 +864,19 @@ provide_installation_guidance() {
     
     case "$tool" in
         "yq")
-            echo "  ⚠️  IMPORTANT: Install mikefarah/yq (Go version), NOT kislyuk/yq (Python wrapper)"
+            echo "  Install any compatible yq YAML processor:"
             echo ""
-            echo "  macOS:    brew install yq  # (installs mikefarah/yq)"
-            echo "  Ubuntu:   curl -L https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -o yq && sudo install yq /usr/local/bin/ && rm yq"
-            echo "  RHEL:     curl -L https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -o yq && sudo install yq /usr/local/bin/ && rm yq"
-            echo "  Alpine:   apk add yq  # (installs mikefarah/yq)"
-            echo "  Snap:     sudo snap install yq  # (installs mikefarah/yq)"
+            echo "  Option 1 - mikefarah/yq (Go version, recommended):"
+            echo "    macOS:    brew install yq"
+            echo "    Ubuntu:   curl -L https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -o yq && sudo install yq /usr/local/bin/ && rm yq"
+            echo "    Alpine:   apk add yq"
+            echo "    Snap:     sudo snap install yq"
             echo ""
-            echo "  Verify correct version with: yq eval --help"
-            echo "  Manual download: https://github.com/mikefarah/yq/releases"
+            echo "  Option 2 - kislyuk/yq (Python wrapper, also supported):"
+            echo "    Ubuntu:   sudo apt-get install yq"
+            echo "    Python:   pip install yq"
+            echo ""
+            echo "  This script supports both versions and will auto-detect which you have."
             ;;
         "jq")
             echo "  macOS:    brew install jq"
@@ -953,53 +956,24 @@ check_deps() {
             # Verify the tool actually works
             case "$tool" in
                 "yq")
-                    # First check if this is Python-based yq wrapper by checking help output
-                    if yq --help 2>&1 | grep -q -E "(jq wrapper|jq filter|positional arguments)"; then
-                        # This is the Python-based kislyuk/yq wrapper (various versions)
-                        echo "✗ (wrong version - Python wrapper detected)"
-                        echo ""
-                        error "Found Python-based yq wrapper, but need mikefarah/yq (Go version)"
-                        echo ""
-                        echo "You have the Python-based yq wrapper installed. This project requires"
-                        echo "the Go-based yq from mikefarah/yq for proper YAML processing."
-                        echo ""
-                        echo "To fix this:"
-                        echo "  1. Remove Python yq: sudo apt-get remove yq  # (if installed via apt)"
-                        echo "     OR: pip uninstall yq  # (if installed via pip)"
-                        echo "  2. Install mikefarah/yq:"
-                        provide_installation_guidance "$tool"
-                        exit 1
-                    # Now check if we have the correct mikefarah/yq
-                    elif yq eval --help &>/dev/null 2>&1; then
-                        # This should be the correct mikefarah/yq - test it
-                        if echo "test: value" > /tmp/yq_test_$$ && yq eval '.test // ""' /tmp/yq_test_$$ &> /dev/null; then
+                    # Test yq functionality with a simple test regardless of version
+                    if echo "test: value" > /tmp/yq_test_$$ 2>/dev/null; then
+                        # Test with mikefarah/yq syntax first  
+                        if yq eval '.test // ""' /tmp/yq_test_$$ &> /dev/null; then
                             rm -f /tmp/yq_test_$$
-                            echo "✓"
+                            echo "✓ (mikefarah/yq detected)"
+                        # Test with kislyuk/yq (Python wrapper) syntax  
+                        elif yq -r '.test // ""' /tmp/yq_test_$$ &> /dev/null; then
+                            rm -f /tmp/yq_test_$$
+                            echo "✓ (kislyuk/yq detected)"
                         else
                             rm -f /tmp/yq_test_$$
                             echo "✗ (installed but not working)"
                             provide_installation_guidance "$tool"
                         fi
                     else
-                        # yq exists but doesn't support 'eval' and isn't detected as Python wrapper
-                        # This is likely an old/incompatible version
-                        echo "✗ (incompatible version)"
-                        echo ""
-                        error "Found incompatible yq version. Need mikefarah/yq (Go version)"
-                        echo ""
-                        echo "Your yq version doesn't support 'yq eval' command which indicates"
-                        echo "it's not the mikefarah/yq (Go version) that this project requires."
-                        echo ""
-                        echo "Current yq version info:"
-                        yq --version 2>&1 | head -3 | sed 's/^/  /' || echo "  (version command failed)"
-                        echo ""
-                        echo "To fix this:"
-                        echo "  1. Remove current yq: sudo apt-get remove yq  # (if installed via apt)"
-                        echo "     OR: pip uninstall yq  # (if installed via pip)"
-                        echo "     OR: sudo snap remove yq  # (if installed via snap)"
-                        echo "  2. Install mikefarah/yq:"
+                        echo "✗ (cannot create test file)"
                         provide_installation_guidance "$tool"
-                        exit 1
                     fi
                     ;;
                 "jq")
@@ -1107,18 +1081,68 @@ create_ssh_host_keys_secret() {
         --from-file=ssh_host_ed25519_key.pub="$SSH_KEYS_DIR/ssh_host_ed25519_key.pub" >/dev/null 2>&1
 }
 
+# Global variable to track which yq version we have
+YQ_TYPE=""
+
+# Detect and set yq type on first use
+detect_yq_type() {
+    if [[ -n "$YQ_TYPE" ]]; then
+        return 0  # Already detected
+    fi
+    
+    # Test with a simple file
+    if echo "test: value" > /tmp/yq_detect_$$ 2>/dev/null; then
+        if yq eval '.test // ""' /tmp/yq_detect_$$ &> /dev/null; then
+            YQ_TYPE="mikefarah"
+        elif yq -r '.test // ""' /tmp/yq_detect_$$ &> /dev/null; then
+            YQ_TYPE="kislyuk"
+        else
+            YQ_TYPE="unknown"
+        fi
+        rm -f /tmp/yq_detect_$$
+    else
+        YQ_TYPE="unknown"
+    fi
+}
+
+# Universal yq wrapper that works with both versions
+yq_universal() {
+    local expression="$1"
+    local file="$2"
+    
+    # Detect yq type if not already done
+    detect_yq_type
+    
+    case "$YQ_TYPE" in
+        "mikefarah")
+            yq eval "$expression" "$file"
+            ;;
+        "kislyuk") 
+            yq -r "$expression" "$file"
+            ;;
+        *)
+            # Fallback - try both and return first successful result
+            if yq eval "$expression" "$file" 2>/dev/null; then
+                return $?
+            else
+                yq -r "$expression" "$file"
+            fi
+            ;;
+    esac
+}
+
 # Parse YAML file using yq
 parse_yaml() {
     local file=$1
     local prefix=$2
     
-    # Extract the fields we need using yq
-    local id=$(yq eval '.id // ""' "$file")
-    local name=$(yq eval '.name // ""' "$file")
-    local group=$(yq eval '.group // ""' "$file")
-    local requires=$(yq eval '.requires // ""' "$file")
-    local version=$(yq eval '.version // ""' "$file")
-    local description=$(yq eval '.description // ""' "$file")
+    # Extract the fields we need using yq universal wrapper
+    local id=$(yq_universal '.id // ""' "$file")
+    local name=$(yq_universal '.name // ""' "$file")
+    local group=$(yq_universal '.group // ""' "$file")
+    local requires=$(yq_universal '.requires // ""' "$file")
+    local version=$(yq_universal '.version // ""' "$file")
+    local description=$(yq_universal '.description // ""' "$file")
     
     # Output in the format expected by the rest of the script
     [[ -n "$id" ]] && echo "${prefix}id=\"$id\""
@@ -3179,18 +3203,18 @@ extract_inject_files_from_yaml() {
     local inject_commands=""
     
     # Check if inject_files exists in the YAML (under installation)
-    if ! yq eval '.installation.inject_files' "$yaml_file" | grep -q -v "^null$"; then
+    if ! yq_universal '.installation.inject_files' "$yaml_file" | grep -q -v "^null$"; then
         return 0
     fi
     
     # Get the number of inject_files entries
-    local count=$(yq eval '.installation.inject_files | length' "$yaml_file")
+    local count=$(yq_universal '.installation.inject_files | length' "$yaml_file")
     
     # Process each inject_files entry
     for ((i=0; i<count; i++)); do
-        local source=$(yq eval ".installation.inject_files[$i].source" "$yaml_file")
-        local destination=$(yq eval ".installation.inject_files[$i].destination" "$yaml_file")
-        local permissions=$(yq eval ".installation.inject_files[$i].permissions" "$yaml_file")
+        local source=$(yq_universal ".installation.inject_files[$i].source" "$yaml_file")
+        local destination=$(yq_universal ".installation.inject_files[$i].destination" "$yaml_file")
+        local permissions=$(yq_universal ".installation.inject_files[$i].permissions" "$yaml_file")
         
         # Skip if source or destination is null
         if [[ "$source" == "null" ]] || [[ "$destination" == "null" ]]; then
@@ -3212,7 +3236,7 @@ extract_inject_files_from_yaml() {
 # Function to extract entrypoint_setup from YAML file using yq
 extract_entrypoint_setup() {
     local yaml_file=$1
-    local entrypoint_content=$(yq eval '.entrypoint_setup // ""' "$yaml_file")
+    local entrypoint_content=$(yq_universal '.entrypoint_setup // ""' "$yaml_file")
     
     # Return empty if null or empty
     if [[ "$entrypoint_content" == "null" ]] || [[ -z "$entrypoint_content" ]]; then
@@ -3229,13 +3253,13 @@ extract_installation_from_yaml() {
     local full_content=""
     
     # Extract dockerfile content if it exists
-    local dockerfile_content=$(yq eval '.installation.dockerfile // ""' "$yaml_file")
+    local dockerfile_content=$(yq_universal '.installation.dockerfile // ""' "$yaml_file")
     if [[ -n "$dockerfile_content" ]] && [[ "$dockerfile_content" != "null" ]]; then
         full_content="$dockerfile_content"
     fi
     
     # Extract nexus_config if it exists
-    local nexus_content=$(yq eval '.installation.nexus_config // ""' "$yaml_file")
+    local nexus_content=$(yq_universal '.installation.nexus_config // ""' "$yaml_file")
     if [[ -n "$nexus_content" ]] && [[ "$nexus_content" != "null" ]]; then
         if [[ -n "$full_content" ]]; then
             full_content+=$NL$NL
