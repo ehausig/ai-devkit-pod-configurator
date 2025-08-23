@@ -98,7 +98,7 @@ colima start --kubernetes --cpu 4 --memory 8
 docker context use colima
 ```
 
-For Linux:
+For Linux with Docker:
 ```bash
 # Check Docker service
 sudo systemctl status docker
@@ -109,6 +109,20 @@ sudo systemctl start docker
 # Add user to docker group
 sudo usermod -aG docker $USER
 # Log out and back in
+```
+
+For Linux with K3s:
+```bash
+# Check K3s service
+sudo systemctl status k3s
+
+# Start if not running
+sudo systemctl start k3s
+
+# Check kubeconfig
+ls -la ~/.kube/config
+sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
+sudo chown $USER:$USER ~/.kube/config
 ```
 
 ### Kubernetes cluster unreachable
@@ -529,11 +543,14 @@ find . -name "*.sh" -type f -exec chmod +x {} \;
 ### Platform Limitations
 
 **Current Testing Status**:
-- ✅ macOS with Colima (primary platform)
-- ⚠️  Linux with k3s (limited testing)
-- ❌ Windows WSL2 (untested)
-- ❌ Minikube (untested)
-- ❌ Kind (untested)
+- ✅ macOS with Colima (primary platform, fully supported)
+- ✅ Linux with K3s (fully supported with runtime detection)
+- ⚠️  Docker Desktop (supported, limited testing)
+- ⚠️  Windows WSL2 (supported via runtime detection, limited testing)
+- ⚠️  Minikube (supported via generic runtime, untested)
+- ⚠️  Kind (supported via generic runtime, untested)
+
+**Runtime Detection**: The system now automatically detects and adapts to your container runtime environment. All supported platforms use the same codebase with platform-specific optimizations.
 
 ### Component System Limitations
 
