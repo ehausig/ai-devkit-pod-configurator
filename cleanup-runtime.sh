@@ -25,6 +25,118 @@ FORCE_MODE=false
 OVERLAY2_CLEANUP=false
 SKIP_OVERLAY2=false
 
+# Container Tool Detection System (copied from build-and-deploy.sh)
+CONTAINER_TOOL_CONFIG="$HOME/.ai-devkit/container-tool"
+
+detect_container_tool() {
+    # Detect available container tool (docker or podman)
+    # Returns: "docker", "podman", or "none"
+    
+    # Check if we have a cached preference
+    if [[ -f "$CONTAINER_TOOL_CONFIG" ]]; then
+        local cached_tool=$(cat "$CONTAINER_TOOL_CONFIG" 2>/dev/null)
+        if [[ -n "$cached_tool" ]] && command -v "$cached_tool" &> /dev/null; then
+            # Verify the cached tool is still working
+            if "$cached_tool" version &> /dev/null; then
+                echo "$cached_tool"
+                return 0
+            fi
+        fi
+        # Cache is invalid, remove it
+        rm -f "$CONTAINER_TOOL_CONFIG" 2>/dev/null || true
+    fi
+    
+    # Auto-detect available tools - prefer Docker if both are available
+    if command -v docker &> /dev/null && docker version &> /dev/null 2>&1; then
+        echo "docker"
+        return 0
+    elif command -v podman &> /dev/null && podman version &> /dev/null 2>&1; then
+        echo "podman"
+        return 0
+    fi
+    
+    echo "none"
+    return 1
+}
+
+get_container_tool() {
+    # Get the configured container tool
+    local tool=$(detect_container_tool)
+    
+    if [[ "$tool" == "none" ]]; then
+        error "No container tool found. Please install either Docker or Podman."
+    fi
+    
+    echo "$tool"
+}
+
+# Container tool abstraction functions for cleanup operations
+container_images() {
+    local tool=$(get_container_tool)
+    case "$tool" in
+        "docker") docker images "$@" ;;
+        "podman") podman images "$@" ;;
+        *) error "Unsupported container tool: $tool" ;;
+    esac
+}
+
+container_system_df() {
+    local tool=$(get_container_tool)
+    case "$tool" in
+        "docker") docker system df "$@" ;;
+        "podman") podman system df "$@" 2>/dev/null || echo "Podman system df not available" ;;
+        *) error "Unsupported container tool: $tool" ;;
+    esac
+}
+
+container_system_prune() {
+    local tool=$(get_container_tool)
+    case "$tool" in
+        "docker") docker system prune "$@" ;;
+        "podman") podman system prune "$@" ;;
+        *) error "Unsupported container tool: $tool" ;;
+    esac
+}
+
+container_builder_prune() {
+    local tool=$(get_container_tool)
+    case "$tool" in
+        "docker") docker builder prune "$@" ;;
+        "podman") 
+            # Podman doesn't have builder prune, but we can clean build cache
+            podman system prune "$@" 2>/dev/null || true
+            ;;
+        *) error "Unsupported container tool: $tool" ;;
+    esac
+}
+
+container_tag() {
+    local tool=$(get_container_tool)
+    case "$tool" in
+        "docker") docker tag "$@" ;;
+        "podman") podman tag "$@" ;;
+        *) error "Unsupported container tool: $tool" ;;
+    esac
+}
+
+container_rmi() {
+    local tool=$(get_container_tool)
+    case "$tool" in
+        "docker") docker rmi "$@" ;;
+        "podman") podman rmi "$@" ;;
+        *) error "Unsupported container tool: $tool" ;;
+    esac
+}
+
+container_inspect() {
+    local tool=$(get_container_tool)
+    case "$tool" in
+        "docker") docker inspect "$@" ;;
+        "podman") podman inspect "$@" ;;
+        *) error "Unsupported container tool: $tool" ;;
+    esac
+}
+
 # Runtime detection functions (copied from build-and-deploy.sh)
 detect_container_runtime() {
     # Detect the container runtime environment
@@ -48,10 +160,20 @@ detect_container_runtime() {
         return 0
     fi
     
-    # Check for Docker Desktop (macOS/Windows)
-    if command -v docker &> /dev/null && docker context show 2>/dev/null | grep -q "desktop\|docker-desktop"; then
+    # Check for Docker Desktop (macOS/Windows) or Podman Desktop
+    local container_tool=$(detect_container_tool)
+    if [[ "$container_tool" == "docker" ]] && docker context show 2>/dev/null | grep -q "desktop\|docker-desktop"; then
         echo "docker-desktop"
         return 0
+    elif [[ "$container_tool" == "podman" ]]; then
+        # For Podman, check if this might be a desktop environment
+        if kubectl get nodes &> /dev/null; then
+            local runtime=$(kubectl get nodes -o jsonpath='{.items[0].status.nodeInfo.containerRuntimeVersion}' 2>/dev/null)
+            if [[ "$runtime" == *"cri-o"* ]] || [[ "$runtime" == *"podman"* ]]; then
+                echo "podman"
+                return 0
+            fi
+        fi
     fi
     
     # Check if we can access Kubernetes cluster directly
@@ -117,8 +239,9 @@ check_runtime() {
             fi
             ;;
         "docker-desktop")
-            if ! docker info &> /dev/null; then
-                error "Docker Desktop is not running. Please start Docker Desktop"
+            local tool=$(get_container_tool)
+            if ! $tool info &> /dev/null; then
+                error "$tool Desktop is not running. Please start $tool Desktop"
             fi
             ;;
         "containerd")
@@ -157,10 +280,10 @@ get_protected_images() {
                 ids=$(colima ssh -- sudo docker images --filter "reference=$pattern*" -q 2>/dev/null)
                 ;;
             "docker-desktop")
-                ids=$(docker images --filter "reference=$pattern*" -q 2>/dev/null)
+                ids=$(container_images --filter "reference=$pattern*" -q 2>/dev/null)
                 ;;
             *)
-                ids=$(docker images --filter "reference=$pattern*" -q 2>/dev/null)
+                ids=$(container_images --filter "reference=$pattern*" -q 2>/dev/null)
                 ;;
         esac
         
@@ -230,10 +353,10 @@ clean_docker() {
             colima ssh -- sudo docker system df
             ;;
         "docker-desktop")
-            docker system df
+            container_system_df
             ;;
         *)
-            docker system df 2>/dev/null || sudo ctr images list 2>/dev/null || true
+            container_system_df 2>/dev/null || sudo ctr images list 2>/dev/null || true
             ;;
     esac
     echo ""
