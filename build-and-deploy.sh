@@ -964,8 +964,8 @@ check_deps() {
                             echo "✗ (installed but not working)"
                             provide_installation_guidance "$tool"
                         fi
-                    elif yq --help 2>&1 | grep -q "jq wrapper"; then
-                        # This is the Python-based kislyuk/yq wrapper - not what we need
+                    elif yq --help 2>&1 | grep -q -E "(jq wrapper|jq filter|positional arguments)"; then
+                        # This is the Python-based kislyuk/yq wrapper (various versions)
                         rm -f /tmp/yq_test_$$
                         echo "✗ (wrong version - Python wrapper detected)"
                         echo ""
@@ -975,14 +975,32 @@ check_deps() {
                         echo "the Go-based yq from mikefarah/yq for proper YAML processing."
                         echo ""
                         echo "To fix this:"
-                        echo "  1. Remove Python yq: pip uninstall yq"
+                        echo "  1. Remove Python yq: sudo apt-get remove yq  # (if installed via apt)"
+                        echo "     OR: pip uninstall yq  # (if installed via pip)"
                         echo "  2. Install mikefarah/yq:"
                         provide_installation_guidance "$tool"
                         exit 1
                     else
+                        # yq exists but doesn't support 'eval' and isn't detected as Python wrapper
+                        # This is likely an old/incompatible version
                         rm -f /tmp/yq_test_$$
-                        echo "✗ (not found)"
+                        echo "✗ (incompatible version)"
+                        echo ""
+                        error "Found incompatible yq version. Need mikefarah/yq (Go version)"
+                        echo ""
+                        echo "Your yq version doesn't support 'yq eval' command which indicates"
+                        echo "it's not the mikefarah/yq (Go version) that this project requires."
+                        echo ""
+                        echo "Current yq version info:"
+                        yq --version 2>&1 | head -3 | sed 's/^/  /' || echo "  (version command failed)"
+                        echo ""
+                        echo "To fix this:"
+                        echo "  1. Remove current yq: sudo apt-get remove yq  # (if installed via apt)"
+                        echo "     OR: pip uninstall yq  # (if installed via pip)"
+                        echo "     OR: sudo snap remove yq  # (if installed via snap)"
+                        echo "  2. Install mikefarah/yq:"
                         provide_installation_guidance "$tool"
+                        exit 1
                     fi
                     ;;
                 "jq")
