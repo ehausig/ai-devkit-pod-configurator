@@ -1115,21 +1115,17 @@ yq_universal() {
     
     case "$YQ_TYPE" in
         "mikefarah")
-            yq eval "$expression" "$file"
+            yq eval "$expression" "$file" 2>/dev/null || echo ""
             ;;
         "kislyuk") 
-            # kislyuk/yq is just a wrapper around jq, so let's use it properly
-            # First convert YAML to JSON, then apply jq expression
-            local json_output=$(yq . "$file" 2>/dev/null)
-            if [[ -z "$json_output" ]]; then
-                echo ""
-                return 0
-            fi
+            # For kislyuk/yq, simplify the approach
+            # Just extract the field without the default operator
+            local field=$(echo "$expression" | sed 's/ *\/\/ *".*"$//' | sed 's/^\.//')
             
-            # Apply the jq expression to the JSON
-            local result=$(echo "$json_output" | jq -r "$expression" 2>/dev/null)
+            # Use yq to get the value directly
+            local result=$(yq -r ".$field" "$file" 2>/dev/null)
             
-            # Handle null or empty results  
+            # Handle null or missing fields
             if [[ "$result" == "null" ]] || [[ -z "$result" ]]; then
                 # Extract default value from expression if present
                 if [[ "$expression" =~ //\ *\"(.*)\" ]]; then
@@ -1140,18 +1136,19 @@ yq_universal() {
             else
                 echo "$result"
             fi
-            return 0
             ;;
         *)
-            # Fallback - try both and return first successful result
+            # Fallback - try mikefarah syntax first
             if yq eval "$expression" "$file" 2>/dev/null; then
                 return 0
             else
-                yq -r "$expression" "$file" 2>/dev/null || echo ""
-                return 0
+                # Try kislyuk syntax
+                local field=$(echo "$expression" | sed 's/ *\/\/ *".*"$//' | sed 's/^\.//')
+                yq -r ".$field" "$file" 2>/dev/null || echo ""
             fi
             ;;
     esac
+    return 0
 }
 
 # Parse YAML file using yq
@@ -3787,7 +3784,11 @@ main() {
     
     # Initialize component system
     echo -n "Loading components"
-    initialize_components
+    initialize_components || {
+        echo ""
+        error "Failed to initialize components"
+        exit 1
+    }
     echo " ✓"  # Add completion checkmark after components are loaded
     
     # Setup configuration options
