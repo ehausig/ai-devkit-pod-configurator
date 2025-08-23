@@ -963,7 +963,7 @@ check_deps() {
                             rm -f /tmp/yq_test_$$
                             echo "✓ (mikefarah/yq detected)"
                         # Test with kislyuk/yq (Python wrapper) syntax  
-                        elif yq '.test // ""' /tmp/yq_test_$$ &> /dev/null; then
+                        elif yq -r '.test // ""' /tmp/yq_test_$$ &> /dev/null; then
                             rm -f /tmp/yq_test_$$
                             echo "✓ (kislyuk/yq detected)"
                         else
@@ -1094,7 +1094,7 @@ detect_yq_type() {
     if echo "test: value" > /tmp/yq_detect_$$ 2>/dev/null; then
         if yq eval '.test // ""' /tmp/yq_detect_$$ &> /dev/null; then
             YQ_TYPE="mikefarah"
-        elif yq '.test // ""' /tmp/yq_detect_$$ &> /dev/null; then
+        elif yq -r '.test // ""' /tmp/yq_detect_$$ &> /dev/null; then
             YQ_TYPE="kislyuk"
         else
             YQ_TYPE="unknown"
@@ -1118,7 +1118,7 @@ yq_universal() {
             yq eval "$expression" "$file"
             ;;
         "kislyuk") 
-            yq "$expression" "$file"
+            yq -r "$expression" "$file"
             ;;
         *)
             # Fallback - try both and return first successful result
