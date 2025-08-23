@@ -57,9 +57,10 @@ AI DevKit Pod Configurator provides a beautiful TUI (Terminal User Interface) fo
 
 - Kubernetes cluster (k3s, minikube, Colima, or any Kubernetes distribution)
 - kubectl configured to access your cluster
-- Docker or compatible container runtime
+- Container tool: **Docker** or **Podman** (automatically detected)
 - `yq` and `jq` for YAML/JSON processing
 - For macOS users: [Colima](https://github.com/abiosoft/colima) is recommended
+- For Linux users: Either Docker or Podman work seamlessly
 
 ### macOS Quick Setup with Colima
 
@@ -102,6 +103,8 @@ sudo chown $USER:$USER ~/.kube/config
 
 # Verify setup
 kubectl get nodes
+
+# Note: The system will automatically detect whether you have Docker or Podman installed
 ```
 
 ### Cross-Platform Support
