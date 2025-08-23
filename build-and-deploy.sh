@@ -1076,31 +1076,9 @@ yq_compat() {
         # mikefarah/yq (Go version) - modern syntax
         yq eval "$expression" "$file"
     else
-        # kislyuk/yq (Python version) - jq-like syntax
-        # Convert from Go yq syntax to jq syntax as needed
-        local jq_expr="$expression"
-        
-        # Handle common patterns
-        case "$expression" in
-            *'// ""')
-                # Replace '// ""' with '// ""' (already compatible)
-                jq_expr="$expression"
-                ;;
-            *'| length')
-                # Array/object length - compatible syntax
-                jq_expr="$expression"
-                ;;
-            '.installation.inject_files')
-                # Direct field access - compatible
-                jq_expr="$expression"
-                ;;
-            '.entrypoint_setup // ""'|'.installation.dockerfile // ""'|'.installation.nexus_config // ""')
-                # Complex field access with default - compatible
-                jq_expr="$expression"
-                ;;
-        esac
-        
-        yq "$jq_expr" "$file"
+        # kislyuk/yq (Python version) - jq-like syntax with quoted filter
+        # The Python version expects: yq 'filter' file (with quotes around filter)
+        yq "$expression" "$file"
     fi
 }
 
