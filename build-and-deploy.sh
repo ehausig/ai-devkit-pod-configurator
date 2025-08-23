@@ -534,7 +534,7 @@ warning() {
 # Runtime Detection and Abstraction Functions
 detect_container_runtime() {
     # Detect the container runtime environment
-    # Returns: "colima", "k3s", "containerd", "docker-desktop", or "unknown"
+    # Returns: "colima", "k3s", "containerd", "docker-desktop", "podman", or "unknown"
     
     # Check for Colima first
     if command -v colima &> /dev/null && colima status &> /dev/null; then
@@ -548,15 +548,29 @@ detect_container_runtime() {
         return 0
     fi
     
-    # Check for standalone containerd
-    if command -v ctr &> /dev/null && sudo ctr version &> /dev/null 2>&1; then
-        echo "containerd"
-        return 0
+    # Check for Podman with Kubernetes (podman-kube or similar)
+    local container_tool=$(detect_container_tool)
+    if [[ "$container_tool" == "podman" ]]; then
+        # Check if running with Podman and Kubernetes is available
+        if kubectl get nodes &> /dev/null; then
+            # Check if this is a podman-based Kubernetes setup
+            local runtime=$(kubectl get nodes -o jsonpath='{.items[0].status.nodeInfo.containerRuntimeVersion}' 2>/dev/null)
+            if [[ "$runtime" == *"cri-o"* ]] || [[ "$runtime" == *"podman"* ]]; then
+                echo "podman"
+                return 0
+            fi
+        fi
     fi
     
     # Check for Docker Desktop (macOS/Windows)
-    if command -v docker &> /dev/null && docker context show 2>/dev/null | grep -q "desktop\|docker-desktop"; then
+    if is_docker_desktop; then
         echo "docker-desktop"
+        return 0
+    fi
+    
+    # Check for standalone containerd
+    if command -v ctr &> /dev/null && sudo ctr version &> /dev/null 2>&1; then
+        echo "containerd"
         return 0
     fi
     
@@ -588,6 +602,7 @@ detect_container_runtime() {
 check_runtime_status() {
     # Check if the detected container runtime is healthy
     local runtime=$(detect_container_runtime)
+    local container_tool=$(detect_container_tool)
     
     case "$runtime" in
         "colima")
@@ -596,11 +611,16 @@ check_runtime_status() {
         "k3s")
             sudo systemctl is-active --quiet k3s || error "K3s is not running. Please start it with: sudo systemctl start k3s"
             ;;
+        "podman")
+            if [[ "$container_tool" == "podman" ]]; then
+                podman version &> /dev/null || error "Podman is not accessible. Please check podman installation."
+            fi
+            ;;
         "containerd")
             sudo ctr version &> /dev/null || error "Containerd is not accessible. Please check containerd service."
             ;;
         "docker-desktop")
-            docker info &> /dev/null || error "Docker Desktop is not running. Please start Docker Desktop."
+            container_info &> /dev/null || error "$container_tool is not running. Please start $container_tool."
             ;;
         *)
             warning "Unable to verify runtime status for: $runtime"
@@ -611,54 +631,223 @@ check_runtime_status() {
     kubectl get nodes &> /dev/null || error "Kubernetes is not accessible. Please check your kubectl configuration and cluster status."
 }
 
+# Container Tool Detection and Configuration System
+CONTAINER_TOOL_CONFIG="$HOME/.ai-devkit/container-tool"
+
+detect_container_tool() {
+    # Detect available container tool (docker or podman)
+    # Returns: "docker", "podman", or "none"
+    
+    # Check if we have a cached preference
+    if [[ -f "$CONTAINER_TOOL_CONFIG" ]]; then
+        local cached_tool=$(cat "$CONTAINER_TOOL_CONFIG" 2>/dev/null)
+        if [[ -n "$cached_tool" ]] && command -v "$cached_tool" &> /dev/null; then
+            # Verify the cached tool is still working
+            if "$cached_tool" version &> /dev/null; then
+                echo "$cached_tool"
+                return 0
+            fi
+        fi
+        # Cache is invalid, remove it
+        rm -f "$CONTAINER_TOOL_CONFIG" 2>/dev/null || true
+    fi
+    
+    # Auto-detect available tools - prefer Docker if both are available
+    if command -v docker &> /dev/null && docker version &> /dev/null 2>&1; then
+        echo "docker"
+        return 0
+    elif command -v podman &> /dev/null && podman version &> /dev/null 2>&1; then
+        echo "podman"
+        return 0
+    fi
+    
+    echo "none"
+    return 1
+}
+
+cache_container_tool() {
+    # Cache the detected container tool for future use
+    local tool="$1"
+    if [[ -n "$tool" ]] && [[ "$tool" != "none" ]]; then
+        mkdir -p "$(dirname "$CONTAINER_TOOL_CONFIG")"
+        echo "$tool" > "$CONTAINER_TOOL_CONFIG"
+        chmod 600 "$CONTAINER_TOOL_CONFIG"
+    fi
+}
+
+get_container_tool() {
+    # Get the configured container tool, detecting and caching if necessary
+    local tool=$(detect_container_tool)
+    
+    if [[ "$tool" == "none" ]]; then
+        error "No container tool found. Please install either Docker or Podman."
+    fi
+    
+    # Cache the detected tool for future use
+    cache_container_tool "$tool"
+    
+    echo "$tool"
+}
+
+# Container tool abstraction functions
+container_build() {
+    local tool=$(get_container_tool)
+    local build_args="$*"
+    
+    case "$tool" in
+        "docker")
+            docker build $build_args
+            ;;
+        "podman")
+            podman build $build_args
+            ;;
+        *)
+            error "Unsupported container tool: $tool"
+            ;;
+    esac
+}
+
+container_save() {
+    local tool=$(get_container_tool)
+    local image="$1"
+    
+    case "$tool" in
+        "docker")
+            docker save "$image"
+            ;;
+        "podman")
+            podman save "$image"
+            ;;
+        *)
+            error "Unsupported container tool: $tool"
+            ;;
+    esac
+}
+
+container_rmi() {
+    local tool=$(get_container_tool)
+    local image="$1"
+    
+    case "$tool" in
+        "docker")
+            docker rmi "$image" 2>/dev/null || true
+            ;;
+        "podman")
+            podman rmi "$image" 2>/dev/null || true
+            ;;
+        *)
+            error "Unsupported container tool: $tool"
+            ;;
+    esac
+}
+
+container_info() {
+    local tool=$(get_container_tool)
+    
+    case "$tool" in
+        "docker")
+            docker info
+            ;;
+        "podman")
+            podman info
+            ;;
+        *)
+            error "Unsupported container tool: $tool"
+            ;;
+    esac
+}
+
+container_context_show() {
+    local tool=$(get_container_tool)
+    
+    case "$tool" in
+        "docker")
+            docker context show 2>/dev/null || echo "default"
+            ;;
+        "podman")
+            # Podman doesn't have context, return connection info
+            echo "podman-local"
+            ;;
+        *)
+            error "Unsupported container tool: $tool"
+            ;;
+    esac
+}
+
+is_docker_desktop() {
+    local tool=$(get_container_tool)
+    
+    if [[ "$tool" == "docker" ]]; then
+        container_context_show | grep -q "desktop\|docker-desktop"
+        return $?
+    fi
+    
+    return 1
+}
+
 load_image_to_runtime() {
-    # Load Docker image into the Kubernetes container runtime
+    # Load container image into the Kubernetes container runtime
     # Args: $1 = image name with tag
     local image_name="$1"
     local runtime=$(detect_container_runtime)
+    local container_tool=$(get_container_tool)
     
-    log "Loading image $image_name into $runtime runtime..."
+    log "Loading image $image_name into $runtime runtime using $container_tool..."
     
     case "$runtime" in
         "colima")
             log "Using Colima image import method"
-            docker save "$image_name" | colima ssh -- sudo ctr -n k8s.io images import - >> "$LOG_FILE" 2>&1
+            container_save "$image_name" | colima ssh -- sudo ctr -n k8s.io images import - >> "$LOG_FILE" 2>&1
             ;;
         "k3s")
             log "Using K3s image import method"
-            docker save "$image_name" | sudo k3s ctr images import - >> "$LOG_FILE" 2>&1
+            container_save "$image_name" | sudo k3s ctr images import - >> "$LOG_FILE" 2>&1
+            ;;
+        "podman")
+            log "Using Podman with Kubernetes image import method"
+            # For Podman with Kubernetes, we may need to use different approaches
+            if command -v skopeo &> /dev/null; then
+                container_save "$image_name" | skopeo copy docker-archive:/dev/stdin containers-storage:"$image_name" >> "$LOG_FILE" 2>&1
+            else
+                # Try with containerd if available
+                container_save "$image_name" | sudo ctr -n k8s.io images import - >> "$LOG_FILE" 2>&1
+            fi
             ;;
         "containerd")
             log "Using containerd image import method"
-            docker save "$image_name" | sudo ctr -n k8s.io images import - >> "$LOG_FILE" 2>&1
+            container_save "$image_name" | sudo ctr -n k8s.io images import - >> "$LOG_FILE" 2>&1
             ;;
         "docker-desktop")
-            log "Docker Desktop detected - image should be available directly"
+            log "$container_tool Desktop detected - image should be available directly"
             # Docker Desktop shares images between Docker and Kubernetes
-            # No explicit import needed
+            # No explicit import needed for Docker Desktop
+            # For Podman Desktop (if it exists), we might need to import
+            if [[ "$container_tool" == "podman" ]]; then
+                container_save "$image_name" | sudo ctr -n k8s.io images import - >> "$LOG_FILE" 2>&1
+            fi
             ;;
         "cri-o")
             log "Using CRI-O image import method"
             # CRI-O typically uses podman or skopeo for image operations
             if command -v skopeo &> /dev/null; then
-                docker save "$image_name" | skopeo copy docker-archive:/dev/stdin containers-storage:"$image_name" >> "$LOG_FILE" 2>&1
+                container_save "$image_name" | skopeo copy docker-archive:/dev/stdin containers-storage:"$image_name" >> "$LOG_FILE" 2>&1
             else
                 warning "CRI-O detected but skopeo not available. Image import may fail."
-                docker save "$image_name" | sudo ctr -n k8s.io images import - >> "$LOG_FILE" 2>&1
+                container_save "$image_name" | sudo ctr -n k8s.io images import - >> "$LOG_FILE" 2>&1
             fi
             ;;
         *)
             warning "Unknown container runtime: $runtime"
-            log "Attempting generic containerd import method"
-            docker save "$image_name" | sudo ctr -n k8s.io images import - >> "$LOG_FILE" 2>&1
+            log "Attempting generic containerd import method with $container_tool"
+            container_save "$image_name" | sudo ctr -n k8s.io images import - >> "$LOG_FILE" 2>&1
             ;;
     esac
     
     local exit_code=$?
     if [[ $exit_code -eq 0 ]]; then
-        success "Image loaded successfully into $runtime"
+        success "Image loaded successfully into $runtime using $container_tool"
     else
-        error "Failed to load image into $runtime (exit code: $exit_code)"
+        error "Failed to load image into $runtime using $container_tool (exit code: $exit_code)"
     fi
     
     return $exit_code
@@ -667,7 +856,17 @@ load_image_to_runtime() {
 # Check prerequisites
 check_deps() {
     # Basic prerequisites always required
-    local deps=("docker" "kubectl")
+    local deps=("kubectl")
+    
+    # Check for container tool (docker or podman)
+    printf "."
+    local container_tool=$(detect_container_tool)
+    if [[ "$container_tool" == "none" ]]; then
+        error "No container tool found. Please install either Docker or Podman."
+    fi
+    
+    # Container tool is available, cache it for future use
+    cache_container_tool "$container_tool"
     
     # Detect runtime and add runtime-specific dependencies
     local runtime=$(detect_container_runtime)
@@ -3182,7 +3381,7 @@ cleanup_previous_build() {
     
     # Delete the deployment to ensure fresh container
     kubectl delete deployment ai-devkit -n ${NAMESPACE} --ignore-not-found=true >> "$LOG_FILE" 2>&1
-    docker rmi ${IMAGE_NAME}:${IMAGE_TAG} >> "$LOG_FILE" 2>&1 || true
+    container_rmi ${IMAGE_NAME}:${IMAGE_TAG} >> "$LOG_FILE" 2>&1
 }
 
 # Function to build Docker image
@@ -3225,11 +3424,11 @@ build_docker_image() {
     echo "Docker build output:" >> "../$LOG_FILE"
     echo "=================================================================================" >> "../$LOG_FILE"
     if [[ -n "$NEXUS_BUILD_ARGS" ]]; then
-        docker build $NEXUS_BUILD_ARGS -t ${IMAGE_NAME}:${IMAGE_TAG} . >> "../$LOG_FILE" 2>&1 || \
-            (cd .. && error "Docker build failed - check $LOG_FILE for details")
+        container_build $NEXUS_BUILD_ARGS -t ${IMAGE_NAME}:${IMAGE_TAG} . >> "../$LOG_FILE" 2>&1 || \
+            (cd .. && error "Container build failed - check $LOG_FILE for details")
     else
-        docker build -t ${IMAGE_NAME}:${IMAGE_TAG} . >> "../$LOG_FILE" 2>&1 || \
-            (cd .. && error "Docker build failed - check $LOG_FILE for details")
+        container_build -t ${IMAGE_NAME}:${IMAGE_TAG} . >> "../$LOG_FILE" 2>&1 || \
+            (cd .. && error "Container build failed - check $LOG_FILE for details")
     fi
     cd ..
 }
