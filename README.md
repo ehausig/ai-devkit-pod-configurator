@@ -74,6 +74,48 @@ colima start --kubernetes --cpu 4 --memory 8
 kubectl get nodes
 ```
 
+### Ubuntu/Linux Quick Setup with K3s
+
+```bash
+# Install dependencies
+sudo apt-get update
+sudo apt-get install -y curl docker.io
+
+# Install kubectl
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+
+# Install yq
+sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+sudo chmod +x /usr/local/bin/yq
+
+# Install jq
+sudo apt-get install -y jq
+
+# Install K3s (lightweight Kubernetes)
+curl -sfL https://get.k3s.io | sh -
+
+# Configure kubectl for K3s
+mkdir -p ~/.kube
+sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
+sudo chown $USER:$USER ~/.kube/config
+
+# Verify setup
+kubectl get nodes
+```
+
+### Cross-Platform Support
+
+The AI DevKit now supports multiple container runtime environments:
+
+- **Colima** (macOS) - VM-based Docker/Kubernetes
+- **K3s** (Linux) - Lightweight Kubernetes distribution
+- **Docker Desktop** (macOS/Windows) - Native Docker with Kubernetes
+- **Generic containerd** - Standard container runtime
+- **Other Kubernetes distributions** - minikube, kind, etc.
+
+The build system automatically detects your runtime environment and adapts accordingly.
+
 ### Basic Usage
 
 ```bash
@@ -216,35 +258,62 @@ Available themes: `default`, `dark`, `matrix`, `ocean`, `minimal`, `neon`
 
 ## 🧹 Disk Management
 
-### Colima Disk Cleanup
+### Cross-Platform Container Cleanup
 
-Colima uses a virtual machine with a fixed disk size. Over time, Docker images and containers can fill up this disk, causing deployment failures.
+The AI DevKit includes a smart cleanup script that automatically detects your container runtime and performs appropriate cleanup operations.
 
-**The Problem**: When Colima's disk fills up, you'll see errors like:
-- "No space left on device"
+**The Problem**: Container runtimes accumulate unused images, containers, and volumes over time, leading to:
+- "No space left on device" errors
 - Image pull failures
 - Build failures
+- Slow performance
 
-**The Solution**: The `cleanup-colima.sh` script helps reclaim disk space:
+**The Solution**: The `cleanup-runtime.sh` script provides cross-platform cleanup:
 
 ```bash
-# Check what can be cleaned (dry run)
-./cleanup-colima.sh --check
+# Check what can be cleaned (dry run) - works on any runtime
+./cleanup-runtime.sh --check
 
-# Clean up disk space
-./cleanup-colima.sh
+# Clean up disk space with runtime detection
+./cleanup-runtime.sh
 
 # Force cleanup without prompts
-./cleanup-colima.sh --force
+./cleanup-runtime.sh --force
 ```
 
-**⚠️ CRITICAL WARNING**: 
-- **DO NOT USE** the `--overlay2` option - it will corrupt Docker
-- If you need to completely reset, delete and recreate the Colima VM:
-  ```bash
-  colima delete
-  colima start --kubernetes --cpu 4 --memory 8 --disk 100
-  ```
+**Runtime-Specific Features**:
+- **Colima**: VM disk cleanup, overlay2 orphan removal, journal cleanup
+- **K3s**: containerd cleanup, system service management
+- **Docker Desktop**: Docker system cleanup with UI integration
+- **Generic**: Universal container cleanup commands
+
+**Advanced Options**:
+```bash
+# Colima-specific overlay2 cleanup (use with caution)
+./cleanup-runtime.sh --overlay2
+
+# Safe mode (skip risky operations)
+./cleanup-runtime.sh --safe
+```
+
+**⚠️ CRITICAL WARNINGS**:
+- **Colima users**: The `--overlay2` option can be risky - use only when necessary
+- **K3s users**: Cleanup requires sudo permissions for containerd access
+- **All platforms**: System images required for Kubernetes are automatically protected
+
+**Complete Reset Options**:
+```bash
+# Colima (macOS)
+colima delete
+colima start --kubernetes --cpu 4 --memory 8 --disk 100
+
+# K3s (Linux)
+/usr/local/bin/k3s-uninstall.sh
+curl -sfL https://get.k3s.io | sh -
+
+# Docker Desktop
+# Use "Reset to factory defaults" from Docker Desktop settings
+```
 
 ## 📚 Creating Custom Components
 
