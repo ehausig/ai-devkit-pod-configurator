@@ -531,13 +531,168 @@ warning() {
     log "$1" "$LOG_WARNING_STYLE"
 }
 
+# Runtime Detection and Abstraction Functions
+detect_container_runtime() {
+    # Detect the container runtime environment
+    # Returns: "colima", "k3s", "containerd", "docker-desktop", or "unknown"
+    
+    # Check for Colima first
+    if command -v colima &> /dev/null && colima status &> /dev/null; then
+        echo "colima"
+        return 0
+    fi
+    
+    # Check for K3s
+    if command -v k3s &> /dev/null && sudo systemctl is-active --quiet k3s 2>/dev/null; then
+        echo "k3s"
+        return 0
+    fi
+    
+    # Check for standalone containerd
+    if command -v ctr &> /dev/null && sudo ctr version &> /dev/null 2>&1; then
+        echo "containerd"
+        return 0
+    fi
+    
+    # Check for Docker Desktop (macOS/Windows)
+    if command -v docker &> /dev/null && docker context show 2>/dev/null | grep -q "desktop\|docker-desktop"; then
+        echo "docker-desktop"
+        return 0
+    fi
+    
+    # Check if we can access Kubernetes cluster directly
+    if kubectl get nodes &> /dev/null; then
+        # Determine runtime by checking node container runtime
+        local runtime=$(kubectl get nodes -o jsonpath='{.items[0].status.nodeInfo.containerRuntimeVersion}' 2>/dev/null)
+        case "$runtime" in
+            containerd*)
+                echo "containerd"
+                return 0
+                ;;
+            docker*)
+                echo "docker"
+                return 0
+                ;;
+            cri-o*)
+                echo "cri-o"
+                return 0
+                ;;
+        esac
+    fi
+    
+    # Default fallback
+    echo "unknown"
+    return 1
+}
+
+check_runtime_status() {
+    # Check if the detected container runtime is healthy
+    local runtime=$(detect_container_runtime)
+    
+    case "$runtime" in
+        "colima")
+            colima status &> /dev/null || error "Colima is not running. Please start it with: colima start --kubernetes"
+            ;;
+        "k3s")
+            sudo systemctl is-active --quiet k3s || error "K3s is not running. Please start it with: sudo systemctl start k3s"
+            ;;
+        "containerd")
+            sudo ctr version &> /dev/null || error "Containerd is not accessible. Please check containerd service."
+            ;;
+        "docker-desktop")
+            docker info &> /dev/null || error "Docker Desktop is not running. Please start Docker Desktop."
+            ;;
+        *)
+            warning "Unable to verify runtime status for: $runtime"
+            ;;
+    esac
+    
+    # Always check if Kubernetes is accessible
+    kubectl get nodes &> /dev/null || error "Kubernetes is not accessible. Please check your kubectl configuration and cluster status."
+}
+
+load_image_to_runtime() {
+    # Load Docker image into the Kubernetes container runtime
+    # Args: $1 = image name with tag
+    local image_name="$1"
+    local runtime=$(detect_container_runtime)
+    
+    log "Loading image $image_name into $runtime runtime..."
+    
+    case "$runtime" in
+        "colima")
+            log "Using Colima image import method"
+            docker save "$image_name" | colima ssh -- sudo ctr -n k8s.io images import - >> "$LOG_FILE" 2>&1
+            ;;
+        "k3s")
+            log "Using K3s image import method"
+            docker save "$image_name" | sudo k3s ctr images import - >> "$LOG_FILE" 2>&1
+            ;;
+        "containerd")
+            log "Using containerd image import method"
+            docker save "$image_name" | sudo ctr -n k8s.io images import - >> "$LOG_FILE" 2>&1
+            ;;
+        "docker-desktop")
+            log "Docker Desktop detected - image should be available directly"
+            # Docker Desktop shares images between Docker and Kubernetes
+            # No explicit import needed
+            ;;
+        "cri-o")
+            log "Using CRI-O image import method"
+            # CRI-O typically uses podman or skopeo for image operations
+            if command -v skopeo &> /dev/null; then
+                docker save "$image_name" | skopeo copy docker-archive:/dev/stdin containers-storage:"$image_name" >> "$LOG_FILE" 2>&1
+            else
+                warning "CRI-O detected but skopeo not available. Image import may fail."
+                docker save "$image_name" | sudo ctr -n k8s.io images import - >> "$LOG_FILE" 2>&1
+            fi
+            ;;
+        *)
+            warning "Unknown container runtime: $runtime"
+            log "Attempting generic containerd import method"
+            docker save "$image_name" | sudo ctr -n k8s.io images import - >> "$LOG_FILE" 2>&1
+            ;;
+    esac
+    
+    local exit_code=$?
+    if [[ $exit_code -eq 0 ]]; then
+        success "Image loaded successfully into $runtime"
+    else
+        error "Failed to load image into $runtime (exit code: $exit_code)"
+    fi
+    
+    return $exit_code
+}
+
 # Check prerequisites
 check_deps() {
-    local deps=("docker" "kubectl" "colima")
+    # Basic prerequisites always required
+    local deps=("docker" "kubectl")
+    
+    # Detect runtime and add runtime-specific dependencies
+    local runtime=$(detect_container_runtime)
+    case "$runtime" in
+        "colima")
+            deps+=("colima")
+            ;;
+        "k3s")
+            deps+=("k3s")
+            ;;
+        "unknown")
+            warning "Could not detect container runtime. Proceeding with basic checks..."
+            ;;
+    esac
+    
+    # Check for required dependencies
     for dep in "${deps[@]}"; do
         printf "."
         command -v "$dep" &> /dev/null || error "$dep is not installed or not in PATH"
     done
+    
+    # Check runtime-specific status
+    printf "."
+    check_runtime_status
+    
     echo " ✓"
 }
 
@@ -2953,12 +3108,6 @@ validate_environment() {
     
     [[ ! -d "$COMPONENTS_DIR" ]] && error "Components directory '$COMPONENTS_DIR' not found"
     
-    # Check Colima status
-    printf "."
-    colima status &> /dev/null || error "Colima is not running. Please start Colima with: colima start --kubernetes"
-    printf "."
-    kubectl get nodes &> /dev/null || error "Kubernetes is not accessible. Please make sure Colima started with --kubernetes flag"
-    
     echo " ✓"
 }
 
@@ -3089,7 +3238,9 @@ build_docker_image() {
 deploy_to_kubernetes() {
     echo -e "\nKubernetes deployment output:" >> "$LOG_FILE"
     echo "=================================================================================" >> "$LOG_FILE"
-    docker save ${IMAGE_NAME}:${IMAGE_TAG} | colima ssh -- sudo ctr -n k8s.io images import - >> "$LOG_FILE" 2>&1
+    
+    # Use runtime abstraction instead of hardcoded colima command
+    load_image_to_runtime "${IMAGE_NAME}:${IMAGE_TAG}"
     
     kubectl apply -f kubernetes/namespace.yaml >> "$LOG_FILE" 2>&1
     kubectl apply -f kubernetes/pvc.yaml >> "$LOG_FILE" 2>&1
