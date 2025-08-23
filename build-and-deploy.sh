@@ -1161,21 +1161,26 @@ parse_yaml() {
     
     # For kislyuk/yq, batch all field extractions in one call
     if [[ "$YQ_TYPE" == "kislyuk" ]]; then
-        # Convert YAML to JSON once and extract all fields in a single jq call
-        local all_fields=$(yq . "$file" 2>/dev/null | jq -r '
-            [
-                (.id // ""),
-                (.name // ""),
-                (.group // ""),
-                (.requires // ""),
-                (.version // ""),
-                (.description // "")
-            ] | @tsv
-        ' 2>/dev/null)
+        # Convert YAML to JSON once and extract all fields
+        local json_data=$(yq . "$file" 2>/dev/null)
         
-        if [[ -n "$all_fields" ]]; then
-            # Split the tab-separated values into variables
-            IFS=$'\t' read -r id name group requires version description <<< "$all_fields"
+        if [[ -n "$json_data" ]]; then
+            # Extract each field separately but from the same JSON data
+            # This avoids issues with special characters in tab-separated values
+            id=$(echo "$json_data" | jq -r '.id // ""' 2>/dev/null || echo "")
+            name=$(echo "$json_data" | jq -r '.name // ""' 2>/dev/null || echo "")
+            group=$(echo "$json_data" | jq -r '.group // ""' 2>/dev/null || echo "")
+            # Handle requires field which might be an array or string
+            requires=$(echo "$json_data" | jq -r '
+                if .requires == null then
+                    ""
+                elif .requires | type == "array" then
+                    .requires | tostring
+                else
+                    .requires
+                end' 2>/dev/null || echo "")
+            version=$(echo "$json_data" | jq -r '.version // ""' 2>/dev/null || echo "")
+            description=$(echo "$json_data" | jq -r '.description // ""' 2>/dev/null || echo "")
         else
             local id="" name="" group="" requires="" version="" description=""
         fi
@@ -1320,6 +1325,8 @@ load_components() {
             # Output component data only if we have an ID
             if [[ -n "$comp_id" ]]; then
                 echo "${comp_id}|${comp_name}|${comp_group}|${comp_requires}|${category}|${yaml_file}"
+            elif [[ -n "${DEBUG}" ]]; then
+                echo "DEBUG: No comp_id found for $yaml_file" >&2
             fi
             
             # Clear component variables for next iteration
