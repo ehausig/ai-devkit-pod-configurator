@@ -1151,18 +1151,43 @@ yq_universal() {
     return 0
 }
 
-# Parse YAML file using yq
+# Parse YAML file using yq - optimized for performance
 parse_yaml() {
     local file=$1
     local prefix=$2
     
-    # Extract the fields we need using yq universal wrapper
-    local id=$(yq_universal '.id // ""' "$file")
-    local name=$(yq_universal '.name // ""' "$file")
-    local group=$(yq_universal '.group // ""' "$file")
-    local requires=$(yq_universal '.requires // ""' "$file")
-    local version=$(yq_universal '.version // ""' "$file")
-    local description=$(yq_universal '.description // ""' "$file")
+    # Detect yq type if not already done
+    detect_yq_type
+    
+    # For kislyuk/yq, batch all field extractions in one call
+    if [[ "$YQ_TYPE" == "kislyuk" ]]; then
+        # Convert YAML to JSON once and extract all fields in a single jq call
+        local all_fields=$(yq . "$file" 2>/dev/null | jq -r '
+            [
+                (.id // ""),
+                (.name // ""),
+                (.group // ""),
+                (.requires // ""),
+                (.version // ""),
+                (.description // "")
+            ] | @tsv
+        ' 2>/dev/null)
+        
+        if [[ -n "$all_fields" ]]; then
+            # Split the tab-separated values into variables
+            IFS=$'\t' read -r id name group requires version description <<< "$all_fields"
+        else
+            local id="" name="" group="" requires="" version="" description=""
+        fi
+    else
+        # For mikefarah/yq, use the universal wrapper (already optimized)
+        local id=$(yq_universal '.id // ""' "$file")
+        local name=$(yq_universal '.name // ""' "$file")
+        local group=$(yq_universal '.group // ""' "$file")
+        local requires=$(yq_universal '.requires // ""' "$file")
+        local version=$(yq_universal '.version // ""' "$file")
+        local description=$(yq_universal '.description // ""' "$file")
+    fi
     
     # Output in the format expected by the rest of the script
     [[ -n "$id" ]] && echo "${prefix}id=\"$id\""
