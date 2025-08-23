@@ -953,20 +953,9 @@ check_deps() {
             # Verify the tool actually works
             case "$tool" in
                 "yq")
-                    # Check if we have the correct yq (mikefarah/yq, not kislyuk/yq)
-                    if yq eval --help &>/dev/null 2>&1; then
-                        # This is the correct mikefarah/yq - test it
-                        if echo "test: value" > /tmp/yq_test_$$ && yq eval '.test // ""' /tmp/yq_test_$$ &> /dev/null; then
-                            rm -f /tmp/yq_test_$$
-                            echo "✓"
-                        else
-                            rm -f /tmp/yq_test_$$
-                            echo "✗ (installed but not working)"
-                            provide_installation_guidance "$tool"
-                        fi
-                    elif yq --help 2>&1 | grep -q -E "(jq wrapper|jq filter|positional arguments)"; then
+                    # First check if this is Python-based yq wrapper by checking help output
+                    if yq --help 2>&1 | grep -q -E "(jq wrapper|jq filter|positional arguments)"; then
                         # This is the Python-based kislyuk/yq wrapper (various versions)
-                        rm -f /tmp/yq_test_$$
                         echo "✗ (wrong version - Python wrapper detected)"
                         echo ""
                         error "Found Python-based yq wrapper, but need mikefarah/yq (Go version)"
@@ -980,10 +969,20 @@ check_deps() {
                         echo "  2. Install mikefarah/yq:"
                         provide_installation_guidance "$tool"
                         exit 1
+                    # Now check if we have the correct mikefarah/yq
+                    elif yq eval --help &>/dev/null 2>&1; then
+                        # This should be the correct mikefarah/yq - test it
+                        if echo "test: value" > /tmp/yq_test_$$ && yq eval '.test // ""' /tmp/yq_test_$$ &> /dev/null; then
+                            rm -f /tmp/yq_test_$$
+                            echo "✓"
+                        else
+                            rm -f /tmp/yq_test_$$
+                            echo "✗ (installed but not working)"
+                            provide_installation_guidance "$tool"
+                        fi
                     else
                         # yq exists but doesn't support 'eval' and isn't detected as Python wrapper
                         # This is likely an old/incompatible version
-                        rm -f /tmp/yq_test_$$
                         echo "✗ (incompatible version)"
                         echo ""
                         error "Found incompatible yq version. Need mikefarah/yq (Go version)"
