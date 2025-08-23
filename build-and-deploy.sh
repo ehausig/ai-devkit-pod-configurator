@@ -947,15 +947,16 @@ check_deps() {
             # Verify the tool actually works
             case "$tool" in
                 "yq")
-                    # Try different yq syntax for compatibility with various versions
-                    if echo "test: value" | yq eval '.test' - &> /dev/null; then
-                        echo "✓"
-                    elif echo "test: value" | yq r - test &> /dev/null; then
+                    # Test yq functionality using our compatibility wrapper
+                    if echo "test: value" > /tmp/yq_test_$$ && yq_compat '.test // ""' /tmp/yq_test_$$ &> /dev/null; then
+                        rm -f /tmp/yq_test_$$
                         echo "✓"
                     elif yq --version &> /dev/null; then
-                        # yq is installed but our tests failed - likely version compatibility
+                        # yq is installed but our test failed - likely version compatibility
+                        rm -f /tmp/yq_test_$$
                         echo "✓ (version compatibility - proceeding)"
                     else
+                        rm -f /tmp/yq_test_$$
                         echo "✗ (installed but not working)"
                         provide_installation_guidance "$tool"
                     fi
@@ -1065,18 +1066,56 @@ create_ssh_host_keys_secret() {
         --from-file=ssh_host_ed25519_key.pub="$SSH_KEYS_DIR/ssh_host_ed25519_key.pub" >/dev/null 2>&1
 }
 
+# Wrapper function for yq that handles different versions
+yq_compat() {
+    local expression="$1"
+    local file="$2"
+    
+    # Detect yq version and use appropriate syntax
+    if yq eval --help &>/dev/null 2>&1; then
+        # mikefarah/yq (Go version) - modern syntax
+        yq eval "$expression" "$file"
+    else
+        # kislyuk/yq (Python version) - jq-like syntax
+        # Convert from Go yq syntax to jq syntax as needed
+        local jq_expr="$expression"
+        
+        # Handle common patterns
+        case "$expression" in
+            *'// ""')
+                # Replace '// ""' with '// ""' (already compatible)
+                jq_expr="$expression"
+                ;;
+            *'| length')
+                # Array/object length - compatible syntax
+                jq_expr="$expression"
+                ;;
+            '.installation.inject_files')
+                # Direct field access - compatible
+                jq_expr="$expression"
+                ;;
+            '.entrypoint_setup // ""'|'.installation.dockerfile // ""'|'.installation.nexus_config // ""')
+                # Complex field access with default - compatible
+                jq_expr="$expression"
+                ;;
+        esac
+        
+        yq "$jq_expr" "$file"
+    fi
+}
+
 # Parse YAML file using yq
 parse_yaml() {
     local file=$1
     local prefix=$2
     
-    # Extract the fields we need using yq
-    local id=$(yq eval '.id // ""' "$file")
-    local name=$(yq eval '.name // ""' "$file")
-    local group=$(yq eval '.group // ""' "$file")
-    local requires=$(yq eval '.requires // ""' "$file")
-    local version=$(yq eval '.version // ""' "$file")
-    local description=$(yq eval '.description // ""' "$file")
+    # Extract the fields we need using yq compatibility wrapper
+    local id=$(yq_compat '.id // ""' "$file")
+    local name=$(yq_compat '.name // ""' "$file")
+    local group=$(yq_compat '.group // ""' "$file")
+    local requires=$(yq_compat '.requires // ""' "$file")
+    local version=$(yq_compat '.version // ""' "$file")
+    local description=$(yq_compat '.description // ""' "$file")
     
     # Output in the format expected by the rest of the script
     [[ -n "$id" ]] && echo "${prefix}id=\"$id\""
@@ -3137,18 +3176,18 @@ extract_inject_files_from_yaml() {
     local inject_commands=""
     
     # Check if inject_files exists in the YAML (under installation)
-    if ! yq eval '.installation.inject_files' "$yaml_file" | grep -q -v "^null$"; then
+    if ! yq_compat '.installation.inject_files' "$yaml_file" | grep -q -v "^null$"; then
         return 0
     fi
     
     # Get the number of inject_files entries
-    local count=$(yq eval '.installation.inject_files | length' "$yaml_file")
+    local count=$(yq_compat '.installation.inject_files | length' "$yaml_file")
     
     # Process each inject_files entry
     for ((i=0; i<count; i++)); do
-        local source=$(yq eval ".installation.inject_files[$i].source" "$yaml_file")
-        local destination=$(yq eval ".installation.inject_files[$i].destination" "$yaml_file")
-        local permissions=$(yq eval ".installation.inject_files[$i].permissions" "$yaml_file")
+        local source=$(yq_compat ".installation.inject_files[$i].source" "$yaml_file")
+        local destination=$(yq_compat ".installation.inject_files[$i].destination" "$yaml_file")
+        local permissions=$(yq_compat ".installation.inject_files[$i].permissions" "$yaml_file")
         
         # Skip if source or destination is null
         if [[ "$source" == "null" ]] || [[ "$destination" == "null" ]]; then
@@ -3170,7 +3209,7 @@ extract_inject_files_from_yaml() {
 # Function to extract entrypoint_setup from YAML file using yq
 extract_entrypoint_setup() {
     local yaml_file=$1
-    local entrypoint_content=$(yq eval '.entrypoint_setup // ""' "$yaml_file")
+    local entrypoint_content=$(yq_compat '.entrypoint_setup // ""' "$yaml_file")
     
     # Return empty if null or empty
     if [[ "$entrypoint_content" == "null" ]] || [[ -z "$entrypoint_content" ]]; then
@@ -3187,13 +3226,13 @@ extract_installation_from_yaml() {
     local full_content=""
     
     # Extract dockerfile content if it exists
-    local dockerfile_content=$(yq eval '.installation.dockerfile // ""' "$yaml_file")
+    local dockerfile_content=$(yq_compat '.installation.dockerfile // ""' "$yaml_file")
     if [[ -n "$dockerfile_content" ]] && [[ "$dockerfile_content" != "null" ]]; then
         full_content="$dockerfile_content"
     fi
     
     # Extract nexus_config if it exists
-    local nexus_content=$(yq eval '.installation.nexus_config // ""' "$yaml_file")
+    local nexus_content=$(yq_compat '.installation.nexus_config // ""' "$yaml_file")
     if [[ -n "$nexus_content" ]] && [[ "$nexus_content" != "null" ]]; then
         if [[ -n "$full_content" ]]; then
             full_content+=$NL$NL
