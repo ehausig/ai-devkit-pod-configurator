@@ -1248,6 +1248,14 @@ load_components() {
         done
     done
     
+    # Debug: Check if we have categories
+    if [[ ${#categories[@]} -eq 0 ]]; then
+        echo "DEBUG: No categories found in $COMPONENTS_DIR" >&2
+        ls -la "$COMPONENTS_DIR" 2>&1 >&2 || echo "ERROR: Cannot list $COMPONENTS_DIR" >&2
+        [[ -n "$old_e" ]] && set -e
+        return 1
+    fi
+    
     # Output categories and their display names properly
     echo "${categories[@]}"
     echo "---SEPARATOR---"
@@ -1267,6 +1275,13 @@ load_components() {
 
             # Parse the YAML file safely
             local parsed_output=$(parse_yaml "$yaml_file" "comp_" 2>/dev/null)
+            
+            # Debug: Log what we're about to eval if DEBUG is set
+            if [[ -n "${DEBUG}" ]]; then
+                echo "DEBUG: Parsing $yaml_file" >&2
+                echo "DEBUG: Output: $parsed_output" >&2
+            fi
+            
             if [[ -n "$parsed_output" ]]; then
                 eval "$parsed_output" 2>/dev/null || true
             fi
@@ -3570,6 +3585,16 @@ check_nexus() {
 initialize_components() {
     # Load categories for use in generate_claude_md
     local component_data=$(load_components)
+    
+    # Debug: Check if component_data is empty
+    if [[ -z "$component_data" ]]; then
+        echo ""
+        error "Failed to load components - no data returned from load_components"
+        echo "DEBUG: Checking components directory..."
+        ls -la "$COMPONENTS_DIR" 2>/dev/null || echo "Components directory not found: $COMPONENTS_DIR"
+        exit 1
+    fi
+    
     local categories_line=$(echo "$component_data" | sed -n '1p')
     
     # Convert to global arrays
