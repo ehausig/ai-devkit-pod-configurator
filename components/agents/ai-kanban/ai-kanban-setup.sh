@@ -143,15 +143,74 @@ EOF
 
 success "Created health check script"
 
-log "AI Kanban Dashboard setup completed successfully!"
+# Copy agent definitions (the personas) - NEW FUNCTIONALITY
+if [[ -d "$AI_KANBAN_DIR/agents" ]]; then
+    log "Copying agent persona definitions..."
+    mkdir -p "$TEMP_DIR/agents"
+    if ls "$AI_KANBAN_DIR/agents/"*.md >/dev/null 2>&1; then
+        cp "$AI_KANBAN_DIR/agents/"*.md "$TEMP_DIR/agents/"
+        success "Copied $(ls -1 "$TEMP_DIR/agents/"*.md 2>/dev/null | wc -l) agent personas"
+    else
+        log "No agent persona files found"
+    fi
+else
+    log "No agents directory found - agent personas not included"
+fi
+
+# Create agent setup script for the container
+cat > "$TEMP_DIR/ai-kanban-agent-setup.sh" << 'EOF'
+#!/bin/bash
+# AI Kanban agent setup script - runs during container initialization
+
+log() { echo "[AI-Kanban-Agents] $1"; }
+
+log "Setting up agent personas for Claude Code integration..."
+
+# Create agent directories
+mkdir -p /home/devuser/.claude/agents
+mkdir -p /home/devuser/.ai-kanban/agents
+
+# Copy agents to both locations for compatibility
+if [[ -d /tmp/agents ]] && [[ "$(ls -A /tmp/agents/*.md 2>/dev/null)" ]]; then
+    # Copy to ai-kanban directory (primary location)
+    cp /tmp/agents/*.md /home/devuser/.ai-kanban/agents/
+    log "Copied $(ls -1 /home/devuser/.ai-kanban/agents/*.md 2>/dev/null | wc -l) agent personas to ai-kanban"
+    
+    # Create symlinks in claude directory for backward compatibility
+    for agent_file in /home/devuser/.ai-kanban/agents/*.md; do
+        if [[ -f "$agent_file" ]]; then
+            agent_name=$(basename "$agent_file")
+            ln -sf "$agent_file" "/home/devuser/.claude/agents/$agent_name"
+        fi
+    done
+    log "Created compatibility symlinks in claude agents directory"
+    
+    # Set proper permissions
+    chown -R devuser:devuser /home/devuser/.ai-kanban/agents
+    chown -R devuser:devuser /home/devuser/.claude/agents
+    
+    log "Agent personas setup completed successfully!"
+else
+    log "No agent persona files found to set up"
+fi
+EOF
+
+chmod +x "$TEMP_DIR/ai-kanban-agent-setup.sh"
+success "Created agent setup script"
+
+log "AI Kanban Dashboard with Agent Personas setup completed successfully!"
 info "Total files prepared: $(find "$TEMP_DIR" -type f | wc -l)"
 info "Total size: $(du -sh "$TEMP_DIR" | cut -f1)"
 
 # Display build info
 echo ""
 echo "Build information:"
-echo "- Node.js dashboard application"
+echo "- Node.js dashboard application with agent personas"
 echo "- Real-time WebSocket updates"
 echo "- Monitors: /home/devuser/workspace/JOURNAL.md"
-echo "- Provides: Kanban board visualization"
+echo "- Provides: Kanban board visualization + Agent definitions"
 echo "- Access: http://localhost:3000"
+if [[ -d "$TEMP_DIR/agents" ]]; then
+    echo "- Agent personas: $(ls -1 "$TEMP_DIR/agents/"*.md 2>/dev/null | wc -l) included"
+    echo "- Agents will be available at: /home/devuser/.ai-kanban/agents/"
+fi

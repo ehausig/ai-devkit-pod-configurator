@@ -60,14 +60,47 @@ if [[ -d "$SCRIPT_DIR/claude-code/commands" ]]; then
     fi
 fi
 
-# Copy agents (all .md files)
-if [[ -d "$SCRIPT_DIR/claude-code/agents" ]]; then
-    log "Copying agent definitions..."
-    if ls "$SCRIPT_DIR/claude-code/agents/"*.md >/dev/null 2>&1; then
-        cp "$SCRIPT_DIR/claude-code/agents/"*.md "$TEMP_DIR/agents/"
-        success "Copied $(ls -1 "$TEMP_DIR/agents/"*.md 2>/dev/null | wc -l) agents"
-    else
-        log "No agent files found"
+# Handle agents conditionally - check if AI_KANBAN is selected
+ai_kanban_selected=false
+for yaml_file in $SELECTED_YAML_FILES; do
+    if [[ "$(basename "$yaml_file")" == "ai-kanban.yaml" ]]; then
+        ai_kanban_selected=true
+        break
+    fi
+done
+
+if [[ "$ai_kanban_selected" == "true" ]]; then
+    log "AI Kanban component detected - agent personas will be provided by ai-kanban"
+    info "Agent definitions will be available at: /home/devuser/.claude/agents/ (symlinked from ai-kanban)"
+else
+    log "AI Kanban component not selected - creating stub agent references for compatibility"
+    # Create stub agent files for backward compatibility
+    if [[ -d "$SCRIPT_DIR/claude-code/agents" ]]; then
+        if ls "$SCRIPT_DIR/claude-code/agents/"*.md >/dev/null 2>&1; then
+            for agent_file in "$SCRIPT_DIR/claude-code/agents/"*.md; do
+                agent_name=$(basename "$agent_file")
+                # Create a stub file that indicates agents are in ai-kanban
+                cat > "$TEMP_DIR/agents/$agent_name" << EOF
+# $agent_name (Stub Reference)
+
+**Note**: Full agent persona definitions have been moved to the AI Kanban component.
+
+To access the complete agent definitions and personas:
+1. Select both 'claude-code' and 'ai-kanban' components during build
+2. Agent definitions will be available at: \`/home/devuser/.ai-kanban/agents/\`
+3. Compatibility symlinks will be created at: \`/home/devuser/.claude/agents/\`
+
+## Migration Information
+Agent personas are now part of the AI Kanban Dashboard component to provide:
+- Real-time visualization of agent activities
+- Kanban board integration
+- Better separation of concerns
+
+For the full agent definition, select the 'ai-kanban' component.
+EOF
+            done
+            success "Created $(ls -1 "$TEMP_DIR/agents/"*.md 2>/dev/null | wc -l) stub agent references"
+        fi
     fi
 fi
 

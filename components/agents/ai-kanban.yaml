@@ -38,6 +38,12 @@ installation:
     - source: public/
       destination: /tmp/ai-kanban-public/
       permissions: 755
+    - source: agents/
+      destination: /tmp/agents/
+      permissions: 755
+    - source: ai-kanban-agent-setup.sh
+      destination: /tmp/ai-kanban-agent-setup.sh
+      permissions: 755
 entrypoint_setup: |
   echo "Setting up AI Kanban Dashboard..."
   
@@ -148,8 +154,24 @@ entrypoint_setup: |
   # Ensure proper ownership
   chown -R devuser:devuser /opt/ai-kanban
   
+  # Set up agent personas if available
+  if [ -f /tmp/ai-kanban-agent-setup.sh ]; then
+    echo "Setting up agent personas..."
+    bash /tmp/ai-kanban-agent-setup.sh
+    rm -f /tmp/ai-kanban-agent-setup.sh
+  fi
+  
   echo "AI Kanban Dashboard installed successfully!"
   echo "Commands available:"
   echo "  ai-kanban-start.sh  - Start the dashboard"
   echo "  ai-kanban-stop.sh   - Stop the dashboard"
   echo "  ai-kanban-status.sh - Check dashboard status"
+  
+  # Display agent information if available
+  if [ -d /home/devuser/.ai-kanban/agents ] && [ "$(ls -A /home/devuser/.ai-kanban/agents/*.md 2>/dev/null)" ]; then
+    echo ""
+    echo "Agent personas available:"
+    ls -1 /home/devuser/.ai-kanban/agents/*.md 2>/dev/null | sed 's|.*/||' | sed 's|\.md$||' | sed 's/^/  - /'
+    echo "Agent definitions: /home/devuser/.ai-kanban/agents/"
+    echo "Compatibility links: /home/devuser/.claude/agents/"
+  fi

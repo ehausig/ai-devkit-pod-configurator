@@ -1,87 +1,70 @@
-# Claude Code Agents
+# Agent Persona Migration Notice
 
-This directory contains the Team Topologies-based agent definitions for the Claude Code autonomous development system.
+## Important: Agent Definitions Have Moved
 
-## Overview
+As of this version, **agent persona definitions have been migrated to the AI Kanban component** to provide better integration between autonomous development and real-time visualization.
 
-Each `.md` file in this directory defines a specialized AI agent that can be delegated specific tasks during the development process. Agents are organized according to Team Topologies principles.
+## What Changed
 
-## Team Structure
+- **Before**: Agent personas were part of the `claude-code` component
+- **After**: Agent personas are now part of the `ai-kanban` component
 
-### Stream-Aligned Team
-Focus on delivering features end-to-end:
-- `feature-developer.md` - Implements features and business logic
-- `qa-engineer.md` - Tests and validates implementations
+## How to Access Agent Personas
 
-### Platform Team
-Provide foundational capabilities:
-- `platform-engineer.md` - Infrastructure, CI/CD, deployment
-- `database-engineer.md` - Data models and persistence
+### Option 1: Use Both Components (Recommended)
+Select both `claude-code` and `ai-kanban` components during build:
+- ✅ Full Claude Code functionality (journaling, scripts, commands)
+- ✅ Complete agent persona definitions  
+- ✅ Real-time Kanban dashboard visualization
+- ✅ Agent definitions available at `/home/devuser/.ai-kanban/agents/`
+- ✅ Compatibility symlinks at `/home/devuser/.claude/agents/`
 
-### Enabling Team
-Help other teams overcome obstacles:
-- `api-designer.md` - API specifications and contracts
-- `security-specialist.md` - Security reviews and hardening
-- `performance-engineer.md` - Performance optimization
-- `solution-architect.md` - High-level system design
-- `cloud-architect.md` - Cloud infrastructure design
-- `data-architect.md` - Enterprise data architecture
+### Option 2: Claude Code Only
+If you select only `claude-code`:
+- ✅ Core Claude Code functionality (journaling, scripts, commands)
+- ⚠️  Stub agent references with migration information
+- ❌ No full agent persona definitions
+- ❌ No Kanban dashboard
 
-### Complicated Subsystem Team
-Handle complex technical domains:
-- `integration-specialist.md` - Third-party integrations
-- `algorithm-developer.md` - Complex algorithms
-- `requirements-analyst.md` - Interactive requirements gathering
+### Option 3: AI Kanban Only
+If you select only `ai-kanban`:
+- ❌ **Not recommended** - requires Claude Code for journaling system
+- The build system should prevent this configuration
 
-## Agent File Format
+## Benefits of the New Structure
 
-Each agent is a Markdown file with YAML frontmatter:
+1. **Better Separation of Concerns**
+   - Core functionality (journaling, scripts) remains in `claude-code`  
+   - Visualization and personas are in `ai-kanban`
 
-```markdown
+2. **Enhanced Visualization**
+   - Real-time Kanban board shows agent activities
+   - Better tracking of autonomous development progress
+
+3. **Conditional Deployment**
+   - Agent personas are only deployed when you want the full visualization
+   - Smaller deployments when you only need core functionality
+
+## Migration Path
+
+1. **No Action Needed**: If you typically select both components, everything continues to work
+2. **Update Build Selection**: If you only selected `claude-code` before, add `ai-kanban` to get full agent personas
+3. **Scripts Continue Working**: All your existing autonomous development workflows remain unchanged
+
+## Technical Details
+
+- **Agent Location (New)**: `/home/devuser/.ai-kanban/agents/`
+- **Compatibility Links**: `/home/devuser/.claude/agents/` (symlinks to ai-kanban)
+- **Dashboard URL**: `http://localhost:3000` (when ai-kanban is included)
+- **Core Scripts**: Still in `/home/devuser/.claude/scripts/`
+
+## Support
+
+If you encounter issues with this migration:
+1. Ensure both `claude-code` and `ai-kanban` are selected during build
+2. Verify agents are available at `/home/devuser/.claude/agents/`
+3. Check the build logs for any agent setup errors
+
 ---
-name: agent-name
-description: When this agent should be used
-tools: Read, Write, Edit, Bash, Glob  # Optional, inherits all if omitted
----
 
-Agent's system prompt and instructions...
-```
-
-## How Agents Work
-
-1. **Product Manager** (main thread) orchestrates the development process
-2. Agents are invoked through delegation: "Use the api-designer agent to..."
-3. Each agent operates in its own context window
-4. Work is tracked through Kanban cards in JOURNAL.md
-5. Agents update card states and hand off to next agent
-
-## Creating New Agents
-
-To add a new agent:
-
-1. Choose the appropriate team based on the agent's role
-2. Create a `.md` file with descriptive name
-3. Add frontmatter with name, description, and optional tools
-4. Write clear system prompt explaining:
-   - The agent's role and expertise
-   - How to handle assigned cards
-   - Work process and outputs
-   - Handoff procedures
-
-## Best Practices
-
-- Keep agents focused on a single domain
-- Use clear, action-oriented descriptions
-- Include example workflows in prompts
-- Define clear handoff points
-- Log all significant actions to JOURNAL.md
-
-## Integration with Autonomous System
-
-Agents are automatically:
-- Copied to `~/.claude/agents/` during build
-- Available for delegation by Product Manager
-- Integrated with the Kanban card system
-- Part of the deterministic workflow
-
-See the main [Claude Code README](../README.md) for more details on the autonomous development system.
+*This migration improves the system architecture while maintaining full backward compatibility when both components are selected.*
