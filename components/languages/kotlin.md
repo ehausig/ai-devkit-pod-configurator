@@ -20,10 +20,14 @@ mkdir -p src/main/kotlin src/test/kotlin
 touch build.gradle.kts
 
 # Basic build.gradle.kts
-echo 'plugins {
+```
+
+Create build.gradle.kts:
+```kotlin
+plugins {
     kotlin("jvm") version "1.9.22"
     application
-}' > build.gradle.kts
+}
 ```
 
 **Dependencies**
@@ -104,7 +108,7 @@ class ApiIntegrationTest {
         }
         client.get("/api/users").apply {
             assertEquals(HttpStatusCode.OK, status)
-            assertEquals("application/json", contentType()
+            assertEquals("application/json", contentType())
         }
     }
 }
@@ -139,235 +143,11 @@ class LoginE2ETest {
     @Test
     fun `user can log in`() {
         open("http://localhost:8080")
-        `#### Kotlin
-
-**Environment Setup**
-```bash
-# Kotlin uses Gradle/Maven, no virtual env needed
-kotlin -version
-kotlinc -version
-
-# Install Kotlin if needed
-sdk install kotlin  # Using SDKMAN
-```
-
-**Project Init**
-```bash
-# Gradle project (recommended)
-gradle init --type kotlin-application --dsl kotlin
-
-# Manual structure
-mkdir -p src/main/kotlin src/test/kotlin
-touch build.gradle.kts
-
-# Basic build.gradle.kts
-echo 'plugins {
-    kotlin("jvm") version "1.9.22"
-    application
-}' > build.gradle.kts
-```
-
-**Dependencies**
-```bash
-# In build.gradle.kts:
-dependencies {
-    implementation("io.ktor:ktor-server-netty:2.3.7")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
-    testImplementation(kotlin("test"))
-}
-
-# Refresh dependencies
-./gradlew build --refresh-dependencies
-```
-
-**Format & Lint**
-```bash
-# Ktlint via Gradle plugin
-# Add to build.gradle.kts:
-plugins {
-    id("org.jlleitschuh.gradle.ktlint") version "12.0.3"
-}
-
-# Format code
-./gradlew ktlintFormat
-
-# Check format
-./gradlew ktlintCheck
-```
-
-("[name=email]").setValue("user@example.com")
-        `#### Kotlin
-
-**Environment Setup**
-```bash
-# Kotlin uses Gradle/Maven, no virtual env needed
-kotlin -version
-kotlinc -version
-
-# Install Kotlin if needed
-sdk install kotlin  # Using SDKMAN
-```
-
-**Project Init**
-```bash
-# Gradle project (recommended)
-gradle init --type kotlin-application --dsl kotlin
-
-# Manual structure
-mkdir -p src/main/kotlin src/test/kotlin
-touch build.gradle.kts
-
-# Basic build.gradle.kts
-echo 'plugins {
-    kotlin("jvm") version "1.9.22"
-    application
-}' > build.gradle.kts
-```
-
-**Dependencies**
-```bash
-# In build.gradle.kts:
-dependencies {
-    implementation("io.ktor:ktor-server-netty:2.3.7")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
-    testImplementation(kotlin("test"))
-}
-
-# Refresh dependencies
-./gradlew build --refresh-dependencies
-```
-
-**Format & Lint**
-```bash
-# Ktlint via Gradle plugin
-# Add to build.gradle.kts:
-plugins {
-    id("org.jlleitschuh.gradle.ktlint") version "12.0.3"
-}
-
-# Format code
-./gradlew ktlintFormat
-
-# Check format
-./gradlew ktlintCheck
-```
-
-("[name=password]").setValue("password")
-        `#### Kotlin
-
-**Environment Setup**
-```bash
-# Kotlin uses Gradle/Maven, no virtual env needed
-kotlin -version
-kotlinc -version
-
-# Install Kotlin if needed
-sdk install kotlin  # Using SDKMAN
-```
-
-**Project Init**
-```bash
-# Gradle project (recommended)
-gradle init --type kotlin-application --dsl kotlin
-
-# Manual structure
-mkdir -p src/main/kotlin src/test/kotlin
-touch build.gradle.kts
-
-# Basic build.gradle.kts
-echo 'plugins {
-    kotlin("jvm") version "1.9.22"
-    application
-}' > build.gradle.kts
-```
-
-**Dependencies**
-```bash
-# In build.gradle.kts:
-dependencies {
-    implementation("io.ktor:ktor-server-netty:2.3.7")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
-    testImplementation(kotlin("test"))
-}
-
-# Refresh dependencies
-./gradlew build --refresh-dependencies
-```
-
-**Format & Lint**
-```bash
-# Ktlint via Gradle plugin
-# Add to build.gradle.kts:
-plugins {
-    id("org.jlleitschuh.gradle.ktlint") version "12.0.3"
-}
-
-# Format code
-./gradlew ktlintFormat
-
-# Check format
-./gradlew ktlintCheck
-```
-
-("button[type=submit]").click()
+        `$`("[name=email]").setValue("user@example.com")
+        `$`("[name=password]").setValue("password")
+        `$`("button[type=submit]").click()
         
-        `#### Kotlin
-
-**Environment Setup**
-```bash
-# Kotlin uses Gradle/Maven, no virtual env needed
-kotlin -version
-kotlinc -version
-
-# Install Kotlin if needed
-sdk install kotlin  # Using SDKMAN
-```
-
-**Project Init**
-```bash
-# Gradle project (recommended)
-gradle init --type kotlin-application --dsl kotlin
-
-# Manual structure
-mkdir -p src/main/kotlin src/test/kotlin
-touch build.gradle.kts
-
-# Basic build.gradle.kts
-echo 'plugins {
-    kotlin("jvm") version "1.9.22"
-    application
-}' > build.gradle.kts
-```
-
-**Dependencies**
-```bash
-# In build.gradle.kts:
-dependencies {
-    implementation("io.ktor:ktor-server-netty:2.3.7")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
-    testImplementation(kotlin("test"))
-}
-
-# Refresh dependencies
-./gradlew build --refresh-dependencies
-```
-
-**Format & Lint**
-```bash
-# Ktlint via Gradle plugin
-# Add to build.gradle.kts:
-plugins {
-    id("org.jlleitschuh.gradle.ktlint") version "12.0.3"
-}
-
-# Format code
-./gradlew ktlintFormat
-
-# Check format
-./gradlew ktlintCheck
-```
-
-("h1").shouldHave(text("Dashboard"))
+        `$`("h1").shouldHave(text("Dashboard"))
         webdriver().shouldHave(url("http://localhost:8080/dashboard"))
     }
 }

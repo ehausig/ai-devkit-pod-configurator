@@ -4,6 +4,17 @@ version: "3.3.0"
 group: ruby-version
 requires: []
 description: Ruby 3.3.0 installed via rbenv
+command_permissions:
+  allow:
+    - "Bash(ruby:*)"
+    - "Bash(bundle:*)"
+    - "Bash(bundle exec:*)"
+    - "Bash(gem:*)"
+    - "Bash(rake:*)"
+    - "Bash(rspec:*)"
+    - "Bash(rubocop:*)"
+    - "Bash(irb:*)"
+    - "Bash(rbenv:*)"
 installation:
   dockerfile: |
     RUN export DEBIAN_FRONTEND=noninteractive && \

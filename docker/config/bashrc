@@ -16,15 +16,9 @@ alias la='ls -A'
 alias l='ls -CF'
 
 # Set PATH
-export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"
-export NPM_CONFIG_PREFIX="$HOME/.npm-global"
+export PATH="$HOME/.local/bin:$PATH"
 
 # Source global definitions if they exist
 if [ -f /etc/bashrc ]; then
     . /etc/bashrc
 fi
-
-# TUI Test aliases
-alias tui-test-init='cp ~/.tui-test-templates/tui-test.config.ts . && echo "Created tui-test.config.ts"'
-alias tui-test-example='cp ~/.tui-test-templates/example.test.ts . && echo "Created example.test.ts"'
-alias tui-test-trace='npx @microsoft/tui-test show-trace'

@@ -1,62 +1,204 @@
-# components/agents/claude-code.yaml
 id: CLAUDE_CODE
-name: Claude Code (AI Assistant)
+name: Claude Code
 group: ai-agents
-requires: []
-description: Anthropic's AI coding assistant for development
-pre_build_script: claude-code-setup.sh
+requires: nodejs
+description: AI coding assistant with autonomous development system. Agent personas are now provided by the ai-kanban component
+pre_build_script: claude-code/claude-code-setup.sh
+command_permissions:
+  allow:
+    # Journal write operations (JSON format)
+    - "Bash(journal-log-json.sh:*)"
+    
+    # Journal read operations
+    - "Bash(journal-query.sh:*)"
+    - "Bash(kanban-state.sh:*)"
+    - "Bash(agent-history.sh:*)"
+    - "Bash(card-timeline.sh:*)"
+    - "Bash(test-results.sh:*)"
+    - "Bash(metrics-summary.sh:*)"
+    - "Bash(agent-context.sh:*)"
+    - "Bash(card-status.sh:*)"
+    
+    # Kanban card ID management
+    - "Bash(kanban-create-card-id.sh:*)"
+    - "Bash(kanban-reset-card-id.sh:*)"
+    
+    # New Kanban pull-based commands
+    - "Bash(kanban-get-available-cards.sh:*)"
+    - "Bash(kanban-check-dependencies.sh:*)"
+    - "Bash(kanban-migrate-journal.sh:*)"
+    - "Bash(kanban-try-assign-card.sh:*)"
+    - "Bash(kanban-count-cards.sh:*)"
+    - "Bash(set-agent-name.sh:*"
+    - "Bash(get-agent-name.sh:*"
+    
+    # Core bash operations
+    - "Bash(mkdir:*)"
+    - "Bash(echo:*)"
+    - "Bash(ls:*)"
+    - "Bash(find:*)"
+    - "Bash(touch:*)"
+    - "Bash(cat:*)"
+    - "Bash(command -v:*)"
+    - "Bash(time:*)"
+    - "Bash(source:*)"
+    - "Bash(grep:*)"
+    - "Bash(test:*)"
+    - "Bash([:*)"
+    - "Bash(uuidgen:*)"
+    - "Bash(jq:*)"
+    - "Bash(tail:*)"
+    - "Bash(date:*)"
+    - "Bash(wc:*)"
+    - "Bash(cut:*)"
+    - "Bash(sed:*)"
+    - "Bash(printf:*)"
+    - "Bash(true:*)"
+    - "Bash(false:*)"
+    - "Bash(return:*)"
+    - "Bash(exit:*)"
+    - "Bash(cp:*)"
+    - "Bash(mv:*)"
+    - "Bash(rm:*)"
+    - "Bash(basename:*)"
+    - "Bash(dirname:*)"
+    - "Bash(pwd:*)"
+    - "Bash(cd:*)"
+    
+    # Git operations
+    - "Bash(git init:*)"
+    - "Bash(git add:*)"
+    - "Bash(git commit:*)"
+    - "Bash(git tag:*)"
+    - "Bash(git push:*)"
+    - "Bash(git diff:*)"
+    - "Bash(git status:*)"
+    
+    # Development tools
+    - "Bash(npm:*)"
+    - "Bash(python:*)"
+    - "Bash(pip:*)"
+    - "Bash(pytest:*)"
+    - "Bash(cargo:*)"
+    - "Bash(docker:*)"
+    - "Bash(docker-compose:*)"
+    - "Bash(kubectl:*)"
+    
+    # File operations
+    - "Edit(*)"
+    - "Read(*)"
+    - "Write(*)"
+    - "Glob(*)"
+    - "MultiEdit(*)"
 installation:
   dockerfile: |
     # Claude Code requires Node.js to be installed first
     # The build system should ensure nodejs-version components are installed before this
+    
+    # Install additional utilities needed by journal scripts
+    RUN apt-get update && apt-get install -y \
+        uuid-runtime \
+        --no-install-recommends && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*
     
     # Install Claude Code globally as root first
     RUN export NPM_CONFIG_PREFIX=/home/devuser/.npm-global && \
         export PATH="/home/devuser/.npm-global/bin:/usr/local/bin:${PATH}" && \
         mkdir -p /home/devuser/.npm-global && \
         chown -R devuser:devuser /home/devuser/.npm-global && \
-        /usr/local/bin/npm install -g @anthropic-ai/claude-code && \
+        npm install -g @anthropic-ai/claude-code && \
         ls -la /home/devuser/.npm-global/bin/ && \
         /home/devuser/.npm-global/bin/claude --version || (echo "Claude Code installation failed" && exit 1) && \
         chown -R devuser:devuser /home/devuser/.npm-global
   inject_files:
-    - source: user-CLAUDE.md
-      destination: /tmp/user-CLAUDE.md
+    - source: CLAUDE.md
+      destination: /tmp/CLAUDE.md
       permissions: 644
-    - source: claude-settings.json.template
-      destination: /tmp/claude-settings.json.template
+    - source: settings.json
+      destination: /tmp/settings.json
+      permissions: 644
+    - source: settings.local.json
+      destination: /tmp/settings.local.json
+      permissions: 644
+    - source: commands/
+      destination: /tmp/commands/
+      permissions: 755
+    - source: agents/
+      destination: /tmp/agents/
+      permissions: 755
+    - source: hooks/
+      destination: /tmp/hooks/
+      permissions: 755
+    - source: scripts/
+      destination: /tmp/scripts/
+      permissions: 755
+    - source: docs/
+      destination: /tmp/docs/
+      permissions: 755
+    - source: component-imports.txt
+      destination: /tmp/component-imports.txt
+      permissions: 644
+    - source: MANIFEST.txt
+      destination: /tmp/MANIFEST.txt
       permissions: 644
 entrypoint_setup: |
-  # Claude Code specific setup
-  echo "Setting up Claude Code environment..."
+  echo "Setting up Claude Code autonomous development environment..."
   
-  # Create .claude directory for global Claude configuration
-  if command -v claude &> /dev/null 2>&1 || [ -f /tmp/user-CLAUDE.md ]; then
-      mkdir -p /home/devuser/.claude
+  mkdir -p /home/devuser/.claude
+  mkdir -p /home/devuser/.claude/agents
+  mkdir -p /home/devuser/.claude/commands
+  mkdir -p /home/devuser/.claude/docs
+  mkdir -p /home/devuser/.claude/hooks
+  mkdir -p /home/devuser/.claude/scripts
+  mkdir -p /home/devuser/.claude/data
+  mkdir -p /home/devuser/workspace/.claude
+  
+  # Ensure data directory has proper permissions
+  chmod 755 /home/devuser/.claude/data
+  chown devuser:devuser /home/devuser/.claude/data
+
+  cp /tmp/CLAUDE.md /home/devuser/.claude/CLAUDE.md
+  
+  if [ -f /tmp/component-imports.txt ]; then
+      cat /tmp/component-imports.txt >> /home/devuser/.claude/CLAUDE.md
+  fi
+ 
+  # Copy component documentation files
+  if [ -d /tmp/docs ]; then
+      for md_file in /tmp/docs/*.md; do
+          if [ -f "$md_file" ]; then
+              basename_file=$(basename "$md_file")
+              cp "$md_file" "/home/devuser/.claude/docs/$basename_file"
+          fi
+      done
   fi
   
-  # Copy settings.json from template if it exists
-  echo "Checking for settings.json..."
-  if [ -f /tmp/claude-settings.json.template ]; then
-      echo "Found /tmp/claude-settings.json.template"
-      if [ ! -f /home/devuser/.claude/settings.json ]; then
-          echo "Copying settings.json to .claude folder..."
-          cp /tmp/claude-settings.json.template /home/devuser/.claude/settings.json
-          echo "settings.json copied successfully to /home/devuser/.claude/"
-      else
-          echo "settings.json already exists in .claude folder"
-      fi
-  else
-      echo "No /tmp/claude-settings.json.template found in image"
+  if [ -d /tmp/scripts ]; then
+      cp /tmp/scripts/*.sh /home/devuser/.claude/scripts/
+      chmod +x /home/devuser/.claude/scripts/*.sh
+
+      for sh_file in /home/devuser/.claude/scripts/*.sh; do
+          if [ -f "$sh_file" ]; then
+              basename_file=$(basename "$sh_file")
+              ln -sf "$sh_file" "/usr/local/bin/$basename_file" 2>/dev/null || true
+          fi
+      done
   fi
   
-  # Note: user-CLAUDE.md is handled in the main entrypoint.sh script
-  # along with appending component imports
+  cp /tmp/settings.json /home/devuser/.claude/settings.json
+  cp /tmp/settings.local.json /home/devuser/workspace/.claude/settings.local.json
+ 
+  if [ -d /tmp/commands ] && [ "$(ls -A /tmp/commands/*.md 2>/dev/null)" ]; then
+      cp /tmp/commands/*.md /home/devuser/.claude/commands/
+  fi
   
-  # Ensure proper ownership
-  chown -R devuser:devuser /home/devuser/.claude 2>/dev/null || true
+  # Copy agents
+  if [ -d /tmp/agents ] && [ "$(ls -A /tmp/agents/*.md 2>/dev/null)" ]; then
+      cp /tmp/agents/*.md /home/devuser/.claude/agents/
+  fi
   
-  # Verify installed components (only if expected)
-  if command -v claude &> /dev/null 2>&1; then
-      echo "Claude Code is available at: $(which claude)"
+  if [ -d /tmp/hooks ] && [ "$(ls -A /tmp/hooks/*.sh 2>/dev/null)" ]; then
+      cp /tmp/hooks/*.sh /home/devuser/.claude/hooks/
+      chmod +x /home/devuser/.claude/hooks/*.sh
   fi

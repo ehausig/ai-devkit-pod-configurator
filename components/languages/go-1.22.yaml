@@ -4,6 +4,18 @@ version: "1.22.0"
 group: go-version
 requires: []
 description: Go programming language version 1.22
+command_permissions:
+  allow:
+    - "Bash(go:*)"
+    - "Bash(go run:*)"
+    - "Bash(go build:*)"
+    - "Bash(go test:*)"
+    - "Bash(go mod:*)"
+    - "Bash(go get:*)"
+    - "Bash(go install:*)"
+    - "Bash(go fmt:*)"
+    - "Bash(go vet:*)"
+    - "Bash(golangci-lint:*)"
 installation:
   dockerfile: |
     RUN ARCH=$(dpkg --print-architecture) && \

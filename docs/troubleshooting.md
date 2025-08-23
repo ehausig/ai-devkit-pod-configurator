@@ -4,13 +4,62 @@ This guide helps resolve common issues with the AI DevKit Pod Configurator.
 
 ## Table of Contents
 
-1. [Installation Issues](#installation-issues)
-2. [Build Failures](#build-failures)
-3. [Deployment Issues](#deployment-issues)
-4. [Connection Problems](#connection-problems)
-5. [Component Issues](#component-issues)
-6. [Performance Problems](#performance-problems)
-7. [Known Issues](#known-issues)
+1. [Prerequisites and Dependencies](#prerequisites-and-dependencies)
+2. [Installation Issues](#installation-issues)
+3. [Build Failures](#build-failures)
+4. [Deployment Issues](#deployment-issues)
+5. [Connection Problems](#connection-problems)
+6. [Component Issues](#component-issues)
+7. [Claude Code Issues](#claude-code-issues)
+8. [Performance Problems](#performance-problems)
+9. [Known Issues](#known-issues)
+
+## Prerequisites and Dependencies
+
+### Required Tools
+
+The build system requires these tools:
+
+```bash
+# Check if tools are installed
+which kubectl yq jq docker
+
+# Install missing tools on macOS
+brew install kubectl yq jq
+
+# Install on Ubuntu/Debian
+sudo apt-get update
+sudo apt-get install -y curl
+# kubectl
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+# yq
+sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+sudo chmod +x /usr/local/bin/yq
+# jq
+sudo apt-get install -y jq
+```
+
+### yq/jq Not Found
+
+**Problem**: Build fails with "yq: command not found" or "jq: command not found"
+
+**Solution**: The refactored build system requires these tools for YAML/JSON parsing:
+
+```bash
+# macOS
+brew install yq jq
+
+# Linux - Install yq
+VERSION=v4.35.2  # Check for latest at https://github.com/mikefarah/yq/releases
+BINARY=yq_linux_amd64
+wget https://github.com/mikefarah/yq/releases/download/${VERSION}/${BINARY} -O /usr/bin/yq
+chmod +x /usr/bin/yq
+
+# Linux - Install jq
+sudo apt-get install jq  # Debian/Ubuntu
+sudo yum install jq      # RHEL/CentOS
+```
 
 ## Installation Issues
 
@@ -95,6 +144,7 @@ ls -la ~/.kube/config
 # Make all scripts executable
 chmod +x *.sh
 chmod +x scripts/*.sh
+chmod +x components/agents/claude-code/*.sh
 
 # Or recursively
 find . -name "*.sh" -type f -exec chmod +x {} \;
@@ -129,7 +179,7 @@ find . -name "*.sh" -type f -exec chmod +x {} \;
    curl -I https://registry-1.docker.io
    
    # Retry with no build cache
-   docker build --no-cache -t ai-devkit:latest .
+   docker build --no-cache -t ai-devkit:latest .build-temp/
    ```
 
 ### Component installation fails
@@ -141,7 +191,7 @@ find . -name "*.sh" -type f -exec chmod +x {} \;
 1. **Check component YAML syntax**:
    ```bash
    # Validate YAML
-   cat components/CATEGORY/component.yaml
+   yq eval . components/CATEGORY/component.yaml
    ```
 
 2. **Test installation commands manually**:
@@ -154,6 +204,27 @@ find . -name "*.sh" -type f -exec chmod +x {} \;
 3. **Architecture issues**:
    - Ensure component supports both ARM64 and AMD64
    - Check for architecture-specific download URLs
+
+### Missing files in container
+
+**Problem**: Files that should be injected are not present (e.g., `/tmp/CLAUDE.md: No such file or directory`)
+
+**Solution**: This was a bug in the refactored code where the Dockerfile was being overwritten:
+
+1. **Check Dockerfile generation**:
+   ```bash
+   # Look for inject_files in the generated Dockerfile
+   grep -A5 "inject_files" .build-temp/Dockerfile
+   
+   # Should see COPY commands, not placeholder
+   # If you see "# INJECT_FILES_PLACEHOLDER", the injection failed
+   ```
+
+2. **Verify fix is applied**: Ensure `build_docker_image()` doesn't overwrite the Dockerfile:
+   ```bash
+   # This line should NOT exist in build_docker_image():
+   # cp docker/Dockerfile.base "$TEMP_DIR/Dockerfile"
+   ```
 
 ## Deployment Issues
 
@@ -195,11 +266,10 @@ find . -name "*.sh" -type f -exec chmod +x {} \;
    kubectl logs -n ai-devkit deployment/ai-devkit --previous
    ```
 
-2. **Check entrypoint script**:
-   ```bash
-   # Verify entrypoint exists and is executable
-   kubectl exec -n ai-devkit deployment/ai-devkit -- ls -la /entrypoint.sh
-   ```
+2. **Common crash causes**:
+   - Missing entrypoint.sh
+   - File injection failed
+   - Component setup error
 
 3. **Debug with shell**:
    ```bash
@@ -228,12 +298,18 @@ find . -name "*.sh" -type f -exec chmod +x {} \;
    ```bash
    # Check if SSH is running in container
    kubectl exec -n ai-devkit deployment/ai-devkit -- ps aux | grep sshd
+   
+   # Check SSH logs
+   kubectl exec -n ai-devkit deployment/ai-devkit -- journalctl -u ssh
    ```
 
 3. **Verify SSH host keys**:
    ```bash
    # Check secret exists
    kubectl get secret ssh-host-keys -n ai-devkit
+   
+   # If missing, regenerate
+   ./build-and-deploy.sh
    ```
 
 ### Filebrowser not accessible
@@ -267,16 +343,19 @@ find . -name "*.sh" -type f -exec chmod +x {} \;
    ls -la components/CATEGORY/your-component.yaml
    ```
 
-2. **Validate YAML**:
+2. **Validate YAML with yq**:
    ```bash
    # Check for syntax errors
-   grep -E "^(id|name|group|requires):" components/CATEGORY/your-component.yaml
+   yq eval . components/CATEGORY/your-component.yaml
+   
+   # Verify required fields
+   yq eval '.id, .name, .group, .description' components/CATEGORY/your-component.yaml
    ```
 
-3. **Check for errors**:
+3. **Check component loading**:
    ```bash
-   # Run with debug output
-   bash -x ./build-and-deploy.sh 2>&1 | grep -i error
+   # Enable debug output
+   bash -x ./build-and-deploy.sh 2>&1 | grep -A5 "load_components"
    ```
 
 ### Component conflicts not working
@@ -286,6 +365,107 @@ find . -name "*.sh" -type f -exec chmod +x {} \;
 **Solution**:
 - Verify all components in the group have exact same `group` value
 - Check for typos or extra spaces in group names
+- Use yq to verify: `yq eval '.group' components/*/*.yaml | sort | uniq -c`
+
+### Pre-build script not running
+
+**Problem**: Component's pre-build script doesn't execute.
+
+**Solutions**:
+
+1. **Check script path**:
+   ```yaml
+   # In component YAML
+   pre_build_script: component-dir/script.sh  # Relative to YAML file
+   ```
+
+2. **Verify script is executable**:
+   ```bash
+   chmod +x components/CATEGORY/*/script.sh
+   ```
+
+3. **Check script output**:
+   ```bash
+   # Pre-build output goes to build log
+   grep -A10 "pre-build" build-and-deploy.log
+   ```
+
+## Claude Code Issues
+
+### Claude Code not available
+
+**Problem**: Claude command not found after deployment.
+
+**Solutions**:
+
+1. **Check installation**:
+   ```bash
+   kubectl exec -n ai-devkit deployment/ai-devkit -- which claude
+   # Should show: /home/devuser/.npm-global/bin/claude
+   ```
+
+2. **Verify npm global path**:
+   ```bash
+   kubectl exec -n ai-devkit deployment/ai-devkit -- bash -c 'echo $PATH'
+   # Should include: /home/devuser/.npm-global/bin
+   ```
+
+3. **Check Claude Code installation log**:
+   ```bash
+   grep -A20 "Claude Code" build-and-deploy.log
+   ```
+
+### Permission errors with Claude Code
+
+**Problem**: Claude Code can't execute certain commands.
+
+**Solutions**:
+
+1. **Check aggregated permissions**:
+   ```bash
+   # Inside container
+   cat ~/workspace/.claude/settings.local.json
+   ```
+
+2. **Verify component permissions**:
+   ```bash
+   # Check component YAML files
+   yq eval '.command_permissions' components/*/*.yaml
+   ```
+
+3. **Add missing permissions** to component YAML:
+   ```yaml
+   command_permissions:
+     allow:
+       - "Bash(needed-command:*)"
+   ```
+
+### Agents not working
+
+**Problem**: Claude Code agents not responding or delegating.
+
+**Solutions**:
+
+1. **Initialize system first**:
+   ```bash
+   # Create PROMPT.md
+   echo "# Project: Test" > ~/workspace/PROMPT.md
+   
+   # Initialize
+   /init-autonomous
+   ```
+
+2. **Check journal**:
+   ```bash
+   /show-journal
+   # Look for NEXT_AGENT entries
+   ```
+
+3. **Verify agent files**:
+   ```bash
+   ls ~/.claude/agents/
+   # Should show all agent .md files
+   ```
 
 ## Performance Problems
 
@@ -302,10 +482,11 @@ find . -name "*.sh" -type f -exec chmod +x {} \;
    # Build script auto-detects Nexus
    ```
 
-2. **Use local Docker cache**:
+2. **Use Docker build cache**:
    ```bash
-   # Don't use --no-cache flag
-   # Reuse layers when possible
+   # Don't clean everything
+   # Selective cleanup preserves base layers
+   docker image prune  # Instead of system prune -a
    ```
 
 ### Out of memory errors
@@ -323,6 +504,7 @@ find . -name "*.sh" -type f -exec chmod +x {} \;
 2. **Check current usage**:
    ```bash
    kubectl top pods -n ai-devkit
+   kubectl top nodes
    ```
 
 3. **Adjust resource limits** in `kubernetes/deployment.yaml`
@@ -331,71 +513,75 @@ find . -name "*.sh" -type f -exec chmod +x {} \;
 
 ### Critical Issues
 
-#### Overlay2 Cleanup (Colima)
+#### Docker Corruption with cleanup-colima.sh
 
-**Problem**: The `--overlay2` option in cleanup script corrupts Docker.
+**Problem**: The `--overlay2` option corrupts Docker.
 
 **Solution**: 
-- **DO NOT USE** `./cleanup-colima.sh --overlay2`
+- **NEVER USE** `./cleanup-colima.sh --overlay2`
 - Use standard cleanup: `./cleanup-colima.sh`
-- For severe issues: Delete and recreate Colima VM
+- For complete reset:
+  ```bash
+  colima delete
+  colima start --kubernetes --cpu 4 --memory 8 --disk 100
+  ```
 
 ### Platform Limitations
 
-#### Limited Testing
-
-**Tested Platforms**:
-- ✅ macOS with Colima
+**Current Testing Status**:
+- ✅ macOS with Colima (primary platform)
 - ⚠️  Linux with k3s (limited testing)
-- ❌ Windows WSL2 (theoretical support only)
-- ❌ Minikube (not tested)
-- ❌ Kind (not tested)
+- ❌ Windows WSL2 (untested)
+- ❌ Minikube (untested)
+- ❌ Kind (untested)
 
-#### Nexus Repository
+### Component System Limitations
 
-**Limitations**:
-- Only tested with local Nexus instances
-- Remote Nexus not validated
-- No testing without Nexus proxy
+1. **Simple mutual exclusion only**
+   - No complex dependency constraints
+   - No version ranges
+   - Workaround: Design clear component groups
 
-### Component Limitations
-
-#### Mutual Exclusions
-
-**Current State**:
-- Simple group-based exclusions only
-- No complex dependency resolution
-- No version conflict handling
-
-**Workaround**: Design components with clear groups
+2. **Pre-build script limitations**
+   - Must handle own error checking
+   - No automatic rollback
+   - Workaround: Make scripts idempotent
 
 ### Other Known Issues
 
-1. **Repeated deployments may leave orphaned PVCs**
+1. **PVC cleanup needed**:
    ```bash
-   # Clean up old PVCs
+   # Old PVCs may accumulate
    kubectl delete pvc -n ai-devkit --all
    ```
 
-2. **TUI rendering issues in some terminals**
-   - Use supported terminal (iTerm2, GNOME Terminal, etc.)
-   - Set `TERM=xterm-256color`
-
-3. **Git configuration may need manual setup**
-   - Run `./configure-git-host.sh` before first deployment
+2. **Terminal compatibility**:
+   - Some terminals may have rendering issues
+   - Solution: Use iTerm2, GNOME Terminal, or Windows Terminal
+   - Set: `export TERM=xterm-256color`
 
 ## Getting Help
 
 If these solutions don't resolve your issue:
 
-1. **Check the build log**:
+1. **Detailed diagnostics**:
    ```bash
+   # Collect diagnostic information
+   ./build-and-deploy.sh --version
+   kubectl version --short
+   docker version
+   yq --version
+   jq --version
+   
+   # Get detailed logs
    cat build-and-deploy.log
+   kubectl describe all -n ai-devkit
    ```
 
 2. **Enable debug mode**:
    ```bash
-   bash -x ./build-and-deploy.sh
+   # Run with bash debug output
+   bash -x ./build-and-deploy.sh 2>&1 | tee debug.log
    ```
 
 3. **Search existing issues**:
@@ -403,17 +589,117 @@ If these solutions don't resolve your issue:
 
 4. **Open a new issue** with:
    - Your platform (OS, Kubernetes distribution)
+   - Tool versions (kubectl, docker, yq, jq)
    - Complete error messages
    - Steps to reproduce
-   - `build-and-deploy.log` contents
+   - Relevant log excerpts
 
 ## Quick Fixes Checklist
 
+Before diving deep into troubleshooting:
+
 - [ ] All scripts are executable (`chmod +x *.sh`)
+- [ ] Required tools installed (`yq`, `jq`, `kubectl`)
 - [ ] Kubernetes is running (`kubectl get nodes`)
 - [ ] Docker/Colima is running (`docker ps`)
-- [ ] Sufficient disk space (`df -h`)
-- [ ] Sufficient memory allocated to Colima/VM
+- [ ] Sufficient disk space (`df -h`, min 20GB free)
+- [ ] Sufficient memory allocated to VM (min 8GB)
 - [ ] No conflicting port forwards (`lsof -i :2222`)
-- [ ] Component YAML files are valid
+- [ ] Component YAML files are valid (`yq` parses them)
+- [ ] Git configured if using git features (`./configure-git-host.sh`)
 - [ ] Using a supported terminal emulator
+- [ ] No spaces in project path
+
+## Component Development Troubleshooting
+
+### YAML Parsing Errors
+
+**Problem**: Build fails with YAML parsing errors after refactoring to use `yq`.
+
+**Solution**:
+```bash
+# Validate all component YAML files
+for f in components/*/*.yaml; do
+  echo "Checking $f"
+  yq eval . "$f" > /dev/null || echo "ERROR in $f"
+done
+```
+
+### Command Permissions Not Working
+
+**Problem**: Claude Code permissions not properly aggregated.
+
+**Debug steps**:
+```bash
+# Check generated permissions file
+cat .build-temp/settings.local.json | jq .
+
+# Verify component permissions are defined
+yq eval '.command_permissions.allow' components/*/*.yaml
+
+# Check pre-build script ran
+grep -A5 "command permissions" build-and-deploy.log
+```
+
+### Inject Files Not Working
+
+**Problem**: Files specified in inject_files not appearing in container.
+
+**Debug steps**:
+```bash
+# Check if COPY commands were generated
+grep "COPY.*tmp" .build-temp/Dockerfile
+
+# Verify files exist in build context
+ls -la .build-temp/
+
+# Check inject_files processing
+grep -B5 -A5 "inject_files" build-and-deploy.log
+```
+
+## Emergency Recovery
+
+### Complete System Reset
+
+If nothing else works:
+
+```bash
+# 1. Clean up Kubernetes
+kubectl delete namespace ai-devkit
+
+# 2. Clean up Docker
+docker rmi ai-devkit:latest
+docker system prune -a --volumes
+
+# 3. For Colima users - full reset
+colima delete
+colima start --kubernetes --cpu 4 --memory 8 --disk 100
+
+# 4. Re-clone repository
+cd ..
+rm -rf ai-devkit-pod-configurator
+git clone https://github.com/ehausig/ai-devkit-pod-configurator.git
+cd ai-devkit-pod-configurator
+
+# 5. Start fresh
+chmod +x *.sh
+./build-and-deploy.sh
+```
+
+### Partial Recovery
+
+For specific issues:
+
+```bash
+# Just rebuild image
+docker rmi ai-devkit:latest
+./build-and-deploy.sh
+
+# Just redeploy to Kubernetes
+kubectl delete deployment -n ai-devkit ai-devkit
+kubectl apply -f kubernetes/
+
+# Just restart port forwarding
+pkill -f "kubectl port-forward"
+kubectl port-forward -n ai-devkit service/ai-devkit 2222:22 8090:8090 &
+```

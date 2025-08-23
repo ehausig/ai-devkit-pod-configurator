@@ -1,5 +1,7 @@
 FROM ubuntu:22.04
 
+ARG CACHEBUST=1
+
 # Set architecture (defaults to arm64 for Apple Silicon)
 ARG TARGETARCH=arm64
 
@@ -36,6 +38,8 @@ RUN apt-get update && apt-get install -y \
     git \
     vim \
     jq \
+		lsof \
+    bc \
     wget \
     bash-completion \
     build-essential \
@@ -85,35 +89,6 @@ RUN if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Node.js 20.x (required for Microsoft TUI Test and Claude Code)
-# Direct binary installation to avoid repository issues with proxy
-RUN export DEBIAN_FRONTEND=noninteractive && \
-    ARCH=$(dpkg --print-architecture) && \
-    NODE_ARCH=${ARCH} && \
-    if [ "${ARCH}" = "arm64" ]; then NODE_ARCH="arm64"; elif [ "${ARCH}" = "amd64" ]; then NODE_ARCH="x64"; fi && \
-    NODE_VERSION="v20.18.0" && \
-    wget -q https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz && \
-    tar -xJf node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz -C /usr/local --strip-components=1 && \
-    rm node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz && \
-    npm install -g npm@latest
-
-# Configure npm if proxy URL is provided
-RUN if [ -n "$NPM_REGISTRY" ]; then \
-        npm config set registry ${NPM_REGISTRY} && \
-        echo "✓ Configured npm to use proxy" ; \
-    fi
-
-# Set up user's npm configuration
-RUN mkdir -p /home/devuser/.npm-global && \
-    echo 'export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"' >> /etc/skel/.bashrc && \
-    echo 'export NPM_CONFIG_PREFIX="$HOME/.npm-global"' >> /etc/skel/.bashrc
-
-# Install Microsoft TUI Test globally
-RUN export NPM_CONFIG_PREFIX=/usr/local && \
-    npm install -g @microsoft/tui-test && \
-    # Verify installation
-    tui-test --version || echo "TUI Test installed successfully"
-
 # Create a non-root user to run development tools
 RUN useradd -ms /bin/bash devuser && \
     echo 'devuser:devuser' | chpasswd && \
@@ -141,8 +116,8 @@ RUN mkdir /var/run/sshd && \
     echo "PrintMotd no" >> /etc/ssh/sshd_config && \
     echo "PrintLastLog no" >> /etc/ssh/sshd_config
 
-# Copy MOTD script
-COPY scripts/motd-ai-devkit.sh /tmp/motd-ai-devkit.sh
+# Copy MOTD script WITH .sh extension
+COPY docker/scripts/motd-ai-devkit.sh /tmp/motd-ai-devkit.sh
 
 # Configure MOTD and remove default Ubuntu components
 RUN cp /tmp/motd-ai-devkit.sh /etc/update-motd.d/00-ai-devkit && \
@@ -163,18 +138,9 @@ RUN cp /tmp/motd-ai-devkit.sh /etc/update-motd.d/00-ai-devkit && \
     echo "Testing MOTD execution:" && \
     /etc/update-motd.d/00-ai-devkit || echo "MOTD script failed to execute"
 
-# Copy configuration files and templates
-COPY config/bashrc /home/devuser/.bashrc
-COPY config/profile /home/devuser/.profile
-COPY config/npmrc.template /tmp/npmrc.template
-
-# Create TUI Test template directory
-RUN mkdir -p /home/devuser/.tui-test-templates && \
-    chown -R devuser:devuser /home/devuser/.tui-test-templates
-
-# Copy TUI Test templates
-COPY templates/tui-test.config.ts /home/devuser/.tui-test-templates/
-COPY templates/example.test.ts /home/devuser/.tui-test-templates/
+# Copy configuration files
+COPY docker/config/bashrc /home/devuser/.bashrc
+COPY docker/config/profile /home/devuser/.profile
 
 # Set proper ownership for config files
 RUN chown devuser:devuser /home/devuser/.bashrc /home/devuser/.profile
@@ -187,22 +153,6 @@ RUN sed -i '/To run a command as administrator/d' /etc/bash.bashrc 2>/dev/null |
     find /etc/profile.d -type f -name "*.sh" -exec sed -i '/To run a command as administrator/d' {} \; 2>/dev/null || true && \
     find /etc/profile.d -type f -name "*.sh" -exec sed -i '/use "sudo <command>"/d' {} \; 2>/dev/null || true && \
     find /etc/profile.d -type f -name "*.sh" -exec sed -i '/See "man sudo_root" for details/d' {} \; 2>/dev/null || true
-
-# Configure npm for the devuser if proxy URL is provided
-RUN if [ -n "$NPM_REGISTRY" ]; then \
-        sed "s|{{NPM_REGISTRY}}|${NPM_REGISTRY}|g" /tmp/npmrc.template > /home/devuser/.npmrc; \
-    else \
-        echo "prefix=/home/devuser/.npm-global" > /home/devuser/.npmrc; \
-    fi && \
-    chown devuser:devuser /home/devuser/.npmrc && \
-    rm -f /tmp/npmrc.template
-
-# Ensure npm global directory exists and has correct permissions
-RUN mkdir -p /home/devuser/.npm-global && \
-    chown -R devuser:devuser /home/devuser/.npm-global
-
-# Ensure proper ownership of TUI Test templates
-RUN chown -R devuser:devuser /home/devuser/.tui-test-templates
 
 # LANGUAGE_INSTALLATIONS_PLACEHOLDER
 
@@ -228,22 +178,15 @@ RUN if [ -f /tmp/VERSION ]; then \
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Copy git setup script for user convenience
-COPY scripts/setup-git.sh /usr/local/bin/setup-git.sh
+# Copy git setup script WITH .sh extension
+COPY docker/scripts/setup-git.sh /usr/local/bin/setup-git.sh
 RUN chmod +x /usr/local/bin/setup-git.sh
 
-# Copy base documentation files
-COPY docker/nodejs-base.md /tmp/
-
-# Copy user-CLAUDE.md if it exists (generated by pre-build)
-COPY user-CLAUDE.md* /tmp/
-
-# Copy component imports if it exists (generated by pre-build)
-COPY component-imports.txt* /tmp/
-
-# Copy all component markdown files (generated by pre-build)
-# Use a more specific pattern to avoid copying project-CLAUDE.md
-COPY *.md /tmp/
+# Create work directories that will be used by the work queue system
+RUN mkdir -p /tmp/work-scripts && \
+    chmod 1777 /tmp/work-scripts && \
+    mkdir -p /var/run/work-queue && \
+    chmod 755 /var/run/work-queue
 
 # Set environment variables for runtime if proxies are configured
 ENV PIP_INDEX_URL=${PIP_INDEX_URL}
@@ -258,6 +201,8 @@ WORKDIR /home/devuser
 # Switch back to root for the entrypoint
 USER root
 ENTRYPOINT ["/entrypoint.sh"]
+
+# INJECT_FILES_PLACEHOLDER
 
 # Set up volume mount points for persistence - MUST be last!
 VOLUME ["/home/devuser/.config/claude-code", "/home/devuser/workspace"]

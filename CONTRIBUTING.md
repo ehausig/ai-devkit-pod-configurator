@@ -8,186 +8,136 @@ Thank you for your interest in contributing to AI DevKit Pod Configurator! This 
 - [Getting Started](#getting-started)
 - [How to Contribute](#how-to-contribute)
 - [Development Setup](#development-setup)
-- [Contribution Guidelines](#contribution-guidelines)
+- [Coding Standards](#coding-standards)
 - [Testing](#testing)
-- [Pull Request Process](#pull-request-process)
-- [Component Contributions](#component-contributions)
+- [Submitting Changes](#submitting-changes)
+- [Component Development](#component-development)
 - [Documentation](#documentation)
 - [Community](#community)
 
 ## Code of Conduct
 
-This project adheres to a Code of Conduct that all contributors are expected to follow. Please read [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) before contributing to ensure you understand the expectations for participation in this community.
-
-By participating in this project, you agree to abide by its terms.
-
-### Our Standards
-
-- Be welcoming and inclusive
-- Be respectful of differing viewpoints
-- Accept constructive criticism gracefully
-- Focus on what's best for the community
-- Show empathy towards others
+This project adheres to the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to the project maintainers.
 
 ## Getting Started
 
 1. **Fork the repository** on GitHub
-2. **Clone your fork** locally:
-   ```bash
-   git clone https://github.com/yourusername/ai-devkit-pod-configurator.git
-   cd ai-devkit-pod-configurator
-   ```
-3. **Add upstream remote**:
-   ```bash
-   git remote add upstream https://github.com/ehausig/ai-devkit-pod-configurator.git
-   ```
-4. **Create a branch** for your changes:
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
+2. **Clone your fork** locally
+3. **Create a feature branch** from `develop`
+4. **Make your changes** with clear commits
+5. **Push to your fork** and submit a pull request to `develop`
 
 ## How to Contribute
 
-### Types of Contributions
+### Reporting Bugs
 
-We welcome the following types of contributions:
+Before creating bug reports, please check existing issues to avoid duplicates. When creating a bug report, include:
 
-1. **Bug Fixes**: Fix issues in existing code
-2. **New Components**: Add support for new languages, tools, or AI agents
-3. **Feature Enhancements**: Improve existing functionality
-4. **Documentation**: Improve or add documentation
-5. **Tests**: Add test coverage
-6. **Themes**: Create new TUI themes
-7. **Examples**: Provide usage examples
+- Clear, descriptive title
+- Steps to reproduce the issue
+- Expected vs actual behavior
+- System information (OS, Kubernetes distribution, tool versions)
+- Relevant logs or error messages
+- Screenshots if applicable
 
-### Finding Issues to Work On
+### Suggesting Enhancements
 
-- Check the [Issues](https://github.com/ehausig/ai-devkit-pod-configurator/issues) page
-- Look for issues labeled `good first issue` or `help wanted`
-- Comment on an issue to claim it
-- Create a new issue if you find a bug or have a feature idea
+Enhancement suggestions are welcome! Please:
+
+- Use a clear, descriptive title
+- Provide detailed description of the proposed feature
+- Explain why this enhancement would be useful
+- Include mockups or examples if applicable
+
+### Contributing Code
+
+1. **Find an issue** - Look for issues tagged `good first issue` or `help wanted`
+2. **Comment on the issue** - Let others know you're working on it
+3. **Follow the development workflow** - See [Developer Guide](docs/developer.md)
+4. **Write tests** - Include tests for new functionality
+5. **Update documentation** - Keep docs in sync with code changes
 
 ## Development Setup
 
 ### Prerequisites
 
-- macOS, Linux, or WSL2 on Windows
-- Kubernetes cluster (Colima, minikube, etc.)
-- Docker or compatible runtime
-- Git
-- Basic shell scripting knowledge
+```bash
+# Required tools
+brew install kubectl yq jq          # macOS
+sudo apt-get install kubectl yq jq  # Linux
+
+# Kubernetes (choose one)
+brew install colima                 # macOS recommended
+# OR minikube, kind, k3s, etc.
+
+# Development tools
+brew install shellcheck            # Shell script linting
+```
 
 ### Local Development
 
-1. **Set up your Kubernetes cluster**:
-   ```bash
-   # Example with Colima
-   colima start --kubernetes --cpu 4 --memory 8
-   ```
+```bash
+# Clone and setup
+git clone https://github.com/YOUR_USERNAME/ai-devkit-pod-configurator.git
+cd ai-devkit-pod-configurator
+git remote add upstream https://github.com/ehausig/ai-devkit-pod-configurator.git
 
-2. **Make scripts executable**:
-   ```bash
-   chmod +x *.sh
-   ```
+# Create feature branch
+git checkout develop
+git pull upstream develop
+git checkout -b feature/your-feature-name
 
-3. **Test your changes**:
-   ```bash
-   ./build-and-deploy.sh
-   ```
+# Make scripts executable
+chmod +x *.sh
 
-## Contribution Guidelines
+# Start development
+./build-and-deploy.sh
+```
 
-### Code Style
+## Coding Standards
 
-#### Shell Scripts
+### Bash Scripts
 
-- Use Bash 3.2+ compatible syntax (for macOS compatibility)
-- Follow these conventions:
-  ```bash
-  #!/bin/bash
-  set -e  # Exit on error
-  
-  # Constants in UPPER_CASE
-  readonly CONSTANT_VALUE="value"
-  
-  # Functions with descriptive names
-  function_name() {
-      local var=$1
-      # Function body
-  }
-  
-  # Main execution
-  main() {
-      # Main logic
-  }
-  
-  main "$@"
-  ```
+- Use `#!/bin/bash` shebang
+- Set `set -e` for error handling
+- Use UPPERCASE for global constants
+- Use lowercase for local variables
+- Always quote variables: `"$var"`
+- Use meaningful function and variable names
+- Add comments for complex logic
 
-- Use proper quoting:
-  ```bash
-  # Good
-  VAR="$1"
-  [[ -n "$VAR" ]] && echo "$VAR"
-  
-  # Bad
-  VAR=$1
-  [[ -n $VAR ]] && echo $VAR
-  ```
-
-#### YAML Files
+### YAML Files
 
 - Use 2-space indentation
-- Include all required fields
-- Add helpful comments
-- Follow this structure:
-  ```yaml
-  # Component description comment
-  id: COMPONENT_ID
-  name: Human Readable Name
-  version: "1.0.0"
-  group: component-group
-  requires: dependency-groups
-  description: Brief description
-  installation:
-    dockerfile: |
-      # Installation commands
-  ```
+- Quote strings when necessary
+- Follow component schema strictly
+- Validate with `yq eval .`
 
-#### Markdown
+### Documentation
 
-- Use proper headings hierarchy
+- Use Markdown format
+- Keep line length under 100 characters
 - Include code examples
-- Add table of contents for long documents
-- Follow standard Markdown conventions
+- Update relevant docs with code changes
 
 ### Commit Messages
 
-Follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
+Follow [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```
 <type>(<scope>): <subject>
 
-<body>
+[optional body]
 
-<footer>
+[optional footer(s)]
 ```
 
-Types:
-- `feat`: New feature
-- `fix`: Bug fix
-- `docs`: Documentation changes
-- `style`: Code style changes
-- `refactor`: Code refactoring
-- `test`: Test additions/changes
-- `chore`: Maintenance tasks
+Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
 
 Examples:
 ```
-feat(components): add support for Deno runtime
-
-fix(tui): correct pagination for large component lists
-
+feat(components): add Elixir language support
+fix(tui): correct pagination on small terminals
 docs(readme): update installation instructions
 ```
 
@@ -195,84 +145,49 @@ docs(readme): update installation instructions
 
 ### Component Testing
 
-1. **Build with your component**:
-   ```bash
-   ./build-and-deploy.sh
-   # Select your component
-   ```
+```bash
+# Test your component
+./build-and-deploy.sh
+# Select only your component
 
-2. **Verify installation**:
-   ```bash
-   kubectl exec -it -n ai-devkit <pod-name> -- su - devuser
-   # Test component functionality
-   ```
+# Verify inside container
+kubectl exec -it -n ai-devkit deployment/ai-devkit -- bash
+```
 
-3. **Check all features work**:
-   - Component installs correctly
-   - Dependencies are resolved
-   - Documentation is accessible
-   - No conflicts with other components
+### Script Testing
+
+```bash
+# Lint scripts
+shellcheck scripts/*.sh
+
+# Test scripts
+bash -x script.sh  # Debug mode
+```
 
 ### TUI Testing
 
-1. **Test navigation**:
-   - All keys work as expected
-   - Pagination functions correctly
-   - Selection/deselection works
+- Test all themes
+- Test different terminal sizes
+- Verify keyboard navigation
+- Check error handling
 
-2. **Test edge cases**:
-   - Empty categories
-   - Many components
-   - Long component names
-   - Dependency chains
+## Submitting Changes
 
-### Build Process Testing
+### Pull Request Process
 
-1. **Test different configurations**:
-   - Minimal build (no components)
-   - Full build (many components)
-   - With/without Nexus proxy
-   - With/without git configuration
-
-2. **Error handling**:
-   - Missing dependencies
-   - Build failures
-   - Network issues
-
-## Pull Request Process
-
-### Before Submitting
-
-1. **Update your fork**:
+1. **Update your branch**:
    ```bash
    git fetch upstream
-   git rebase upstream/main
+   git rebase upstream/develop
    ```
 
-2. **Test thoroughly**:
-   - Run the build process
-   - Verify your changes work
-   - Check for regressions
+2. **Create pull request**:
+   - Target branch: `develop` (never `main`)
+   - Clear title and description
+   - Reference related issues
+   - Include screenshots for UI changes
 
-3. **Update documentation**:
-   - Add/update relevant docs
-   - Update README if needed
-   - Add inline comments for complex code
-
-### Submitting a PR
-
-1. **Push to your fork**:
-   ```bash
-   git push origin feature/your-feature-name
-   ```
-
-2. **Create Pull Request**:
-   - Go to GitHub and create a PR from your fork
-   - Use a clear, descriptive title
-   - Fill out the PR template completely
-   - Link related issues with `Fixes #123`
-
-3. **PR Description Template**:
+3. **PR Template**:
    ```markdown
    ## Description
    Brief description of changes
@@ -281,184 +196,98 @@ docs(readme): update installation instructions
    - [ ] Bug fix
    - [ ] New feature
    - [ ] Breaking change
-   - [ ] Documentation update
+   - [ ] Documentation
 
    ## Testing
    - [ ] Tested locally
-   - [ ] Added tests
-   - [ ] All tests pass
-
-   ## Screenshots (if applicable)
-   Add screenshots for UI changes
+   - [ ] Tests pass
+   - [ ] Docs updated
 
    ## Checklist
-   - [ ] Code follows project style
-   - [ ] Self-review completed
-   - [ ] Documentation updated
-   - [ ] No new warnings
+   - [ ] Code follows style guide
+   - [ ] Self-reviewed
+   - [ ] Commented complex code
+   - [ ] No warnings generated
    ```
 
-### Review Process
+### Code Review
 
-1. **Automated Checks**: Ensure all CI checks pass
-2. **Code Review**: Address reviewer feedback
-3. **Updates**: Push additional commits as needed
-4. **Merge**: Maintainer will merge when approved
+- Respond to feedback promptly
+- Make requested changes
+- Mark conversations as resolved
+- Be respectful and professional
 
-## Component Contributions
+## Component Development
 
-### Adding a New Component
+### Creating New Components
 
-1. **Create component structure**:
-   ```bash
-   mkdir -p components/category/
-   touch components/category/.category.yaml
-   touch components/category/component.yaml
-   touch components/category/component.md
-   ```
+See [Creating Components](docs/components.md) for detailed guide.
 
-2. **Define the component**:
-   ```yaml
-   # component.yaml
-   id: MY_COMPONENT
-   name: My Component
-   version: "1.0.0"
-   group: my-group
-   requires: ""
-   description: What this component does
-   installation:
-     dockerfile: |
-       RUN apt-get update && \
-           apt-get install -y my-package && \
-           rm -rf /var/lib/apt/lists/*
-   ```
-
-3. **Add documentation**:
-   ```markdown
-   # component.md
-   #### My Component
-
-   **Quick Start**: How to use this component
-
-   **Common Commands**:
-   - `command1` - Description
-   - `command2` - Description
-   ```
-
-4. **Test thoroughly**:
-   - Build succeeds
-   - Component installs
-   - Features work
-   - No conflicts
+Quick checklist:
+- [ ] Valid YAML structure
+- [ ] Meaningful ID and name
+- [ ] Clear description
+- [ ] Proper group assignment
+- [ ] Dependencies declared
+- [ ] Installation tested
+- [ ] Documentation included
+- [ ] Command permissions defined (if needed)
 
 ### Component Best Practices
 
-1. **Minimize Size**:
-   - Clean package caches
-   - Remove unnecessary files
-   - Use `--no-install-recommends`
-
-2. **Handle Dependencies**:
-   - Use `requires:` field correctly
-   - Test with dependencies
-   - Document requirements
-
-3. **Support Nexus**:
-   - Add `nexus_config:` section
-   - Test with proxy enabled
-   - Document proxy behavior
-
-4. **Write Clear Documentation**:
-   - Include examples
-   - Explain common use cases
-   - Provide troubleshooting tips
+- Single responsibility
+- Architecture awareness (ARM64/AMD64)
+- Clean up after installation
+- Handle errors gracefully
+- Document usage examples
 
 ## Documentation
 
+### What to Document
+
+- New features and components
+- API changes
+- Configuration options
+- Usage examples
+- Troubleshooting tips
+
 ### Documentation Standards
 
-1. **README Updates**:
-   - Keep feature list current
-   - Update examples
-   - Maintain accuracy
-
-2. **Component Docs**:
-   - Use consistent format
-   - Include version info
-   - Provide examples
-
-3. **Code Comments**:
-   ```bash
-   # Explain why, not what
-   # BAD: Increment counter
-   # GOOD: Track retry attempts for network resilience
-   ((retry_count++))
-   ```
-
-### Documentation Checklist
-
-- [ ] New features documented
-- [ ] Examples provided
-- [ ] Screenshots added (for UI changes)
-- [ ] Troubleshooting section updated
-- [ ] Architecture docs updated (if needed)
+- Clear, concise writing
+- Code examples that work
+- Screenshots for UI features
+- Proper markdown formatting
+- Spell check before submitting
 
 ## Community
 
 ### Getting Help
 
-- Open an issue for bugs
-- Start a discussion for features
-- Ask questions in issues with `question` label
+- Check [documentation](docs/) first
+- Search existing [issues](https://github.com/ehausig/ai-devkit-pod-configurator/issues)
+- Ask in [discussions](https://github.com/ehausig/ai-devkit-pod-configurator/discussions)
+- Be patient and respectful
 
-### Reporting Bugs
+### Becoming a Maintainer
 
-Include:
-1. **Environment**: OS, Kubernetes version
-2. **Steps to reproduce**: Clear instructions
-3. **Expected behavior**: What should happen
-4. **Actual behavior**: What actually happens
-5. **Logs**: Relevant error messages
-6. **Screenshots**: If applicable
-
-### Suggesting Features
-
-1. **Check existing issues** first
-2. **Describe the use case**: Why is this needed?
-3. **Propose a solution**: How might it work?
-4. **Consider alternatives**: Other approaches?
-
-### Code Review Guidelines
-
-As a reviewer:
-- Be constructive and respectful
-- Explain your suggestions
-- Approve when satisfied
-- Help new contributors
-
-As a contributor:
-- Be open to feedback
-- Ask questions if unclear
-- Update based on reviews
-- Thank reviewers
+Active contributors may be invited to become maintainers. Maintainers:
+- Review and merge PRs
+- Manage releases
+- Guide project direction
+- Support the community
 
 ## Recognition
 
 Contributors are recognized in:
 - Git history
 - Release notes
-- Contributors section
+- README acknowledgments
 - Special thanks for significant contributions
 
-## License
+## Thank You!
 
-By contributing, you agree that your contributions will be licensed under the MIT License.
+Your contributions make AI DevKit Pod Configurator better for everyone. Whether it's fixing a typo, adding a feature, or helping others, every contribution matters!
 
-## Questions?
+---
 
-If you have questions about contributing:
-1. Check existing documentation
-2. Open an issue with the `question` label
-3. Start a discussion
-
-Thank you for contributing to AI DevKit Pod Configurator! 🎉
+Questions? Open an issue or start a discussion. We're here to help!

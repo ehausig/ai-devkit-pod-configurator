@@ -4,6 +4,16 @@ version: "latest"
 group: build-tools
 requires: java
 description: Apache Maven - Build automation and dependency management for Java
+command_permissions:
+  allow:
+    - "Bash(mvn:*)"
+    - "Bash(./mvnw:*)"
+    - "Bash(mvn clean:*)"
+    - "Bash(mvn install:*)"
+    - "Bash(mvn test:*)"
+    - "Bash(mvn package:*)"
+    - "Bash(mvn verify:*)"
+    - "Bash(mvn dependency:*)"
 installation:
   dockerfile: |
     RUN export DEBIAN_FRONTEND=noninteractive && \

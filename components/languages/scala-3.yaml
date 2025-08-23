@@ -4,6 +4,12 @@ version: "3.3.1"
 group: scala-version
 requires: java
 description: Scala 3 (Dotty) - Next generation of Scala
+command_permissions:
+  allow:
+    - "Bash(scala:*)"
+    - "Bash(scala3:*)"
+    - "Bash(scalac:*)"
+    - "Bash(sbt:*)"
 installation:
   dockerfile: |
     RUN export DEBIAN_FRONTEND=noninteractive && \

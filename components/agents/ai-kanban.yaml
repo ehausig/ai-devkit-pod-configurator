@@ -1,0 +1,177 @@
+id: AI_KANBAN
+name: AI Kanban Dashboard
+group: monitoring
+requires: nodejs
+description: Real-time web-based Kanban board visualization for the autonomous development system
+pre_build_script: ai-kanban/ai-kanban-setup.sh
+command_permissions:
+  allow:
+    - "Read(/home/devuser/workspace/JOURNAL.md)"
+    - "Bash(node:*)"
+    - "Bash(npm:*)"
+    - "Bash(ps:*)"
+    - "Bash(kill:*)"
+    - "Bash(lsof:*)"
+    - "Bash(ai-kanban-start.sh:*)"
+    - "Bash(ai-kanban-stop.sh:*)"
+    - "Bash(ai-kanban-status.sh:*)"
+    - "Bash(nohup:*)"
+installation:
+  dockerfile: |
+    # AI Kanban Dashboard installation
+    # The pre-build script will prepare the files for injection
+    
+    # Create directory for the dashboard
+    RUN mkdir -p /opt/ai-kanban
+    
+    # Note: The actual files will be copied during inject_files phase
+  inject_files:
+    - source: package.json
+      destination: /tmp/ai-kanban-package.json
+      permissions: 644
+    - source: server.js
+      destination: /tmp/ai-kanban-server.js
+      permissions: 644
+    - source: lib/
+      destination: /tmp/ai-kanban-lib/
+      permissions: 755
+    - source: public/
+      destination: /tmp/ai-kanban-public/
+      permissions: 755
+    - source: agents/
+      destination: /tmp/agents/
+      permissions: 755
+    - source: ai-kanban-agent-setup.sh
+      destination: /tmp/ai-kanban-agent-setup.sh
+      permissions: 755
+entrypoint_setup: |
+  echo "Setting up AI Kanban Dashboard..."
+  
+  # Move files from temp to final location
+  cp /tmp/ai-kanban-package.json /opt/ai-kanban/package.json
+  cp /tmp/ai-kanban-server.js /opt/ai-kanban/server.js
+  
+  # Create target directories
+  mkdir -p /opt/ai-kanban/lib
+  mkdir -p /opt/ai-kanban/public
+  
+  # Copy directory contents (not the directories themselves)
+  cp -r /tmp/ai-kanban-lib/* /opt/ai-kanban/lib/
+  cp -r /tmp/ai-kanban-public/* /opt/ai-kanban/public/
+  
+  # Clean up temp files
+  rm -rf /tmp/ai-kanban-*
+  
+  # Install dependencies
+  cd /opt/ai-kanban
+  npm install --production --no-fund --no-audit
+  
+  # Create user-writable directory for logs and PID file
+  mkdir -p /home/devuser/.ai-kanban
+  chown -R devuser:devuser /home/devuser/.ai-kanban
+  
+  # Create start script
+  cat > /usr/local/bin/ai-kanban-start.sh << 'EOF'
+  #!/bin/bash
+  # Start AI Kanban Dashboard
+  
+  # Ensure log directory exists
+  mkdir -p /home/devuser/.ai-kanban
+  
+  # Check if already running
+  if lsof -Pi :3000 -sTCP:LISTEN -t >/dev/null ; then
+      echo "AI Kanban Dashboard is already running on port 3000"
+      exit 1
+  fi
+  
+  echo "Starting AI Kanban Dashboard..."
+  cd /opt/ai-kanban
+  nohup node server.js > /home/devuser/.ai-kanban/ai-kanban.log 2>&1 &
+  echo $! > /home/devuser/.ai-kanban/ai-kanban.pid
+  
+  # Wait a moment for startup
+  sleep 2
+  
+  if lsof -Pi :3000 -sTCP:LISTEN -t >/dev/null ; then
+      echo "AI Kanban Dashboard started successfully!"
+      echo "Access at: http://localhost:3000"
+      echo "Logs at: /home/devuser/.ai-kanban/ai-kanban.log"
+  else
+      echo "Failed to start AI Kanban Dashboard"
+      echo "Check logs at: /home/devuser/.ai-kanban/ai-kanban.log"
+      exit 1
+  fi
+  EOF
+  chmod +x /usr/local/bin/ai-kanban-start.sh
+  
+  # Create stop script
+  cat > /usr/local/bin/ai-kanban-stop.sh << 'EOF'
+  #!/bin/bash
+  # Stop AI Kanban Dashboard
+  
+  if [ -f /home/devuser/.ai-kanban/ai-kanban.pid ]; then
+      PID=$(cat /home/devuser/.ai-kanban/ai-kanban.pid)
+      if kill -0 $PID 2>/dev/null; then
+          echo "Stopping AI Kanban Dashboard (PID: $PID)..."
+          kill $PID
+          rm -f /home/devuser/.ai-kanban/ai-kanban.pid
+          echo "AI Kanban Dashboard stopped"
+      else
+          echo "AI Kanban Dashboard not running (stale PID file)"
+          rm -f /home/devuser/.ai-kanban/ai-kanban.pid
+      fi
+  else
+      # Try to find by port
+      PID=$(lsof -ti:3000)
+      if [ -n "$PID" ]; then
+          echo "Stopping AI Kanban Dashboard (PID: $PID)..."
+          kill $PID
+          echo "AI Kanban Dashboard stopped"
+      else
+          echo "AI Kanban Dashboard is not running"
+      fi
+  fi
+  EOF
+  chmod +x /usr/local/bin/ai-kanban-stop.sh
+  
+  # Create status script
+  cat > /usr/local/bin/ai-kanban-status.sh << 'EOF'
+  #!/bin/bash
+  # Check AI Kanban Dashboard status
+  
+  if lsof -Pi :3000 -sTCP:LISTEN -t >/dev/null ; then
+      PID=$(lsof -ti:3000)
+      echo "AI Kanban Dashboard is running (PID: $PID)"
+      echo "Access at: http://localhost:3000"
+      echo "Logs at: /home/devuser/.ai-kanban/ai-kanban.log"
+  else
+      echo "AI Kanban Dashboard is not running"
+      echo "Start with: ai-kanban-start.sh"
+  fi
+  EOF
+  chmod +x /usr/local/bin/ai-kanban-status.sh
+  
+  # Ensure proper ownership
+  chown -R devuser:devuser /opt/ai-kanban
+  
+  # Set up agent personas if available
+  if [ -f /tmp/ai-kanban-agent-setup.sh ]; then
+    echo "Setting up agent personas..."
+    bash /tmp/ai-kanban-agent-setup.sh
+    rm -f /tmp/ai-kanban-agent-setup.sh
+  fi
+  
+  echo "AI Kanban Dashboard installed successfully!"
+  echo "Commands available:"
+  echo "  ai-kanban-start.sh  - Start the dashboard"
+  echo "  ai-kanban-stop.sh   - Stop the dashboard"
+  echo "  ai-kanban-status.sh - Check dashboard status"
+  
+  # Display agent information if available
+  if [ -d /home/devuser/.ai-kanban/agents ] && [ "$(ls -A /home/devuser/.ai-kanban/agents/*.md 2>/dev/null)" ]; then
+    echo ""
+    echo "Agent personas available:"
+    ls -1 /home/devuser/.ai-kanban/agents/*.md 2>/dev/null | sed 's|.*/||' | sed 's|\.md$||' | sed 's/^/  - /'
+    echo "Agent definitions: /home/devuser/.ai-kanban/agents/"
+    echo "Compatibility links: /home/devuser/.claude/agents/"
+  fi

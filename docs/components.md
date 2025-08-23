@@ -8,7 +8,8 @@ Each component consists of:
 
 1. **YAML Definition File** (required) - `components/CATEGORY/NAME.yaml`
 2. **Documentation File** (recommended) - `components/CATEGORY/NAME.md`
-3. **Pre-build Script** (optional) - `components/CATEGORY/NAME-setup.sh`
+3. **Pre-build Script** (optional) - `components/CATEGORY/NAME/NAME-setup.sh`
+4. **Supporting Files** (optional) - `components/CATEGORY/NAME/...`
 
 ## Component Categories
 
@@ -18,7 +19,8 @@ Components are organized into categories:
 components/
 ├── agents/          # AI coding assistants
 ├── languages/       # Programming languages and runtimes
-├── build-tools/     # Build and dependency management tools
+├── build-deploy/    # Build and dependency management tools  
+├── tools/           # Development and testing tools
 └── your-category/   # Create your own categories
 ```
 
@@ -56,6 +58,24 @@ description: Brief description of the component
 - **group**: Mutual exclusion group (only one per group can be selected)
 - **requires**: Array of group names this component depends on
 - **description**: Brief description for users
+
+### Command Permissions (Claude Code Integration)
+
+Components can define permissions for Claude Code:
+
+```yaml
+command_permissions:
+  allow:
+    - "Bash(npm:*)"
+    - "Bash(node:*)"
+    - "Bash(npx:*)"
+    - "Read(*.js)"
+    - "Write(*.json)"
+  deny:
+    - "Bash(rm -rf:*)"
+```
+
+These permissions are aggregated across all selected components and injected into Claude Code's configuration.
 
 ### Installation Instructions
 
@@ -104,6 +124,8 @@ inject_files:
     permissions: 755
 ```
 
+**Note**: Source paths are relative to the build context (`.build-temp/`), not the component directory.
+
 ### Runtime Setup
 
 For initialization that happens when the container starts:
@@ -126,22 +148,33 @@ entrypoint_setup: |
   fi
 ```
 
-## Component Documentation (Optional)
+### Pre-build Scripts
 
-Components can optionally include markdown documentation files that enhance the AI assistant experience. These files are automatically injected into LLM system prompts when the component is selected.
+For complex setup tasks, reference a pre-build script:
+
+```yaml
+pre_build_script: example/example-setup.sh
+```
+
+The script path is relative to the component's YAML file location.
+
+## Component Documentation
+
+Components can include markdown documentation that enhances AI assistant capabilities.
 
 ### Purpose
 
-The markdown files serve to:
-- Provide usage examples and common commands to AI assistants
-- Document component-specific workflows and best practices
-- Help AI assistants give accurate, component-aware responses
+Documentation files:
+- Provide usage examples for AI assistants
+- Document component-specific workflows
+- Help AI assistants give accurate responses
+- Get imported into Claude Code's context
 
 ### File Naming
 
-Documentation files must have the same base name as the component YAML:
-- Component: `python-miniconda.yaml`
-- Documentation: `python-miniconda.md`
+Documentation must have the same base name as the YAML:
+- Component: `python-3.11.yaml`
+- Documentation: `python-3.11.md`
 
 ### Documentation Structure
 
@@ -182,34 +215,20 @@ example install -r requirements.txt
 - Check logs at: `~/.example/logs/`
 ```
 
-### How It Works
+### Documentation Integration
 
-1. When a component is selected, its `.md` file is copied to the build directory
-2. During container startup, the file is placed in `~/.claude/` directory
-3. AI assistants (like Claude Code) can access these files for context
-4. The documentation helps AI assistants provide accurate, component-specific guidance
-
-### Best Practices
-
-1. **Focus on AI Context**: Write documentation that helps AI assistants understand:
-   - Common commands and their purposes
-   - Typical workflows
-   - Configuration locations
-   - Error resolution steps
-
-2. **Keep It Concise**: AI assistants work better with clear, structured information
-
-3. **Include Examples**: Real command examples are more useful than abstract descriptions
-
-4. **Document Gotchas**: Include any non-obvious behaviors or common mistakes
+1. Documentation is copied to `.build-temp/docs/`
+2. Referenced in Claude Code's component imports
+3. Available via `@import` syntax in CLAUDE.md
+4. Provides context for AI assistance
 
 ## Pre-build Scripts
 
-For complex setup tasks, create a pre-build script:
+Pre-build scripts handle complex setup tasks:
 
 ```bash
 #!/bin/bash
-# components/languages/example-setup.sh
+# components/agents/example/example-setup.sh
 
 # Standard arguments provided by build system
 TEMP_DIR="$1"
@@ -222,15 +241,32 @@ SCRIPT_DIR="$5"
 echo "Preparing Example Component..."
 
 # Copy files to temp directory
-cp "$SCRIPT_DIR/example-config.json" "$TEMP_DIR/"
+cp -r "$SCRIPT_DIR/example/templates" "$TEMP_DIR/"
 
 # Generate dynamic content
-cat > "$TEMP_DIR/example-setup.txt" << EOF
-Selected components: $SELECTED_NAMES
+cat > "$TEMP_DIR/config.json" << EOF
+{
+  "components": "$SELECTED_NAMES",
+  "generated": "$(date)"
+}
 EOF
+
+# Process other components if needed
+for yaml_file in $SELECTED_YAML_FILES; do
+    echo "Processing: $yaml_file"
+done
 
 echo "Example Component prepared successfully"
 ```
+
+### Pre-build Script Capabilities
+
+- Generate configuration files
+- Process selected components
+- Aggregate permissions
+- Create documentation
+- Set up directory structures
+- Download resources
 
 ## Component Dependencies
 
@@ -239,13 +275,13 @@ echo "Example Component prepared successfully"
 Component requires another group:
 
 ```yaml
-requires: [python-version]  # Requires any Python version
+requires: [nodejs]  # Requires any Node.js version
 ```
 
 ### Multiple Dependencies
 
 ```yaml
-requires: [python-version, build-tools]  # Requires Python AND build tools
+requires: [nodejs, build-tools]  # Requires Node.js AND build tools
 ```
 
 ### Mutual Exclusion
@@ -257,106 +293,205 @@ Components in the same group are mutually exclusive:
 group: python-version
 ```
 
-## Best Practices
-
-### 1. Naming Conventions
-
-- **ID**: UPPERCASE_WITH_UNDERSCORES (e.g., `PYTHON_MINICONDA`)
-- **Files**: lowercase-with-hyphens (e.g., `python-miniconda.yaml`)
-- **Groups**: lowercase-with-hyphens (e.g., `python-version`)
-
-### 2. Version Management
-
-- Include version in the component name if multiple versions exist
-- Use groups for mutual exclusion of versions
-- Document version-specific features in the markdown
-
-### 3. Installation Best Practices
-
-- Clean up package manager caches (`apt-get clean`, `rm -rf /var/lib/apt/lists/*`)
-- Verify installations with test commands
-- Use specific versions when possible for reproducibility
-- Handle both ARM64 and AMD64 architectures
-
-### 4. Documentation
-
-- Always include a markdown file with usage examples
-- Document environment variables and configuration files
-- Include troubleshooting tips
-- Show common workflows
-
-### 5. Testing
-
-Test your component by:
-
-1. Running the build script
-2. Selecting only your component
-3. Verifying it installs correctly
-4. Testing all documented commands
-
-## Example: Complete Python Component
+## Real-World Example: Node.js Component
 
 ```yaml
-# components/languages/python-system.yaml
-id: PYTHON_SYSTEM
-name: Python (System)
-version: "3.10"
-group: python-version
+# components/languages/nodejs-22.yaml
+id: NODEJS_22
+name: Node.js 22.x
+version: "22.11.0"
+group: nodejs
 requires: []
-description: Python 3.10 from Ubuntu repositories
+description: Node.js 22.x - Latest features (non-LTS)
+command_permissions:
+  allow:
+    - "Bash(node:*)"
+    - "Bash(npm:*)"
+    - "Bash(npx:*)"
+    - "Bash(yarn:*)"
+    - "Bash(pnpm:*)"
+    - "Bash(bun:*)"
 installation:
   dockerfile: |
-    # Install Python from system packages
-    RUN apt-get update && apt-get install -y \
-        python3 \
-        python3-pip \
-        python3-venv \
-        python3-dev \
-        && apt-get clean \
-        && rm -rf /var/lib/apt/lists/*
-    
-    # Create symbolic links
-    RUN ln -sf /usr/bin/python3 /usr/bin/python && \
-        ln -sf /usr/bin/pip3 /usr/bin/pip
-  
+    RUN export DEBIAN_FRONTEND=noninteractive && \
+        ARCH=$(dpkg --print-architecture) && \
+        NODE_ARCH=${ARCH} && \
+        if [ "${ARCH}" = "arm64" ]; then NODE_ARCH="arm64"; elif [ "${ARCH}" = "amd64" ]; then NODE_ARCH="x64"; fi && \
+        NODE_VERSION="v22.11.0" && \
+        wget -q https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz && \
+        tar -xJf node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz -C /usr/local --strip-components=1 && \
+        rm node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz && \
+        npm install -g npm@latest
   nexus_config: |
-    # Configure pip to use Nexus if available
-    if [ -n "$USE_NEXUS_APT" ] && [ -n "$PIP_INDEX_URL" ]; then
-        pip config set global.index-url ${PIP_INDEX_URL}
-        pip config set global.trusted-host ${PIP_TRUSTED_HOST}
+    if [ -n "$NPM_REGISTRY" ]; then \
+        npm config set registry ${NPM_REGISTRY} && \
+        echo "✓ Configured npm to use proxy" ; \
     fi
-
+  test_command: node --version && npm --version
 entrypoint_setup: |
-  # Configure pip for the devuser if proxy URL is provided
-  if command -v python3 &> /dev/null && [ -n "$PIP_INDEX_URL" ]; then
-      mkdir -p /home/devuser/.config/pip
-      if [ ! -f /home/devuser/.config/pip/pip.conf ]; then
-          echo "[global]" > /home/devuser/.config/pip/pip.conf
-          echo "index-url = ${PIP_INDEX_URL}" >> /home/devuser/.config/pip/pip.conf
-          echo "trusted-host = ${PIP_TRUSTED_HOST}" >> /home/devuser/.config/pip/pip.conf
-          chown -R devuser:devuser /home/devuser/.config/pip
-      fi
+  # Node.js 22 specific setup
+  echo "Setting up Node.js 22 environment..."
+  
+  # Set up user's npm configuration
+  mkdir -p /home/devuser/.npm-global
+  
+  # Configure npm for the devuser if proxy URL is provided
+  if [ -n "$NPM_REGISTRY" ]; then
+      npm config set --location=global registry ${NPM_REGISTRY}
+      # Also set it for the devuser
+      su - devuser -c "npm config set registry ${NPM_REGISTRY}"
+      echo "✓ Configured npm registry for devuser"
+  fi
+  
+  # Add npm global bin to PATH if not already present
+  if ! grep -q ".npm-global/bin" "$BASHRC" 2>/dev/null; then
+      echo '' >> "$BASHRC"
+      echo '# npm global packages' >> "$BASHRC"
+      echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$BASHRC"
+      echo 'export NPM_CONFIG_PREFIX="$HOME/.npm-global"' >> "$BASHRC"
   fi
 ```
 
+## Best Practices
+
+### 1. Component Design
+
+- **Single Responsibility**: Each component should do one thing well
+- **Clear Dependencies**: Explicitly declare all requirements
+- **Proper Grouping**: Use groups for mutually exclusive options
+- **Documentation**: Always include usage documentation
+
+### 2. Installation Best Practices
+
+- Clean up package caches: `apt-get clean && rm -rf /var/lib/apt/lists/*`
+- Use specific versions for reproducibility
+- Handle both ARM64 and AMD64 architectures
+- Test installation commands in isolation
+
+### 3. Permission Design
+
+- Grant minimal necessary permissions
+- Use wildcards appropriately: `Bash(npm:*)` not `Bash(*)`
+- Document why permissions are needed
+- Consider security implications
+
+### 4. Pre-build Scripts
+
+- Make scripts idempotent
+- Handle errors gracefully
+- Log progress for debugging
+- Clean up temporary files
+
+### 5. Documentation
+
+- Focus on practical examples
+- Include common workflows
+- Document configuration files
+- Provide troubleshooting tips
+
+## Testing Components
+
+### Local Testing
+
+1. Run the build with only your component:
+   ```bash
+   ./build-and-deploy.sh
+   # Select only your component
+   ```
+
+2. Verify installation:
+   ```bash
+   kubectl exec -it -n ai-devkit deployment/ai-devkit -- bash
+   # Test your component inside the container
+   ```
+
+3. Check logs:
+   ```bash
+   tail -f build-and-deploy.log
+   ```
+
+### Validation Checklist
+
+- [ ] YAML syntax is valid
+- [ ] Component appears in TUI
+- [ ] Dependencies resolve correctly
+- [ ] Installation completes successfully
+- [ ] Runtime setup works
+- [ ] Documentation is helpful
+- [ ] Permissions are appropriate
+
 ## Troubleshooting
 
-### Component Not Showing in TUI
+### Component Not Appearing
 
-1. Check YAML syntax is valid
-2. Ensure file is in correct category directory
-3. Verify all required fields are present
-4. Look for errors in build log
+1. Check YAML syntax with `yq`:
+   ```bash
+   yq eval . components/CATEGORY/component.yaml
+   ```
 
-### Installation Fails
+2. Verify required fields:
+   - id, name, group, description
 
-1. Test Dockerfile commands manually
-2. Check for architecture-specific issues
-3. Verify network connectivity for downloads
-4. Review build output in `build-and-deploy.log`
+3. Check category structure:
+   - Component in correct directory
+   - Category has valid name
 
-### Dependencies Not Working
+### Installation Failures
 
-1. Verify group names match exactly
-2. Check that required groups have available components
-3. Test with simplified dependencies first
+1. Test Dockerfile commands:
+   ```bash
+   docker run -it ubuntu:22.04 bash
+   # Run installation commands manually
+   ```
+
+2. Check architecture compatibility:
+   - Different download URLs for ARM64/AMD64?
+   - Architecture detection working?
+
+3. Verify network access:
+   - Can download required files?
+   - Proxy settings needed?
+
+### Pre-build Script Issues
+
+1. Run script manually:
+   ```bash
+   cd components/CATEGORY
+   ./component-setup.sh /tmp/test "ID" "Name" "path.yaml" "$(pwd)"
+   ```
+
+2. Check permissions:
+   ```bash
+   chmod +x component-setup.sh
+   ```
+
+3. Debug with set -x:
+   ```bash
+   bash -x component-setup.sh
+   ```
+
+## Advanced Topics
+
+### Complex Components
+
+See the Claude Code component for an example of:
+- Multiple sub-components (agents, commands, scripts)
+- Dynamic configuration generation
+- Permission aggregation
+- Documentation system integration
+
+### Component Composition
+
+Components can:
+- Depend on other components
+- Share configuration via pre-build scripts
+- Aggregate permissions and settings
+- Build on each other's functionality
+
+### Future Enhancements
+
+Planned improvements:
+- Component versioning and updates
+- External component repositories
+- Component marketplace
+- Dependency version constraints

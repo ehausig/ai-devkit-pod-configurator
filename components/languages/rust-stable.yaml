@@ -4,6 +4,17 @@ version: "stable"
 group: rust-version
 requires: []
 description: Rust programming language - stable channel
+command_permissions:
+  allow:
+    - "Bash(cargo:*)"
+    - "Bash(rustc:*)"
+    - "Bash(rustup:*)"
+    - "Bash(cargo watch:*)"
+    - "Bash(cargo build:*)"
+    - "Bash(cargo run:*)"
+    - "Bash(cargo test:*)"
+    - "Bash(cargo fmt:*)"
+    - "Bash(cargo clippy:*)"
 installation:
   dockerfile: |
     RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \

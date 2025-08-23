@@ -17,7 +17,6 @@ fi
 CONFIG_DIR="/home/devuser/.config/ai-devkit"
 mkdir -p "$CONFIG_DIR"
 mkdir -p /home/devuser/workspace
-mkdir -p /home/devuser/.claude
 mkdir -p /home/devuser/.local/bin
 
 # Start SSH daemon if host keys are mounted
@@ -68,34 +67,6 @@ if [ -f /tmp/git-mounted/gh-hosts.yml ]; then
     chmod 600 /home/devuser/.config/gh/hosts.yml
 fi
 
-# Copy user-CLAUDE.md to ~/.claude/CLAUDE.md if it exists
-# TODO: incorporate Claude Code specific configuration in components/agents files
-if [ -f /tmp/user-CLAUDE.md ]; then
-    echo "Found user CLAUDE.md, copying to ~/.claude..."
-    cp /tmp/user-CLAUDE.md /home/devuser/.claude/CLAUDE.md
-    echo "User CLAUDE.md copied successfully"
-    
-    # Append component imports to the CLAUDE.md file
-    if [ -f /tmp/component-imports.txt ]; then
-        echo "Appending component imports to CLAUDE.md..."
-        cat /tmp/component-imports.txt >> /home/devuser/.claude/CLAUDE.md
-        echo "Component imports appended successfully"
-    fi
-fi
-
-# Copy all component markdown files to ~/.claude
-# TODO: maybe put in generic ~/.prompts directory, then use symlink for .claude?
-echo "Copying component documentation files..."
-for md_file in /tmp/*.md; do
-    if [ -f "$md_file" ] && [ "$md_file" != "/tmp/user-CLAUDE.md" ]; then
-        basename_file=$(basename "$md_file")
-        if [ ! -f "/home/devuser/.claude/$basename_file" ]; then
-            cp "$md_file" "/home/devuser/.claude/$basename_file"
-            echo "Copied $basename_file to ~/.claude"
-        fi
-    fi
-done
-
 # Function to add line to file if not already present
 add_if_not_exists() {
     local line="$1"
@@ -110,7 +81,6 @@ BASHRC="/home/devuser/.bashrc"
 
 # Ensure proper ownership of essential directories
 chown -R devuser:devuser /home/devuser/workspace 2>/dev/null || true
-chown -R devuser:devuser /home/devuser/.claude 2>/dev/null || true
 chown -R devuser:devuser /home/devuser/.config/ai-devkit 2>/dev/null || true
 chown -R devuser:devuser /home/devuser/.local 2>/dev/null || true
 chown -R devuser:devuser /home/devuser/.tui-test-templates 2>/dev/null || true
@@ -146,9 +116,6 @@ fi
 
 # Ensure proper ownership of .bashrc
 chown devuser:devuser "$BASHRC"
-
-# Remove the old welcome message from .bashrc since we now use MOTD
-# (No need to add welcome message to .bashrc anymore)
 
 # Create shadow backup for password change detection
 if [ ! -f /etc/shadow.backup ]; then

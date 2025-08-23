@@ -4,6 +4,11 @@ version: "1.9.22"
 group: kotlin
 requires: java
 description: Modern programming language for JVM and Android development
+command_permissions:
+  allow:
+    - "Bash(kotlin:*)"
+    - "Bash(kotlinc:*)"
+    - "Bash(kotlin script.kts:*)"
 installation:
   dockerfile: |
     RUN export DEBIAN_FRONTEND=noninteractive && \

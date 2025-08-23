@@ -574,26 +574,26 @@ create_ssh_host_keys_secret() {
         --from-file=ssh_host_ed25519_key.pub="$SSH_KEYS_DIR/ssh_host_ed25519_key.pub" >/dev/null 2>&1
 }
 
-# Parse YAML file (simple parser using sed/awk)
-# This is a basic parser - in production you might want to use yq or python
+# Parse YAML file using yq
 parse_yaml() {
     local file=$1
     local prefix=$2
     
-    # Read the file and convert YAML to shell variables
-    local s='[[:space:]]*' w='[a-zA-Z0-9_]*' fs=$(echo @|tr @ '\034')
-    sed -ne "s|^\($s\):|\1|" \
-        -e "s|^\($s\)\($w\)$s:$s[\"']\(.*\)[\"']$s\$|\1$fs\2$fs\3|p" \
-        -e "s|^\($s\)\($w\)$s:$s\(.*\)$s\$|\1$fs\2$fs\3|p" $file |
-    awk -F$fs '{
-        indent = length($1)/2;
-        vname[indent] = $2;
-        for (i in vname) {if (i > indent) {delete vname[i]}}
-        if (length($3) > 0) {
-            vn=""; for (i=0; i<indent; i++) {vn=(vn)(vname[i])("_")}
-            printf("%s%s%s=\"%s\"\n", "'$prefix'", vn, $2, $3);
-        }
-    }'
+    # Extract the fields we need using yq
+    local id=$(yq eval '.id // ""' "$file")
+    local name=$(yq eval '.name // ""' "$file")
+    local group=$(yq eval '.group // ""' "$file")
+    local requires=$(yq eval '.requires // ""' "$file")
+    local version=$(yq eval '.version // ""' "$file")
+    local description=$(yq eval '.description // ""' "$file")
+    
+    # Output in the format expected by the rest of the script
+    [[ -n "$id" ]] && echo "${prefix}id=\"$id\""
+    [[ -n "$name" ]] && echo "${prefix}name=\"$name\""
+    [[ -n "$group" ]] && echo "${prefix}group=\"$group\""
+    [[ -n "$requires" ]] && echo "${prefix}requires=\"$requires\""
+    [[ -n "$version" ]] && echo "${prefix}version=\"$version\""
+    [[ -n "$description" ]] && echo "${prefix}description=\"$description\""
 }
 
 # Load component data from YAML files
@@ -1391,8 +1391,6 @@ render_cart() {
         "Filebrowser (port 8090)"
         "Git"
         "GitHub CLI (gh)"
-        "Microsoft TUI Test"
-        "Node.js 20.18.0"
         "SSH Server (port 2222)"
     )
     
@@ -2354,8 +2352,6 @@ display_selection_summary() {
         "Filebrowser (port 8090)"
         "Git"
         "GitHub CLI (gh)"
-        "Microsoft TUI Test"
-        "Node.js 20.18.0"
         "SSH Server (port 2222)"
     )
 
@@ -2521,7 +2517,8 @@ execute_pre_build_scripts() {
     local selected_names="${SELECTED_NAMES[*]}"
     local selected_yaml_files="${SELECTED_YAML_FILES[*]}"
     
-    # First, copy ALL component markdown files to the build directory
+    # First, create docs directory and copy ALL component markdown files to it
+    mkdir -p "$TEMP_DIR/docs"
     log "Copying component documentation files..."
     for i in "${!SELECTED_YAML_FILES[@]}"; do
         local yaml_file="${SELECTED_YAML_FILES[$i]}"
@@ -2530,7 +2527,7 @@ execute_pre_build_scripts() {
         local md_source="$(dirname "$yaml_file")/${yaml_basename}.md"
         
         if [[ -f "$md_source" ]]; then
-            cp "$md_source" "$TEMP_DIR/"
+            cp "$md_source" "$TEMP_DIR/docs/"
             success "Copied ${yaml_basename}.md for ${component_name}"
         else
             log "No documentation file ${yaml_basename}.md found for ${component_name}"
@@ -2643,161 +2640,75 @@ EOF
     fi
 }
 
-# Function to extract inject_files from YAML
+# Function to extract inject_files from YAML using yq
 extract_inject_files_from_yaml() {
     local yaml_file=$1
-    local in_inject_files=false
-    local current_item=false
-    local source="" destination="" permissions=""
     local inject_commands=""
     
-    while IFS= read -r line; do
-        # Check if entering inject_files section
-        if [[ "$line" =~ ^[[:space:]]*inject_files:[[:space:]]*$ ]]; then
-            in_inject_files=true
+    # Check if inject_files exists in the YAML (under installation)
+    if ! yq eval '.installation.inject_files' "$yaml_file" | grep -q -v "^null$"; then
+        return 0
+    fi
+    
+    # Get the number of inject_files entries
+    local count=$(yq eval '.installation.inject_files | length' "$yaml_file")
+    
+    # Process each inject_files entry
+    for ((i=0; i<count; i++)); do
+        local source=$(yq eval ".installation.inject_files[$i].source" "$yaml_file")
+        local destination=$(yq eval ".installation.inject_files[$i].destination" "$yaml_file")
+        local permissions=$(yq eval ".installation.inject_files[$i].permissions" "$yaml_file")
+        
+        # Skip if source or destination is null
+        if [[ "$source" == "null" ]] || [[ "$destination" == "null" ]]; then
             continue
         fi
         
-        # Check if exiting inject_files section
-        if [[ $in_inject_files == true ]] && [[ "$line" =~ ^[a-zA-Z_]+: ]] && [[ ! "$line" =~ ^[[:space:]] ]]; then
-            in_inject_files=false
-            break
-        fi
-        
-        if [[ $in_inject_files == true ]]; then
-            # New item starts with - source:
-            if [[ "$line" =~ ^[[:space:]]*-[[:space:]]+source:[[:space:]]*(.+)$ ]]; then
-                # Process previous item if exists
-                if [[ -n "$source" ]] && [[ -n "$destination" ]]; then
-                    inject_commands+="COPY $source $destination"$NL
-                    if [[ -n "$permissions" ]]; then
-                        inject_commands+="RUN chmod $permissions $destination"$NL
-                    fi
-                fi
-                
-                # Start new item
-                source="${BASH_REMATCH[1]}"
-                destination=""
-                permissions=""
-                current_item=true
-            elif [[ $current_item == true ]]; then
-                if [[ "$line" =~ ^[[:space:]]+destination:[[:space:]]*(.+)$ ]]; then
-                    destination="${BASH_REMATCH[1]}"
-                elif [[ "$line" =~ ^[[:space:]]+permissions:[[:space:]]*(.+)$ ]]; then
-                    permissions="${BASH_REMATCH[1]}"
-                fi
-            fi
-        fi
-    done < "$yaml_file"
-    
-    # Process last item
-    if [[ -n "$source" ]] && [[ -n "$destination" ]]; then
+        # Add COPY command
         inject_commands+="COPY $source $destination"$NL
-        if [[ -n "$permissions" ]]; then
+        
+        # Add chmod command if permissions are specified
+        if [[ "$permissions" != "null" ]]; then
             inject_commands+="RUN chmod $permissions $destination"$NL
         fi
-    fi
+    done
     
     echo -n "$inject_commands"
 }
 
-# Function to extract entrypoint_setup from YAML file
+# Function to extract entrypoint_setup from YAML file using yq
 extract_entrypoint_setup() {
     local yaml_file=$1
-    local in_entrypoint_setup=false
-    local entrypoint_content=""
+    local entrypoint_content=$(yq eval '.entrypoint_setup // ""' "$yaml_file")
     
-    while IFS= read -r line; do
-        # Check if we're entering entrypoint_setup section
-        if [[ "$line" =~ ^entrypoint_setup:[[:space:]]*\|[[:space:]]*$ ]]; then
-            in_entrypoint_setup=true
-            continue
-        fi
-        
-        # Check if we're exiting entrypoint_setup section (new top-level key)
-        if [[ $in_entrypoint_setup == true ]] && [[ "$line" =~ ^[a-zA-Z_]+: ]] && [[ ! "$line" =~ ^[[:space:]] ]]; then
-            in_entrypoint_setup=false
-            break
-        fi
-        
-        # Collect entrypoint_setup lines
-        if [[ $in_entrypoint_setup == true ]]; then
-            # Remove the first 2 spaces of YAML indentation
-            if [[ "$line" =~ ^"  " ]]; then
-                entrypoint_content+="${line:2}"$NL
-            elif [[ -z "$line" ]]; then
-                # Preserve empty lines
-                entrypoint_content+=$NL
-            fi
-        fi
-    done < "$yaml_file"
-    
-    # Trim trailing newlines but keep the content intact
-    # Don't use complex sed operations that might corrupt the content
-    while [[ "$entrypoint_content" =~ ${NL}$ ]]; do
-        entrypoint_content="${entrypoint_content%$NL}"
-    done
+    # Return empty if null or empty
+    if [[ "$entrypoint_content" == "null" ]] || [[ -z "$entrypoint_content" ]]; then
+        echo ""
+        return
+    fi
     
     echo "$entrypoint_content"
 }
 
-# Function to extract installation commands from YAML files
+# Function to extract installation commands from YAML files using yq
 extract_installation_from_yaml() {
     local yaml_file=$1
-    local in_dockerfile=false
-    local in_nexus=false
-    local dockerfile_content=""
-    local nexus_content=""
+    local full_content=""
     
-    while IFS= read -r line; do
-        # Check for dockerfile section
-        if [[ "$line" =~ ^[[:space:]]*dockerfile:[[:space:]]*\|[[:space:]]*$ ]]; then
-            in_dockerfile=true
-            in_nexus=false
-            continue
-        fi
-        
-        # Check for nexus_config section
-        if [[ "$line" =~ ^[[:space:]]*nexus_config:[[:space:]]*\|[[:space:]]*$ ]]; then
-            in_nexus=true
-            in_dockerfile=false
-            continue
-        fi
-        
-        # Check if we're exiting a section
-        if [[ "$line" =~ ^[[:space:]]*[a-zA-Z_]+: ]] && [[ ! "$line" =~ ^[[:space:]]{4,} ]]; then
-            in_dockerfile=false
-            in_nexus=false
-        fi
-        
-        # Collect content
-        if [[ $in_dockerfile == true ]]; then
-            # For dockerfile content, we need to preserve the exact formatting
-            # Only remove the first 4 spaces that are YAML indentation
-            if [[ "$line" =~ ^"    " ]]; then
-                dockerfile_content+="${line:4}"$NL
-            else
-                # Handle empty lines or lines with different indentation
-                dockerfile_content+="$line"$NL
-            fi
-        elif [[ $in_nexus == true ]]; then
-            # For nexus content, preserve it as-is after removing YAML indent
-            if [[ "$line" =~ ^"    " ]]; then
-                nexus_content+="${line:4}"$NL
-            fi
-        fi
-    done < "$yaml_file"
+    # Extract dockerfile content if it exists
+    local dockerfile_content=$(yq eval '.installation.dockerfile // ""' "$yaml_file")
+    if [[ -n "$dockerfile_content" ]] && [[ "$dockerfile_content" != "null" ]]; then
+        full_content="$dockerfile_content"
+    fi
     
-    # Combine dockerfile and nexus content if applicable
-    local full_content="$dockerfile_content"
-    if [[ -n "$nexus_content" ]]; then
-        # The nexus_config should already be properly formatted in the YAML
-        # Just wrap it in RUN - but be careful with the newline
+    # Extract nexus_config if it exists
+    local nexus_content=$(yq eval '.installation.nexus_config // ""' "$yaml_file")
+    if [[ -n "$nexus_content" ]] && [[ "$nexus_content" != "null" ]]; then
         if [[ -n "$full_content" ]]; then
-            full_content+=$NL
+            full_content+=$NL$NL
         fi
         full_content+="# Nexus configuration"$NL
-        full_content+="RUN ${nexus_content}"
+        full_content+="RUN $nexus_content"
     fi
     
     printf "%s" "$full_content"
@@ -2867,6 +2778,12 @@ sort_components_by_dependencies() {
 create_custom_dockerfile() {
     mkdir -p "$TEMP_DIR"
     
+    # Ensure work directories exist and have proper permissions
+    mkdir -p "$TEMP_DIR/work-scripts"
+    echo "#!/bin/bash" > "$TEMP_DIR/work-scripts/.placeholder"
+    echo "# Placeholder for work scripts" >> "$TEMP_DIR/work-scripts/.placeholder"
+    chmod 755 "$TEMP_DIR/work-scripts/.placeholder"
+    
     # First, generate the base entrypoint.sh in TEMP_DIR
     log "Generating custom entrypoint.sh..."
     
@@ -2895,7 +2812,6 @@ create_custom_dockerfile() {
     generate_component_imports
     
     # Create placeholder files if they don't exist (for when no components are selected)
-    touch "$TEMP_DIR/user-CLAUDE.md" 2>/dev/null || true
     touch "$TEMP_DIR/component-imports.txt" 2>/dev/null || true
     
     # Sort components by dependencies
@@ -2957,16 +2873,19 @@ create_custom_dockerfile() {
         rm -f "$TEMP_DIR/Dockerfile.bak"
     fi
     
-    # Insert file injections before volume declarations
+    # Insert file injections using the placeholder
     if [[ -n "$inject_files_content" ]]; then
         # Remove any trailing newlines
         inject_files_content=$(echo -n "$inject_files_content")
         echo "$inject_files_content" > "$TEMP_DIR/inject_files.txt"
-        # Insert before the VOLUME declaration - add a blank line first
-        sed -i.bak '/^# Set up volume mount points/i\
-' "$TEMP_DIR/Dockerfile"
-        sed -i.bak "/^# Set up volume mount points/r $TEMP_DIR/inject_files.txt" "$TEMP_DIR/Dockerfile"
+        # Use the placeholder pattern
+        sed -i.bak "/# INJECT_FILES_PLACEHOLDER/r $TEMP_DIR/inject_files.txt" "$TEMP_DIR/Dockerfile"
+        sed -i.bak "/# INJECT_FILES_PLACEHOLDER/d" "$TEMP_DIR/Dockerfile"
         rm -f "$TEMP_DIR/Dockerfile.bak" "$TEMP_DIR/inject_files.txt"
+    else
+        # Remove the placeholder if no inject content
+        sed -i.bak "/# INJECT_FILES_PLACEHOLDER/d" "$TEMP_DIR/Dockerfile"
+        rm -f "$TEMP_DIR/Dockerfile.bak"
     fi
     
     # Now modify the generated entrypoint.sh with component setup
@@ -3033,12 +2952,6 @@ validate_environment() {
     check_deps
     
     [[ ! -d "$COMPONENTS_DIR" ]] && error "Components directory '$COMPONENTS_DIR' not found"
-    
-    # Check if MOTD file exists
-    printf "."
-    if [[ ! -f "scripts/motd-ai-devkit.sh" ]]; then
-        error "motd-ai-devkit.sh not found in scripts directory. Please create this file first."
-    fi
     
     # Check Colima status
     printf "."
@@ -3133,13 +3046,24 @@ build_docker_image() {
     # Always build from TEMP_DIR since we now generate entrypoint.sh
     mkdir -p "$TEMP_DIR/scripts"
     mkdir -p "$TEMP_DIR/docker"
-    cp scripts/setup-git.sh "$TEMP_DIR/scripts/" 2>/dev/null
-    cp scripts/motd-ai-devkit.sh "$TEMP_DIR/scripts/" 2>/dev/null
-    cp docker/nodejs-base.md "$TEMP_DIR/docker/" 2>/dev/null
-    cp -r config "$TEMP_DIR/" 2>/dev/null
+    mkdir -p "$TEMP_DIR/docker/scripts"
+    mkdir -p "$TEMP_DIR/docker/config"
+    
+    # Copy docker directory structure
+    # REMOVED: cp docker/Dockerfile.base "$TEMP_DIR/Dockerfile"  # This was overwriting the customized Dockerfile!
+    # The Dockerfile has already been created and customized by create_custom_dockerfile()
+    
+    cp docker/scripts/setup-git.sh "$TEMP_DIR/docker/scripts/" 2>/dev/null
+    cp docker/scripts/motd-ai-devkit.sh "$TEMP_DIR/docker/scripts/" 2>/dev/null
+    
+    # Copy config files
+    cp docker/config/bashrc "$TEMP_DIR/docker/config/" 2>/dev/null
+    cp docker/config/profile "$TEMP_DIR/docker/config/" 2>/dev/null
+    
+    # Copy other needed directories
     cp -r templates "$TEMP_DIR/" 2>/dev/null
 
-     # Ensure VERSION file exists in TEMP_DIR
+    # Ensure VERSION file exists in TEMP_DIR
     if [[ -f "VERSION" ]]; then
         cp VERSION "$TEMP_DIR/VERSION"
         echo "Copied VERSION file: $(cat $TEMP_DIR/VERSION)" >> "$LOG_FILE"

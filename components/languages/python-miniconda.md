@@ -4,11 +4,7 @@
 ```bash
 # Create and activate environment
 conda create -n myproject python=3.11 -y
-eval "$(conda shell.bash hook)"
 conda activate myproject
-
-# Common activation fix if needed
-eval "$(conda shell.bash hook)" && conda activate myproject
 ```
 
 **Project Init**
@@ -18,14 +14,16 @@ mkdir -p src tests docs
 touch README.md requirements.txt .gitignore
 
 # Create requirements.txt
-cat > requirements.txt << 'EOF'
+```
+
+Create requirements.txt:
+```
 textual>=0.47.0      # TUI framework
 pytest>=8.0.0
 pytest-asyncio>=0.23.0
 pytest-cov>=4.1.0
 ruff>=0.1.0
 black>=23.0.0
-EOF
 ```
 
 **Dependencies**
@@ -40,6 +38,39 @@ pip freeze > requirements.txt
 # Export/import environment
 conda env export > environment.yml
 conda env create -f environment.yml
+```
+
+**Installing Missing Modules**
+```bash
+# If you encounter ModuleNotFoundError, you have two options:
+
+# Option 1: Install with conda (preferred for scientific packages)
+# Example: ModuleNotFoundError: No module named 'numpy'
+conda install numpy
+
+# Option 2: Install with pip (for packages not in conda)
+pip install requests
+
+# Common conda installations:
+conda install numpy pandas matplotlib jupyter scikit-learn
+conda install pytorch torchvision -c pytorch
+conda install tensorflow
+
+# Common pip installations (not available via conda):
+pip install fastapi uvicorn httpx
+pip install textual rich typer
+pip install black ruff mypy
+
+# Mixed conda/pip workflow:
+# 1. Install conda packages first
+conda install numpy pandas scipy matplotlib
+# 2. Then pip packages
+pip install -r requirements.txt
+
+# Update environment file after installing:
+conda env export > environment.yml
+# Or just pip packages:
+pip freeze > requirements.txt
 ```
 
 **Format & Lint**
@@ -137,6 +168,71 @@ python src/app.py
 textual run --dev src/app.py
 ```
 
+**Conda-Specific Package Management**
+```bash
+# Search for packages
+conda search tensorflow
+
+# Install specific versions
+conda install numpy=1.24.3
+
+# Update packages
+conda update numpy
+conda update --all
+
+# Create environment from file
+conda env create -f environment.yml
+
+# Clone an environment
+conda create --name myproject_backup --clone myproject
+
+# Remove packages
+conda remove package_name
+
+# Clean up cache
+conda clean --all
+```
+
+**Common Conda/Pip Installation Examples**
+```bash
+# Scientific computing (conda)
+conda install numpy scipy pandas matplotlib seaborn
+conda install jupyter notebook ipython
+conda install scikit-learn statsmodels
+
+# Deep learning (conda + channels)
+conda install pytorch torchvision torchaudio -c pytorch
+conda install tensorflow keras
+conda install -c conda-forge transformers
+
+# Geospatial (conda)
+conda install -c conda-forge geopandas folium
+conda install -c conda-forge rasterio shapely
+
+# Bioinformatics (conda)
+conda install -c bioconda biopython samtools
+conda install -c bioconda snakemake
+
+# Web development (pip - not in conda)
+pip install django flask fastapi
+pip install requests httpx aiohttp
+pip install celery redis
+
+# Development tools (mix of conda and pip)
+conda install black jupyter
+pip install ruff mypy pytest
+pip install pre-commit
+
+# Database drivers (pip)
+pip install psycopg2-binary pymongo
+pip install sqlalchemy alembic
+
+# Missing module quick reference:
+# If scientific/numerical → try conda first
+# If web/application → usually pip only
+# If unsure → conda search package_name
+```
+
 **Security Scanning**
 ```bash
 # Run security checks locally
@@ -153,8 +249,9 @@ pip list --outdated
 ```
 
 **Pre-commit Hooks (Local)**
+
+Create .pre-commit-config.yaml:
 ```yaml
-# .pre-commit-config.yaml
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.1.0
@@ -171,7 +268,9 @@ repos:
     hooks:
       - id: mypy
         additional_dependencies: [types-all]
+```
 
+```bash
 # Install and use locally:
 pip install pre-commit
 pre-commit install
