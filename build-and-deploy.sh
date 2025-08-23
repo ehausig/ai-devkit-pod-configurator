@@ -1118,12 +1118,21 @@ yq_universal() {
             yq eval "$expression" "$file"
             ;;
         "kislyuk") 
-            # kislyuk/yq uses jq syntax, so we need to handle default values differently
-            # The // operator might not work as expected, so let's use a different approach
-            local result=$(yq -r "$expression" "$file" 2>/dev/null)
+            # kislyuk/yq is just a wrapper around jq, so let's use it properly
+            # First convert YAML to JSON, then apply jq expression
+            local json_output=$(yq . "$file" 2>/dev/null)
+            if [[ -z "$json_output" ]]; then
+                echo ""
+                return 0
+            fi
+            
+            # Apply the jq expression to the JSON
+            local result=$(echo "$json_output" | jq -r "$expression" 2>/dev/null)
+            
+            # Handle null or empty results  
             if [[ "$result" == "null" ]] || [[ -z "$result" ]]; then
-                # Extract the default value from the expression if it has one
-                if [[ "$expression" =~ \|\|\ *\"(.*)\" ]] || [[ "$expression" =~ //\ *\"(.*)\" ]]; then
+                # Extract default value from expression if present
+                if [[ "$expression" =~ //\ *\"(.*)\" ]]; then
                     echo "${BASH_REMATCH[1]}"
                 else
                     echo ""
@@ -1131,7 +1140,7 @@ yq_universal() {
             else
                 echo "$result"
             fi
-            return 0  # Always return success
+            return 0
             ;;
         *)
             # Fallback - try both and return first successful result
