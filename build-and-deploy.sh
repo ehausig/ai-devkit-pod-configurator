@@ -853,46 +853,177 @@ load_image_to_runtime() {
     return $exit_code
 }
 
+# Function to provide installation guidance for missing tools
+provide_installation_guidance() {
+    local tool="$1"
+    
+    echo ""
+    error "Required tool '$tool' is not installed or not in PATH."
+    echo ""
+    echo "Installation instructions:"
+    
+    case "$tool" in
+        "yq")
+            echo "  macOS:    brew install yq"
+            echo "  Ubuntu:   sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 && sudo chmod +x /usr/local/bin/yq"
+            echo "  RHEL/CentOS: sudo yum install yq  # (if available in repos)"
+            echo "  Manual:   https://github.com/mikefarah/yq/releases"
+            ;;
+        "jq")
+            echo "  macOS:    brew install jq"
+            echo "  Ubuntu:   sudo apt-get install jq"
+            echo "  RHEL/CentOS: sudo yum install jq"
+            echo "  Alpine:   apk add jq"
+            ;;
+        "kubectl")
+            echo "  macOS:    brew install kubectl"
+            echo "  Ubuntu:   curl -LO \"https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl\" && sudo install kubectl /usr/local/bin/"
+            echo "  RHEL/CentOS: curl -LO \"https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl\" && sudo install kubectl /usr/local/bin/"
+            echo "  Manual:   https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/"
+            ;;
+        "ssh-keygen")
+            echo "  macOS:    Included with macOS (part of OpenSSH)"
+            echo "  Ubuntu:   sudo apt-get install openssh-client"
+            echo "  RHEL/CentOS: sudo yum install openssh-clients"
+            echo "  Alpine:   apk add openssh-client"
+            ;;
+        "colima")
+            echo "  macOS:    brew install colima"
+            echo "  Linux:    Not available - use K3s, Docker Desktop, or other Kubernetes distribution"
+            ;;
+        "k3s")
+            echo "  Linux:    curl -sfL https://get.k3s.io | sh -"
+            echo "  macOS:    Not recommended - use Colima or Docker Desktop instead"
+            ;;
+        "docker")
+            echo "  macOS:    brew install --cask docker  # or Docker Desktop"
+            echo "  Ubuntu:   sudo apt-get install docker.io"
+            echo "  RHEL/CentOS: sudo yum install docker"
+            echo "  Manual:   https://docs.docker.com/get-docker/"
+            ;;
+        "podman")
+            echo "  macOS:    brew install podman"
+            echo "  Ubuntu:   sudo apt-get install podman"
+            echo "  RHEL/CentOS: sudo yum install podman"
+            echo "  Fedora:   sudo dnf install podman"
+            ;;
+        *)
+            echo "  Please install '$tool' using your system's package manager or from its official website."
+            ;;
+    esac
+    echo ""
+    exit 1
+}
+
 # Check prerequisites
 check_deps() {
-    # Basic prerequisites always required
-    local deps=("kubectl")
+    log "Checking prerequisites..."
     
-    # Check for container tool (docker or podman)
-    printf "."
+    # Core tools required for all operations
+    local core_tools=("yq" "jq" "kubectl" "ssh-keygen")
+    
+    # Check for container tool (docker or podman) first
+    printf "  Container tool: "
     local container_tool=$(detect_container_tool)
     if [[ "$container_tool" == "none" ]]; then
+        echo "✗"
+        echo ""
         error "No container tool found. Please install either Docker or Podman."
+        echo ""
+        echo "Choose one of these options:"
+        echo "  Option 1 - Install Docker:"
+        provide_installation_guidance "docker"
+        echo "  Option 2 - Install Podman:"  
+        provide_installation_guidance "podman"
+    else
+        echo "✓ ($container_tool)"
+        cache_container_tool "$container_tool"
     fi
     
-    # Container tool is available, cache it for future use
-    cache_container_tool "$container_tool"
+    # Check core tools with detailed feedback
+    for tool in "${core_tools[@]}"; do
+        printf "  $tool: "
+        if command -v "$tool" &> /dev/null; then
+            # Verify the tool actually works
+            case "$tool" in
+                "yq")
+                    if echo "test: value" | yq eval '.test' - &> /dev/null; then
+                        echo "✓"
+                    else
+                        echo "✗ (installed but not working)"
+                        provide_installation_guidance "$tool"
+                    fi
+                    ;;
+                "jq")
+                    if echo '{"test": "value"}' | jq -r '.test' &> /dev/null; then
+                        echo "✓"
+                    else
+                        echo "✗ (installed but not working)"
+                        provide_installation_guidance "$tool"
+                    fi
+                    ;;
+                "kubectl")
+                    if kubectl version --client &> /dev/null; then
+                        echo "✓"
+                    else
+                        echo "✗ (installed but not working)"
+                        provide_installation_guidance "$tool"
+                    fi
+                    ;;
+                "ssh-keygen")
+                    if ssh-keygen -t rsa -b 2048 -f /tmp/test_key_$$ -N "" &> /dev/null; then
+                        rm -f /tmp/test_key_$$ /tmp/test_key_$$.pub 2>/dev/null
+                        echo "✓"
+                    else
+                        echo "✗ (installed but not working)"
+                        provide_installation_guidance "$tool"
+                    fi
+                    ;;
+                *)
+                    echo "✓"
+                    ;;
+            esac
+        else
+            echo "✗"
+            provide_installation_guidance "$tool"
+        fi
+    done
     
-    # Detect runtime and add runtime-specific dependencies
+    # Detect runtime and check runtime-specific dependencies
+    printf "  Container runtime: "
     local runtime=$(detect_container_runtime)
     case "$runtime" in
         "colima")
-            deps+=("colima")
+            if command -v colima &> /dev/null; then
+                echo "✓ ($runtime)"
+            else
+                echo "✗"
+                provide_installation_guidance "colima"
+            fi
             ;;
         "k3s")
-            deps+=("k3s")
+            if command -v k3s &> /dev/null; then
+                echo "✓ ($runtime)"
+            else
+                echo "✗"
+                provide_installation_guidance "k3s"
+            fi
+            ;;
+        "docker-desktop"|"podman"|"containerd"|"cri-o")
+            echo "✓ ($runtime)"
             ;;
         "unknown")
+            echo "⚠ (unknown - proceeding with generic support)"
             warning "Could not detect container runtime. Proceeding with basic checks..."
             ;;
     esac
     
-    # Check for required dependencies
-    for dep in "${deps[@]}"; do
-        printf "."
-        command -v "$dep" &> /dev/null || error "$dep is not installed or not in PATH"
-    done
-    
     # Check runtime-specific status
-    printf "."
+    printf "  Runtime status: "
     check_runtime_status
+    echo "✓"
     
-    echo " ✓"
+    success "All prerequisites verified successfully!"
 }
 
 # Generate SSH host keys if they don't exist
