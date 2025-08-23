@@ -1118,14 +1118,28 @@ yq_universal() {
             yq eval "$expression" "$file"
             ;;
         "kislyuk") 
-            yq -r "$expression" "$file"
+            # kislyuk/yq uses jq syntax, so we need to handle default values differently
+            # The // operator might not work as expected, so let's use a different approach
+            local result=$(yq -r "$expression" "$file" 2>/dev/null)
+            if [[ "$result" == "null" ]] || [[ -z "$result" ]]; then
+                # Extract the default value from the expression if it has one
+                if [[ "$expression" =~ \|\|\ *\"(.*)\" ]] || [[ "$expression" =~ //\ *\"(.*)\" ]]; then
+                    echo "${BASH_REMATCH[1]}"
+                else
+                    echo ""
+                fi
+            else
+                echo "$result"
+            fi
+            return 0  # Always return success
             ;;
         *)
             # Fallback - try both and return first successful result
             if yq eval "$expression" "$file" 2>/dev/null; then
-                return $?
+                return 0
             else
-                yq -r "$expression" "$file"
+                yq -r "$expression" "$file" 2>/dev/null || echo ""
+                return 0
             fi
             ;;
     esac
@@ -1155,14 +1169,27 @@ parse_yaml() {
 
 # Load component data from YAML files
 load_components() {
+    # Temporarily disable exit on error for this function
+    local old_e=${-//[^e]/}
+    set +e
+    
     local components=()
     local categories=()
     local category_names=()
     local category_descriptions=()
     local category_orders=()
     
+    # Debug: Enable trace if DEBUG is set
+    if [[ -n "${DEBUG}" ]]; then
+        set -x
+    fi
+    
     # Check if components directory exists
-    [[ ! -d "$COMPONENTS_DIR" ]] && error "Components directory '$COMPONENTS_DIR' not found"
+    if [[ ! -d "$COMPONENTS_DIR" ]]; then
+        error "Components directory '$COMPONENTS_DIR' not found"
+        [[ -n "$old_e" ]] && set -e
+        return 1
+    fi
     
     # Discover categories (subdirectories)
     for category_dir in "$COMPONENTS_DIR"/*; do
@@ -1175,7 +1202,11 @@ load_components() {
         
         # Load category metadata if exists
         if [[ -f "$category_dir/.category.yaml" ]]; then
-            eval $(parse_yaml "$category_dir/.category.yaml" "cat_")
+            # Parse category metadata safely
+            local parsed_output=$(parse_yaml "$category_dir/.category.yaml" "cat_" 2>/dev/null)
+            if [[ -n "$parsed_output" ]]; then
+                eval "$parsed_output" 2>/dev/null || true
+            fi
             
             [[ -n "$cat_display_name" ]] && display_name="$cat_display_name"
             [[ -n "$cat_description" ]] && description="$cat_description"
@@ -1234,18 +1265,26 @@ load_components() {
             [[ ! -f "$yaml_file" ]] && continue
             [[ "$yaml_file" == *"/.category.yaml" ]] && continue
 
-            # Parse the YAML file
-            eval $(parse_yaml "$yaml_file" "comp_")
+            # Parse the YAML file safely
+            local parsed_output=$(parse_yaml "$yaml_file" "comp_" 2>/dev/null)
+            if [[ -n "$parsed_output" ]]; then
+                eval "$parsed_output" 2>/dev/null || true
+            fi
             
-            # Output component data
-            echo "${comp_id}|${comp_name}|${comp_group}|${comp_requires}|${category}|${yaml_file}"
+            # Output component data only if we have an ID
+            if [[ -n "$comp_id" ]]; then
+                echo "${comp_id}|${comp_name}|${comp_group}|${comp_requires}|${category}|${yaml_file}"
+            fi
             
             # Clear component variables for next iteration
-            unset comp_id comp_name comp_group comp_requires
+            unset comp_id comp_name comp_group comp_requires comp_version comp_description
         done
     done
 
     printf "\n" >&2
+    
+    # Restore original set -e state
+    [[ -n "$old_e" ]] && set -e
 }
 
 # ============================================================================
@@ -2049,6 +2088,12 @@ run_component_selection_ui() {
     
     # Load components data
     local component_data=$(load_components)
+    
+    # Check if we got any data
+    if [[ -z "$component_data" ]]; then
+        error "Failed to load components. No component data was returned."
+        exit 1
+    fi
     
     # Split the data
     local categories_line=$(echo "$component_data" | sed -n '1p')
