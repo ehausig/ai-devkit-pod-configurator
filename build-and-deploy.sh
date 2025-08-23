@@ -864,10 +864,16 @@ provide_installation_guidance() {
     
     case "$tool" in
         "yq")
-            echo "  macOS:    brew install yq"
-            echo "  Ubuntu:   sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 && sudo chmod +x /usr/local/bin/yq"
-            echo "  RHEL/CentOS: sudo yum install yq  # (if available in repos)"
-            echo "  Manual:   https://github.com/mikefarah/yq/releases"
+            echo "  ⚠️  IMPORTANT: Install mikefarah/yq (Go version), NOT kislyuk/yq (Python wrapper)"
+            echo ""
+            echo "  macOS:    brew install yq  # (installs mikefarah/yq)"
+            echo "  Ubuntu:   curl -L https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -o yq && sudo install yq /usr/local/bin/ && rm yq"
+            echo "  RHEL:     curl -L https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -o yq && sudo install yq /usr/local/bin/ && rm yq"
+            echo "  Alpine:   apk add yq  # (installs mikefarah/yq)"
+            echo "  Snap:     sudo snap install yq  # (installs mikefarah/yq)"
+            echo ""
+            echo "  Verify correct version with: yq eval --help"
+            echo "  Manual download: https://github.com/mikefarah/yq/releases"
             ;;
         "jq")
             echo "  macOS:    brew install jq"
@@ -947,17 +953,35 @@ check_deps() {
             # Verify the tool actually works
             case "$tool" in
                 "yq")
-                    # Test yq functionality using our compatibility wrapper
-                    if echo "test: value" > /tmp/yq_test_$$ && yq_compat '.test // ""' /tmp/yq_test_$$ &> /dev/null; then
+                    # Check if we have the correct yq (mikefarah/yq, not kislyuk/yq)
+                    if yq eval --help &>/dev/null 2>&1; then
+                        # This is the correct mikefarah/yq - test it
+                        if echo "test: value" > /tmp/yq_test_$$ && yq eval '.test // ""' /tmp/yq_test_$$ &> /dev/null; then
+                            rm -f /tmp/yq_test_$$
+                            echo "✓"
+                        else
+                            rm -f /tmp/yq_test_$$
+                            echo "✗ (installed but not working)"
+                            provide_installation_guidance "$tool"
+                        fi
+                    elif yq --help 2>&1 | grep -q "jq wrapper"; then
+                        # This is the Python-based kislyuk/yq wrapper - not what we need
                         rm -f /tmp/yq_test_$$
-                        echo "✓"
-                    elif yq --version &> /dev/null; then
-                        # yq is installed but our test failed - likely version compatibility
-                        rm -f /tmp/yq_test_$$
-                        echo "✓ (version compatibility - proceeding)"
+                        echo "✗ (wrong version - Python wrapper detected)"
+                        echo ""
+                        error "Found Python-based yq wrapper, but need mikefarah/yq (Go version)"
+                        echo ""
+                        echo "You have the Python-based yq wrapper installed. This project requires"
+                        echo "the Go-based yq from mikefarah/yq for proper YAML processing."
+                        echo ""
+                        echo "To fix this:"
+                        echo "  1. Remove Python yq: pip uninstall yq"
+                        echo "  2. Install mikefarah/yq:"
+                        provide_installation_guidance "$tool"
+                        exit 1
                     else
                         rm -f /tmp/yq_test_$$
-                        echo "✗ (installed but not working)"
+                        echo "✗ (not found)"
                         provide_installation_guidance "$tool"
                     fi
                     ;;
@@ -1066,34 +1090,18 @@ create_ssh_host_keys_secret() {
         --from-file=ssh_host_ed25519_key.pub="$SSH_KEYS_DIR/ssh_host_ed25519_key.pub" >/dev/null 2>&1
 }
 
-# Wrapper function for yq that handles different versions
-yq_compat() {
-    local expression="$1"
-    local file="$2"
-    
-    # Detect yq version and use appropriate syntax
-    if yq eval --help &>/dev/null 2>&1; then
-        # mikefarah/yq (Go version) - modern syntax
-        yq eval "$expression" "$file"
-    else
-        # kislyuk/yq (Python version) - jq-like syntax with quoted filter
-        # The Python version expects: yq 'filter' file (with quotes around filter)
-        yq "$expression" "$file"
-    fi
-}
-
 # Parse YAML file using yq
 parse_yaml() {
     local file=$1
     local prefix=$2
     
-    # Extract the fields we need using yq compatibility wrapper
-    local id=$(yq_compat '.id // ""' "$file")
-    local name=$(yq_compat '.name // ""' "$file")
-    local group=$(yq_compat '.group // ""' "$file")
-    local requires=$(yq_compat '.requires // ""' "$file")
-    local version=$(yq_compat '.version // ""' "$file")
-    local description=$(yq_compat '.description // ""' "$file")
+    # Extract the fields we need using yq
+    local id=$(yq eval '.id // ""' "$file")
+    local name=$(yq eval '.name // ""' "$file")
+    local group=$(yq eval '.group // ""' "$file")
+    local requires=$(yq eval '.requires // ""' "$file")
+    local version=$(yq eval '.version // ""' "$file")
+    local description=$(yq eval '.description // ""' "$file")
     
     # Output in the format expected by the rest of the script
     [[ -n "$id" ]] && echo "${prefix}id=\"$id\""
@@ -3154,18 +3162,18 @@ extract_inject_files_from_yaml() {
     local inject_commands=""
     
     # Check if inject_files exists in the YAML (under installation)
-    if ! yq_compat '.installation.inject_files' "$yaml_file" | grep -q -v "^null$"; then
+    if ! yq eval '.installation.inject_files' "$yaml_file" | grep -q -v "^null$"; then
         return 0
     fi
     
     # Get the number of inject_files entries
-    local count=$(yq_compat '.installation.inject_files | length' "$yaml_file")
+    local count=$(yq eval '.installation.inject_files | length' "$yaml_file")
     
     # Process each inject_files entry
     for ((i=0; i<count; i++)); do
-        local source=$(yq_compat ".installation.inject_files[$i].source" "$yaml_file")
-        local destination=$(yq_compat ".installation.inject_files[$i].destination" "$yaml_file")
-        local permissions=$(yq_compat ".installation.inject_files[$i].permissions" "$yaml_file")
+        local source=$(yq eval ".installation.inject_files[$i].source" "$yaml_file")
+        local destination=$(yq eval ".installation.inject_files[$i].destination" "$yaml_file")
+        local permissions=$(yq eval ".installation.inject_files[$i].permissions" "$yaml_file")
         
         # Skip if source or destination is null
         if [[ "$source" == "null" ]] || [[ "$destination" == "null" ]]; then
@@ -3187,7 +3195,7 @@ extract_inject_files_from_yaml() {
 # Function to extract entrypoint_setup from YAML file using yq
 extract_entrypoint_setup() {
     local yaml_file=$1
-    local entrypoint_content=$(yq_compat '.entrypoint_setup // ""' "$yaml_file")
+    local entrypoint_content=$(yq eval '.entrypoint_setup // ""' "$yaml_file")
     
     # Return empty if null or empty
     if [[ "$entrypoint_content" == "null" ]] || [[ -z "$entrypoint_content" ]]; then
@@ -3204,13 +3212,13 @@ extract_installation_from_yaml() {
     local full_content=""
     
     # Extract dockerfile content if it exists
-    local dockerfile_content=$(yq_compat '.installation.dockerfile // ""' "$yaml_file")
+    local dockerfile_content=$(yq eval '.installation.dockerfile // ""' "$yaml_file")
     if [[ -n "$dockerfile_content" ]] && [[ "$dockerfile_content" != "null" ]]; then
         full_content="$dockerfile_content"
     fi
     
     # Extract nexus_config if it exists
-    local nexus_content=$(yq_compat '.installation.nexus_config // ""' "$yaml_file")
+    local nexus_content=$(yq eval '.installation.nexus_config // ""' "$yaml_file")
     if [[ -n "$nexus_content" ]] && [[ "$nexus_content" != "null" ]]; then
         if [[ -n "$full_content" ]]; then
             full_content+=$NL$NL
