@@ -57,10 +57,11 @@ AI DevKit Pod Configurator provides a beautiful TUI (Terminal User Interface) fo
 
 - Kubernetes cluster (k3s, minikube, Colima, or any Kubernetes distribution)
 - kubectl configured to access your cluster
-- Container tool: **Docker** or **Podman** (automatically detected)
+- Container tool: **Docker**, **nerdctl**, or **Podman** (automatically detected)
 - `yq` and `jq` for YAML/JSON processing
 - For macOS users: [Colima](https://github.com/abiosoft/colima) is recommended
-- For Linux users: Either Docker or Podman work seamlessly
+- For Linux/K3s users: **nerdctl** is recommended for seamless integration
+- For other Linux users: Docker or Podman work well
 
 ### macOS Quick Setup with Colima
 
@@ -80,7 +81,7 @@ kubectl get nodes
 ```bash
 # Install dependencies
 sudo apt-get update
-sudo apt-get install -y curl docker.io
+sudo apt-get install -y curl
 
 # Install kubectl
 curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
@@ -101,10 +102,21 @@ mkdir -p ~/.kube
 sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
 sudo chown $USER:$USER ~/.kube/config
 
+# RECOMMENDED: Install nerdctl for seamless K3s integration
+wget https://github.com/containerd/nerdctl/releases/download/v1.7.2/nerdctl-1.7.2-linux-amd64.tar.gz
+sudo tar -xzf nerdctl-1.7.2-linux-amd64.tar.gz -C /usr/local/bin
+rm nerdctl-1.7.2-linux-amd64.tar.gz
+
+# Optional: Create docker alias for compatibility
+sudo ln -s /usr/local/bin/nerdctl /usr/local/bin/docker
+
 # Verify setup
 kubectl get nodes
+nerdctl version  # or docker version if aliased
 
-# Note: The system will automatically detect whether you have Docker or Podman installed
+# Alternative: Install Docker or Podman if preferred
+# sudo apt-get install -y docker.io  # for Docker
+# sudo apt-get install -y podman      # for Podman
 ```
 
 ### Cross-Platform Support
@@ -357,10 +369,22 @@ my-tool --help
 
 ## 🛠️ Advanced Features
 
-### Podman/K3s Image Management
+### Container Tool and K3s Image Management
 
-When using Podman with K3s, images must be transferred from Podman's storage to K3s containerd:
+#### Recommended: nerdctl with K3s
+When using nerdctl, images are built directly into K3s's containerd - no transfer needed:
+```bash
+# Build directly into K3s containerd
+nerdctl build -t ai-devkit:latest .
+# or with docker alias
+docker build -t ai-devkit:latest .
 
+# Images are immediately available to K3s
+nerdctl -n k8s.io images | grep ai-devkit
+```
+
+#### Alternative: Podman/Docker with K3s
+When using Podman or Docker with K3s, images must be transferred:
 ```bash
 # Automatic import during build
 ./build-and-deploy.sh  # Handles import automatically

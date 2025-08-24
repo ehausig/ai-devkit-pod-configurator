@@ -204,9 +204,29 @@ find . -name "*.sh" -type f -exec chmod +x {} \;
 
 ### Image not available in K3s
 
-**Problem**: Build succeeds with Podman but Kubernetes can't find the image.
+**Problem**: Build succeeds but Kubernetes can't find the image.
 
-**Explanation**: Podman and K3s use separate image storage. The image must be transferred from Podman to K3s containerd.
+**Explanation**: The solution depends on your container tool:
+- **Podman**: Uses separate storage from K3s, requires image transfer
+- **Docker**: Uses separate storage from K3s, requires image transfer  
+- **nerdctl**: Shares containerd with K3s, no transfer needed!
+
+**Recommended Setup for K3s**: Install nerdctl with buildkit for seamless integration:
+```bash
+# Install nerdctl and buildkit
+wget https://github.com/containerd/nerdctl/releases/download/v1.7.2/nerdctl-1.7.2-linux-amd64.tar.gz
+sudo tar -xzf nerdctl-1.7.2-linux-amd64.tar.gz -C /usr/local/bin
+
+# Install buildkit
+wget https://github.com/moby/buildkit/releases/download/v0.12.4/buildkit-v0.12.4.linux-amd64.tar.gz
+sudo tar -xzf buildkit-v0.12.4.linux-amd64.tar.gz -C /usr/local
+
+# Create docker alias for compatibility
+sudo ln -s /usr/local/bin/nerdctl /usr/local/bin/docker
+
+# Start buildkit
+sudo systemctl start buildkit
+```
 
 **Solutions**:
 

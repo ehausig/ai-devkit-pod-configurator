@@ -635,28 +635,58 @@ check_runtime_status() {
 CONTAINER_TOOL_CONFIG="$HOME/.ai-devkit/container-tool"
 
 detect_container_tool() {
-    # Detect available container tool (docker or podman)
-    # Returns: "docker", "podman", or "none"
+    # Detect available container tool (docker, nerdctl, podman)
+    # Returns: "docker", "nerdctl", "podman", or "none"
     
     # Check if we have a cached preference
     if [[ -f "$CONTAINER_TOOL_CONFIG" ]]; then
         local cached_tool=$(cat "$CONTAINER_TOOL_CONFIG" 2>/dev/null)
         if [[ -n "$cached_tool" ]] && command -v "$cached_tool" &> /dev/null; then
             # Verify the cached tool is still working
-            if "$cached_tool" version &> /dev/null; then
-                echo "$cached_tool"
-                return 0
-            fi
+            case "$cached_tool" in
+                "docker"|"nerdctl"|"podman")
+                    if "$cached_tool" version &> /dev/null; then
+                        echo "$cached_tool"
+                        return 0
+                    fi
+                    ;;
+            esac
         fi
         # Cache is invalid, remove it
         rm -f "$CONTAINER_TOOL_CONFIG" 2>/dev/null || true
     fi
     
-    # Auto-detect available tools - prefer Docker if both are available
-    if command -v docker &> /dev/null && docker version &> /dev/null 2>&1; then
-        echo "docker"
+    # Auto-detect available tools
+    # First check if docker command is actually nerdctl (common with K3s setups)
+    if command -v docker &> /dev/null; then
+        # Check if docker is a symlink to nerdctl
+        if [[ -L "$(which docker)" ]] && readlink "$(which docker)" | grep -q nerdctl; then
+            # It's nerdctl aliased as docker
+            if docker version &> /dev/null 2>&1; then
+                echo "nerdctl"
+                return 0
+            fi
+        elif docker version &> /dev/null 2>&1; then
+            # Check if it's real Docker or nerdctl by examining the version output
+            local version_output=$(docker version 2>&1)
+            if echo "$version_output" | grep -q "nerdctl"; then
+                echo "nerdctl"
+                return 0
+            else
+                echo "docker"
+                return 0
+            fi
+        fi
+    fi
+    
+    # Check for standalone nerdctl
+    if command -v nerdctl &> /dev/null && nerdctl version &> /dev/null 2>&1; then
+        echo "nerdctl"
         return 0
-    elif command -v podman &> /dev/null && podman version &> /dev/null 2>&1; then
+    fi
+    
+    # Check for podman
+    if command -v podman &> /dev/null && podman version &> /dev/null 2>&1; then
         echo "podman"
         return 0
     fi
@@ -698,6 +728,15 @@ container_build() {
         "docker")
             docker build $build_args
             ;;
+        "nerdctl")
+            # nerdctl with buildkit support
+            # If docker is aliased to nerdctl, use docker command for consistency
+            if command -v docker &> /dev/null && [[ -L "$(which docker)" ]] && readlink "$(which docker)" | grep -q nerdctl; then
+                docker build $build_args
+            else
+                nerdctl build $build_args
+            fi
+            ;;
         "podman")
             podman build $build_args
             ;;
@@ -714,6 +753,14 @@ container_save() {
     case "$tool" in
         "docker")
             docker save "$image"
+            ;;
+        "nerdctl")
+            # nerdctl save works the same as docker save
+            if command -v docker &> /dev/null && [[ -L "$(which docker)" ]] && readlink "$(which docker)" | grep -q nerdctl; then
+                docker save "$image"
+            else
+                nerdctl save "$image"
+            fi
             ;;
         "podman")
             podman save "$image"
@@ -732,6 +779,13 @@ container_rmi() {
         "docker")
             docker rmi "$image" 2>/dev/null || true
             ;;
+        "nerdctl")
+            if command -v docker &> /dev/null && [[ -L "$(which docker)" ]] && readlink "$(which docker)" | grep -q nerdctl; then
+                docker rmi "$image" 2>/dev/null || true
+            else
+                nerdctl rmi "$image" 2>/dev/null || true
+            fi
+            ;;
         "podman")
             podman rmi "$image" 2>/dev/null || true
             ;;
@@ -748,6 +802,13 @@ container_info() {
         "docker")
             docker info
             ;;
+        "nerdctl")
+            if command -v docker &> /dev/null && [[ -L "$(which docker)" ]] && readlink "$(which docker)" | grep -q nerdctl; then
+                docker info
+            else
+                nerdctl info
+            fi
+            ;;
         "podman")
             podman info
             ;;
@@ -763,6 +824,10 @@ container_context_show() {
     case "$tool" in
         "docker")
             docker context show 2>/dev/null || echo "default"
+            ;;
+        "nerdctl")
+            # nerdctl doesn't have contexts like docker, but it has namespaces
+            echo "nerdctl-k8s.io"
             ;;
         "podman")
             # Podman doesn't have context, return connection info
@@ -800,38 +865,66 @@ load_image_to_runtime() {
             container_save "$image_name" | colima ssh -- sudo ctr -n k8s.io images import - >> "$LOG_FILE" 2>&1
             ;;
         "k3s")
-            log "Using K3s image import method"
-            # K3s uses containerd with k8s.io namespace
-            log "Exporting image from $container_tool..."
-            container_save "$image_name" > /tmp/ai-devkit-image.tar 2>> "$LOG_FILE"
-            
-            if [[ ! -f /tmp/ai-devkit-image.tar || ! -s /tmp/ai-devkit-image.tar ]]; then
-                error "Failed to export image from $container_tool"
-                rm -f /tmp/ai-devkit-image.tar
-                return 1
-            fi
-            
-            log "Importing image into K3s containerd (this may take a moment)..."
-            sudo k3s ctr -n k8s.io images import /tmp/ai-devkit-image.tar >> "$LOG_FILE" 2>&1
-            local import_result=$?
-            rm -f /tmp/ai-devkit-image.tar
-            
-            if [[ $import_result -eq 0 ]]; then
-                # Verify the image is actually available
-                log "Verifying image availability in K3s..."
+            # Check if using nerdctl - if so, image is already in the right place!
+            if [[ "$container_tool" == "nerdctl" ]]; then
+                log "Using nerdctl with K3s - image already in containerd"
+                # nerdctl builds directly into containerd's k8s.io namespace
+                # Just verify the image is there
                 if sudo k3s ctr -n k8s.io images list | grep -q "$image_name"; then
-                    success "Image $image_name successfully imported into K3s"
-                    log "Image confirmed in K3s containerd namespace k8s.io"
+                    success "Image $image_name available in K3s containerd (built with nerdctl)"
+                    return 0
                 else
-                    warning "Image import reported success but image not found in K3s"
-                    log "Checking all namespaces..."
-                    sudo k3s ctr namespaces list >> "$LOG_FILE" 2>&1
-                    sudo k3s ctr -n k8s.io images list >> "$LOG_FILE" 2>&1
-                    return 1
+                    # Try without sudo in case nerdctl doesn't need it
+                    if nerdctl -n k8s.io images list 2>/dev/null | grep -q "$image_name"; then
+                        success "Image $image_name available in K3s containerd (built with nerdctl)"
+                        return 0
+                    fi
+                    warning "Image not found in k8s.io namespace, checking default namespace..."
+                    # Sometimes nerdctl builds to default namespace, need to tag it for k8s.io
+                    if nerdctl images list | grep -q "$image_name"; then
+                        log "Image found in default namespace, tagging for k8s.io..."
+                        nerdctl tag "$image_name" "$image_name" 
+                        # Now ensure it's in k8s.io namespace
+                        nerdctl -n k8s.io pull "$image_name" >> "$LOG_FILE" 2>&1
+                        success "Image $image_name tagged and available in K3s"
+                        return 0
+                    fi
                 fi
             else
-                error "Failed to import image into K3s containerd"
-                return 1
+                # Using docker or podman - need to import
+                log "Using K3s image import method from $container_tool"
+                # K3s uses containerd with k8s.io namespace
+                log "Exporting image from $container_tool..."
+                container_save "$image_name" > /tmp/ai-devkit-image.tar 2>> "$LOG_FILE"
+                
+                if [[ ! -f /tmp/ai-devkit-image.tar || ! -s /tmp/ai-devkit-image.tar ]]; then
+                    error "Failed to export image from $container_tool"
+                    rm -f /tmp/ai-devkit-image.tar
+                    return 1
+                fi
+                
+                log "Importing image into K3s containerd (this may take a moment)..."
+                sudo k3s ctr -n k8s.io images import /tmp/ai-devkit-image.tar >> "$LOG_FILE" 2>&1
+                local import_result=$?
+                rm -f /tmp/ai-devkit-image.tar
+                
+                if [[ $import_result -eq 0 ]]; then
+                    # Verify the image is actually available
+                    log "Verifying image availability in K3s..."
+                    if sudo k3s ctr -n k8s.io images list | grep -q "$image_name"; then
+                        success "Image $image_name successfully imported into K3s"
+                        log "Image confirmed in K3s containerd namespace k8s.io"
+                    else
+                        warning "Image import reported success but image not found in K3s"
+                        log "Checking all namespaces..."
+                        sudo k3s ctr namespaces list >> "$LOG_FILE" 2>&1
+                        sudo k3s ctr -n k8s.io images list >> "$LOG_FILE" 2>&1
+                        return 1
+                    fi
+                else
+                    error "Failed to import image into K3s containerd"
+                    return 1
+                fi
             fi
             ;;
         "podman")
@@ -889,6 +982,7 @@ verify_image_in_runtime() {
     # Args: $1 = image name with tag
     local image_name="$1"
     local runtime=$(detect_container_runtime)
+    local container_tool=$(get_container_tool)
     
     log "Verifying image $image_name is available in $runtime..."
     
@@ -901,7 +995,21 @@ verify_image_in_runtime() {
             fi
             ;;
         "k3s")
-            # Check if image exists in K3s containerd
+            # If using nerdctl, check directly with nerdctl
+            if [[ "$container_tool" == "nerdctl" ]]; then
+                # Check k8s.io namespace first
+                if nerdctl -n k8s.io images 2>/dev/null | grep -q "$image_name"; then
+                    success "Image $image_name found in K3s (via nerdctl)"
+                    return 0
+                fi
+                # Check default namespace
+                if nerdctl images 2>/dev/null | grep -q "$image_name"; then
+                    success "Image $image_name found in nerdctl default namespace"
+                    log "Note: Image may need to be in k8s.io namespace for K3s"
+                    return 0
+                fi
+            fi
+            # Fallback to k3s ctr check
             if sudo k3s ctr -n k8s.io images list 2>/dev/null | grep -q "$image_name"; then
                 success "Image $image_name found in K3s"
                 return 0
@@ -909,8 +1017,7 @@ verify_image_in_runtime() {
             ;;
         "docker-desktop")
             # Docker Desktop shares images between Docker and Kubernetes
-            local tool=$(get_container_tool)
-            if [[ "$tool" == "docker" ]]; then
+            if [[ "$container_tool" == "docker" ]] || [[ "$container_tool" == "nerdctl" ]]; then
                 if docker images --format "{{.Repository}}:{{.Tag}}" | grep -q "^${image_name}$"; then
                     success "Image $image_name found in Docker Desktop"
                     return 0
@@ -935,6 +1042,10 @@ verify_image_in_runtime() {
     log "You can manually check images with:"
     case "$runtime" in
         "k3s")
+            if [[ "$container_tool" == "nerdctl" ]]; then
+                log "  nerdctl -n k8s.io images"
+                log "  nerdctl images"
+            fi
             log "  sudo k3s ctr -n k8s.io images list"
             ;;
         "colima")
