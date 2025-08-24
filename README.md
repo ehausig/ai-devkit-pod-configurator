@@ -357,6 +357,21 @@ my-tool --help
 
 ## 🛠️ Advanced Features
 
+### Podman/K3s Image Management
+
+When using Podman with K3s, images must be transferred from Podman's storage to K3s containerd:
+
+```bash
+# Automatic import during build
+./build-and-deploy.sh  # Handles import automatically
+
+# Manual import if needed
+./import-image-to-k3s.sh ai-devkit:latest
+
+# Check image availability
+sudo k3s ctr -n k8s.io images list | grep ai-devkit
+```
+
 ### Command Permissions
 
 Components can specify Claude Code command permissions that get aggregated:

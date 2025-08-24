@@ -164,7 +164,7 @@ chmod +x components/agents/claude-code/*.sh
 find . -name "*.sh" -type f -exec chmod +x {} \;
 ```
 
-### Docker build fails
+### Docker/Podman build fails
 
 **Problem**: Container image fails to build.
 
@@ -183,8 +183,11 @@ find . -name "*.sh" -type f -exec chmod +x {} \;
    # Clean up Docker
    docker system prune -a
    
+   # Clean up Podman
+   podman system prune -a
+   
    # For Colima
-   ./cleanup-colima.sh
+   ./cleanup-runtime.sh
    ```
 
 3. **Network issues during build**:
@@ -192,9 +195,61 @@ find . -name "*.sh" -type f -exec chmod +x {} \;
    # Test connectivity
    curl -I https://registry-1.docker.io
    
-   # Retry with no build cache
+   # Retry with no build cache (Docker)
    docker build --no-cache -t ai-devkit:latest .build-temp/
+   
+   # Retry with no build cache (Podman)
+   podman build --no-cache -t ai-devkit:latest .build-temp/
    ```
+
+### Image not available in K3s
+
+**Problem**: Build succeeds with Podman but Kubernetes can't find the image.
+
+**Explanation**: Podman and K3s use separate image storage. The image must be transferred from Podman to K3s containerd.
+
+**Solutions**:
+
+1. **Check if image exists in Podman**:
+   ```bash
+   podman images | grep ai-devkit
+   ```
+
+2. **Check if image exists in K3s**:
+   ```bash
+   sudo k3s ctr -n k8s.io images list | grep ai-devkit
+   ```
+
+3. **Manual import if automatic import failed**:
+   ```bash
+   # Use the helper script
+   ./import-image-to-k3s.sh ai-devkit:latest
+   
+   # Or manually:
+   podman save ai-devkit:latest > /tmp/ai-devkit.tar
+   sudo k3s ctr -n k8s.io images import /tmp/ai-devkit.tar
+   rm /tmp/ai-devkit.tar
+   ```
+
+4. **Verify import succeeded**:
+   ```bash
+   sudo k3s ctr -n k8s.io images list | grep ai-devkit
+   ```
+
+5. **Check K3s namespace**:
+   ```bash
+   # List all namespaces
+   sudo k3s ctr namespaces list
+   
+   # Check k8s.io namespace specifically
+   sudo k3s ctr -n k8s.io images list
+   ```
+
+6. **If import keeps failing**:
+   - Check sudo permissions: `sudo -v`
+   - Check K3s is running: `sudo systemctl status k3s`
+   - Check containerd socket: `sudo k3s ctr version`
+   - Review detailed logs: `grep "image import" build-and-deploy.log`
 
 ### Component installation fails
 

@@ -801,7 +801,38 @@ load_image_to_runtime() {
             ;;
         "k3s")
             log "Using K3s image import method"
-            container_save "$image_name" | sudo k3s ctr images import - >> "$LOG_FILE" 2>&1
+            # K3s uses containerd with k8s.io namespace
+            log "Exporting image from $container_tool..."
+            container_save "$image_name" > /tmp/ai-devkit-image.tar 2>> "$LOG_FILE"
+            
+            if [[ ! -f /tmp/ai-devkit-image.tar || ! -s /tmp/ai-devkit-image.tar ]]; then
+                error "Failed to export image from $container_tool"
+                rm -f /tmp/ai-devkit-image.tar
+                return 1
+            fi
+            
+            log "Importing image into K3s containerd (this may take a moment)..."
+            sudo k3s ctr -n k8s.io images import /tmp/ai-devkit-image.tar >> "$LOG_FILE" 2>&1
+            local import_result=$?
+            rm -f /tmp/ai-devkit-image.tar
+            
+            if [[ $import_result -eq 0 ]]; then
+                # Verify the image is actually available
+                log "Verifying image availability in K3s..."
+                if sudo k3s ctr -n k8s.io images list | grep -q "$image_name"; then
+                    success "Image $image_name successfully imported into K3s"
+                    log "Image confirmed in K3s containerd namespace k8s.io"
+                else
+                    warning "Image import reported success but image not found in K3s"
+                    log "Checking all namespaces..."
+                    sudo k3s ctr namespaces list >> "$LOG_FILE" 2>&1
+                    sudo k3s ctr -n k8s.io images list >> "$LOG_FILE" 2>&1
+                    return 1
+                fi
+            else
+                error "Failed to import image into K3s containerd"
+                return 1
+            fi
             ;;
         "podman")
             log "Using Podman with Kubernetes image import method"
@@ -851,6 +882,69 @@ load_image_to_runtime() {
     fi
     
     return $exit_code
+}
+
+verify_image_in_runtime() {
+    # Verify that an image is available in the Kubernetes container runtime
+    # Args: $1 = image name with tag
+    local image_name="$1"
+    local runtime=$(detect_container_runtime)
+    
+    log "Verifying image $image_name is available in $runtime..."
+    
+    case "$runtime" in
+        "colima")
+            # Check if image exists in Colima's containerd
+            if colima ssh -- sudo ctr -n k8s.io images list 2>/dev/null | grep -q "$image_name"; then
+                success "Image $image_name found in Colima"
+                return 0
+            fi
+            ;;
+        "k3s")
+            # Check if image exists in K3s containerd
+            if sudo k3s ctr -n k8s.io images list 2>/dev/null | grep -q "$image_name"; then
+                success "Image $image_name found in K3s"
+                return 0
+            fi
+            ;;
+        "docker-desktop")
+            # Docker Desktop shares images between Docker and Kubernetes
+            local tool=$(get_container_tool)
+            if [[ "$tool" == "docker" ]]; then
+                if docker images --format "{{.Repository}}:{{.Tag}}" | grep -q "^${image_name}$"; then
+                    success "Image $image_name found in Docker Desktop"
+                    return 0
+                fi
+            fi
+            ;;
+        "containerd")
+            # Check generic containerd
+            if sudo ctr -n k8s.io images list 2>/dev/null | grep -q "$image_name"; then
+                success "Image $image_name found in containerd"
+                return 0
+            fi
+            ;;
+        *)
+            warning "Cannot verify image for runtime: $runtime"
+            return 1
+            ;;
+    esac
+    
+    error "Image $image_name not found in $runtime"
+    log "Troubleshooting: Check $LOG_FILE for import errors"
+    log "You can manually check images with:"
+    case "$runtime" in
+        "k3s")
+            log "  sudo k3s ctr -n k8s.io images list"
+            ;;
+        "colima")
+            log "  colima ssh -- sudo ctr -n k8s.io images list"
+            ;;
+        *)
+            log "  sudo ctr -n k8s.io images list"
+            ;;
+    esac
+    return 1
 }
 
 # Function to provide installation guidance for missing tools
@@ -3751,6 +3845,13 @@ deploy_to_kubernetes() {
     
     # Use runtime abstraction instead of hardcoded colima command
     load_image_to_runtime "${IMAGE_NAME}:${IMAGE_TAG}"
+    
+    # Verify the image is available before deploying
+    if ! verify_image_in_runtime "${IMAGE_NAME}:${IMAGE_TAG}"; then
+        error "Image verification failed. Cannot proceed with deployment."
+        log "Please check the build log at: $LOG_FILE"
+        return 1
+    fi
     
     kubectl apply -f kubernetes/namespace.yaml >> "$LOG_FILE" 2>&1
     kubectl apply -f kubernetes/pvc.yaml >> "$LOG_FILE" 2>&1
