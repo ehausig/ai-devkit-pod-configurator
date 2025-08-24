@@ -141,10 +141,18 @@ cd ai-devkit-pod-configurator
 # Make scripts executable
 chmod +x *.sh
 
-# (Optional) Configure git credentials for automatic injection
+# Step 1: Configure container runtime (REQUIRED on first run)
+./configure-container-runtime.sh
+# This will:
+#   - Detect available container tools (docker, nerdctl, podman)
+#   - Identify your Kubernetes runtime (k3s, colima, etc.)
+#   - Recommend optimal configurations
+#   - Save your preferences
+
+# Step 2: (Optional) Configure git credentials for automatic injection
 ./configure-git-host.sh
 
-# Build and deploy with interactive component selection
+# Step 3: Build and deploy with interactive component selection
 ./build-and-deploy.sh
 
 # Access your development environment
@@ -368,6 +376,28 @@ my-tool --help
 ```
 
 ## 🛠️ Advanced Features
+
+### Container Runtime Configuration
+
+The AI DevKit uses a configuration-first approach to manage container tools and runtimes:
+
+```bash
+# Configure your runtime (required on first run)
+./configure-container-runtime.sh
+```
+
+This creates `~/.ai-devkit/config.yaml` with your preferences:
+- **Container build tool**: docker, nerdctl, or podman
+- **Kubernetes runtime**: k3s, colima, docker-desktop, etc.
+- **Import method**: direct (nerdctl+k3s), none (docker-desktop), or save-load
+
+Benefits:
+- **Explicit control**: Choose which tool to use when multiple are available
+- **Optimal pairing**: Get recommendations for best tool/runtime combinations
+- **Faster builds**: No repeated detection on every run
+- **Clear configuration**: See exactly what will be used
+
+To reconfigure, simply run the configuration script again.
 
 ### Container Tool and K3s Image Management
 

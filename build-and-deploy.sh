@@ -631,92 +631,81 @@ check_runtime_status() {
     kubectl get nodes &> /dev/null || error "Kubernetes is not accessible. Please check your kubectl configuration and cluster status."
 }
 
-# Container Tool Detection and Configuration System
-CONTAINER_TOOL_CONFIG="$HOME/.ai-devkit/container-tool"
+# Container Tool Configuration System
+CONFIG_FILE="$HOME/.ai-devkit/config.yaml"
 
-detect_container_tool() {
-    # Detect available container tool (docker, nerdctl, podman)
-    # Returns: "docker", "nerdctl", "podman", or "none"
-    
-    # Check if we have a cached preference
-    if [[ -f "$CONTAINER_TOOL_CONFIG" ]]; then
-        local cached_tool=$(cat "$CONTAINER_TOOL_CONFIG" 2>/dev/null)
-        if [[ -n "$cached_tool" ]] && command -v "$cached_tool" &> /dev/null; then
-            # Verify the cached tool is still working
-            case "$cached_tool" in
-                "docker"|"nerdctl"|"podman")
-                    if "$cached_tool" version &> /dev/null; then
-                        echo "$cached_tool"
-                        return 0
-                    fi
-                    ;;
-            esac
+# Read configuration from YAML file
+read_config() {
+    local key="$1"
+    if [[ -f "$CONFIG_FILE" ]]; then
+        # Extract value using grep and sed (works without yq)
+        local value=$(grep "^  ${key##*.}: " "$CONFIG_FILE" 2>/dev/null | sed 's/.*: //' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        if [[ -n "$value" ]] && [[ "$value" != "null" ]]; then
+            echo "$value"
         fi
-        # Cache is invalid, remove it
-        rm -f "$CONTAINER_TOOL_CONFIG" 2>/dev/null || true
     fi
-    
-    # Auto-detect available tools
-    # First check if docker command is actually nerdctl (common with K3s setups)
-    if command -v docker &> /dev/null; then
-        # Check if docker is a symlink to nerdctl
-        if [[ -L "$(which docker)" ]] && readlink "$(which docker)" | grep -q nerdctl; then
-            # It's nerdctl aliased as docker
-            if docker version &> /dev/null 2>&1; then
-                echo "nerdctl"
-                return 0
-            fi
-        elif docker version &> /dev/null 2>&1; then
-            # Check if it's real Docker or nerdctl by examining the version output
-            local version_output=$(docker version 2>&1)
-            if echo "$version_output" | grep -q "nerdctl"; then
-                echo "nerdctl"
+}
+
+# Get configured container build tool
+get_container_tool() {
+    # First check if we have a config file
+    if [[ -f "$CONFIG_FILE" ]]; then
+        local tool=$(read_config "build_tool")
+        if [[ -n "$tool" ]]; then
+            # Verify tool is still available
+            if command -v "$tool" &> /dev/null; then
+                echo "$tool"
                 return 0
             else
-                echo "docker"
-                return 0
+                error "Configured tool '$tool' is not available. Please run ./configure-container-runtime.sh"
             fi
         fi
     fi
     
-    # Check for standalone nerdctl
-    if command -v nerdctl &> /dev/null && nerdctl version &> /dev/null 2>&1; then
-        echo "nerdctl"
-        return 0
-    fi
-    
-    # Check for podman
-    if command -v podman &> /dev/null && podman version &> /dev/null 2>&1; then
-        echo "podman"
-        return 0
-    fi
-    
-    echo "none"
-    return 1
+    # No configuration found - prompt user to configure
+    echo ""
+    echo "${YELLOW}Container runtime not configured.${NC}"
+    echo ""
+    echo "Please run: ${BOLD}./configure-container-runtime.sh${NC}"
+    echo ""
+    echo "This will:"
+    echo "  • Detect available container tools (docker, nerdctl, podman)"
+    echo "  • Identify your Kubernetes runtime"
+    echo "  • Recommend the best configuration"
+    echo "  • Save your preferences for future use"
+    echo ""
+    exit 1
 }
 
-cache_container_tool() {
-    # Cache the detected container tool for future use
-    local tool="$1"
-    if [[ -n "$tool" ]] && [[ "$tool" != "none" ]]; then
-        mkdir -p "$(dirname "$CONTAINER_TOOL_CONFIG")"
-        echo "$tool" > "$CONTAINER_TOOL_CONFIG"
-        chmod 600 "$CONTAINER_TOOL_CONFIG"
+# Get configured runtime
+get_configured_runtime() {
+    local runtime=$(read_config "runtime")
+    if [[ -n "$runtime" ]]; then
+        echo "$runtime"
+    else
+        # Fall back to detection
+        detect_container_runtime
     fi
 }
 
-get_container_tool() {
-    # Get the configured container tool, detecting and caching if necessary
-    local tool=$(detect_container_tool)
-    
-    if [[ "$tool" == "none" ]]; then
-        error "No container tool found. Please install either Docker or Podman."
+# Get configured import method
+get_import_method() {
+    local method=$(read_config "runtime_import")
+    if [[ -n "$method" ]]; then
+        echo "$method"
+    else
+        # Default based on tool and runtime combination
+        local tool=$(get_container_tool)
+        local runtime=$(get_configured_runtime)
+        
+        if [[ "$tool" == "nerdctl" ]] && [[ "$runtime" == "k3s" ]]; then
+            echo "direct"
+        elif [[ "$runtime" == "docker-desktop" ]]; then
+            echo "none"
+        else
+            echo "save-load"
+        fi
     fi
-    
-    # Cache the detected tool for future use
-    cache_container_tool "$tool"
-    
-    echo "$tool"
 }
 
 # Container tool abstraction functions
@@ -854,11 +843,43 @@ load_image_to_runtime() {
     # Load container image into the Kubernetes container runtime
     # Args: $1 = image name with tag
     local image_name="$1"
-    local runtime=$(detect_container_runtime)
+    local runtime=$(get_configured_runtime)
     local container_tool=$(get_container_tool)
+    local import_method=$(get_import_method)
     
-    log "Loading image $image_name into $runtime runtime using $container_tool..."
+    log "Loading image $image_name into $runtime runtime using $container_tool (method: $import_method)..."
     
+    # Handle based on import method from configuration
+    case "$import_method" in
+        "direct")
+            # Direct method - image is already in the right place (e.g., nerdctl with K3s)
+            log "Using direct method - image built directly into runtime storage"
+            # Just verify the image is available
+            if verify_image_in_runtime "$image_name"; then
+                success "Image $image_name confirmed available (direct method)"
+                return 0
+            else
+                error "Image $image_name not found despite direct build method"
+                return 1
+            fi
+            ;;
+            
+        "none")
+            # No import needed (e.g., Docker Desktop)
+            log "No import needed - runtime shares storage with build tool"
+            return 0
+            ;;
+            
+        "save-load")
+            # Traditional save and load method
+            log "Using save-load method to transfer image"
+            ;; # Continue with runtime-specific logic below
+        *)
+            warning "Unknown import method: $import_method, falling back to runtime detection"
+            ;;
+    esac
+    
+    # If we're using save-load or unknown method, continue with runtime-specific logic
     case "$runtime" in
         "colima")
             log "Using Colima image import method"
@@ -1133,26 +1154,30 @@ provide_installation_guidance() {
 check_deps() {
     log "Checking prerequisites..."
     
-    # Core tools required for all operations
-    local core_tools=("yq" "jq" "kubectl" "ssh-keygen")
-    
-    # Check for container tool (docker or podman) first
-    printf "  Container tool: "
-    local container_tool=$(detect_container_tool)
-    if [[ "$container_tool" == "none" ]]; then
+    # Check for runtime configuration first
+    printf "  Runtime configuration: "
+    if [[ -f "$CONFIG_FILE" ]]; then
+        local configured_tool=$(read_config "build_tool")
+        local configured_runtime=$(read_config "runtime")
+        if [[ -n "$configured_tool" ]] && [[ -n "$configured_runtime" ]]; then
+            echo "✓ (tool: $configured_tool, runtime: $configured_runtime)"
+        else
+            echo "⚠ (incomplete)"
+            warning "Configuration incomplete. Please run: ./configure-container-runtime.sh"
+        fi
+    else
         echo "✗"
         echo ""
-        error "No container tool found. Please install either Docker or Podman."
+        echo "${YELLOW}Container runtime not configured.${NC}"
         echo ""
-        echo "Choose one of these options:"
-        echo "  Option 1 - Install Docker:"
-        provide_installation_guidance "docker"
-        echo "  Option 2 - Install Podman:"  
-        provide_installation_guidance "podman"
-    else
-        echo "✓ ($container_tool)"
-        cache_container_tool "$container_tool"
+        echo "Please run: ${BOLD}./configure-container-runtime.sh${NC}"
+        echo ""
+        echo "This will detect your available tools and save your preferences."
+        exit 1
     fi
+    
+    # Core tools required for all operations
+    local core_tools=("yq" "jq" "kubectl" "ssh-keygen")
     
     # Check core tools with detailed feedback
     for tool in "${core_tools[@]}"; do
