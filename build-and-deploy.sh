@@ -600,29 +600,33 @@ detect_container_runtime() {
 }
 
 check_runtime_status() {
-    # Check if the detected container runtime is healthy
-    local runtime=$(detect_container_runtime)
-    local container_tool=$(detect_container_tool)
+    # Check if the configured runtime is healthy
+    local runtime=$(get_configured_runtime)
+    local container_tool=$(get_container_tool)
     
     case "$runtime" in
         "colima")
             colima status &> /dev/null || error "Colima is not running. Please start it with: colima start --kubernetes"
             ;;
         "k3s")
-            sudo systemctl is-active --quiet k3s || error "K3s is not running. Please start it with: sudo systemctl start k3s"
-            ;;
-        "podman")
-            if [[ "$container_tool" == "podman" ]]; then
-                podman version &> /dev/null || error "Podman is not accessible. Please check podman installation."
+            # Check if K3s is running (multiple methods)
+            if command -v systemctl &> /dev/null; then
+                sudo systemctl is-active --quiet k3s 2>/dev/null || {
+                    # Try without systemctl (some K3s installations)
+                    pgrep k3s &> /dev/null || error "K3s is not running. Please start K3s."
+                }
+            else
+                pgrep k3s &> /dev/null || error "K3s is not running. Please start K3s."
             fi
             ;;
         "containerd")
             sudo ctr version &> /dev/null || error "Containerd is not accessible. Please check containerd service."
             ;;
         "docker-desktop")
-            container_info &> /dev/null || error "$container_tool is not running. Please start $container_tool."
+            docker version &> /dev/null || error "Docker Desktop is not running. Please start Docker Desktop."
             ;;
         *)
+            # Don't fail on unknown runtime, just warn
             warning "Unable to verify runtime status for: $runtime"
             ;;
     esac
@@ -1154,19 +1158,8 @@ provide_installation_guidance() {
 check_deps() {
     log "Checking prerequisites..."
     
-    # Check for runtime configuration first
-    printf "  Runtime configuration: "
-    if [[ -f "$CONFIG_FILE" ]]; then
-        local configured_tool=$(read_config "build_tool")
-        local configured_runtime=$(read_config "runtime")
-        if [[ -n "$configured_tool" ]] && [[ -n "$configured_runtime" ]]; then
-            echo "✓ (tool: $configured_tool, runtime: $configured_runtime)"
-        else
-            echo "⚠ (incomplete)"
-            warning "Configuration incomplete. Please run: ./configure-container-runtime.sh"
-        fi
-    else
-        echo "✗"
+    # Check for configuration file
+    if [[ ! -f "$CONFIG_FILE" ]]; then
         echo ""
         echo "${YELLOW}Container runtime not configured.${NC}"
         echo ""
@@ -1175,6 +1168,60 @@ check_deps() {
         echo "This will detect your available tools and save your preferences."
         exit 1
     fi
+    
+    # Read configuration
+    local configured_tool=$(read_config "build_tool")
+    local configured_runtime=$(read_config "runtime")
+    
+    if [[ -z "$configured_tool" ]] || [[ -z "$configured_runtime" ]]; then
+        echo ""
+        echo "${YELLOW}Configuration incomplete.${NC}"
+        echo "Please run: ./configure-container-runtime.sh"
+        exit 1
+    fi
+    
+    # Check configured container tool exists
+    printf "  Container tool ($configured_tool): "
+    if command -v "$configured_tool" &> /dev/null; then
+        # Verify it actually works
+        if "$configured_tool" version &> /dev/null 2>&1; then
+            echo "✓"
+        else
+            echo "✗ (not working)"
+            error "Configured tool '$configured_tool' is not working properly."
+        fi
+    else
+        echo "✗ (not found)"
+        echo ""
+        error "Configured tool '$configured_tool' is not installed.\nPlease install it or run ./configure-container-runtime.sh to reconfigure."
+    fi
+    
+    # Check configured runtime
+    printf "  Kubernetes runtime ($configured_runtime): "
+    case "$configured_runtime" in
+        "k3s")
+            if command -v k3s &> /dev/null || pgrep k3s &> /dev/null; then
+                echo "✓"
+            else
+                echo "✗"
+                error "K3s not found. Please install K3s or reconfigure."
+            fi
+            ;;
+        "colima")
+            if command -v colima &> /dev/null; then
+                echo "✓"
+            else
+                echo "✗"
+                error "Colima not found. Please install Colima or reconfigure."
+            fi
+            ;;
+        "docker-desktop")
+            echo "✓"  # Assume it's available if configured
+            ;;
+        *)
+            echo "✓"  # Unknown runtime, continue
+            ;;
+    esac
     
     # Core tools required for all operations
     local core_tools=("yq" "jq" "kubectl" "ssh-keygen")
@@ -1191,11 +1238,11 @@ check_deps() {
                         # Test with mikefarah/yq syntax first  
                         if yq eval '.test // ""' /tmp/yq_test_$$ &> /dev/null; then
                             rm -f /tmp/yq_test_$$
-                            echo "✓ (mikefarah/yq detected)"
+                            echo "✓"
                         # Test with kislyuk/yq (Python wrapper) syntax  
                         elif yq -r '.test // ""' /tmp/yq_test_$$ &> /dev/null; then
                             rm -f /tmp/yq_test_$$
-                            echo "✓ (kislyuk/yq detected)"
+                            echo "✓"
                         else
                             rm -f /tmp/yq_test_$$
                             echo "✗ (installed but not working)"
@@ -1271,9 +1318,7 @@ check_deps() {
     esac
     
     # Check runtime-specific status
-    printf "  Runtime status: "
     check_runtime_status
-    echo "✓"
     
     success "All prerequisites verified successfully!"
 }
