@@ -759,6 +759,10 @@ container_save() {
                 nerdctl save "$image"
             fi
             ;;
+        "nerdctl-k3s")
+            # nerdctl-k3s is our wrapper with sudo included
+            nerdctl-k3s save "$image"
+            ;;
         "podman")
             podman save "$image"
             ;;
@@ -4002,6 +4006,9 @@ container_build() {
     
     if [[ "$DOCKER_NEEDS_SUDO" == "true" ]] && [[ "$tool" == "docker" ]]; then
         sudo docker build "$@"
+    elif [[ "$tool" == "nerdctl-k3s" ]]; then
+        # nerdctl-k3s is our wrapper that includes sudo
+        nerdctl-k3s build "$@"
     else
         "$tool" build "$@"
     fi
