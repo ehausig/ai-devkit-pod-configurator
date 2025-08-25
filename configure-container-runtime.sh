@@ -6,6 +6,8 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
 NC='\033[0m' # No Color
 
 CONFIG_DIR="$HOME/.ai-devkit"
@@ -18,277 +20,198 @@ echo -e "${BLUE}=== AI DevKit - Container Runtime Configuration ===${NC}"
 echo ""
 
 # ============================================================================
-# TEST CONTAINER COMMANDS
+# DETECTION FUNCTIONS
 # ============================================================================
 
-test_build_command() {
-    local cmd="$1"
-    local test_dir=$(mktemp -d)
-    
-    # Create minimal Dockerfile for testing
-    cat > "$test_dir/Dockerfile" << 'EOF'
-FROM alpine:latest
-RUN echo "test"
-EOF
-    
-    cd "$test_dir"
-    
-    # Test the build command
-    if $cmd build -t test:ai-devkit-test . &>/dev/null; then
-        # Clean up test image
-        $cmd rmi test:ai-devkit-test &>/dev/null || true
-        cd - > /dev/null
-        rm -rf "$test_dir"
-        return 0
-    else
-        cd - > /dev/null
-        rm -rf "$test_dir"
-        return 1
-    fi
-}
-
-# ============================================================================
-# DETECT AND TEST COMMANDS
-# ============================================================================
-
-detect_working_commands() {
-    local commands=()
-    
-    echo "Testing container build tools..."
-    echo ""
-    
-    # Test Docker variations
+detect_docker() {
     if command -v docker &> /dev/null; then
-        echo -n "  Testing 'docker'... "
-        if test_build_command "docker"; then
-            echo -e "${GREEN}✓ Works${NC}"
-            commands+=("docker|Docker (rootless or with permissions)")
-        else
-            echo -e "${YELLOW}✗ Fails${NC}"
-            
-            echo -n "  Testing 'sudo docker'... "
-            if test_build_command "sudo docker"; then
-                echo -e "${GREEN}✓ Works${NC}"
-                commands+=("sudo docker|Docker (requires sudo)")
-            else
-                echo -e "${RED}✗ Fails${NC}"
-            fi
+        # Check if docker works without sudo
+        if docker version &> /dev/null 2>&1; then
+            echo "docker"
+        elif sudo docker version &> /dev/null 2>&1; then
+            echo "sudo docker"
         fi
     fi
-    
-    # Test nerdctl variations
-    if command -v nerdctl &> /dev/null; then
-        echo -n "  Testing 'nerdctl'... "
-        if test_build_command "nerdctl"; then
-            echo -e "${GREEN}✓ Works${NC}"
-            commands+=("nerdctl|nerdctl (rootless mode)")
-        else
-            echo -e "${YELLOW}✗ Fails${NC}"
-            
-            # Try with sudo
-            echo -n "  Testing 'sudo nerdctl'... "
-            if test_build_command "sudo nerdctl"; then
-                echo -e "${GREEN}✓ Works${NC}"
-                commands+=("sudo nerdctl|nerdctl with sudo")
-            else
-                echo -e "${YELLOW}✗ Fails${NC}"
-            fi
-            
-            # Try with K3s socket
-            if [ -S "/run/k3s/containerd/containerd.sock" ]; then
-                echo -n "  Testing 'sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io'... "
-                if test_build_command "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"; then
-                    echo -e "${GREEN}✓ Works${NC}"
-                    commands+=("sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io|nerdctl with K3s containerd")
-                else
-                    echo -e "${RED}✗ Fails${NC}"
-                fi
-            fi
-        fi
-    fi
-    
-    # Test Podman
-    if command -v podman &> /dev/null; then
-        echo -n "  Testing 'podman'... "
-        if test_build_command "podman"; then
-            echo -e "${GREEN}✓ Works${NC}"
-            commands+=("podman|Podman (rootless containers)")
-        else
-            echo -e "${YELLOW}✗ Fails${NC}"
-            
-            echo -n "  Testing 'sudo podman'... "
-            if test_build_command "sudo podman"; then
-                echo -e "${GREEN}✓ Works${NC}"
-                commands+=("sudo podman|Podman (requires sudo)")
-            else
-                echo -e "${RED}✗ Fails${NC}"
-            fi
-        fi
-    fi
-    
-    if [ ${#commands[@]} -eq 0 ]; then
-        echo ""
-        echo -e "${RED}No working container build tools found!${NC}"
-        echo "Please install docker, nerdctl, or podman."
-        exit 1
-    fi
-    
-    echo ""
-    # Use a special delimiter that won't appear in commands
-    local IFS=$'\036'  # ASCII record separator
-    echo "${commands[*]}"
 }
 
-# ============================================================================
-# DETECT KUBERNETES RUNTIME
-# ============================================================================
+detect_nerdctl() {
+    if command -v nerdctl &> /dev/null; then
+        # Check if nerdctl works without sudo
+        if nerdctl version &> /dev/null 2>&1; then
+            echo "nerdctl"
+        elif sudo nerdctl version &> /dev/null 2>&1; then
+            # Check if it's using K3s containerd
+            if [ -S "/run/k3s/containerd/containerd.sock" ]; then
+                echo "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
+            else
+                echo "sudo nerdctl"
+            fi
+        fi
+    fi
+}
+
+detect_podman() {
+    if command -v podman &> /dev/null; then
+        # Check if podman works
+        if podman version &> /dev/null 2>&1; then
+            echo "podman"
+        elif sudo podman version &> /dev/null 2>&1; then
+            echo "sudo podman"
+        fi
+    fi
+}
 
 detect_kubernetes_runtime() {
     # Check for K3s
-    if command -v k3s &> /dev/null || sudo systemctl is-active --quiet k3s 2>/dev/null; then
+    if command -v k3s &> /dev/null || [ -S "/run/k3s/containerd/containerd.sock" ]; then
         echo "k3s"
-        return 0
+        return
     fi
     
     # Check for Colima
     if command -v colima &> /dev/null && colima status &> /dev/null 2>&1; then
         echo "colima"
-        return 0
+        return
     fi
     
     # Check for Docker Desktop
     if [[ -f "$HOME/.docker/config.json" ]] && grep -q "desktop" "$HOME/.docker/config.json" 2>/dev/null; then
         echo "docker-desktop"
-        return 0
+        return
     fi
     
     # Check for minikube
     if command -v minikube &> /dev/null && minikube status &> /dev/null 2>&1; then
         echo "minikube"
-        return 0
+        return
     fi
     
     # Check for kind
     if command -v kind &> /dev/null && kind get clusters 2>/dev/null | grep -q .; then
         echo "kind"
-        return 0
+        return
     fi
     
     echo "unknown"
 }
 
 # ============================================================================
-# GET IMPORT METHOD
+# MAIN SCRIPT
 # ============================================================================
 
-get_import_method() {
-    local build_cmd="$1"
-    local runtime="$2"
-    
-    # If using nerdctl with K3s socket directly, it's direct import
-    if [[ "$build_cmd" == *"/run/k3s/containerd/containerd.sock"* ]] && [[ "$runtime" == "k3s" ]]; then
-        echo "direct"
-    # If using docker with Docker Desktop
-    elif [[ "$build_cmd" == *"docker"* ]] && [[ "$runtime" == "docker-desktop" ]]; then
-        echo "none"
-    # Default to save-load for safety
+# Detect available container tools
+echo "Detecting container tools..."
+echo ""
+
+options=()
+descriptions=()
+
+# Check for Docker
+docker_cmd=$(detect_docker)
+if [[ -n "$docker_cmd" ]]; then
+    options+=("$docker_cmd")
+    if [[ "$docker_cmd" == "sudo docker" ]]; then
+        descriptions+=("Docker (requires sudo)")
     else
-        echo "save-load"
+        descriptions+=("Docker")
     fi
-}
+    echo -e "  ${GREEN}✓${NC} Found Docker"
+fi
 
-# ============================================================================
-# USER SELECTION
-# ============================================================================
+# Check for nerdctl
+nerdctl_cmd=$(detect_nerdctl)
+if [[ -n "$nerdctl_cmd" ]]; then
+    options+=("$nerdctl_cmd")
+    if [[ "$nerdctl_cmd" == *"k3s"* ]]; then
+        descriptions+=("nerdctl with K3s containerd")
+    elif [[ "$nerdctl_cmd" == "sudo nerdctl" ]]; then
+        descriptions+=("nerdctl (requires sudo)")
+    else
+        descriptions+=("nerdctl")
+    fi
+    echo -e "  ${GREEN}✓${NC} Found nerdctl"
+fi
 
-select_build_command() {
-    local commands_string="$1"
-    
-    # Parse commands into arrays
-    local commands=()
-    local descriptions=()
-    
-    # Use same delimiter as detect_working_commands
-    IFS=$'\036' read -ra items <<< "$commands_string"
-    for item in "${items[@]}"; do
-        IFS='|' read -r cmd desc <<< "$item"
-        commands+=("$cmd")
-        descriptions+=("$desc")
+# Check for Podman
+podman_cmd=$(detect_podman)
+if [[ -n "$podman_cmd" ]]; then
+    options+=("$podman_cmd")
+    if [[ "$podman_cmd" == "sudo podman" ]]; then
+        descriptions+=("Podman (requires sudo)")
+    else
+        descriptions+=("Podman")
+    fi
+    echo -e "  ${GREEN}✓${NC} Found Podman"
+fi
+
+if [ ${#options[@]} -eq 0 ]; then
+    echo ""
+    echo -e "${RED}Error: No container build tools found!${NC}"
+    echo ""
+    echo "Please install one of the following:"
+    echo "  • Docker: https://docs.docker.com/get-docker/"
+    echo "  • nerdctl: https://github.com/containerd/nerdctl"
+    echo "  • Podman: https://podman.io/getting-started/installation"
+    exit 1
+fi
+
+echo ""
+
+# Detect Kubernetes runtime
+echo "Detecting Kubernetes runtime..."
+runtime=$(detect_kubernetes_runtime)
+echo -e "  ${GREEN}✓${NC} Detected: $runtime"
+echo ""
+
+# Show menu if multiple options
+if [ ${#options[@]} -eq 1 ]; then
+    echo "Found one container tool:"
+    echo -e "  ${CYAN}${options[0]}${NC} - ${descriptions[0]}"
+    echo ""
+    selected_index=0
+else
+    echo "Available container build tools:"
+    echo ""
+    for i in "${!options[@]}"; do
+        echo -e "  ${BOLD}$((i+1))${NC}) ${CYAN}${options[$i]}${NC}"
+        echo "     ${descriptions[$i]}"
+        echo ""
     done
     
-    # Display menu to stderr so it shows to user (stdout is captured for return value)
-    echo "Available container build commands:" >&2
-    echo "" >&2
-    
-    for i in "${!commands[@]}"; do
-        echo "  $((i+1))) ${commands[$i]}" >&2
-        echo "     ${descriptions[$i]}" >&2
-    done
-    
-    echo "" >&2
-    
-    if [ ${#commands[@]} -eq 1 ]; then
-        echo "Only one working command found, using it automatically." >&2
-        echo "${commands[0]}"
-        return 0
-    fi
-    
-    read -p "Select build command (1-${#commands[@]}): " selection
-    
-    if [[ "$selection" -ge 1 ]] && [[ "$selection" -le "${#commands[@]}" ]]; then
-        echo "${commands[$((selection-1))]}"
-    else
-        echo "Invalid selection" >&2
-        exit 1
-    fi
-}
-
-# ============================================================================
-# MAIN FLOW
-# ============================================================================
-
-main() {
-    # Check if configuration already exists
-    if [[ -f "$CONFIG_FILE" ]]; then
-        echo -e "${YELLOW}Existing configuration found:${NC}"
-        echo ""
-        cat "$CONFIG_FILE" | grep -E "build_command:|build_tool:|runtime:|runtime_import:" | sed 's/^/  /'
-        echo ""
-        read -p "Do you want to reconfigure? (y/N): " reconfigure
-        if [[ "$reconfigure" != "y" ]] && [[ "$reconfigure" != "Y" ]]; then
-            echo "Keeping existing configuration."
-            exit 0
+    while true; do
+        read -p "Select container build tool (1-${#options[@]}): " selection
+        if [[ "$selection" =~ ^[0-9]+$ ]] && [ "$selection" -ge 1 ] && [ "$selection" -le "${#options[@]}" ]; then
+            selected_index=$((selection - 1))
+            break
+        else
+            echo -e "${RED}Invalid selection. Please enter a number between 1 and ${#options[@]}.${NC}"
         fi
-        echo ""
-    fi
-    
-    # Detect working commands
-    working_commands=$(detect_working_commands)
-    
-    # Let user select
-    selected_command=$(select_build_command "$working_commands")
-    
-    echo ""
-    echo "Selected: $selected_command"
-    echo ""
-    
-    # Detect Kubernetes runtime
-    echo "Detecting Kubernetes runtime..."
-    runtime=$(detect_kubernetes_runtime)
-    echo -e "${GREEN}✓${NC} Detected: $runtime"
-    echo ""
-    
-    # Determine import method
-    import_method=$(get_import_method "$selected_command" "$runtime")
-    
-    # Write configuration
-    cat > "$CONFIG_FILE" << EOF
+    done
+fi
+
+selected_command="${options[$selected_index]}"
+selected_description="${descriptions[$selected_index]}"
+
+echo ""
+echo -e "Selected: ${CYAN}$selected_command${NC}"
+echo ""
+
+# Determine import method based on tool and runtime
+import_method="save-load"
+if [[ "$selected_command" == *"k3s"* ]] && [[ "$runtime" == "k3s" ]]; then
+    import_method="direct"
+elif [[ "$selected_command" == *"docker"* ]] && [[ "$runtime" == "docker-desktop" ]]; then
+    import_method="none"
+fi
+
+# Write configuration
+cat > "$CONFIG_FILE" << EOF
 # AI DevKit Container Runtime Configuration
 # Generated: $(date)
 # To reconfigure: ./configure-container-runtime.sh
 
 container:
-  # The full command to build containers
+  # The command to build containers
   build_command: "$selected_command"
   
   # Kubernetes runtime
@@ -297,16 +220,13 @@ container:
   # How to import images to runtime
   runtime_import: $import_method
 EOF
-    
-    echo -e "${GREEN}✓${NC} Configuration saved to $CONFIG_FILE"
-    echo ""
-    echo "Summary:"
-    echo "  • Build command: $selected_command"
-    echo "  • Runtime: $runtime"
-    echo "  • Import method: $import_method"
-    echo ""
-    echo "You can now run ./build-and-deploy.sh"
-}
 
-# Run main function
-main "$@"
+echo -e "${GREEN}✓${NC} Configuration saved to $CONFIG_FILE"
+echo ""
+echo "Summary:"
+echo "  • Build tool: $selected_description"
+echo "  • Command: $selected_command"
+echo "  • Runtime: $runtime"
+echo "  • Import method: $import_method"
+echo ""
+echo "You can now run: ${BOLD}./build-and-deploy.sh${NC}"
