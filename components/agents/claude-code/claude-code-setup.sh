@@ -132,7 +132,7 @@ fi
 # This script only needs to generate the import references
 
 # Count component docs for logging
-local docs_count=$(ls -1 "$TEMP_DIR/docs/"*.md 2>/dev/null | wc -l)
+docs_count=$(ls -1 "$TEMP_DIR/docs/"*.md 2>/dev/null | wc -l)
 if [[ $docs_count -gt 0 ]]; then
     log "Found $docs_count component documentation files in docs folder"
 else
@@ -162,10 +162,10 @@ TEMP_COMPONENTS="$TEMP_DIR/.components.tmp"
 # Process each YAML file
 for yaml_file in $SELECTED_YAML_FILES; do
     if [ -f "$yaml_file" ]; then
-        # Extract component info using yq
-        comp_name=$(yq eval '.name // ""' "$yaml_file")
-        comp_version=$(yq eval '.version // ""' "$yaml_file")
-        comp_description=$(yq eval '.description // ""' "$yaml_file")
+        # Extract component info using yq (compatible with both versions)
+        comp_name=$(yq '.name // ""' "$yaml_file" 2>/dev/null || echo "")
+        comp_version=$(yq '.version // ""' "$yaml_file" 2>/dev/null || echo "")
+        comp_description=$(yq '.description // ""' "$yaml_file" 2>/dev/null || echo "")
         
         # Extract category
         category=$(basename "$(dirname "$yaml_file")")
@@ -253,14 +253,14 @@ for yaml_file in $SELECTED_YAML_FILES; do
             if [ -n "$perm" ]; then
                 all_allow_perms+=("$perm")
             fi
-        done < <(yq eval '.command_permissions.allow[]' "$yaml_file" 2>/dev/null || true)
+        done < <(yq '.command_permissions.allow[]' "$yaml_file" 2>/dev/null || true)
         
         # Extract deny permissions using yq
         while IFS= read -r perm; do
             if [ -n "$perm" ]; then
                 all_deny_perms+=("$perm")
             fi
-        done < <(yq eval '.command_permissions.deny[]' "$yaml_file" 2>/dev/null || true)
+        done < <(yq '.command_permissions.deny[]' "$yaml_file" 2>/dev/null || true)
     fi
 done
 
