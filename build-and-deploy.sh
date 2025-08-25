@@ -3994,10 +3994,16 @@ build_docker_image() {
 
 # Function to run container build command with sudo if needed
 container_build() {
-    if [[ "$DOCKER_NEEDS_SUDO" == "true" ]] && [[ "$configured_tool" == "docker" ]]; then
+    local tool=$(get_container_tool)
+    
+    if [[ -z "$tool" ]]; then
+        error "No container build tool configured. Run ./configure-container-runtime.sh first."
+    fi
+    
+    if [[ "$DOCKER_NEEDS_SUDO" == "true" ]] && [[ "$tool" == "docker" ]]; then
         sudo docker build "$@"
     else
-        "$configured_tool" build "$@"
+        "$tool" build "$@"
     fi
 }
 
