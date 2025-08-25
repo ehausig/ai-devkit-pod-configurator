@@ -169,53 +169,37 @@ select_container_tool() {
     
     IFS=' ' read -ra tools <<< "$tools_string"
     
-    echo -e "${BOLD}Available Container Build Tools:${NC}"
+    echo "Available Container Build Tools:"
     echo ""
     
     local recommendations=()
-    local tool_indices=()
     local i=1
     
-    # First pass: collect recommendations for tools that have them
+    # Process each tool and display it with recommendation
     for tool in "${tools[@]}"; do
         local clean_tool=$(echo "$tool" | sed 's/ (via docker alias)//')
         local rec=$(get_recommendation "$runtime" "$clean_tool")
         
+        # Display the tool with its number
+        echo "  $i) $tool"
+        
+        # Display the recommendation if available
         if [[ -n "$rec" ]]; then
             IFS='|' read -r rec_tool import_method description <<< "$rec"
-            if [[ "$clean_tool" == "$rec_tool" ]] || [[ "$tool" == *"$rec_tool"* ]]; then
-                echo -e "  ${BOLD}$i)${NC} $tool"
-                echo -e "     $description"
-                recommendations+=("$tool|$import_method")
-                tool_indices+=("$tool")
-                ((i++))
-            fi
-        fi
-    done
-    
-    # Second pass: add any tools without specific recommendations
-    for tool in "${tools[@]}"; do
-        local found=false
-        for added_tool in "${tool_indices[@]}"; do
-            if [[ "$added_tool" == "$tool" ]]; then
-                found=true
-                break
-            fi
-        done
-        if [[ "$found" == "false" ]]; then
-            echo -e "  ${BOLD}$i)${NC} $tool"
-            echo -e "     ✓ Available but not optimal for $runtime"
+            echo "     $description"
+            recommendations+=("$tool|$import_method")
+        else
+            # Fallback if no specific recommendation
+            echo "     ✓ Available for use"
             recommendations+=("$tool|save-load")
-            tool_indices+=("$tool")
-            ((i++))
         fi
+        
+        ((i++))
     done
     
-    # If no tools were displayed, show error
-    if [[ ${#recommendations[@]} -eq 0 ]]; then
-        echo "Error: No tools to display"
-        echo "Available tools: $tools_string"
-        echo "Runtime: $runtime"
+    # If no tools were found at all
+    if [[ ${#tools[@]} -eq 0 ]]; then
+        echo "Error: No container tools found!"
         exit 1
     fi
     
