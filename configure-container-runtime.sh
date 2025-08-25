@@ -173,8 +173,8 @@ else
     echo "Available container build tools:"
     echo ""
     for i in "${!options[@]}"; do
-        echo -e "  ${BOLD}$((i+1))${NC}) ${CYAN}${options[$i]}${NC}"
-        echo "     ${descriptions[$i]}"
+        echo -e "  ${BOLD}$((i+1))${NC}) ${descriptions[$i]}"
+        echo -e "     Command: ${CYAN}${options[$i]}${NC}"
         echo ""
     done
     
