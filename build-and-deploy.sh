@@ -1156,8 +1156,6 @@ provide_installation_guidance() {
 
 # Check prerequisites
 check_deps() {
-    log "Checking prerequisites..."
-    
     # Check for configuration file
     if [[ ! -f "$CONFIG_FILE" ]]; then
         echo ""
@@ -1180,8 +1178,10 @@ check_deps() {
         exit 1
     fi
     
+    echo "Checking prerequisites:"
+    
     # Check configured container tool exists
-    printf "  Container tool ($configured_tool): "
+    printf "  • Build tool ($configured_tool): "
     if command -v "$configured_tool" &> /dev/null; then
         # Verify it actually works
         if "$configured_tool" version &> /dev/null 2>&1; then
@@ -1197,7 +1197,7 @@ check_deps() {
     fi
     
     # Check configured runtime
-    printf "  Kubernetes runtime ($configured_runtime): "
+    printf "  • Runtime ($configured_runtime): "
     case "$configured_runtime" in
         "k3s")
             if command -v k3s &> /dev/null || pgrep k3s &> /dev/null; then
@@ -1228,7 +1228,7 @@ check_deps() {
     
     # Check core tools with detailed feedback
     for tool in "${core_tools[@]}"; do
-        printf "  $tool: "
+        printf "  • $tool: "
         if command -v "$tool" &> /dev/null; then
             # Verify the tool actually works
             case "$tool" in
@@ -1288,39 +1288,8 @@ check_deps() {
         fi
     done
     
-    # Detect runtime and check runtime-specific dependencies
-    printf "  Container runtime: "
-    local runtime=$(detect_container_runtime)
-    case "$runtime" in
-        "colima")
-            if command -v colima &> /dev/null; then
-                echo "✓ ($runtime)"
-            else
-                echo "✗"
-                provide_installation_guidance "colima"
-            fi
-            ;;
-        "k3s")
-            if command -v k3s &> /dev/null; then
-                echo "✓ ($runtime)"
-            else
-                echo "✗"
-                provide_installation_guidance "k3s"
-            fi
-            ;;
-        "docker-desktop"|"podman"|"containerd"|"cri-o")
-            echo "✓ ($runtime)"
-            ;;
-        "unknown")
-            echo "⚠ (unknown - proceeding with generic support)"
-            warning "Could not detect container runtime. Proceeding with basic checks..."
-            ;;
-    esac
-    
     # Check runtime-specific status
     check_runtime_status
-    
-    success "All prerequisites verified successfully!"
 }
 
 # Generate SSH host keys if they don't exist
@@ -1329,15 +1298,9 @@ generate_ssh_host_keys() {
     
     # Generate keys if they don't exist
     if [ ! -f "$SSH_KEYS_DIR/ssh_host_rsa_key" ]; then
-        printf "."
         ssh-keygen -q -t rsa -b 4096 -f "$SSH_KEYS_DIR/ssh_host_rsa_key" -N "" -C "ai-devkit-rsa" >/dev/null 2>&1
-        printf "."
         ssh-keygen -q -t ecdsa -b 521 -f "$SSH_KEYS_DIR/ssh_host_ecdsa_key" -N "" -C "ai-devkit-ecdsa" >/dev/null 2>&1
-        printf "."
         ssh-keygen -q -t ed25519 -f "$SSH_KEYS_DIR/ssh_host_ed25519_key" -N "" -C "ai-devkit-ed25519" >/dev/null 2>&1
-        echo " ✓"
-    else
-        echo "... ✓"
     fi
 }
 
@@ -3883,7 +3846,7 @@ validate_environment() {
     
     [[ ! -d "$COMPONENTS_DIR" ]] && error "Components directory '$COMPONENTS_DIR' not found"
     
-    echo " ✓"
+    echo "✓ All prerequisites verified"
 }
 
 # Check if Nexus is available
@@ -3937,7 +3900,9 @@ setup_configuration() {
     # Check Nexus first
     NEXUS_AVAILABLE=false
     if check_nexus; then
-        echo "  • Nexus proxy detected"
+        echo ""
+        echo "Optional services detected:"
+        echo "  • Nexus proxy at localhost:8081"
         NEXUS_AVAILABLE=true
         export DOCKER_BUILDKIT=0
         export NEXUS_BUILD_ARGS="--build-arg PIP_INDEX_URL=http://host.lima.internal:8081/repository/pypi-proxy/simple --build-arg PIP_TRUSTED_HOST=host.lima.internal --build-arg NPM_REGISTRY=http://host.lima.internal:8081/repository/npm-proxy/ --build-arg GOPROXY=http://host.lima.internal:8081/repository/go-proxy/ --build-arg USE_NEXUS_APT=true --build-arg NEXUS_APT_URL=http://host.lima.internal:8081"
@@ -4089,15 +4054,12 @@ main() {
     echo ""
     
     # Validate environment
-    echo -n "Checking environment"
     validate_environment
     
     # Generate SSH host keys
-    echo -n "Preparing SSH keys"
     generate_ssh_host_keys
     
     # Initialize component system
-    echo -n "Loading components"
     initialize_components || {
         echo ""
         error "Failed to initialize components"
