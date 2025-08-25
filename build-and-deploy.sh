@@ -745,7 +745,11 @@ container_save() {
     
     case "$tool" in
         "docker")
-            docker save "$image"
+            if [[ "$DOCKER_NEEDS_SUDO" == "true" ]]; then
+                sudo docker save "$image"
+            else
+                docker save "$image"
+            fi
             ;;
         "nerdctl")
             # nerdctl save works the same as docker save
@@ -1183,9 +1187,13 @@ check_deps() {
     # Check configured container tool exists
     printf "  • Build tool ($configured_tool): "
     if command -v "$configured_tool" &> /dev/null; then
-        # Verify it actually works
+        # Verify it actually works (try with sudo if docker fails)
         if "$configured_tool" version &> /dev/null 2>&1; then
             echo "✓"
+        elif [[ "$configured_tool" == "docker" ]] && sudo docker version &> /dev/null 2>&1; then
+            echo "✓ (requires sudo)"
+            # Set a flag to use sudo with docker
+            DOCKER_NEEDS_SUDO=true
         else
             echo "✗ (not working)"
             error "Configured tool '$configured_tool' is not working properly."
@@ -3982,6 +3990,15 @@ build_docker_image() {
             (cd .. && error "Container build failed - check $LOG_FILE for details")
     fi
     cd ..
+}
+
+# Function to run container build command with sudo if needed
+container_build() {
+    if [[ "$DOCKER_NEEDS_SUDO" == "true" ]] && [[ "$configured_tool" == "docker" ]]; then
+        sudo docker build "$@"
+    else
+        "$configured_tool" build "$@"
+    fi
 }
 
 # Function to deploy to Kubernetes
