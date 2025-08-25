@@ -719,16 +719,26 @@ container_build() {
     
     case "$tool" in
         "docker")
-            docker build $build_args
+            if [[ "$DOCKER_NEEDS_SUDO" == "true" ]]; then
+                sudo docker build $build_args
+            else
+                docker build $build_args
+            fi
             ;;
         "nerdctl")
-            # nerdctl with buildkit support
-            # If docker is aliased to nerdctl, use docker command for consistency
-            if command -v docker &> /dev/null && [[ -L "$(which docker)" ]] && readlink "$(which docker)" | grep -q nerdctl; then
+            # Check if nerdctl needs sudo for K3s
+            if [[ "$NERDCTL_NEEDS_SUDO" == "true" ]]; then
+                sudo nerdctl build $build_args
+            elif command -v docker &> /dev/null && [[ -L "$(which docker)" ]] && readlink "$(which docker)" | grep -q nerdctl; then
+                # If docker is aliased to nerdctl, use docker command
                 docker build $build_args
             else
                 nerdctl build $build_args
             fi
+            ;;
+        "nerdctl-k3s"|"nerdctl-wrapper")
+            # These are wrappers that include sudo and K3s configuration
+            "$tool" build $build_args
             ;;
         "podman")
             podman build $build_args
@@ -796,6 +806,10 @@ container_rmi() {
                 nerdctl rmi "$image" 2>/dev/null || true
             fi
             ;;
+        "nerdctl-k3s"|"nerdctl-wrapper")
+            # These are wrappers that include sudo and K3s configuration
+            "$tool" rmi "$image" 2>/dev/null || true
+            ;;
         "podman")
             podman rmi "$image" 2>/dev/null || true
             ;;
@@ -819,6 +833,10 @@ container_info() {
                 nerdctl info
             fi
             ;;
+        "nerdctl-k3s"|"nerdctl-wrapper")
+            # These are wrappers that include sudo and K3s configuration
+            "$tool" info
+            ;;
         "podman")
             podman info
             ;;
@@ -838,6 +856,10 @@ container_context_show() {
         "nerdctl")
             # nerdctl doesn't have contexts like docker, but it has namespaces
             echo "nerdctl-k8s.io"
+            ;;
+        "nerdctl-k3s"|"nerdctl-wrapper")
+            # nerdctl wrappers use K3s namespace
+            echo "nerdctl-k3s-k8s.io"
             ;;
         "podman")
             # Podman doesn't have context, return connection info
@@ -4007,38 +4029,6 @@ build_docker_image() {
             (cd .. && error "Container build failed - check $LOG_FILE for details")
     fi
     cd ..
-}
-
-# Function to run container build command with sudo if needed
-container_build() {
-    local tool=$(get_container_tool)
-    
-    if [[ -z "$tool" ]]; then
-        error "No container build tool configured. Run ./configure-container-runtime.sh first."
-    fi
-    
-    if [[ "$DOCKER_NEEDS_SUDO" == "true" ]] && [[ "$tool" == "docker" ]]; then
-        sudo docker build "$@"
-    elif [[ "$tool" == "nerdctl-k3s" ]] || [[ "$tool" == "nerdctl-wrapper" ]]; then
-        # These are wrappers that include sudo and K3s configuration
-        "$tool" build "$@"
-    elif [[ "$tool" == "nerdctl" ]]; then
-        # Check if nerdctl needs sudo for K3s
-        if [[ "$NERDCTL_NEEDS_SUDO" == "true" ]]; then
-            # Need sudo for K3s containerd
-            sudo nerdctl build "$@"
-        elif nerdctl version &>/dev/null 2>&1; then
-            # Rootless nerdctl works
-            nerdctl build "$@"
-        elif sudo nerdctl version &>/dev/null 2>&1; then
-            # Fallback: try with sudo if flag wasn't set
-            sudo nerdctl build "$@"
-        else
-            error "nerdctl is not working. Please check your configuration."
-        fi
-    else
-        "$tool" build "$@"
-    fi
 }
 
 # Function to deploy to Kubernetes
