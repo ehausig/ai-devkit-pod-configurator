@@ -102,37 +102,59 @@ detect_kubernetes_runtime() {
 
 get_recommendation() {
     local runtime="$1"
-    local available_tools="$2"
+    local tool="$2"
     
+    # Match specific tool, not substring in available_tools
     case "$runtime" in
         "k3s")
-            if [[ "$available_tools" == *"nerdctl"* ]]; then
-                echo "nerdctl|direct|✅ Best choice: nerdctl builds directly into K3s containerd"
-            elif [[ "$available_tools" == *"podman"* ]]; then
-                echo "podman|save-load|⚠️  Podman works but requires image transfer"
-            elif [[ "$available_tools" == *"docker"* ]]; then
-                echo "docker|save-load|⚠️  Docker works but requires image transfer"
-            fi
+            case "$tool" in
+                "nerdctl")
+                    echo "nerdctl|direct|✅ Best choice: nerdctl builds directly into K3s containerd"
+                    ;;
+                "podman")
+                    echo "podman|save-load|⚠️  Podman works but requires image transfer"
+                    ;;
+                "docker")
+                    echo "docker|save-load|⚠️  Docker works but requires image transfer"
+                    ;;
+            esac
             ;;
         "colima")
-            if [[ "$available_tools" == *"docker"* ]]; then
-                echo "docker|save-load|✅ Docker is the standard tool for Colima"
-            elif [[ "$available_tools" == *"nerdctl"* ]]; then
-                echo "nerdctl|save-load|⚠️  nerdctl works but requires transfer"
-            fi
+            case "$tool" in
+                "docker")
+                    echo "docker|save-load|✅ Docker is the standard tool for Colima"
+                    ;;
+                "nerdctl")
+                    echo "nerdctl|save-load|⚠️  nerdctl works but requires transfer"
+                    ;;
+                "podman")
+                    echo "podman|save-load|⚠️  Podman works but requires transfer"
+                    ;;
+            esac
             ;;
         "docker-desktop")
-            if [[ "$available_tools" == *"docker"* ]]; then
-                echo "docker|none|✅ Docker Desktop shares images automatically"
-            fi
+            case "$tool" in
+                "docker")
+                    echo "docker|none|✅ Docker Desktop shares images automatically"
+                    ;;
+                *)
+                    echo "$tool|save-load|⚠️  $tool works but may require transfer"
+                    ;;
+            esac
             ;;
         *)
             # Generic recommendations
-            if [[ "$available_tools" == *"docker"* ]]; then
-                echo "docker|save-load|✓ Docker is widely compatible"
-            elif [[ "$available_tools" == *"podman"* ]]; then
-                echo "podman|save-load|✓ Podman is a good alternative"
-            fi
+            case "$tool" in
+                "docker")
+                    echo "docker|save-load|✓ Docker is widely compatible"
+                    ;;
+                "podman")
+                    echo "podman|save-load|✓ Podman is a good alternative"
+                    ;;
+                "nerdctl")
+                    echo "nerdctl|save-load|✓ nerdctl is containerd-native"
+                    ;;
+            esac
             ;;
     esac
 }
@@ -151,8 +173,10 @@ select_container_tool() {
     echo ""
     
     local recommendations=()
+    local tool_indices=()
     local i=1
     
+    # First pass: collect recommendations for tools that have them
     for tool in "${tools[@]}"; do
         local clean_tool=$(echo "$tool" | sed 's/ (via docker alias)//')
         local rec=$(get_recommendation "$runtime" "$clean_tool")
@@ -163,16 +187,17 @@ select_container_tool() {
                 echo -e "  ${BOLD}$i)${NC} $tool"
                 echo -e "     $description"
                 recommendations+=("$tool|$import_method")
+                tool_indices+=("$tool")
                 ((i++))
             fi
         fi
     done
     
-    # Add any tools without recommendations
+    # Second pass: add any tools without specific recommendations
     for tool in "${tools[@]}"; do
         local found=false
-        for rec in "${recommendations[@]}"; do
-            if [[ "$rec" == "$tool|"* ]]; then
+        for added_tool in "${tool_indices[@]}"; do
+            if [[ "$added_tool" == "$tool" ]]; then
                 found=true
                 break
             fi
@@ -181,9 +206,18 @@ select_container_tool() {
             echo -e "  ${BOLD}$i)${NC} $tool"
             echo -e "     ✓ Available but not optimal for $runtime"
             recommendations+=("$tool|save-load")
+            tool_indices+=("$tool")
             ((i++))
         fi
     done
+    
+    # If no tools were displayed, show error
+    if [[ ${#recommendations[@]} -eq 0 ]]; then
+        echo "Error: No tools to display"
+        echo "Available tools: $tools_string"
+        echo "Runtime: $runtime"
+        exit 1
+    fi
     
     echo ""
     read -p "Select container build tool (1-$((i-1))): " selection
