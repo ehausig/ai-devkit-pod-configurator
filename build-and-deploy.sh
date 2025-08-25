@@ -755,8 +755,14 @@ container_save() {
             # nerdctl save works the same as docker save
             if command -v docker &> /dev/null && [[ -L "$(which docker)" ]] && readlink "$(which docker)" | grep -q nerdctl; then
                 docker save "$image"
-            else
+            elif nerdctl version &>/dev/null 2>&1; then
+                # Rootless nerdctl
                 nerdctl save "$image"
+            elif sudo nerdctl version &>/dev/null 2>&1; then
+                # K3s nerdctl needs sudo
+                sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io save "$image"
+            else
+                nerdctl save "$image"  # Fallback, may fail
             fi
             ;;
         "nerdctl-k3s")
@@ -4009,6 +4015,17 @@ container_build() {
     elif [[ "$tool" == "nerdctl-k3s" ]]; then
         # nerdctl-k3s is our wrapper that includes sudo
         nerdctl-k3s build "$@"
+    elif [[ "$tool" == "nerdctl" ]]; then
+        # Check if nerdctl needs sudo for K3s
+        if nerdctl version &>/dev/null 2>&1; then
+            # Rootless nerdctl works
+            nerdctl build "$@"
+        elif sudo nerdctl version &>/dev/null 2>&1; then
+            # Need sudo for K3s containerd
+            sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io build "$@"
+        else
+            error "nerdctl is not working. Please check your configuration."
+        fi
     else
         "$tool" build "$@"
     fi
