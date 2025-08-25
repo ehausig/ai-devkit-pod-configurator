@@ -49,6 +49,23 @@ The AI DevKit Pod Configurator is a modular system for creating customized devel
 └─────────────────────────────────────────────────────────────┘
 ```
 
+## Configuration System
+
+### Runtime Configuration
+
+The system uses a configuration-first approach with `~/.ai-devkit/config.yaml`:
+
+```yaml
+container:
+  build_tool: nerdctl    # docker, nerdctl, or podman
+  runtime: k3s           # k3s, colima, docker-desktop, etc.
+  runtime_import: direct # direct, save-load, or none
+```
+
+Configuration is managed through:
+- `configure-container-runtime.sh` - Detects and configures container tools
+- `configure-git-host.sh` - Sets up git credentials for injection
+
 ## Core Components
 
 ### 1. Terminal User Interface (TUI)

@@ -57,11 +57,13 @@ AI DevKit Pod Configurator provides a beautiful TUI (Terminal User Interface) fo
 
 - Kubernetes cluster (k3s, minikube, Colima, or any Kubernetes distribution)
 - kubectl configured to access your cluster
-- Container tool: **Docker**, **nerdctl**, or **Podman** (automatically detected)
+- Container build tool: **Docker**, **nerdctl**, or **Podman**
 - `yq` and `jq` for YAML/JSON processing
-- For macOS users: [Colima](https://github.com/abiosoft/colima) is recommended
-- For Linux/K3s users: **nerdctl** is recommended for seamless integration
-- For other Linux users: Docker or Podman work well
+- `ssh-keygen` for generating SSH host keys
+- **Recommended setups:**
+  - macOS: [Colima](https://github.com/abiosoft/colima) with Docker
+  - Linux with K3s: **nerdctl** for seamless integration (no image transfer needed)
+  - Linux with Docker/Podman: Works with automatic image transfer
 
 ### macOS Quick Setup with Colima
 
@@ -121,15 +123,22 @@ nerdctl version  # or docker version if aliased
 
 ### Cross-Platform Support
 
-The AI DevKit now supports multiple container runtime environments:
+The AI DevKit supports multiple container runtime environments through a configuration-first approach:
 
+**Supported Kubernetes Runtimes:**
 - **Colima** (macOS) - VM-based Docker/Kubernetes
 - **K3s** (Linux) - Lightweight Kubernetes distribution
-- **Docker Desktop** (macOS/Windows) - Native Docker with Kubernetes
+- **Docker Desktop** (macOS/Windows/Linux) - Native Docker with Kubernetes
+- **Minikube** - Cross-platform Kubernetes for development
+- **Kind** - Kubernetes in Docker
 - **Generic containerd** - Standard container runtime
-- **Other Kubernetes distributions** - minikube, kind, etc.
 
-The build system automatically detects your runtime environment and adapts accordingly.
+**Supported Container Build Tools:**
+- **Docker** - Traditional container engine
+- **nerdctl** - containerd-native CLI (best for K3s)
+- **Podman** - Rootless container engine
+
+The system uses a configuration file (`~/.ai-devkit/config.yaml`) to store your preferences, ensuring consistent behavior across builds.
 
 ### Basic Usage
 

@@ -39,8 +39,13 @@ git merge upstream/develop
 # Make scripts executable
 chmod +x *.sh scripts/*.sh
 
-# Install development dependencies (if any)
-# Currently, the project uses standard bash tooling
+# Configure your container runtime (if testing locally)
+./configure-container-runtime.sh
+
+# Install required tools based on your OS:
+# Ubuntu/Debian: sudo apt-get install yq jq kubectl
+# macOS: brew install yq jq kubectl
+# RHEL/Fedora: sudo dnf install yq jq kubectl
 ```
 
 ## Development Workflow
@@ -190,6 +195,9 @@ perform_operation() {
 When adding new components:
 
 ```bash
+# Configure container runtime first (if not already done)
+./configure-container-runtime.sh
+
 # Test your component locally
 ./build-and-deploy.sh
 
@@ -303,6 +311,22 @@ git push origin --delete feat/your-feature-name
 4. Update relevant documentation
 
 See [Creating Components](components.md) for detailed instructions.
+
+### Testing Container Runtime Support
+
+When testing different container runtimes:
+
+```bash
+# Reconfigure for different runtime
+./configure-container-runtime.sh
+
+# Test with nerdctl (K3s)
+# Test with docker (Colima/Docker Desktop)
+# Test with podman (alternative runtime)
+
+# Verify image build and deployment works
+./build-and-deploy.sh
+```
 
 ### Modifying the TUI
 

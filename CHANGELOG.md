@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Configuration-first approach with `configure-container-runtime.sh` script
+- Support for multiple container tools (docker, nerdctl, podman)
+- Support for K3s Kubernetes runtime with nerdctl
+- Universal yq wrapper supporting both kislyuk/yq and mikefarah/yq
+- Container runtime configuration persistence in `~/.ai-devkit/config.yaml`
+- Automatic detection of available container tools and Kubernetes runtime
+- Recommendations for optimal tool selection based on runtime
 - Command permissions system for Claude Code integration
 - Dynamic permission aggregation from all selected components
 - Team Topologies-based agent system for Claude Code
@@ -24,11 +31,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved error handling and validation throughout
 - Enhanced Claude Code configuration with dynamic settings
 - Updated documentation to reflect current system state
+- Prerequisite checks now validate configured tools instead of hardcoded assumptions
+- Improved output formatting with cleaner, more professional appearance
 
 ### Fixed
 - Critical bug where customized Dockerfile was overwritten during build
 - Component inject_files not being processed correctly
 - Missing files in container due to build process error
+- Auto-detection conflicts when multiple container tools installed
+- Menu display issues in configuration script (stderr vs stdout)
+- Slow component loading due to inefficient YAML processing
+- Compatibility issues with Ubuntu-packaged kislyuk/yq
 
 ### Security
 - Improved command permission validation

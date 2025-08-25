@@ -86,8 +86,16 @@ Configure these settings in your GitHub repository:
    # Run basic checks
    shellcheck scripts/*.sh
    
+   # Configure container runtime (if not already done)
+   ./configure-container-runtime.sh
+   
    # Test the build
    ./build-and-deploy.sh
+   
+   # Test with different container runtimes if possible
+   # - nerdctl for K3s systems
+   # - docker for Colima/Docker Desktop
+   # - podman for alternative setups
    ```
 
 2. **Code Review Guidelines**

@@ -21,44 +21,67 @@ This guide helps resolve common issues with the AI DevKit Pod Configurator.
 The build system requires these tools:
 
 ```bash
-# Check if tools are installed
-which kubectl yq jq docker
+# Check if all required tools are installed
+which kubectl yq jq ssh-keygen
+
+# Check configured container tool (from ~/.ai-devkit/config.yaml)
+cat ~/.ai-devkit/config.yaml
 
 # Install missing tools on macOS
 brew install kubectl yq jq
+# ssh-keygen is included with macOS
 
 # Install on Ubuntu/Debian
 sudo apt-get update
-sudo apt-get install -y curl
+sudo apt-get install -y curl openssh-client jq
+
 # kubectl
 curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
 sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-# yq
+
+# yq (either version works)
+# Option 1: mikefarah/yq (recommended)
 sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
 sudo chmod +x /usr/local/bin/yq
-# jq
-sudo apt-get install -y jq
+
+# Option 2: kislyuk/yq (Python-based, available in apt)
+sudo apt-get install -y yq
 ```
+
+### Configuration Not Found
+
+**Problem**: Build fails with "Container runtime not configured"
+
+**Solution**: Run the configuration script first:
+
+```bash
+./configure-container-runtime.sh
+```
+
+This will:
+- Detect available container tools (docker, nerdctl, podman)
+- Identify your Kubernetes runtime
+- Save your preferences to `~/.ai-devkit/config.yaml`
 
 ### yq/jq Not Found
 
 **Problem**: Build fails with "yq: command not found" or "jq: command not found"
 
-**Solution**: The refactored build system requires these tools for YAML/JSON parsing:
+**Solution**: The build system supports both versions of yq:
 
 ```bash
 # macOS
 brew install yq jq
 
-# Linux - Install yq
+# Linux - Option 1: mikefarah/yq (Go-based, recommended)
 VERSION=v4.35.2  # Check for latest at https://github.com/mikefarah/yq/releases
 BINARY=yq_linux_amd64
 wget https://github.com/mikefarah/yq/releases/download/${VERSION}/${BINARY} -O /usr/bin/yq
 chmod +x /usr/bin/yq
 
-# Linux - Install jq
-sudo apt-get install jq  # Debian/Ubuntu
-sudo yum install jq      # RHEL/CentOS
+# Linux - Option 2: kislyuk/yq (Python-based, in apt/yum repos)
+sudo apt-get install yq jq  # Debian/Ubuntu
+sudo yum install yq jq      # RHEL/CentOS
 ```
 
 ## Installation Issues
@@ -80,13 +103,30 @@ curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stabl
 sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
 ```
 
-### Cannot connect to Docker daemon
+### Configured tool not found
 
-**Problem**: Docker commands fail with connection errors.
+**Problem**: Build fails with "Configured tool 'nerdctl' is not installed"
 
 **Solution**:
 
-For Colima:
+Either install the missing tool or reconfigure to use an available tool:
+
+```bash
+# Option 1: Install the missing tool (e.g., nerdctl)
+wget https://github.com/containerd/nerdctl/releases/download/v1.7.2/nerdctl-1.7.2-linux-amd64.tar.gz
+sudo tar -xzf nerdctl-1.7.2-linux-amd64.tar.gz -C /usr/local/bin
+
+# Option 2: Reconfigure to use a different tool
+./configure-container-runtime.sh
+```
+
+### Cannot connect to container tool
+
+**Problem**: Docker/Podman/nerdctl commands fail with connection errors.
+
+**Solution**:
+
+For Docker with Colima:
 ```bash
 # Check status
 colima status

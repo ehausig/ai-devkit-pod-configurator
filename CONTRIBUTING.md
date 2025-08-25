@@ -63,12 +63,19 @@ Enhancement suggestions are welcome! Please:
 
 ```bash
 # Required tools
-brew install kubectl yq jq          # macOS
-sudo apt-get install kubectl yq jq  # Linux
+brew install kubectl yq jq ssh-keygen     # macOS
+sudo apt-get install kubectl yq jq openssh-client  # Ubuntu/Debian
+sudo dnf install kubectl yq jq openssh-clients     # RHEL/Fedora
+
+# Container runtime (choose one)
+brew install docker                 # macOS with Docker Desktop
+brew install colima                 # macOS with Colima
+# OR install nerdctl for K3s
+# OR install podman
 
 # Kubernetes (choose one)
 brew install colima                 # macOS recommended
-# OR minikube, kind, k3s, etc.
+# OR install K3s, minikube, kind, etc.
 
 # Development tools
 brew install shellcheck            # Shell script linting
@@ -89,6 +96,9 @@ git checkout -b feature/your-feature-name
 
 # Make scripts executable
 chmod +x *.sh
+
+# Configure container runtime
+./configure-container-runtime.sh
 
 # Start development
 ./build-and-deploy.sh
