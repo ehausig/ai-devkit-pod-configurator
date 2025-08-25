@@ -169,8 +169,9 @@ select_container_tool() {
     
     IFS=' ' read -ra tools <<< "$tools_string"
     
-    echo "Available Container Build Tools:"
-    echo ""
+    # Display menu to stderr so it shows to user (stdout is captured for return value)
+    echo "Available Container Build Tools:" >&2
+    echo "" >&2
     
     local recommendations=()
     local i=1
@@ -180,17 +181,17 @@ select_container_tool() {
         local clean_tool=$(echo "$tool" | sed 's/ (via docker alias)//')
         local rec=$(get_recommendation "$runtime" "$clean_tool")
         
-        # Display the tool with its number
-        echo "  $i) $tool"
+        # Display the tool with its number (to stderr for display)
+        echo "  $i) $tool" >&2
         
         # Display the recommendation if available
         if [[ -n "$rec" ]]; then
             IFS='|' read -r rec_tool import_method description <<< "$rec"
-            echo "     $description"
+            echo "     $description" >&2
             recommendations+=("$tool|$import_method")
         else
             # Fallback if no specific recommendation
-            echo "     ✓ Available for use"
+            echo "     ✓ Available for use" >&2
             recommendations+=("$tool|save-load")
         fi
         
@@ -199,17 +200,18 @@ select_container_tool() {
     
     # If no tools were found at all
     if [[ ${#tools[@]} -eq 0 ]]; then
-        echo "Error: No container tools found!"
+        echo "Error: No container tools found!" >&2
         exit 1
     fi
     
-    echo ""
+    echo "" >&2
     read -p "Select container build tool (1-$((i-1))): " selection
     
     if [[ "$selection" -ge 1 ]] && [[ "$selection" -lt "$i" ]]; then
+        # This goes to stdout to be captured
         echo "${recommendations[$((selection-1))]}"
     else
-        echo "Invalid selection"
+        echo "Invalid selection" >&2
         exit 1
     fi
 }
