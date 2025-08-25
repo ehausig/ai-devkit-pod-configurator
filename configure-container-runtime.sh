@@ -16,8 +16,9 @@ CONFIG_FILE="$CONFIG_DIR/config.yaml"
 # Ensure config directory exists
 mkdir -p "$CONFIG_DIR"
 
-echo -e "${BOLD}${CYAN}AI DevKit Container Runtime Configuration${NC}"
-echo "=========================================="
+echo -e "${BLUE}=== AI DevKit - Container Runtime Configuration ===${NC}"
+echo ""
+echo -e "${BLUE}ℹ${NC} This tool configures which container build tool to use with your Kubernetes runtime"
 echo ""
 
 # ============================================================================
@@ -263,7 +264,7 @@ validate_configuration() {
     local runtime="$2"
     
     echo ""
-    echo -e "${BOLD}Validating configuration...${NC}"
+    echo "Validating configuration..."
     
     # Clean up tool name for commands
     local cmd_tool=$(echo "$build_tool" | sed 's/ (via docker alias)//')
@@ -333,27 +334,23 @@ main() {
         echo ""
     fi
     
-    # Step 1: Detect available tools
-    echo -e "${BOLD}Step 1: Detecting available container tools...${NC}"
+    # Detect available tools
+    echo "Detecting available container tools..."
     available_tools=$(detect_container_tools)
     
     if [[ -z "$available_tools" ]]; then
-        echo -e "${RED}No container tools found!${NC}"
+        echo -e "${RED}✗ No container tools found!${NC}"
         echo "Please install one of: docker, nerdctl, or podman"
         exit 1
     fi
     
-    echo -e "  Found: ${GREEN}$available_tools${NC}"
+    echo -e "${GREEN}✓${NC} Found: $available_tools"
     echo ""
     
-    # Step 2: Detect Kubernetes runtime
-    echo -e "${BOLD}Step 2: Detecting Kubernetes runtime...${NC}"
+    # Detect Kubernetes runtime
+    echo "Detecting Kubernetes runtime..."
     runtime=$(detect_kubernetes_runtime)
-    echo -e "  Detected: ${GREEN}$runtime${NC}"
-    echo ""
-    
-    # Step 3: Get user selection
-    echo -e "${BOLD}Step 3: Select container build tool${NC}"
+    echo -e "${GREEN}✓${NC} Detected: $runtime"
     echo ""
     
     if [[ "$runtime" == "k3s" ]] && [[ "$available_tools" == *"nerdctl"* ]] && [[ "$available_tools" == *"podman"* ]]; then
@@ -365,25 +362,25 @@ main() {
     selection_result=$(select_container_tool "$available_tools" "$runtime")
     IFS='|' read -r selected_tool import_method <<< "$selection_result"
     
-    # Step 4: Validate configuration
+    # Validate configuration
     if validate_configuration "$selected_tool" "$runtime"; then
         echo ""
-        # Step 5: Write configuration
-        echo -e "${BOLD}Step 4: Saving configuration${NC}"
+        # Write configuration
+        echo "Saving configuration..."
         write_config "$selected_tool" "$runtime" "$import_method" "$available_tools"
         
         echo ""
-        echo -e "${GREEN}${BOLD}Configuration complete!${NC}"
+        echo -e "${GREEN}Configuration complete!${NC}"
         echo ""
         echo "Summary:"
-        echo "  Build tool: $selected_tool"
-        echo "  Runtime: $runtime"
-        echo "  Import method: $import_method"
+        echo "  • Build tool: $selected_tool"
+        echo "  • Runtime: $runtime"
+        echo "  • Import method: $import_method"
         echo ""
         echo "You can now run ./build-and-deploy.sh"
     else
         echo ""
-        echo -e "${RED}Configuration validation failed.${NC}"
+        echo -e "${RED}✗ Configuration validation failed.${NC}"
         echo "Please fix the issues above and try again."
         exit 1
     fi
