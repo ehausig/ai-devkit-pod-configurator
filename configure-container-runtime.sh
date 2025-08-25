@@ -36,14 +36,19 @@ detect_docker() {
 
 detect_nerdctl() {
     if command -v nerdctl &> /dev/null; then
-        # Check if nerdctl works without sudo
-        if nerdctl version &> /dev/null 2>&1; then
-            echo "nerdctl"
-        elif sudo nerdctl version &> /dev/null 2>&1; then
-            # Check if it's using K3s containerd
-            if [ -S "/run/k3s/containerd/containerd.sock" ]; then
+        # Check if K3s socket exists first
+        if [ -S "/run/k3s/containerd/containerd.sock" ]; then
+            # K3s is present, use K3s configuration
+            if sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io version &> /dev/null 2>&1; then
                 echo "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
-            else
+            elif nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io version &> /dev/null 2>&1; then
+                echo "nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
+            fi
+        else
+            # No K3s, check standard nerdctl
+            if nerdctl version &> /dev/null 2>&1; then
+                echo "nerdctl"
+            elif sudo nerdctl version &> /dev/null 2>&1; then
                 echo "sudo nerdctl"
             fi
         fi
