@@ -1,0 +1,81 @@
+--- build-and-deploy.sh.old
++++ build-and-deploy.sh
+@@ -654,15 +654,25 @@
+ get_container_tool() {
+-    # Read from config file, falling back to docker if not configured
+-    local tool=$(read_config "build_tool")
+-    if [[ -z "$tool" ]]; then
+-        echo "docker"  # Default
++    # Read build command from config file
++    local build_cmd=$(read_config "build_command")
++    
++    if [[ -z "$build_cmd" ]]; then
++        # Fall back to old config format for backward compatibility
++        local tool=$(read_config "build_tool")
++        if [[ -z "$tool" ]]; then
++            echo "docker"  # Default
++        else
++            echo "$tool"
++        fi
+     else
+-        echo "$tool"
++        # Extract the tool name from the command (first word)
++        echo "$build_cmd" | awk '{print $1}' | sed 's/^sudo //'
+     fi
+ }
+ 
++get_build_command() {
++    # Read the full build command from config
++    local build_cmd=$(read_config "build_command")
++    echo "$build_cmd"
++}
++
+ # Container tool abstraction functions
+ container_build() {
+-    local tool=$(get_container_tool)
++    local build_cmd=$(get_build_command)
+     local build_args="$*"
+     
+-    case "$tool" in
+-        # ... all the complex case logic ...
+-    esac
++    if [[ -z "$build_cmd" ]]; then
++        # Fallback to old method for backward compatibility
++        local tool=$(get_container_tool)
++        case "$tool" in
++            "docker")
++                docker build $build_args
++                ;;
++            "nerdctl")
++                nerdctl build $build_args
++                ;;
++            "podman")
++                podman build $build_args
++                ;;
++            *)
++                error "No build command configured. Run ./configure-container-runtime-v2.sh"
++                ;;
++        esac
++    else
++        # Use the configured command directly
++        $build_cmd build $build_args
++    fi
+ }
+ 
+ container_save() {
+-    local tool=$(get_container_tool)
++    local build_cmd=$(get_build_command)
+     local image="$1"
+     
+-    case "$tool" in
+-        # ... all the complex case logic ...
+-    esac
++    if [[ -z "$build_cmd" ]]; then
++        # Fallback to old method
++        local tool=$(get_container_tool)
++        ${tool} save "$image"
++    else
++        # Use the configured command
++        $build_cmd save "$image"
++    fi
+ }

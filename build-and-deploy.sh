@@ -652,7 +652,15 @@ read_config() {
 
 # Get configured container build tool
 get_container_tool() {
-    # First check if we have a config file
+    # First check if we have a build_command (new format)
+    local build_cmd=$(read_config "build_command")
+    if [[ -n "$build_cmd" ]]; then
+        # Extract tool name from command (for compatibility)
+        echo "$build_cmd" | awk '{print $1}' | sed 's/^sudo //'
+        return 0
+    fi
+    
+    # Fall back to old format
     if [[ -f "$CONFIG_FILE" ]]; then
         local tool=$(read_config "build_tool")
         if [[ -n "$tool" ]]; then
@@ -679,6 +687,18 @@ get_container_tool() {
     echo "  • Save your preferences for future use"
     echo ""
     exit 1
+}
+
+# Get the full build command from config
+get_build_command() {
+    local build_cmd=$(read_config "build_command")
+    if [[ -n "$build_cmd" ]]; then
+        echo "$build_cmd"
+    else
+        # Fall back to tool name only
+        local tool=$(get_container_tool)
+        echo "$tool"
+    fi
 }
 
 # Get configured runtime
@@ -714,45 +734,53 @@ get_import_method() {
 
 # Container tool abstraction functions
 container_build() {
-    local tool=$(get_container_tool)
+    local build_cmd=$(get_build_command)
     local build_args="$*"
     
-    case "$tool" in
-        "docker")
-            if [[ "$DOCKER_NEEDS_SUDO" == "true" ]]; then
-                sudo docker build $build_args
-            else
-                docker build $build_args
-            fi
-            ;;
-        "nerdctl")
-            # Check if nerdctl needs sudo for K3s
-            if [[ "$NERDCTL_NEEDS_SUDO" == "true" ]]; then
-                sudo nerdctl build $build_args
-            elif command -v docker &> /dev/null && [[ -L "$(which docker)" ]] && readlink "$(which docker)" | grep -q nerdctl; then
-                # If docker is aliased to nerdctl, use docker command
-                docker build $build_args
-            else
-                nerdctl build $build_args
-            fi
-            ;;
-        "nerdctl-k3s"|"nerdctl-wrapper")
-            # These are wrappers that include sudo and K3s configuration
-            "$tool" build $build_args
-            ;;
-        "podman")
-            podman build $build_args
-            ;;
-        *)
-            error "Unsupported container tool: $tool"
-            ;;
-    esac
+    # If we have a full command (new format), use it directly
+    if [[ "$build_cmd" == *" "* ]]; then
+        # Full command with options
+        $build_cmd build $build_args
+    else
+        # Just a tool name (old format or fallback)
+        case "$build_cmd" in
+            "docker")
+                if [[ "$DOCKER_NEEDS_SUDO" == "true" ]]; then
+                    sudo docker build $build_args
+                else
+                    docker build $build_args
+                fi
+                ;;
+            "nerdctl")
+                if [[ "$NERDCTL_NEEDS_SUDO" == "true" ]]; then
+                    sudo nerdctl build $build_args
+                else
+                    nerdctl build $build_args
+                fi
+                ;;
+            "podman")
+                podman build $build_args
+                ;;
+            *)
+                error "Unsupported container tool: $build_cmd"
+                ;;
+        esac
+    fi
 }
 
 container_save() {
-    local tool=$(get_container_tool)
+    local build_cmd=$(get_build_command)
     local image="$1"
     
+    # If we have a full command (new format), use it directly
+    if [[ "$build_cmd" == *" "* ]]; then
+        # Full command with options
+        $build_cmd save "$image"
+        return
+    fi
+    
+    # Fall back to old logic for backward compatibility
+    local tool="$build_cmd"
     case "$tool" in
         "docker")
             if [[ "$DOCKER_NEEDS_SUDO" == "true" ]]; then
