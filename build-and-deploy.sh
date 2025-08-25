@@ -755,12 +755,15 @@ container_save() {
             # nerdctl save works the same as docker save
             if command -v docker &> /dev/null && [[ -L "$(which docker)" ]] && readlink "$(which docker)" | grep -q nerdctl; then
                 docker save "$image"
+            elif [[ "$NERDCTL_NEEDS_SUDO" == "true" ]]; then
+                # K3s nerdctl needs sudo
+                sudo nerdctl save "$image"
             elif nerdctl version &>/dev/null 2>&1; then
                 # Rootless nerdctl
                 nerdctl save "$image"
             elif sudo nerdctl version &>/dev/null 2>&1; then
-                # K3s nerdctl needs sudo
-                sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io save "$image"
+                # Fallback: K3s nerdctl needs sudo
+                sudo nerdctl save "$image"
             else
                 nerdctl save "$image"  # Fallback, may fail
             fi
@@ -1197,13 +1200,17 @@ check_deps() {
     # Check configured container tool exists
     printf "  • Build tool ($configured_tool): "
     if command -v "$configured_tool" &> /dev/null; then
-        # Verify it actually works (try with sudo if docker fails)
+        # Verify it actually works (try with sudo if docker/nerdctl fails)
         if "$configured_tool" version &> /dev/null 2>&1; then
             echo "✓"
         elif [[ "$configured_tool" == "docker" ]] && sudo docker version &> /dev/null 2>&1; then
             echo "✓ (requires sudo)"
             # Set a flag to use sudo with docker
             DOCKER_NEEDS_SUDO=true
+        elif [[ "$configured_tool" == "nerdctl" ]] && sudo nerdctl version &> /dev/null 2>&1; then
+            echo "✓ (requires sudo for K3s)"
+            # Set a flag to use sudo with nerdctl
+            NERDCTL_NEEDS_SUDO=true
         else
             echo "✗ (not working)"
             error "Configured tool '$configured_tool' is not working properly."
@@ -4017,12 +4024,15 @@ container_build() {
         nerdctl-k3s build "$@"
     elif [[ "$tool" == "nerdctl" ]]; then
         # Check if nerdctl needs sudo for K3s
-        if nerdctl version &>/dev/null 2>&1; then
+        if [[ "$NERDCTL_NEEDS_SUDO" == "true" ]]; then
+            # Need sudo for K3s containerd
+            sudo nerdctl build "$@"
+        elif nerdctl version &>/dev/null 2>&1; then
             # Rootless nerdctl works
             nerdctl build "$@"
         elif sudo nerdctl version &>/dev/null 2>&1; then
-            # Need sudo for K3s containerd
-            sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io build "$@"
+            # Fallback: try with sudo if flag wasn't set
+            sudo nerdctl build "$@"
         else
             error "nerdctl is not working. Please check your configuration."
         fi
