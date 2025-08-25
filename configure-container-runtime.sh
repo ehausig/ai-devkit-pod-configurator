@@ -134,7 +134,9 @@ detect_working_commands() {
     fi
     
     echo ""
-    echo "${commands[@]}"
+    # Use a special delimiter that won't appear in commands
+    local IFS=$'\036'  # ASCII record separator
+    echo "${commands[*]}"
 }
 
 # ============================================================================
@@ -206,7 +208,8 @@ select_build_command() {
     local commands=()
     local descriptions=()
     
-    IFS=' ' read -ra items <<< "$commands_string"
+    # Use same delimiter as detect_working_commands
+    IFS=$'\036' read -ra items <<< "$commands_string"
     for item in "${items[@]}"; do
         IFS='|' read -r cmd desc <<< "$item"
         commands+=("$cmd")
