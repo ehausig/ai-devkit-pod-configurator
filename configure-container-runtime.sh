@@ -41,16 +41,19 @@ detect_nerdctl() {
             # K3s is present, use K3s configuration
             if sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io version &> /dev/null 2>&1; then
                 echo "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
+                return
             elif nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io version &> /dev/null 2>&1; then
                 echo "nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
+                return
             fi
-        else
-            # No K3s, check standard nerdctl
-            if nerdctl version &> /dev/null 2>&1; then
-                echo "nerdctl"
-            elif sudo nerdctl version &> /dev/null 2>&1; then
-                echo "sudo nerdctl"
-            fi
+            # K3s socket exists but nerdctl can't connect - fall through to standard detection
+        fi
+        
+        # Check standard nerdctl
+        if nerdctl version &> /dev/null 2>&1; then
+            echo "nerdctl"
+        elif sudo nerdctl version &> /dev/null 2>&1; then
+            echo "sudo nerdctl"
         fi
     fi
 }
@@ -234,4 +237,4 @@ echo "  • Command: $selected_command"
 echo "  • Runtime: $runtime"
 echo "  • Import method: $import_method"
 echo ""
-echo "You can now run: ${BOLD}./build-and-deploy.sh${NC}"
+echo -e "You can now run: ${BOLD}./build-and-deploy.sh${NC}"
