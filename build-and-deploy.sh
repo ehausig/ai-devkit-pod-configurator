@@ -3950,8 +3950,13 @@ validate_environment() {
 
 # Check if Nexus is available
 check_nexus() {
-    if curl -s http://localhost:8081 > /dev/null 2>&1; then
-        return 0
+    # Check if Nexus is actually running and responding
+    if curl -s -o /dev/null -w "%{http_code}" http://localhost:8081 2>/dev/null | grep -q "200\|302\|301"; then
+        # Verify it's actually Nexus by checking a known endpoint
+        if curl -s http://localhost:8081/service/rest/v1/status 2>/dev/null | grep -q "edition" || \
+           curl -s http://localhost:8081/ 2>/dev/null | grep -q -i "nexus"; then
+            return 0
+        fi
     fi
     return 1
 }
@@ -4004,7 +4009,17 @@ setup_configuration() {
         echo "  • Nexus proxy at localhost:8081"
         NEXUS_AVAILABLE=true
         export DOCKER_BUILDKIT=0
-        export NEXUS_BUILD_ARGS="--build-arg PIP_INDEX_URL=http://host.lima.internal:8081/repository/pypi-proxy/simple --build-arg PIP_TRUSTED_HOST=host.lima.internal --build-arg NPM_REGISTRY=http://host.lima.internal:8081/repository/npm-proxy/ --build-arg GOPROXY=http://host.lima.internal:8081/repository/go-proxy/ --build-arg USE_NEXUS_APT=true --build-arg NEXUS_APT_URL=http://host.lima.internal:8081"
+        
+        # Determine the correct host address based on runtime
+        local nexus_host="localhost"
+        local runtime=$(get_configured_runtime)
+        if [[ "$runtime" == "colima" ]] || [[ "$runtime" == "lima" ]]; then
+            nexus_host="host.lima.internal"
+        elif [[ "$runtime" == "docker-desktop" ]]; then
+            nexus_host="host.docker.internal"
+        fi
+        
+        export NEXUS_BUILD_ARGS="--build-arg PIP_INDEX_URL=http://${nexus_host}:8081/repository/pypi-proxy/simple --build-arg PIP_TRUSTED_HOST=${nexus_host} --build-arg NPM_REGISTRY=http://${nexus_host}:8081/repository/npm-proxy/ --build-arg GOPROXY=http://${nexus_host}:8081/repository/go-proxy/ --build-arg USE_NEXUS_APT=true --build-arg NEXUS_APT_URL=http://${nexus_host}:8081"
     fi
     
     # Check for host git configuration
