@@ -110,40 +110,60 @@ detect_nexus() {
     # Check common Nexus URLs based on detected runtime
     local runtime=$(detect_kubernetes_runtime)
     
+    # Function to check a URL with timeout and progress
+    check_nexus_url() {
+        local url="$1"
+        local desc="$2"
+        printf "  Checking $desc... "
+        
+        # Use shorter timeout (2 seconds) and check for Nexus-specific endpoint
+        if curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 --max-time 3 "${url}/service/rest/v1/status" 2>/dev/null | grep -q "200\|401"; then
+            echo -e "${GREEN}✓${NC}"
+            return 0
+        else
+            echo -e "${YELLOW}✗${NC}"
+            return 1
+        fi
+    }
+    
     # Always check localhost first
-    if curl -s -o /dev/null -w "%{http_code}" http://localhost:8081/service/rest/v1/status 2>/dev/null | grep -q "200\|401"; then
+    if check_nexus_url "http://localhost:8081" "localhost:8081"; then
         urls+=("http://localhost:8081")
         descriptions+=("Nexus on localhost:8081")
     fi
     
-    # Check runtime-specific URLs
+    # Check runtime-specific URLs only if relevant
     case "$runtime" in
         "colima"|"lima")
-            if curl -s -o /dev/null -w "%{http_code}" http://host.lima.internal:8081/service/rest/v1/status 2>/dev/null | grep -q "200\|401"; then
+            if check_nexus_url "http://host.lima.internal:8081" "host.lima.internal:8081"; then
                 urls+=("http://host.lima.internal:8081")
                 descriptions+=("Nexus via Lima host (host.lima.internal:8081)")
             fi
             ;;
         "docker-desktop")
-            if curl -s -o /dev/null -w "%{http_code}" http://host.docker.internal:8081/service/rest/v1/status 2>/dev/null | grep -q "200\|401"; then
+            if check_nexus_url "http://host.docker.internal:8081" "host.docker.internal:8081"; then
                 urls+=("http://host.docker.internal:8081")
                 descriptions+=("Nexus via Docker Desktop (host.docker.internal:8081)")
             fi
             ;;
         "k3s"|"minikube"|"kind")
-            # For K3s/Linux, check docker bridge IP
-            if ip route | grep -q "docker0"; then
+            # For K3s/Linux, check docker bridge IP if it exists
+            if ip route 2>/dev/null | grep -q "docker0"; then
                 local docker_bridge=$(ip route | grep "docker0" | awk '{print $9}' | head -1)
-                if [[ -n "$docker_bridge" ]] && curl -s -o /dev/null -w "%{http_code}" http://${docker_bridge}:8081/service/rest/v1/status 2>/dev/null | grep -q "200\|401"; then
-                    urls+=("http://${docker_bridge}:8081")
-                    descriptions+=("Nexus via Docker bridge (${docker_bridge}:8081)")
+                if [[ -n "$docker_bridge" ]]; then
+                    if check_nexus_url "http://${docker_bridge}:8081" "${docker_bridge}:8081"; then
+                        urls+=("http://${docker_bridge}:8081")
+                        descriptions+=("Nexus via Docker bridge (${docker_bridge}:8081)")
+                    fi
                 fi
             fi
             
-            # Check default bridge IP
-            if curl -s -o /dev/null -w "%{http_code}" http://172.17.0.1:8081/service/rest/v1/status 2>/dev/null | grep -q "200\|401"; then
-                urls+=("http://172.17.0.1:8081")
-                descriptions+=("Nexus via default Docker bridge (172.17.0.1:8081)")
+            # Only check default bridge if we haven't found anything yet
+            if [ ${#urls[@]} -eq 0 ]; then
+                if check_nexus_url "http://172.17.0.1:8081" "172.17.0.1:8081"; then
+                    urls+=("http://172.17.0.1:8081")
+                    descriptions+=("Nexus via default Docker bridge (172.17.0.1:8081)")
+                fi
             fi
             ;;
     esac
@@ -289,10 +309,9 @@ if [[ -n "$nexus_detection" ]]; then
         nexus_descs+=("${nexus_data[$((i + half))]}")
     done
     
-    echo -e "${GREEN}✓${NC} Found Nexus repository manager:"
     echo ""
-    
     if [ ${#nexus_urls[@]} -eq 1 ]; then
+        echo -e "${GREEN}✓${NC} Found Nexus repository manager"
         echo -e "  Using: ${CYAN}${nexus_descs[0]}${NC}"
         nexus_url="${nexus_urls[0]}"
         nexus_enabled="true"
