@@ -16,7 +16,7 @@ CONFIG_FILE="$CONFIG_DIR/config.yaml"
 # Ensure config directory exists
 mkdir -p "$CONFIG_DIR"
 
-echo -e "${BLUE}=== AI DevKit - Container Runtime Configuration ===${NC}"
+echo -e "${BLUE}=== AI DevKit Configuration ===${NC}"
 echo ""
 
 # ============================================================================
@@ -101,6 +101,57 @@ detect_kubernetes_runtime() {
     fi
     
     echo "unknown"
+}
+
+detect_nexus() {
+    local urls=()
+    local descriptions=()
+    
+    # Check common Nexus URLs based on detected runtime
+    local runtime=$(detect_kubernetes_runtime)
+    
+    # Always check localhost first
+    if curl -s -o /dev/null -w "%{http_code}" http://localhost:8081/service/rest/v1/status 2>/dev/null | grep -q "200\|401"; then
+        urls+=("http://localhost:8081")
+        descriptions+=("Nexus on localhost:8081")
+    fi
+    
+    # Check runtime-specific URLs
+    case "$runtime" in
+        "colima"|"lima")
+            if curl -s -o /dev/null -w "%{http_code}" http://host.lima.internal:8081/service/rest/v1/status 2>/dev/null | grep -q "200\|401"; then
+                urls+=("http://host.lima.internal:8081")
+                descriptions+=("Nexus via Lima host (host.lima.internal:8081)")
+            fi
+            ;;
+        "docker-desktop")
+            if curl -s -o /dev/null -w "%{http_code}" http://host.docker.internal:8081/service/rest/v1/status 2>/dev/null | grep -q "200\|401"; then
+                urls+=("http://host.docker.internal:8081")
+                descriptions+=("Nexus via Docker Desktop (host.docker.internal:8081)")
+            fi
+            ;;
+        "k3s"|"minikube"|"kind")
+            # For K3s/Linux, check docker bridge IP
+            if ip route | grep -q "docker0"; then
+                local docker_bridge=$(ip route | grep "docker0" | awk '{print $9}' | head -1)
+                if [[ -n "$docker_bridge" ]] && curl -s -o /dev/null -w "%{http_code}" http://${docker_bridge}:8081/service/rest/v1/status 2>/dev/null | grep -q "200\|401"; then
+                    urls+=("http://${docker_bridge}:8081")
+                    descriptions+=("Nexus via Docker bridge (${docker_bridge}:8081)")
+                fi
+            fi
+            
+            # Check default bridge IP
+            if curl -s -o /dev/null -w "%{http_code}" http://172.17.0.1:8081/service/rest/v1/status 2>/dev/null | grep -q "200\|401"; then
+                urls+=("http://172.17.0.1:8081")
+                descriptions+=("Nexus via default Docker bridge (172.17.0.1:8081)")
+            fi
+            ;;
+    esac
+    
+    # Return arrays as string (with record separator)
+    if [ ${#urls[@]} -gt 0 ]; then
+        printf "%s\x1e%s\n" "${urls[@]}" "${descriptions[@]}"
+    fi
 }
 
 # ============================================================================
@@ -212,11 +263,96 @@ elif [[ "$selected_command" == *"docker"* ]] && [[ "$runtime" == "docker-desktop
     import_method="none"
 fi
 
+# ============================================================================
+# NEXUS CONFIGURATION
+# ============================================================================
+
+echo ""
+echo "Detecting Nexus repository manager..."
+echo ""
+
+nexus_enabled="false"
+nexus_url=""
+
+# Detect available Nexus instances
+nexus_detection=$(detect_nexus)
+if [[ -n "$nexus_detection" ]]; then
+    # Parse detection results
+    IFS=$'\x1e' read -ra nexus_data <<< "$nexus_detection"
+    nexus_urls=()
+    nexus_descs=()
+    
+    # Split into urls and descriptions
+    half=$((${#nexus_data[@]} / 2))
+    for ((i=0; i<$half; i++)); do
+        nexus_urls+=("${nexus_data[$i]}")
+        nexus_descs+=("${nexus_data[$((i + half))]}")
+    done
+    
+    echo -e "${GREEN}✓${NC} Found Nexus repository manager:"
+    echo ""
+    
+    if [ ${#nexus_urls[@]} -eq 1 ]; then
+        echo -e "  Using: ${CYAN}${nexus_descs[0]}${NC}"
+        nexus_url="${nexus_urls[0]}"
+        nexus_enabled="true"
+    else
+        echo "Multiple Nexus endpoints detected:"
+        echo ""
+        for i in "${!nexus_urls[@]}"; do
+            echo -e "  ${BOLD}$((i+1))${NC}) ${nexus_descs[$i]}"
+            echo -e "     URL: ${CYAN}${nexus_urls[$i]}${NC}"
+            echo ""
+        done
+        echo -e "  ${BOLD}$((${#nexus_urls[@]}+1))${NC}) None - Don't use Nexus proxy"
+        echo -e "  ${BOLD}$((${#nexus_urls[@]}+2))${NC}) Custom - Enter a different URL"
+        echo ""
+        
+        while true; do
+            read -p "Select Nexus configuration (1-$((${#nexus_urls[@]}+2))): " nexus_selection
+            if [[ "$nexus_selection" =~ ^[0-9]+$ ]]; then
+                if [ "$nexus_selection" -ge 1 ] && [ "$nexus_selection" -le "${#nexus_urls[@]}" ]; then
+                    nexus_url="${nexus_urls[$((nexus_selection - 1))]}"
+                    nexus_enabled="true"
+                    break
+                elif [ "$nexus_selection" -eq "$((${#nexus_urls[@]}+1))" ]; then
+                    nexus_enabled="false"
+                    break
+                elif [ "$nexus_selection" -eq "$((${#nexus_urls[@]}+2))" ]; then
+                    read -p "Enter custom Nexus URL (e.g., http://nexus.example.com:8081): " custom_url
+                    if [[ "$custom_url" =~ ^https?:// ]]; then
+                        nexus_url="$custom_url"
+                        nexus_enabled="true"
+                        break
+                    else
+                        echo -e "${RED}Invalid URL. Must start with http:// or https://${NC}"
+                    fi
+                else
+                    echo -e "${RED}Invalid selection.${NC}"
+                fi
+            else
+                echo -e "${RED}Please enter a number.${NC}"
+            fi
+        done
+    fi
+else
+    echo -e "${YELLOW}No Nexus repository manager detected.${NC}"
+    echo ""
+    read -p "Do you want to configure a Nexus proxy manually? (y/N): " configure_nexus
+    if [[ "$configure_nexus" =~ ^[Yy] ]]; then
+        read -p "Enter Nexus URL (e.g., http://nexus.example.com:8081): " custom_url
+        if [[ "$custom_url" =~ ^https?:// ]]; then
+            nexus_url="$custom_url"
+            nexus_enabled="true"
+        fi
+    fi
+fi
+
 # Write configuration
 cat > "$CONFIG_FILE" << EOF
-# AI DevKit Container Runtime Configuration
+# AI DevKit Configuration
 # Generated: $(date)
-# To reconfigure: ./configure-container-runtime.sh
+# To reconfigure: ./configure-ai-devkit.sh
 
 container:
   # The command to build containers
@@ -227,6 +363,20 @@ container:
   
   # How to import images to runtime
   runtime_import: $import_method
+
+nexus:
+  # Whether to use Nexus proxy
+  enabled: $nexus_enabled
+  
+  # Nexus URL (if enabled)
+  url: "$nexus_url"
+  
+  # Repository types to proxy (can be customized)
+  repositories:
+    apt: true
+    pypi: true
+    npm: true
+    go: true
 EOF
 
 echo -e "${GREEN}✓${NC} Configuration saved to $CONFIG_FILE"
@@ -236,5 +386,10 @@ echo "  • Build tool: $selected_description"
 echo "  • Command: $selected_command"
 echo "  • Runtime: $runtime"
 echo "  • Import method: $import_method"
+if [[ "$nexus_enabled" == "true" ]]; then
+    echo "  • Nexus proxy: $nexus_url"
+else
+    echo "  • Nexus proxy: disabled"
+fi
 echo ""
 echo -e "You can now run: ${BOLD}./build-and-deploy.sh${NC}"

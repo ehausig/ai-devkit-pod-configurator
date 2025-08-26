@@ -642,11 +642,60 @@ CONFIG_FILE="$HOME/.ai-devkit/config.yaml"
 read_config() {
     local key="$1"
     if [[ -f "$CONFIG_FILE" ]]; then
-        # Extract value using grep and sed (works without yq)
-        # Also strip surrounding quotes if present
-        local value=$(grep "^  ${key##*.}: " "$CONFIG_FILE" 2>/dev/null | sed 's/.*: //' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sed 's/^"//;s/"$//')
-        if [[ -n "$value" ]] && [[ "$value" != "null" ]]; then
-            echo "$value"
+        # Handle nested keys like "nexus.enabled" or "nexus.repositories.apt"
+        if [[ "$key" == *"."* ]]; then
+            # Complex nested key - use awk for better parsing
+            local value=$(awk -v key="$key" '
+                BEGIN { 
+                    split(key, parts, ".")
+                    depth = length(parts)
+                }
+                {
+                    # Remove leading/trailing spaces
+                    gsub(/^[[:space:]]+|[[:space:]]+$/, "")
+                    
+                    # Count indentation level (2 spaces per level)
+                    indent = gsub(/^  /, "")
+                    
+                    # Check if we match the pattern
+                    if (depth == 2 && indent == 1 && $0 ~ "^" parts[2] ":") {
+                        if (prev_section == parts[1]) {
+                            gsub(/^[^:]+:[[:space:]]*/, "")
+                            gsub(/^"|"$/, "")
+                            print
+                            exit
+                        }
+                    }
+                    else if (depth == 3 && indent == 2 && $0 ~ "^" parts[3] ":") {
+                        if (prev_section == parts[1] && prev_subsection == parts[2]) {
+                            gsub(/^[^:]+:[[:space:]]*/, "")
+                            gsub(/^"|"$/, "")
+                            print
+                            exit
+                        }
+                    }
+                    
+                    # Track sections
+                    if (indent == 0 && $0 ~ /:$/) {
+                        gsub(/:$/, "")
+                        prev_section = $0
+                    }
+                    else if (indent == 1 && $0 ~ /:$/) {
+                        gsub(/:$/, "")
+                        prev_subsection = $0
+                    }
+                }
+            ' "$CONFIG_FILE")
+            
+            if [[ -n "$value" ]] && [[ "$value" != "null" ]]; then
+                echo "$value"
+            fi
+        else
+            # Simple top-level key - use original method
+            local value=$(grep "^  ${key}: " "$CONFIG_FILE" 2>/dev/null | sed 's/.*: //' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sed 's/^"//;s/"$//')
+            if [[ -n "$value" ]] && [[ "$value" != "null" ]]; then
+                echo "$value"
+            fi
         fi
     fi
 }
@@ -675,7 +724,7 @@ get_container_tool() {
                 echo "$tool"
                 return 0
             else
-                error "Configured tool '$tool' is not available. Please run ./configure-container-runtime.sh"
+                error "Configured tool '$tool' is not available. Please run ./configure-ai-devkit.sh"
             fi
         fi
     fi
@@ -684,7 +733,7 @@ get_container_tool() {
     echo ""
     echo "${YELLOW}Container runtime not configured.${NC}"
     echo ""
-    echo "Please run: ${BOLD}./configure-container-runtime.sh${NC}"
+    echo "Please run: ${BOLD}./configure-ai-devkit.sh${NC}"
     echo ""
     echo "This will:"
     echo "  • Detect available container tools (docker, nerdctl, podman)"
@@ -1234,7 +1283,7 @@ check_deps() {
         echo ""
         echo "${YELLOW}Container runtime not configured.${NC}"
         echo ""
-        echo "Please run: ${BOLD}./configure-container-runtime.sh${NC}"
+        echo "Please run: ${BOLD}./configure-ai-devkit.sh${NC}"
         echo ""
         echo "This will detect your available tools and save your preferences."
         exit 1
@@ -1251,7 +1300,7 @@ check_deps() {
     if [[ -z "$configured_tool" ]] || [[ -z "$configured_runtime" ]]; then
         echo ""
         echo "${YELLOW}Configuration incomplete.${NC}"
-        echo "Please run: ./configure-container-runtime.sh"
+        echo "Please run: ./configure-ai-devkit.sh"
         exit 1
     fi
     
@@ -1291,7 +1340,7 @@ check_deps() {
         else
             echo "✗ (not found)"
             echo ""
-            error "Configured tool '$configured_tool' is not installed.\nPlease install it or run ./configure-container-runtime.sh to reconfigure."
+            error "Configured tool '$configured_tool' is not installed.\nPlease install it or run ./configure-ai-devkit.sh to reconfigure."
         fi
     fi
     
@@ -4001,25 +4050,45 @@ initialize_components() {
 
 # Function to setup configuration options
 setup_configuration() {
-    # Check Nexus first
+    # Check Nexus configuration from YAML
     NEXUS_AVAILABLE=false
-    if check_nexus; then
+    local nexus_enabled=$(read_config "nexus.enabled")
+    local nexus_url=$(read_config "nexus.url")
+    
+    if [[ "$nexus_enabled" == "true" ]] && [[ -n "$nexus_url" ]]; then
         echo ""
         echo "Optional services detected:"
-        echo "  • Nexus proxy at localhost:8081"
+        echo "  • Nexus proxy at $nexus_url"
         NEXUS_AVAILABLE=true
         export DOCKER_BUILDKIT=0
         
-        # Determine the correct host address based on runtime
-        local nexus_host="localhost"
-        local runtime=$(get_configured_runtime)
-        if [[ "$runtime" == "colima" ]] || [[ "$runtime" == "lima" ]]; then
-            nexus_host="host.lima.internal"
-        elif [[ "$runtime" == "docker-desktop" ]]; then
-            nexus_host="host.docker.internal"
+        # Extract host from URL for trusted host parameter
+        local nexus_host=$(echo "$nexus_url" | sed -E 's|https?://([^:/]+).*|\1|')
+        
+        # Check which repositories are enabled
+        local apt_enabled=$(read_config "nexus.repositories.apt")
+        local pypi_enabled=$(read_config "nexus.repositories.pypi")
+        local npm_enabled=$(read_config "nexus.repositories.npm")
+        local go_enabled=$(read_config "nexus.repositories.go")
+        
+        # Build args based on enabled repositories
+        NEXUS_BUILD_ARGS=""
+        if [[ "$pypi_enabled" != "false" ]]; then
+            NEXUS_BUILD_ARGS+=" --build-arg PIP_INDEX_URL=${nexus_url}/repository/pypi-proxy/simple"
+            NEXUS_BUILD_ARGS+=" --build-arg PIP_TRUSTED_HOST=${nexus_host}"
+        fi
+        if [[ "$npm_enabled" != "false" ]]; then
+            NEXUS_BUILD_ARGS+=" --build-arg NPM_REGISTRY=${nexus_url}/repository/npm-proxy/"
+        fi
+        if [[ "$go_enabled" != "false" ]]; then
+            NEXUS_BUILD_ARGS+=" --build-arg GOPROXY=${nexus_url}/repository/go-proxy/"
+        fi
+        if [[ "$apt_enabled" != "false" ]]; then
+            NEXUS_BUILD_ARGS+=" --build-arg USE_NEXUS_APT=true"
+            NEXUS_BUILD_ARGS+=" --build-arg NEXUS_APT_URL=${nexus_url}"
         fi
         
-        export NEXUS_BUILD_ARGS="--build-arg PIP_INDEX_URL=http://${nexus_host}:8081/repository/pypi-proxy/simple --build-arg PIP_TRUSTED_HOST=${nexus_host} --build-arg NPM_REGISTRY=http://${nexus_host}:8081/repository/npm-proxy/ --build-arg GOPROXY=http://${nexus_host}:8081/repository/go-proxy/ --build-arg USE_NEXUS_APT=true --build-arg NEXUS_APT_URL=http://${nexus_host}:8081"
+        export NEXUS_BUILD_ARGS
     fi
     
     # Check for host git configuration
