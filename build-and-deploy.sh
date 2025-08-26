@@ -1235,7 +1235,11 @@ check_deps() {
     fi
     
     # Read configuration
-    local configured_tool=$(read_config "build_tool")
+    local configured_tool=$(read_config "build_command")
+    if [[ -z "$configured_tool" ]]; then
+        # Fall back to old config format
+        configured_tool=$(read_config "build_tool")
+    fi
     local configured_runtime=$(read_config "runtime")
     
     if [[ -z "$configured_tool" ]] || [[ -z "$configured_runtime" ]]; then
@@ -1248,27 +1252,41 @@ check_deps() {
     echo "Checking prerequisites:"
     
     # Check configured container tool exists
-    printf "  • Build tool ($configured_tool): "
-    if command -v "$configured_tool" &> /dev/null; then
-        # Verify it actually works (try with sudo if docker/nerdctl fails)
-        if "$configured_tool" version &> /dev/null 2>&1; then
+    printf "  • Build tool: "
+    
+    # Check if it's a full command or just a tool name
+    if [[ "$configured_tool" == *" "* ]]; then
+        # Full command - test it directly
+        if $configured_tool version &> /dev/null 2>&1; then
             echo "✓"
-        elif [[ "$configured_tool" == "docker" ]] && sudo docker version &> /dev/null 2>&1; then
-            echo "✓ (requires sudo)"
-            # Set a flag to use sudo with docker
-            DOCKER_NEEDS_SUDO=true
-        elif [[ "$configured_tool" == "nerdctl" ]] && sudo nerdctl version &> /dev/null 2>&1; then
-            echo "✓ (requires sudo for K3s)"
-            # Set a flag to use sudo with nerdctl
-            NERDCTL_NEEDS_SUDO=true
+            echo "    Using: $configured_tool"
         else
-            echo "✗ (not working)"
-            error "Configured tool '$configured_tool' is not working properly."
+            echo "✗ (command failed)"
+            error "Configured command '$configured_tool' is not working properly."
         fi
     else
-        echo "✗ (not found)"
-        echo ""
-        error "Configured tool '$configured_tool' is not installed.\nPlease install it or run ./configure-container-runtime.sh to reconfigure."
+        # Simple tool name - use existing logic
+        if command -v "$configured_tool" &> /dev/null; then
+            # Verify it actually works (try with sudo if docker/nerdctl fails)
+            if "$configured_tool" version &> /dev/null 2>&1; then
+                echo "✓"
+            elif [[ "$configured_tool" == "docker" ]] && sudo docker version &> /dev/null 2>&1; then
+                echo "✓ (requires sudo)"
+                # Set a flag to use sudo with docker
+                DOCKER_NEEDS_SUDO=true
+            elif [[ "$configured_tool" == "nerdctl" ]] && sudo nerdctl version &> /dev/null 2>&1; then
+                echo "✓ (requires sudo for K3s)"
+                # Set a flag to use sudo with nerdctl
+                NERDCTL_NEEDS_SUDO=true
+            else
+                echo "✗ (not working)"
+                error "Configured tool '$configured_tool' is not working properly."
+            fi
+        else
+            echo "✗ (not found)"
+            echo ""
+            error "Configured tool '$configured_tool' is not installed.\nPlease install it or run ./configure-container-runtime.sh to reconfigure."
+        fi
     fi
     
     # Check configured runtime
