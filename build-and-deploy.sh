@@ -657,7 +657,12 @@ get_container_tool() {
     local build_cmd=$(read_config "build_command")
     if [[ -n "$build_cmd" ]]; then
         # Extract tool name from command (for compatibility)
-        echo "$build_cmd" | awk '{print $1}' | sed 's/^sudo //'
+        # Handle "sudo nerdctl ..." -> "nerdctl"
+        if [[ "$build_cmd" == sudo\ * ]]; then
+            echo "$build_cmd" | awk '{print $2}'
+        else
+            echo "$build_cmd" | awk '{print $1}'
+        fi
         return 0
     fi
     
