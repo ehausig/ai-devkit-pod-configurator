@@ -643,7 +643,8 @@ read_config() {
     local key="$1"
     if [[ -f "$CONFIG_FILE" ]]; then
         # Extract value using grep and sed (works without yq)
-        local value=$(grep "^  ${key##*.}: " "$CONFIG_FILE" 2>/dev/null | sed 's/.*: //' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        # Also strip surrounding quotes if present
+        local value=$(grep "^  ${key##*.}: " "$CONFIG_FILE" 2>/dev/null | sed 's/.*: //' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sed 's/^"//;s/"$//')
         if [[ -n "$value" ]] && [[ "$value" != "null" ]]; then
             echo "$value"
         fi
