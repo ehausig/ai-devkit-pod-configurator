@@ -80,7 +80,39 @@ container:
 
 ---
 
+## 2024-01-27: Nexus Configuration Issue
+
+### Problem
+Build failed with APT repository 404 errors when `nexus.enabled: true` but Nexus instance doesn't have Ubuntu APT repositories configured.
+
+### Root Cause
+The script assumes if Nexus is enabled, it has APT repositories at:
+- `/repository/ubuntu-main/`
+- `/repository/ubuntu-security/`
+- `/repository/ubuntu-updates/`
+
+This assumption is incorrect - Nexus may only be used for language-specific packages (PyPI, NPM, etc).
+
+### Solution
+Set `nexus.enabled: false` in config.yaml to disable ALL Nexus functionality for now.
+
+### Better Solution (TODO)
+Separate Nexus configuration:
+```yaml
+nexus:
+  enabled: true
+  url: "http://localhost:8081"
+  repositories:
+    apt: false  # Don't use for APT
+    pypi: true  # Use for Python
+    npm: true   # Use for Node.js
+    # etc.
+```
+
+---
+
 ## Future Considerations
+- Separate Nexus APT proxy from language package proxies
 - May need to reintroduce `configure-ai-devkit.sh` for initial setup
 - Consider config schema validation
 - Document all required config fields
