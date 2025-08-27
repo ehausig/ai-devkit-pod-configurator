@@ -3960,7 +3960,8 @@ setup_configuration() {
             if [[ "$go_enabled" != "false" ]]; then
                 NEXUS_BUILD_ARGS+=" --build-arg GOPROXY=${nexus_url}/repository/go-proxy/"
             fi
-            if [[ "$apt_enabled" != "false" ]]; then
+            # Only enable APT if explicitly set to true (don't assume)
+            if [[ "$apt_enabled" == "true" ]]; then
                 NEXUS_BUILD_ARGS+=" --build-arg USE_NEXUS_APT=true"
                 NEXUS_BUILD_ARGS+=" --build-arg NEXUS_APT_URL=${nexus_url}"
             fi
