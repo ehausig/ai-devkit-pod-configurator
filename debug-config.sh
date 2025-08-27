@@ -20,7 +20,8 @@ else
 fi
 
 # Source the read_config function from build-and-deploy.sh
-source <(sed -n '/^read_config()/,/^}/p' build-and-deploy.sh)
+# Extract from 'read_config() {' to the closing brace
+source <(awk '/^read_config\(\) \{/,/^}/' build-and-deploy.sh)
 
 echo "Testing config key reading:"
 echo "--------------------------"

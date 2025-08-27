@@ -641,62 +641,67 @@ CONFIG_FILE="$HOME/.ai-devkit/config.yaml"
 # Read configuration from YAML file
 read_config() {
     local key="$1"
-    if [[ -f "$CONFIG_FILE" ]]; then
-        # Handle nested keys like "nexus.enabled" or "nexus.repositories.apt"
-        if [[ "$key" == *"."* ]]; then
-            # Complex nested key - use awk for better parsing
-            local value=$(awk -v key="$key" '
-                BEGIN { 
-                    split(key, parts, ".")
-                    depth = length(parts)
-                }
-                {
-                    # Remove leading/trailing spaces
-                    gsub(/^[[:space:]]+|[[:space:]]+$/, "")
-                    
-                    # Count indentation level (2 spaces per level)
-                    indent = gsub(/^  /, "")
-                    
-                    # Check if we match the pattern
-                    if (depth == 2 && indent == 1 && $0 ~ "^" parts[2] ":") {
-                        if (prev_section == parts[1]) {
-                            gsub(/^[^:]+:[[:space:]]*/, "")
-                            gsub(/^"|"$/, "")
-                            print
-                            exit
-                        }
-                    }
-                    else if (depth == 3 && indent == 2 && $0 ~ "^" parts[3] ":") {
-                        if (prev_section == parts[1] && prev_subsection == parts[2]) {
-                            gsub(/^[^:]+:[[:space:]]*/, "")
-                            gsub(/^"|"$/, "")
-                            print
-                            exit
-                        }
-                    }
-                    
-                    # Track sections
-                    if (indent == 0 && $0 ~ /:$/) {
-                        gsub(/:$/, "")
-                        prev_section = $0
-                    }
-                    else if (indent == 1 && $0 ~ /:$/) {
-                        gsub(/:$/, "")
-                        prev_subsection = $0
-                    }
-                }
-            ' "$CONFIG_FILE")
-            
-            if [[ -n "$value" ]] && [[ "$value" != "null" ]]; then
+    if [[ ! -f "$CONFIG_FILE" ]]; then
+        return
+    fi
+    
+    # Handle nested keys like "container.build_command"
+    if [[ "$key" == *"."* ]]; then
+        # Use yq if available for more reliable YAML parsing
+        if command -v yq &>/dev/null; then
+            # Try mikefarah/yq syntax first
+            local value=$(yq eval ".${key} // \"\"" "$CONFIG_FILE" 2>/dev/null)
+            if [[ -n "$value" ]] && [[ "$value" != "null" ]] && [[ "$value" != "" ]]; then
                 echo "$value"
+                return
             fi
-        else
-            # Simple top-level key - use original method
-            local value=$(grep "^  ${key}: " "$CONFIG_FILE" 2>/dev/null | sed 's/.*: //' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sed 's/^"//;s/"$//')
-            if [[ -n "$value" ]] && [[ "$value" != "null" ]]; then
+            # Try kislyuk/yq syntax
+            value=$(yq -r ".${key} // \"\"" "$CONFIG_FILE" 2>/dev/null)
+            if [[ -n "$value" ]] && [[ "$value" != "null" ]] && [[ "$value" != "" ]]; then
                 echo "$value"
+                return
             fi
         fi
+        
+        # Fallback to simple bash parsing for two-level keys
+        local section="${key%%.*}"
+        local field="${key#*.}"
+        
+        # Read the file and parse
+        local in_section=0
+        local value=""
+        while IFS= read -r line; do
+            # Check if we're entering the target section (no leading spaces)
+            if [[ "$line" =~ ^${section}:[[:space:]]*$ ]]; then
+                in_section=1
+                continue
+            fi
+            
+            # If we're in the section
+            if [[ $in_section -eq 1 ]]; then
+                # Check if line starts with exactly 2 spaces (YAML indent for level 1)
+                if [[ "$line" =~ ^"  "[^[:space:]] ]]; then
+                    # Check if this line has our field
+                    if [[ "$line" =~ ^"  "${field}:[[:space:]]* ]]; then
+                        # Extract the value after the colon and spaces
+                        value="${line#*: }"
+                        # Remove leading/trailing spaces and quotes
+                        value="${value#"${value%%[![:space:]]*}"}"  # Remove leading spaces
+                        value="${value%"${value##*[![:space:]]}"}"  # Remove trailing spaces
+                        value="${value#\"}"  # Remove leading quote
+                        value="${value%\"}"  # Remove trailing quote
+                        echo "$value"
+                        return
+                    fi
+                elif [[ "$line" =~ ^[^[:space:]] ]] && [[ -n "${line// /}" ]]; then
+                    # We've hit another top-level section
+                    in_section=0
+                fi
+            fi
+        done < "$CONFIG_FILE"
+    else
+        # Simple top-level key
+        grep "^${key}:" "$CONFIG_FILE" 2>/dev/null | head -1 | sed 's/^[^:]*:[[:space:]]*//' | sed 's/^"//;s/"$//'
     fi
 }
 
