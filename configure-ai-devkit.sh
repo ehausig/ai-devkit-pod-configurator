@@ -16,7 +16,13 @@ CONFIG_FILE="$CONFIG_DIR/config.yaml"
 # Ensure config directory exists
 mkdir -p "$CONFIG_DIR"
 
-echo -e "${BLUE}=== AI DevKit Configuration ===${NC}"
+echo -e "${CYAN}=== AI DevKit Configuration ===${NC}"
+echo ""
+echo -e "This script will configure:"
+echo -e "  1. Container runtime (Docker, Podman, nerdctl)"
+echo -e "  2. Repository managers (Nexus, PyPI, NPM, etc.)"
+echo ""
+echo -e "${BLUE}Step 1: Container Runtime Configuration${NC}"
 echo ""
 
 # ============================================================================
@@ -398,7 +404,8 @@ nexus:
     go: true
 EOF
 
-echo -e "${GREEN}✓${NC} Configuration saved to $CONFIG_FILE"
+# Save initial configuration (will be updated if repositories are configured)
+echo -e "${GREEN}✓${NC} Container runtime configuration saved"
 echo ""
 echo "Summary:"
 echo "  • Build tool: $selected_description"
@@ -411,4 +418,361 @@ else
     echo "  • Nexus proxy: disabled"
 fi
 echo ""
-echo -e "You can now run: ${BOLD}./build-and-deploy.sh${NC}"
+
+# ============================================================================
+# REPOSITORY CONFIGURATION FUNCTIONS
+# ============================================================================
+
+# Get script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source repository configuration library
+if [[ -f "${SCRIPT_DIR}/lib/repository-config.sh" ]]; then
+    source "${SCRIPT_DIR}/lib/repository-config.sh"
+else
+    echo -e "${YELLOW}Warning: Repository configuration library not found${NC}"
+fi
+
+# Terminal handling for TUI
+setup_terminal() {
+    # Save current terminal settings
+    SAVED_STTY=$(stty -g 2>/dev/null)
+    # Hide cursor
+    tput civis 2>/dev/null || true
+    # Clear screen
+    clear
+}
+
+cleanup_terminal() {
+    # Restore terminal settings
+    [[ -n "$SAVED_STTY" ]] && stty "$SAVED_STTY" 2>/dev/null
+    # Show cursor
+    tput cnorm 2>/dev/null || true
+    # Clear screen
+    clear
+}
+
+# Function to configure component repositories
+configure_component_repositories() {
+    echo ""
+    echo -e "${CYAN}=== Repository Configuration ===${NC}"
+    echo ""
+    
+    # Load eligible components
+    echo "Scanning for eligible components..."
+    local components=($(find_eligible_components))
+    
+    if [[ ${#components[@]} -eq 0 ]]; then
+        echo -e "${YELLOW}No components with repository support found.${NC}"
+        return
+    fi
+    
+    echo -e "${GREEN}Found ${#components[@]} components with repository support${NC}"
+    echo ""
+    
+    # Configure Nexus (optional)
+    configure_nexus_repository
+    
+    # Configure component repositories
+    echo ""
+    echo -e "${BLUE}Configuring component repositories...${NC}"
+    echo -e "${YELLOW}This will open an interactive interface for selecting repositories.${NC}"
+    echo ""
+    read -p "Press Enter to continue..." -r
+    
+    # Run the dual-panel TUI
+    setup_terminal
+    trap cleanup_terminal EXIT INT TERM
+    
+    configure_repositories_tui "${components[@]}"
+    
+    cleanup_terminal
+    trap - EXIT INT TERM
+    
+    echo ""
+    echo -e "${GREEN}✓ Repository configuration complete${NC}"
+}
+
+# Function to configure Nexus
+configure_nexus_repository() {
+    echo -e "${BLUE}Nexus Repository Manager Configuration${NC}"
+    echo ""
+    read -p "Do you have a Nexus repository manager? (y/N): " has_nexus
+    
+    if [[ ! "$has_nexus" =~ ^[Yy] ]]; then
+        return
+    fi
+    
+    echo ""
+    read -p "Enter Nexus URL (e.g., http://nexus.example.com:8081): " nexus_url
+    
+    if [[ -z "$nexus_url" ]]; then
+        echo -e "${YELLOW}No URL provided, skipping Nexus configuration${NC}"
+        return
+    fi
+    
+    # Remove trailing slash
+    nexus_url="${nexus_url%/}"
+    
+    echo ""
+    echo "Select authentication type:"
+    echo "  1) Anonymous (no authentication)"
+    echo "  2) Basic authentication (username/password)"
+    echo ""
+    read -p "Select (1-2) [1]: " auth_choice
+    
+    local auth_type="anonymous"
+    local username=""
+    local password=""
+    
+    if [[ "$auth_choice" == "2" ]]; then
+        auth_type="basic"
+        read -p "Username: " username
+        read -s -p "Password: " password
+        echo ""
+    fi
+    
+    echo ""
+    echo -e "${CYAN}Connecting to Nexus...${NC}"
+    
+    # Fetch and cache repository list
+    local repos=$(fetch_nexus_repositories "$nexus_url" "$auth_type" "$username" "$password")
+    
+    if [[ $? -eq 0 ]] && [[ -n "$repos" ]]; then
+        cache_nexus_repositories "$nexus_url" $repos
+        echo -e "${GREEN}✓ Connected successfully${NC}"
+        
+        # Update config with Nexus settings
+        cat >> "$CONFIG_FILE" << EOF
+
+# Nexus configuration (updated)
+nexus:
+  enabled: true
+  url: "$nexus_url"
+  auth:
+    type: "$auth_type"
+EOF
+        
+        if [[ "$auth_type" == "basic" ]]; then
+            cat >> "$CONFIG_FILE" << EOF
+    username: "$username"
+    password: "encrypted:$(encrypt_password "$password")"
+EOF
+        fi
+        
+        NEXUS_CONFIGURED=true
+        export NEXUS_URL="$nexus_url"
+        export NEXUS_AUTH_TYPE="$auth_type"
+        export NEXUS_USERNAME="$username"
+        export NEXUS_PASSWORD="$password"
+    else
+        echo -e "${RED}✗ Failed to connect to Nexus${NC}"
+        NEXUS_CONFIGURED=false
+    fi
+}
+
+# Global arrays for repository configuration
+declare -A comp_map
+declare -A comp_repos
+
+# Simplified TUI for repository configuration
+configure_repositories_tui() {
+    local components=("$@")
+    local selected_repos=""
+    
+    # Clear and parse components
+    comp_map=()
+    comp_repos=()
+    
+    for comp in "${components[@]}"; do
+        IFS=':' read -r id name format file <<< "$comp"
+        comp_map["$id"]="$name:$format:$file"
+        comp_repos["$id"]=""
+    done
+    
+    # Simple menu-based selection
+    while true; do
+        clear
+        echo -e "${CYAN}=== Component Repository Configuration ===${NC}"
+        echo ""
+        echo "Select a component to configure repositories:"
+        echo ""
+        
+        local index=1
+        local ids=()
+        
+        for id in "${!comp_map[@]}"; do
+            IFS=':' read -r name format file <<< "${comp_map[$id]}"
+            local repo_count=0
+            [[ -n "${comp_repos[$id]}" ]] && repo_count=$(echo "${comp_repos[$id]}" | tr '|' '\n' | grep -c .)
+            echo "  $index) $name ($format) - $repo_count repositories configured"
+            ids+=("$id")
+            ((index++))
+        done
+        
+        echo ""
+        echo "  S) Save and exit"
+        echo "  Q) Quit without saving"
+        echo ""
+        read -p "Select option: " choice
+        
+        if [[ "$choice" == "S" ]] || [[ "$choice" == "s" ]]; then
+            # Save configuration
+            save_repository_configuration
+            break
+        elif [[ "$choice" == "Q" ]] || [[ "$choice" == "q" ]]; then
+            break
+        elif [[ "$choice" =~ ^[0-9]+$ ]] && [[ "$choice" -ge 1 ]] && [[ "$choice" -le "${#ids[@]}" ]]; then
+            local selected_id="${ids[$((choice-1))]}"
+            configure_single_component "$selected_id" "${comp_map[$selected_id]}"
+        fi
+    done
+}
+
+# Configure repositories for a single component
+configure_single_component() {
+    local id="$1"
+    local info="$2"
+    
+    IFS=':' read -r name format file <<< "$info"
+    
+    clear
+    echo -e "${CYAN}=== Configure Repositories for $name ===${NC}"
+    echo ""
+    echo "Format: $format"
+    echo ""
+    
+    # Show Nexus repositories if available
+    if [[ "$NEXUS_CONFIGURED" == "true" ]] && [[ -f "$NEXUS_CACHE" ]]; then
+        echo -e "${BLUE}Available Nexus Repositories:${NC}"
+        local nexus_repos=$(read_nexus_cache | grep ":$format:")
+        if [[ -n "$nexus_repos" ]]; then
+            while IFS= read -r repo; do
+                IFS=':' read -r repo_name type fmt url <<< "$repo"
+                echo "  • $repo_name ($type) - $url"
+            done <<< "$nexus_repos"
+        else
+            echo "  (No $format repositories in Nexus)"
+        fi
+        echo ""
+    fi
+    
+    # Show recommended repositories
+    echo -e "${GREEN}Recommended Repositories:${NC}"
+    local recommended=$(get_recommended_repositories "$file")
+    if [[ -n "$recommended" ]]; then
+        while IFS= read -r repo; do
+            IFS=':' read -r repo_name url type reason <<< "$repo"
+            echo "  • $repo_name - $url"
+        done <<< "$recommended"
+    else
+        echo "  (No recommendations)"
+    fi
+    
+    echo ""
+    echo "Current configuration: ${comp_repos[$id]:-None}"
+    echo ""
+    echo "Options:"
+    echo "  1) Use recommended repositories"
+    echo "  2) Use Nexus repositories"
+    echo "  3) Custom configuration"
+    echo "  4) Clear configuration"
+    echo "  5) Back"
+    echo ""
+    read -p "Select option: " opt
+    
+    case "$opt" in
+        1)
+            # Use recommended
+            if [[ -n "$recommended" ]]; then
+                local repo_config=""
+                while IFS= read -r repo; do
+                    IFS=':' read -r repo_name url type reason <<< "$repo"
+                    [[ -n "$repo_config" ]] && repo_config+="|"
+                    repo_config+="${repo_name}|${url}|${type}|anonymous|false"
+                done <<< "$recommended"
+                comp_repos["$id"]="$repo_config"
+                echo -e "${GREEN}✓ Configured with recommended repositories${NC}"
+            fi
+            ;;
+        2)
+            # Use Nexus
+            if [[ "$NEXUS_CONFIGURED" == "true" ]]; then
+                local nexus_repos=$(read_nexus_cache | grep ":$format:" | head -1)
+                if [[ -n "$nexus_repos" ]]; then
+                    IFS=':' read -r repo_name type fmt url <<< "$nexus_repos"
+                    comp_repos["$id"]="${repo_name}|${url}|local_readonly|inherit|true"
+                    echo -e "${GREEN}✓ Configured with Nexus repository${NC}"
+                fi
+            fi
+            ;;
+        3)
+            # Custom
+            read -p "Repository name: " repo_name
+            read -p "Repository URL: " repo_url
+            if [[ -n "$repo_name" ]] && [[ -n "$repo_url" ]]; then
+                comp_repos["$id"]="${repo_name}|${repo_url}|remote|anonymous|true"
+                echo -e "${GREEN}✓ Custom repository configured${NC}"
+            fi
+            ;;
+        4)
+            # Clear
+            comp_repos["$id"]=""
+            echo -e "${YELLOW}✓ Configuration cleared${NC}"
+            ;;
+    esac
+    
+    [[ "$opt" != "5" ]] && read -p "Press Enter to continue..."
+}
+
+# Save repository configuration
+save_repository_configuration() {
+    echo ""
+    echo -e "${CYAN}Saving repository configuration...${NC}"
+    
+    # Append component repositories to config
+    echo "" >> "$CONFIG_FILE"
+    echo "# Component repository configuration" >> "$CONFIG_FILE"
+    echo "component_repos:" >> "$CONFIG_FILE"
+    
+    for id in "${!comp_repos[@]}"; do
+        if [[ -n "${comp_repos[$id]}" ]]; then
+            echo "  $id:" >> "$CONFIG_FILE"
+            
+            # Parse and save each repository
+            IFS='|' read -ra repos <<< "${comp_repos[$id]}"
+            local i=0
+            while [[ $i -lt ${#repos[@]} ]]; do
+                echo "    - name: \"${repos[$i]}\"" >> "$CONFIG_FILE"
+                echo "      url: \"${repos[$((i+1))]}\"" >> "$CONFIG_FILE"
+                echo "      type: \"${repos[$((i+2))]}\"" >> "$CONFIG_FILE"
+                echo "      auth: \"${repos[$((i+3))]}\"" >> "$CONFIG_FILE"
+                echo "      primary: ${repos[$((i+4))]}" >> "$CONFIG_FILE"
+                i=$((i+5))
+            done
+        fi
+    done
+    
+    echo -e "${GREEN}✓ Repository configuration saved${NC}"
+}
+
+# Ask about repository configuration
+echo -e "${BLUE}Step 2: Repository Configuration${NC}"
+echo -e "${YELLOW}Configure artifact repositories for your components (Nexus, PyPI, NPM, etc.)${NC}"
+echo ""
+read -p "Configure repositories now? (y/N): " configure_repos
+
+if [[ "$configure_repos" =~ ^[Yy] ]]; then
+    configure_component_repositories
+else
+    echo ""
+    echo -e "${YELLOW}Skipping repository configuration.${NC}"
+    echo -e "You can re-run this script later to configure repositories."
+fi
+
+echo ""
+echo -e "${GREEN}=== Configuration Complete ===${NC}"
+echo ""
+echo -e "You can now run: ${BOLD}./build-and-deploy.sh${NC} to build and deploy components"
+echo ""
+echo -e "To reconfigure, run: ${BOLD}./configure-ai-devkit.sh${NC} again"

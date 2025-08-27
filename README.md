@@ -150,12 +150,12 @@ cd ai-devkit-pod-configurator
 # Make scripts executable
 chmod +x *.sh
 
-# Step 1: Configure container runtime (REQUIRED on first run)
-./configure-container-runtime.sh
+# Step 1: Configure AI DevKit (REQUIRED on first run)
+./configure-ai-devkit.sh
 # This will:
 #   - Detect available container tools (docker, nerdctl, podman)
 #   - Identify your Kubernetes runtime (k3s, colima, etc.)
-#   - Recommend optimal configurations
+#   - Configure artifact repositories (Nexus, PyPI, NPM, etc.)
 #   - Save your preferences
 
 # Step 2: (Optional) Configure git credentials for automatic injection
@@ -185,6 +185,27 @@ The selector shows:
 - ○ Available components
 - Dependencies and conflicts
 - Real-time build status with animations
+
+## 📦 Repository Configuration
+
+AI DevKit supports custom artifact repository configuration for all your package managers:
+
+### Supported Repository Types
+- **Nexus Repository Manager** - Proxy, hosted, and group repositories
+- **PyPI** - Python Package Index and custom registries
+- **NPM** - Node.js package registries
+- **Maven** - Java/Scala artifact repositories
+- **Go Proxy** - Go module proxies
+- **Cargo** - Rust crate registries
+- **RubyGems** - Ruby gem sources
+
+### Configuration Features
+- Component-specific repository settings
+- Authentication support (basic auth, tokens)
+- Recommended repository suggestions per component
+- Build-time and runtime configuration application
+
+Repository configuration is integrated into the main setup script (`./configure-ai-devkit.sh`) and automatically applies during builds.
 
 ## 🔐 Git Configuration
 
@@ -392,7 +413,7 @@ The AI DevKit uses a configuration-first approach to manage container tools and 
 
 ```bash
 # Configure your runtime (required on first run)
-./configure-container-runtime.sh
+./configure-ai-devkit.sh
 ```
 
 This creates `~/.ai-devkit/config.yaml` with your preferences:

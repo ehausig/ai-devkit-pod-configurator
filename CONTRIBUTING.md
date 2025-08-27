@@ -98,7 +98,7 @@ git checkout -b feature/your-feature-name
 chmod +x *.sh
 
 # Configure container runtime
-./configure-container-runtime.sh
+./configure-ai-devkit.sh
 
 # Start development
 ./build-and-deploy.sh

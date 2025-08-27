@@ -40,7 +40,7 @@ git merge upstream/develop
 chmod +x *.sh scripts/*.sh
 
 # Configure your container runtime (if testing locally)
-./configure-container-runtime.sh
+./configure-ai-devkit.sh
 
 # Install required tools based on your OS:
 # Ubuntu/Debian: sudo apt-get install yq jq kubectl
@@ -196,7 +196,7 @@ When adding new components:
 
 ```bash
 # Configure container runtime first (if not already done)
-./configure-container-runtime.sh
+./configure-ai-devkit.sh
 
 # Test your component locally
 ./build-and-deploy.sh
@@ -318,7 +318,7 @@ When testing different container runtimes:
 
 ```bash
 # Reconfigure for different runtime
-./configure-container-runtime.sh
+./configure-ai-devkit.sh
 
 # Test with nerdctl (K3s)
 # Test with docker (Colima/Docker Desktop)

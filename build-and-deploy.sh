@@ -4062,30 +4062,99 @@ setup_configuration() {
         NEXUS_AVAILABLE=true
         export DOCKER_BUILDKIT=0
         
-        # Extract host from URL for trusted host parameter
-        local nexus_host=$(echo "$nexus_url" | sed -E 's|https?://([^:/]+).*|\1|')
+        # Source repository configuration library
+        if [[ -f "${SCRIPT_DIR}/lib/repository-config.sh" ]]; then
+            source "${SCRIPT_DIR}/lib/repository-config.sh"
+        fi
         
-        # Check which repositories are enabled
-        local apt_enabled=$(read_config "nexus.repositories.apt")
-        local pypi_enabled=$(read_config "nexus.repositories.pypi")
-        local npm_enabled=$(read_config "nexus.repositories.npm")
-        local go_enabled=$(read_config "nexus.repositories.go")
+        # Get the component ID from the dockerfile directory name
+        local component_id=""
+        if [[ -f "${selected_dockerfile}/component.yaml" ]]; then
+            component_id=$(grep "^id:" "${selected_dockerfile}/component.yaml" | cut -d: -f2 | xargs)
+        elif [[ -f "${selected_dockerfile}/../component.yaml" ]]; then
+            component_id=$(grep "^id:" "${selected_dockerfile}/../component.yaml" | cut -d: -f2 | xargs)
+        fi
         
-        # Build args based on enabled repositories
+        # Generate repository-specific build arguments
         NEXUS_BUILD_ARGS=""
-        if [[ "$pypi_enabled" != "false" ]]; then
-            NEXUS_BUILD_ARGS+=" --build-arg PIP_INDEX_URL=${nexus_url}/repository/pypi-proxy/simple"
-            NEXUS_BUILD_ARGS+=" --build-arg PIP_TRUSTED_HOST=${nexus_host}"
+        
+        if [[ -n "$component_id" ]]; then
+            # Check if this component has repository configuration
+            local repos=$(read_config "component_repos.${component_id}")
+            
+            if [[ -n "$repos" ]]; then
+                info "Using custom repository configuration for ${component_id}"
+                
+                # Parse repository configuration and generate build args
+                local primary_url=""
+                local extra_urls=""
+                local format=""
+                
+                # Get component format from YAML
+                local yaml_file="${selected_dockerfile}/component.yaml"
+                [[ ! -f "$yaml_file" ]] && yaml_file="${selected_dockerfile}/../component.yaml"
+                if [[ -f "$yaml_file" ]]; then
+                    format=$(grep -A10 "repos:" "$yaml_file" | grep "format:" | head -1 | cut -d: -f2 | xargs | tr -d '"')
+                fi
+                
+                # Extract primary and extra URLs from config
+                if command -v yq >/dev/null 2>&1; then
+                    primary_url=$(echo "$repos" | yq '.[] | select(.primary == true) | .url' 2>/dev/null | head -1)
+                    extra_urls=$(echo "$repos" | yq '.[] | select(.primary != true) | .url' 2>/dev/null | tr '\n' ' ')
+                fi
+                
+                # Generate format-specific build arguments
+                case "$format" in
+                    "pypi")
+                        if [[ -n "$primary_url" ]]; then
+                            NEXUS_BUILD_ARGS+=" --build-arg PIP_INDEX_URL=${primary_url}/simple"
+                            local host=$(echo "$primary_url" | sed -E 's|https?://([^:/]+).*|\1|')
+                            NEXUS_BUILD_ARGS+=" --build-arg PIP_TRUSTED_HOST=${host}"
+                            [[ -n "$extra_urls" ]] && NEXUS_BUILD_ARGS+=" --build-arg PIP_EXTRA_INDEX_URL=\"${extra_urls}\""
+                        fi
+                        ;;
+                    "npm")
+                        [[ -n "$primary_url" ]] && NEXUS_BUILD_ARGS+=" --build-arg NPM_REGISTRY=${primary_url}"
+                        ;;
+                    "go")
+                        [[ -n "$primary_url" ]] && NEXUS_BUILD_ARGS+=" --build-arg GOPROXY=${primary_url}"
+                        ;;
+                    "maven2")
+                        [[ -n "$primary_url" ]] && NEXUS_BUILD_ARGS+=" --build-arg MAVEN_REPO_URL=${primary_url}"
+                        ;;
+                    "cargo")
+                        [[ -n "$primary_url" ]] && NEXUS_BUILD_ARGS+=" --build-arg CARGO_REGISTRY_URL=${primary_url}"
+                        ;;
+                esac
+            fi
         fi
-        if [[ "$npm_enabled" != "false" ]]; then
-            NEXUS_BUILD_ARGS+=" --build-arg NPM_REGISTRY=${nexus_url}/repository/npm-proxy/"
-        fi
-        if [[ "$go_enabled" != "false" ]]; then
-            NEXUS_BUILD_ARGS+=" --build-arg GOPROXY=${nexus_url}/repository/go-proxy/"
-        fi
-        if [[ "$apt_enabled" != "false" ]]; then
-            NEXUS_BUILD_ARGS+=" --build-arg USE_NEXUS_APT=true"
-            NEXUS_BUILD_ARGS+=" --build-arg NEXUS_APT_URL=${nexus_url}"
+        
+        # Fallback to legacy Nexus configuration if no component-specific config
+        if [[ -z "$NEXUS_BUILD_ARGS" ]]; then
+            # Extract host from URL for trusted host parameter
+            local nexus_host=$(echo "$nexus_url" | sed -E 's|https?://([^:/]+).*|\1|')
+            
+            # Check which repositories are enabled (legacy format)
+            local apt_enabled=$(read_config "nexus.repositories.apt")
+            local pypi_enabled=$(read_config "nexus.repositories.pypi")
+            local npm_enabled=$(read_config "nexus.repositories.npm")
+            local go_enabled=$(read_config "nexus.repositories.go")
+            
+            # Build args based on enabled repositories
+            if [[ "$pypi_enabled" != "false" ]]; then
+                NEXUS_BUILD_ARGS+=" --build-arg PIP_INDEX_URL=${nexus_url}/repository/pypi-proxy/simple"
+                NEXUS_BUILD_ARGS+=" --build-arg PIP_TRUSTED_HOST=${nexus_host}"
+            fi
+            if [[ "$npm_enabled" != "false" ]]; then
+                NEXUS_BUILD_ARGS+=" --build-arg NPM_REGISTRY=${nexus_url}/repository/npm-proxy/"
+            fi
+            if [[ "$go_enabled" != "false" ]]; then
+                NEXUS_BUILD_ARGS+=" --build-arg GOPROXY=${nexus_url}/repository/go-proxy/"
+            fi
+            if [[ "$apt_enabled" != "false" ]]; then
+                NEXUS_BUILD_ARGS+=" --build-arg USE_NEXUS_APT=true"
+                NEXUS_BUILD_ARGS+=" --build-arg NEXUS_APT_URL=${nexus_url}"
+            fi
         fi
         
         export NEXUS_BUILD_ARGS

@@ -17,6 +17,19 @@ command_permissions:
     - "Bash(go vet:*)"
     - "Bash(golangci-lint:*)"
 installation:
+  repos:
+    enabled: true
+    format: "go"
+    config_type: "env"
+    recommended:
+      - name: "Go Proxy"
+        url: "https://proxy.golang.org"
+        type: "remote"
+        reason: "Official Go module proxy - caches and serves Go modules"
+      - name: "Go Sum Database"
+        url: "https://sum.golang.org"
+        type: "remote"
+        reason: "Official checksum database for Go modules"
   dockerfile: |
     RUN ARCH=$(dpkg --print-architecture) && \
         GO_ARCH=${ARCH} && \
