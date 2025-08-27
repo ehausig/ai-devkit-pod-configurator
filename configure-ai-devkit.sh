@@ -350,7 +350,10 @@ configure_component_repositories() {
     
     # Load eligible components
     echo "Scanning for eligible components..."
-    local components=($(find_eligible_components))
+    local components=()
+    while IFS= read -r comp; do
+        components+=("$comp")
+    done < <(find_eligible_components)
     
     if [[ ${#components[@]} -eq 0 ]]; then
         echo -e "${YELLOW}No components with repository support found.${NC}"
@@ -465,57 +468,212 @@ EOF
 declare -A comp_map
 declare -A comp_repos
 
-# Simplified TUI for repository configuration
+# Dual-panel TUI for repository configuration (matching build-and-deploy.sh style)
 configure_repositories_tui() {
     local components=("$@")
-    local selected_repos=""
     
-    # Clear and parse components
+    # Terminal dimensions
+    local term_width=$(tput cols 2>/dev/null || echo 80)
+    local term_height=$(tput lines 2>/dev/null || echo 24)
+    local left_width=$((term_width / 2 - 2))
+    local right_start=$((left_width + 3))
+    local right_width=$((term_width - right_start - 1))
+    local content_height=$((term_height - 8))
+    
+    # Parse components
+    local comp_ids=() comp_names=() comp_formats=() comp_files=()
     comp_map=()
     comp_repos=()
     
     for comp in "${components[@]}"; do
         IFS=':' read -r id name format file <<< "$comp"
+        comp_ids+=("$id")
+        comp_names+=("$name")
+        comp_formats+=("$format")
+        comp_files+=("$file")
         comp_map["$id"]="$name:$format:$file"
         comp_repos["$id"]=""
     done
     
-    # Simple menu-based selection
+    # Get Nexus repositories if available
+    local nexus_repos=()
+    if [[ "$NEXUS_CONFIGURED" == "true" ]] && [[ -f "$NEXUS_CACHE" ]]; then
+        while IFS= read -r repo; do
+            nexus_repos+=("$repo")
+        done < <(read_nexus_cache)
+    fi
+    
+    # UI state
+    local current_comp=0
+    local selected_comp=-1
+    local view="components"  # components or repos
+    
+    # Main loop
     while true; do
         clear
-        echo -e "${CYAN}=== Component Repository Configuration ===${NC}"
-        echo ""
-        echo "Select a component to configure repositories:"
-        echo ""
         
-        local index=1
-        local ids=()
+        # Header
+        local header=" AI DevKit Repository Configuration "
+        local padding=$(( (term_width - ${#header}) / 2 ))
+        printf "\033[0;36m%*s%s%*s\033[0m\n\n" $padding "" "$header" $padding ""
         
-        for id in "${!comp_map[@]}"; do
-            IFS=':' read -r name format file <<< "${comp_map[$id]}"
-            local repo_count=0
-            [[ -n "${comp_repos[$id]}" ]] && repo_count=$(echo "${comp_repos[$id]}" | tr '|' '\n' | grep -c .)
-            echo "  $index) $name ($format) - $repo_count repositories configured"
-            ids+=("$id")
-            ((index++))
+        # Left panel - Components
+        printf "\033[3;1H"
+        printf "╭%s┐ Components ┌%s╮\n" "$(printf '─%.0s' $(seq 1 $((left_width - 14))))" "$(printf '─%.0s' $(seq 1 14))"
+        
+        # List components with proper formatting
+        local comp_idx=0
+        for ((row=4; row<4+content_height && comp_idx<${#comp_ids[@]}; row++)); do
+            printf "\033[%d;1H│" $row
+            
+            # Cursor for navigation
+            if [[ $comp_idx -eq $current_comp ]]; then
+                printf " \033[1;33m▸\033[0m "
+            else
+                printf "   "
+            fi
+            
+            # Checkbox for configuration status
+            if [[ -n "${comp_repos[${comp_ids[$comp_idx]}]}" ]]; then
+                printf "\033[0;32m✓\033[0m "  # Green checkmark
+            else
+                printf "○ "  # Empty circle
+            fi
+            
+            # Component name
+            local display="${comp_names[$comp_idx]}"
+            if [[ ${#display} -gt $((left_width - 7)) ]]; then
+                display="${display:0:$((left_width - 10))}..."
+            fi
+            
+            printf "%-*s│\n" $((left_width - 6)) "$display"
+            ((comp_idx++))
         done
         
-        echo ""
-        echo "  S) Save and exit"
-        echo "  Q) Quit without saving"
-        echo ""
-        read -p "Select option: " choice
+        # Fill empty rows
+        for ((row=4+comp_idx; row<4+content_height; row++)); do
+            printf "\033[%d;1H│%*s│\n" $row $((left_width - 1)) ""
+        done
         
-        if [[ "$choice" == "S" ]] || [[ "$choice" == "s" ]]; then
-            # Save configuration
-            save_repository_configuration
-            break
-        elif [[ "$choice" == "Q" ]] || [[ "$choice" == "q" ]]; then
-            break
-        elif [[ "$choice" =~ ^[0-9]+$ ]] && [[ "$choice" -ge 1 ]] && [[ "$choice" -le "${#ids[@]}" ]]; then
-            local selected_id="${ids[$((choice-1))]}"
-            configure_single_component "$selected_id" "${comp_map[$selected_id]}"
+        # Bottom border
+        printf "\033[%d;1H╰%s╯\n" $((4 + content_height)) "$(printf '─%.0s' $(seq 1 $((left_width - 1))))"
+        
+        # Right panel - Available Repositories
+        printf "\033[3;%dH" $right_start
+        printf "╭%s┐ Available Repositories ┌%s╮\n" "$(printf '─%.0s' $(seq 1 $((right_width - 27))))" "$(printf '─%.0s' $(seq 1 27))"
+        
+        # Show repos for selected component
+        if [[ $selected_comp -ge 0 ]] && [[ $selected_comp -lt ${#comp_ids[@]} ]]; then
+            local format="${comp_formats[$selected_comp]}"
+            printf "\033[4;%dH│ \033[1;34mFormat: %s\033[0m%*s│\n" $right_start "$format" $((right_width - 10 - ${#format})) ""
+            printf "\033[5;%dH│%*s│\n" $right_start $((right_width - 1)) ""
+            
+            local row=6
+            
+            # Show matching Nexus repositories
+            if [[ ${#nexus_repos[@]} -gt 0 ]]; then
+                local found_nexus=false
+                for repo in "${nexus_repos[@]}"; do
+                    IFS=':' read -r repo_name type fmt url <<< "$repo"
+                    if [[ "$fmt" == "$format" ]]; then
+                        if [[ $found_nexus == false ]]; then
+                            printf "\033[%d;%dH│ \033[1;32mNexus Repositories:\033[0m%*s│\n" $row $right_start $((right_width - 21)) ""
+                            ((row++))
+                            found_nexus=true
+                        fi
+                        
+                        local display="  • $repo_name ($type)"
+                        if [[ ${#display} -gt $((right_width - 2)) ]]; then
+                            display="${display:0:$((right_width - 5))}..."
+                        fi
+                        printf "\033[%d;%dH│%-*s│\n" $row $right_start $((right_width - 1)) "$display"
+                        ((row++))
+                        
+                        if [[ $row -ge $((4 + content_height)) ]]; then
+                            break
+                        fi
+                    fi
+                done
+            fi
+            
+            # Show recommended repositories
+            if [[ $row -lt $((4 + content_height - 1)) ]]; then
+                local recommended=$(get_recommended_repositories "${comp_files[$selected_comp]}")
+                if [[ -n "$recommended" ]]; then
+                    printf "\033[%d;%dH│%*s│\n" $row $right_start $((right_width - 1)) ""
+                    ((row++))
+                    printf "\033[%d;%dH│ \033[1;36mRecommended:\033[0m%*s│\n" $row $right_start $((right_width - 15)) ""
+                    ((row++))
+                    
+                    while IFS= read -r rec && [[ $row -lt $((4 + content_height)) ]]; do
+                        IFS=':' read -r rec_name rec_url rec_type _ <<< "$rec"
+                        local display="  • $rec_name"
+                        if [[ ${#display} -gt $((right_width - 2)) ]]; then
+                            display="${display:0:$((right_width - 5))}..."
+                        fi
+                        printf "\033[%d;%dH│%-*s│\n" $row $right_start $((right_width - 1)) "$display"
+                        ((row++))
+                    done <<< "$recommended"
+                fi
+            fi
+            
+            # Fill remaining space
+            for ((; row<4+content_height; row++)); do
+                printf "\033[%d;%dH│%*s│\n" $row $right_start $((right_width - 1)) ""
+            done
+        else
+            # No component selected
+            printf "\033[4;%dH│ \033[0;33mSelect a component to see\033[0m%*s│\n" $right_start $((right_width - 27)) ""
+            printf "\033[5;%dH│ \033[0;33mavailable repositories\033[0m%*s│\n" $right_start $((right_width - 24)) ""
+            
+            for ((row=6; row<4+content_height; row++)); do
+                printf "\033[%d;%dH│%*s│\n" $row $right_start $((right_width - 1)) ""
+            done
         fi
+        
+        # Bottom border
+        printf "\033[%d;%dH╰%s╯\n" $((4 + content_height)) $right_start "$(printf '─%.0s' $(seq 1 $((right_width - 1))))"
+        
+        # Instructions
+        printf "\n"
+        printf "  \033[1m↑↓/jk\033[0m Navigate  \033[1mSPACE\033[0m Configure  \033[1mENTER\033[0m Select  \033[1ms\033[0m Save  \033[1mq\033[0m Cancel\n"
+        
+        # Read input
+        read -rsn1 key
+        
+        case "$key" in
+            q|Q)
+                break
+                ;;
+            s|S)
+                save_repository_configuration
+                break
+                ;;
+            ' ')  # SPACE - configure component
+                selected_comp=$current_comp
+                configure_single_component "${comp_ids[$current_comp]}" "${comp_map[${comp_ids[$current_comp]}]}"
+                ;;
+            $'\n')  # ENTER - select component
+                selected_comp=$current_comp
+                ;;
+            j)  # vim down
+                [[ $current_comp -lt $((${#comp_ids[@]} - 1)) ]] && ((current_comp++))
+                ;;
+            k)  # vim up
+                [[ $current_comp -gt 0 ]] && ((current_comp--))
+                ;;
+            $'\x1b')  # ESC sequence for arrows
+                read -rsn2 -t 0.1 seq
+                case "$seq" in
+                    '[A')  # Up arrow
+                        [[ $current_comp -gt 0 ]] && ((current_comp--))
+                        ;;
+                    '[B')  # Down arrow
+                        [[ $current_comp -lt $((${#comp_ids[@]} - 1)) ]] && ((current_comp++))
+                        ;;
+                esac
+                ;;
+        esac
     done
 }
 
@@ -527,92 +685,111 @@ configure_single_component() {
     IFS=':' read -r name format file <<< "$info"
     
     clear
-    echo -e "${CYAN}=== Configure Repositories for $name ===${NC}"
+    echo -e "${CYAN}=== Configure Repository for $name ===${NC}"
     echo ""
-    echo "Format: $format"
+    echo -e "${BLUE}Component:${NC} $name"
+    echo -e "${BLUE}Format:${NC} $format"
     echo ""
     
-    # Show Nexus repositories if available
+    # Show current configuration if exists
+    if [[ -n "${comp_repos[$id]}" ]]; then
+        echo -e "${GREEN}Current Configuration:${NC}"
+        IFS='|' read -r repo_name repo_url _ _ _ <<< "${comp_repos[$id]}"
+        echo "  Repository: $repo_name"
+        echo "  URL: $repo_url"
+        echo ""
+    fi
+    
+    echo -e "${YELLOW}Available Options:${NC}"
+    echo ""
+    
+    local options=()
+    local option_index=1
+    
+    # List Nexus repositories
     if [[ "$NEXUS_CONFIGURED" == "true" ]] && [[ -f "$NEXUS_CACHE" ]]; then
-        echo -e "${BLUE}Available Nexus Repositories:${NC}"
-        local nexus_repos=$(read_nexus_cache | grep ":$format:")
-        if [[ -n "$nexus_repos" ]]; then
-            while IFS= read -r repo; do
-                IFS=':' read -r repo_name type fmt url <<< "$repo"
-                echo "  • $repo_name ($type) - $url"
-            done <<< "$nexus_repos"
-        else
+        echo -e "${BLUE}Nexus Repositories:${NC}"
+        local nexus_found=false
+        while IFS= read -r repo; do
+            IFS=':' read -r repo_name type fmt url <<< "$repo"
+            if [[ "$fmt" == "$format" ]]; then
+                echo "  $option_index) $repo_name ($type)"
+                echo "     $url"
+                options+=("nexus|${repo_name}|${url}|local_readonly|inherit|true")
+                ((option_index++))
+                nexus_found=true
+            fi
+        done < <(read_nexus_cache)
+        
+        if [[ $nexus_found == false ]]; then
             echo "  (No $format repositories in Nexus)"
         fi
         echo ""
     fi
     
-    # Show recommended repositories
+    # List recommended repositories
     echo -e "${GREEN}Recommended Repositories:${NC}"
     local recommended=$(get_recommended_repositories "$file")
     if [[ -n "$recommended" ]]; then
         while IFS= read -r repo; do
             IFS=':' read -r repo_name url type reason <<< "$repo"
-            echo "  • $repo_name - $url"
+            echo "  $option_index) $repo_name"
+            echo "     $url"
+            [[ -n "$reason" ]] && echo "     ($reason)"
+            options+=("recommended|${repo_name}|${url}|${type}|anonymous|false")
+            ((option_index++))
         done <<< "$recommended"
     else
-        echo "  (No recommendations)"
+        echo "  (No recommendations available)"
     fi
     
     echo ""
-    echo "Current configuration: ${comp_repos[$id]:-None}"
+    echo "Other options:"
+    echo "  C) Custom repository"
+    echo "  N) No repository (use defaults)"
+    echo "  B) Back"
     echo ""
-    echo "Options:"
-    echo "  1) Use recommended repositories"
-    echo "  2) Use Nexus repositories"
-    echo "  3) Custom configuration"
-    echo "  4) Clear configuration"
-    echo "  5) Back"
-    echo ""
-    read -p "Select option: " opt
     
-    case "$opt" in
-        1)
-            # Use recommended
-            if [[ -n "$recommended" ]]; then
-                local repo_config=""
-                while IFS= read -r repo; do
-                    IFS=':' read -r repo_name url type reason <<< "$repo"
-                    [[ -n "$repo_config" ]] && repo_config+="|"
-                    repo_config+="${repo_name}|${url}|${type}|anonymous|false"
-                done <<< "$recommended"
-                comp_repos["$id"]="$repo_config"
-                echo -e "${GREEN}✓ Configured with recommended repositories${NC}"
+    read -p "Select option: " choice
+    
+    case "$choice" in
+        [0-9]*)
+            if [[ $choice -ge 1 ]] && [[ $choice -le ${#options[@]} ]]; then
+                IFS='|' read -r _ repo_name repo_url repo_type repo_auth repo_primary <<< "${options[$((choice-1))]}"
+                comp_repos["$id"]="${repo_name}|${repo_url}|${repo_type}|${repo_auth}|${repo_primary}"
+                echo -e "\n${GREEN}✓ Configured: $repo_name${NC}"
+                sleep 1
+            else
+                echo -e "\n${RED}Invalid option${NC}"
+                sleep 1
             fi
             ;;
-        2)
-            # Use Nexus
-            if [[ "$NEXUS_CONFIGURED" == "true" ]]; then
-                local nexus_repos=$(read_nexus_cache | grep ":$format:" | head -1)
-                if [[ -n "$nexus_repos" ]]; then
-                    IFS=':' read -r repo_name type fmt url <<< "$nexus_repos"
-                    comp_repos["$id"]="${repo_name}|${url}|local_readonly|inherit|true"
-                    echo -e "${GREEN}✓ Configured with Nexus repository${NC}"
-                fi
+        c|C)
+            echo ""
+            read -p "Repository name: " custom_name
+            read -p "Repository URL: " custom_url
+            if [[ -n "$custom_name" ]] && [[ -n "$custom_url" ]]; then
+                comp_repos["$id"]="${custom_name}|${custom_url}|remote|anonymous|true"
+                echo -e "\n${GREEN}✓ Custom repository configured${NC}"
+                sleep 1
+            else
+                echo -e "\n${RED}Name and URL are required${NC}"
+                sleep 1
             fi
             ;;
-        3)
-            # Custom
-            read -p "Repository name: " repo_name
-            read -p "Repository URL: " repo_url
-            if [[ -n "$repo_name" ]] && [[ -n "$repo_url" ]]; then
-                comp_repos["$id"]="${repo_name}|${repo_url}|remote|anonymous|true"
-                echo -e "${GREEN}✓ Custom repository configured${NC}"
-            fi
-            ;;
-        4)
-            # Clear
+        n|N)
             comp_repos["$id"]=""
-            echo -e "${YELLOW}✓ Configuration cleared${NC}"
+            echo -e "\n${YELLOW}✓ Cleared - will use defaults${NC}"
+            sleep 1
+            ;;
+        b|B)
+            # Just return
+            ;;
+        *)
+            echo -e "\n${RED}Invalid option${NC}"
+            sleep 1
             ;;
     esac
-    
-    [[ "$opt" != "5" ]] && read -p "Press Enter to continue..."
 }
 
 # Save repository configuration
@@ -620,30 +797,34 @@ save_repository_configuration() {
     echo ""
     echo -e "${CYAN}Saving repository configuration...${NC}"
     
-    # Append component repositories to config
-    echo "" >> "$CONFIG_FILE"
-    echo "# Component repository configuration" >> "$CONFIG_FILE"
-    echo "component_repos:" >> "$CONFIG_FILE"
+    # Check if component_repos section exists
+    if ! grep -q "^component_repos:" "$CONFIG_FILE" 2>/dev/null; then
+        echo "" >> "$CONFIG_FILE"
+        echo "# Component repository configuration" >> "$CONFIG_FILE"
+        echo "component_repos:" >> "$CONFIG_FILE"
+    fi
     
+    # Save each configured component
     for id in "${!comp_repos[@]}"; do
         if [[ -n "${comp_repos[$id]}" ]]; then
+            # Remove existing config for this component if it exists
+            sed -i "/^  $id:/,/^  [^ ]\|^[^ ]/{ /^  $id:/d; /^    /d; }" "$CONFIG_FILE" 2>/dev/null || true
+            
+            # Add new config
             echo "  $id:" >> "$CONFIG_FILE"
             
-            # Parse and save each repository
-            IFS='|' read -ra repos <<< "${comp_repos[$id]}"
-            local i=0
-            while [[ $i -lt ${#repos[@]} ]]; do
-                echo "    - name: \"${repos[$i]}\"" >> "$CONFIG_FILE"
-                echo "      url: \"${repos[$((i+1))]}\"" >> "$CONFIG_FILE"
-                echo "      type: \"${repos[$((i+2))]}\"" >> "$CONFIG_FILE"
-                echo "      auth: \"${repos[$((i+3))]}\"" >> "$CONFIG_FILE"
-                echo "      primary: ${repos[$((i+4))]}" >> "$CONFIG_FILE"
-                i=$((i+5))
-            done
+            # Parse repository configuration
+            IFS='|' read -r repo_name repo_url repo_type repo_auth repo_primary <<< "${comp_repos[$id]}"
+            echo "    - name: \"$repo_name\"" >> "$CONFIG_FILE"
+            echo "      url: \"$repo_url\"" >> "$CONFIG_FILE"
+            echo "      type: \"$repo_type\"" >> "$CONFIG_FILE"
+            echo "      auth: \"$repo_auth\"" >> "$CONFIG_FILE"
+            echo "      primary: ${repo_primary:-true}" >> "$CONFIG_FILE"
         fi
     done
     
-    echo -e "${GREEN}✓ Repository configuration saved${NC}"
+    echo -e "${GREEN}✓ Repository configuration saved to $CONFIG_FILE${NC}"
+    sleep 1
 }
 
 # Ask about repository configuration
