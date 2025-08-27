@@ -762,143 +762,16 @@ container_build() {
 
 container_save() {
     container_exec save "$@"
-    
-    # If we have a full command (new format), use it directly
-    if [[ "$build_cmd" == *" "* ]]; then
-        # Full command with options
-        $build_cmd save "$image"
-        return
-    fi
-    
-    # Fall back to old logic for backward compatibility
-    local tool="$build_cmd"
-    case "$tool" in
-        "docker")
-            if [[ "$DOCKER_NEEDS_SUDO" == "true" ]]; then
-                sudo docker save "$image"
-            else
-                docker save "$image"
-            fi
-            ;;
-        "nerdctl")
-            # nerdctl save works the same as docker save
-            if command -v docker &> /dev/null && [[ -L "$(which docker)" ]] && readlink "$(which docker)" | grep -q nerdctl; then
-                docker save "$image"
-            elif [[ "$NERDCTL_NEEDS_SUDO" == "true" ]]; then
-                # K3s nerdctl needs sudo
-                sudo nerdctl save "$image"
-            elif nerdctl version &>/dev/null 2>&1; then
-                # Rootless nerdctl
-                nerdctl save "$image"
-            elif sudo nerdctl version &>/dev/null 2>&1; then
-                # Fallback: K3s nerdctl needs sudo
-                sudo nerdctl save "$image"
-            else
-                nerdctl save "$image"  # Fallback, may fail
-            fi
-            ;;
-        "nerdctl-k3s"|"nerdctl-wrapper")
-            # These are wrappers with sudo included
-            "$tool" save "$image"
-            ;;
-        "podman")
-            podman save "$image"
-            ;;
-        *)
-            error "Unsupported container tool: $tool"
-            ;;
-    esac
 }
 
 container_rmi() {
-    local tool=$(get_container_tool)
-    local image="$1"
-    
-    case "$tool" in
-        "docker")
-            docker rmi "$image" 2>/dev/null || true
-            ;;
-        "nerdctl")
-            if command -v docker &> /dev/null && [[ -L "$(which docker)" ]] && readlink "$(which docker)" | grep -q nerdctl; then
-                docker rmi "$image" 2>/dev/null || true
-            else
-                nerdctl rmi "$image" 2>/dev/null || true
-            fi
-            ;;
-        "nerdctl-k3s"|"nerdctl-wrapper")
-            # These are wrappers that include sudo and K3s configuration
-            "$tool" rmi "$image" 2>/dev/null || true
-            ;;
-        "podman")
-            podman rmi "$image" 2>/dev/null || true
-            ;;
-        *)
-            error "Unsupported container tool: $tool"
-            ;;
-    esac
+    container_exec rmi "$@" 2>/dev/null || true
 }
 
-container_info() {
-    local tool=$(get_container_tool)
-    
-    case "$tool" in
-        "docker")
-            docker info
-            ;;
-        "nerdctl")
-            if command -v docker &> /dev/null && [[ -L "$(which docker)" ]] && readlink "$(which docker)" | grep -q nerdctl; then
-                docker info
-            else
-                nerdctl info
-            fi
-            ;;
-        "nerdctl-k3s"|"nerdctl-wrapper")
-            # These are wrappers that include sudo and K3s configuration
-            "$tool" info
-            ;;
-        "podman")
-            podman info
-            ;;
-        *)
-            error "Unsupported container tool: $tool"
-            ;;
-    esac
-}
-
-container_context_show() {
-    local tool=$(get_container_tool)
-    
-    case "$tool" in
-        "docker")
-            docker context show 2>/dev/null || echo "default"
-            ;;
-        "nerdctl")
-            # nerdctl doesn't have contexts like docker, but it has namespaces
-            echo "nerdctl-k8s.io"
-            ;;
-        "nerdctl-k3s"|"nerdctl-wrapper")
-            # nerdctl wrappers use K3s namespace
-            echo "nerdctl-k3s-k8s.io"
-            ;;
-        "podman")
-            # Podman doesn't have context, return connection info
-            echo "podman-local"
-            ;;
-        *)
-            error "Unsupported container tool: $tool"
-            ;;
-    esac
-}
 
 is_docker_desktop() {
-    local tool=$(get_container_tool)
-    
-    if [[ "$tool" == "docker" ]]; then
-        container_context_show | grep -q "desktop\|docker-desktop"
-        return $?
-    fi
-    
-    return 1
+    local runtime=$(read_config "container.runtime")
+    [[ "$runtime" == "docker-desktop" ]]
 }
 
 load_image_to_runtime() {
