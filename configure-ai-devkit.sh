@@ -109,76 +109,8 @@ detect_kubernetes_runtime() {
     echo "unknown"
 }
 
-detect_nexus() {
-    local urls=()
-    local descriptions=()
-    
-    # Check common Nexus URLs based on detected runtime
-    local runtime=$(detect_kubernetes_runtime)
-    
-    # Function to check a URL with timeout and progress
-    check_nexus_url() {
-        local url="$1"
-        local desc="$2"
-        printf "  Checking $desc... "
-        
-        # Use shorter timeout (2 seconds) and check for Nexus-specific endpoint
-        if curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 --max-time 3 "${url}/service/rest/v1/status" 2>/dev/null | grep -q "200\|401"; then
-            echo -e "${GREEN}✓${NC}"
-            return 0
-        else
-            echo -e "${YELLOW}✗${NC}"
-            return 1
-        fi
-    }
-    
-    # Always check localhost first
-    if check_nexus_url "http://localhost:8081" "localhost:8081"; then
-        urls+=("http://localhost:8081")
-        descriptions+=("Nexus on localhost:8081")
-    fi
-    
-    # Check runtime-specific URLs only if relevant
-    case "$runtime" in
-        "colima"|"lima")
-            if check_nexus_url "http://host.lima.internal:8081" "host.lima.internal:8081"; then
-                urls+=("http://host.lima.internal:8081")
-                descriptions+=("Nexus via Lima host (host.lima.internal:8081)")
-            fi
-            ;;
-        "docker-desktop")
-            if check_nexus_url "http://host.docker.internal:8081" "host.docker.internal:8081"; then
-                urls+=("http://host.docker.internal:8081")
-                descriptions+=("Nexus via Docker Desktop (host.docker.internal:8081)")
-            fi
-            ;;
-        "k3s"|"minikube"|"kind")
-            # For K3s/Linux, check docker bridge IP if it exists
-            if ip route 2>/dev/null | grep -q "docker0"; then
-                local docker_bridge=$(ip route | grep "docker0" | awk '{print $9}' | head -1)
-                if [[ -n "$docker_bridge" ]]; then
-                    if check_nexus_url "http://${docker_bridge}:8081" "${docker_bridge}:8081"; then
-                        urls+=("http://${docker_bridge}:8081")
-                        descriptions+=("Nexus via Docker bridge (${docker_bridge}:8081)")
-                    fi
-                fi
-            fi
-            
-            # Only check default bridge if we haven't found anything yet
-            if [ ${#urls[@]} -eq 0 ]; then
-                if check_nexus_url "http://172.17.0.1:8081" "172.17.0.1:8081"; then
-                    urls+=("http://172.17.0.1:8081")
-                    descriptions+=("Nexus via default Docker bridge (172.17.0.1:8081)")
-                fi
-            fi
-            ;;
-    esac
-    
-    # Return arrays as string (with record separator)
-    if [ ${#urls[@]} -gt 0 ]; then
-        printf "%s\x1e%s\n" "${urls[@]}" "${descriptions[@]}"
-    fi
-}
+# Removed detect_nexus function - using explicit user configuration instead
+# Old auto-detection was brittle and made incorrect assumptions
 
 # ============================================================================
 # MAIN SCRIPT
@@ -293,84 +225,42 @@ fi
 # NEXUS CONFIGURATION
 # ============================================================================
 
+# Simple Nexus configuration - ask the user directly
 echo ""
-echo "Detecting Nexus repository manager..."
+echo -e "${BLUE}Basic Nexus Configuration${NC}"
+echo -e "${YELLOW}For advanced repository configuration, see Step 2 below.${NC}"
 echo ""
 
 nexus_enabled="false"
 nexus_url=""
 
-# Detect available Nexus instances
-nexus_detection=$(detect_nexus)
-if [[ -n "$nexus_detection" ]]; then
-    # Parse detection results
-    IFS=$'\x1e' read -ra nexus_data <<< "$nexus_detection"
-    nexus_urls=()
-    nexus_descs=()
-    
-    # Split into urls and descriptions
-    half=$((${#nexus_data[@]} / 2))
-    for ((i=0; i<$half; i++)); do
-        nexus_urls+=("${nexus_data[$i]}")
-        nexus_descs+=("${nexus_data[$((i + half))]}")
-    done
-    
+read -p "Do you want to configure a Nexus repository manager? (y/N): " configure_nexus
+
+if [[ "$configure_nexus" =~ ^[Yy] ]]; then
     echo ""
-    if [ ${#nexus_urls[@]} -eq 1 ]; then
-        echo -e "${GREEN}✓${NC} Found Nexus repository manager"
-        echo -e "  Using: ${CYAN}${nexus_descs[0]}${NC}"
-        nexus_url="${nexus_urls[0]}"
-        nexus_enabled="true"
-    else
-        echo "Multiple Nexus endpoints detected:"
-        echo ""
-        for i in "${!nexus_urls[@]}"; do
-            echo -e "  ${BOLD}$((i+1))${NC}) ${nexus_descs[$i]}"
-            echo -e "     URL: ${CYAN}${nexus_urls[$i]}${NC}"
-            echo ""
-        done
-        echo -e "  ${BOLD}$((${#nexus_urls[@]}+1))${NC}) None - Don't use Nexus proxy"
-        echo -e "  ${BOLD}$((${#nexus_urls[@]}+2))${NC}) Custom - Enter a different URL"
-        echo ""
+    read -p "Enter Nexus URL (e.g., http://nexus.example.com:8081): " nexus_url
+    
+    if [[ -n "$nexus_url" ]]; then
+        # Remove trailing slash if present
+        nexus_url="${nexus_url%/}"
         
-        while true; do
-            read -p "Select Nexus configuration (1-$((${#nexus_urls[@]}+2))): " nexus_selection
-            if [[ "$nexus_selection" =~ ^[0-9]+$ ]]; then
-                if [ "$nexus_selection" -ge 1 ] && [ "$nexus_selection" -le "${#nexus_urls[@]}" ]; then
-                    nexus_url="${nexus_urls[$((nexus_selection - 1))]}"
-                    nexus_enabled="true"
-                    break
-                elif [ "$nexus_selection" -eq "$((${#nexus_urls[@]}+1))" ]; then
-                    nexus_enabled="false"
-                    break
-                elif [ "$nexus_selection" -eq "$((${#nexus_urls[@]}+2))" ]; then
-                    read -p "Enter custom Nexus URL (e.g., http://nexus.example.com:8081): " custom_url
-                    if [[ "$custom_url" =~ ^https?:// ]]; then
-                        nexus_url="$custom_url"
-                        nexus_enabled="true"
-                        break
-                    else
-                        echo -e "${RED}Invalid URL. Must start with http:// or https://${NC}"
-                    fi
-                else
-                    echo -e "${RED}Invalid selection.${NC}"
-                fi
-            else
-                echo -e "${RED}Please enter a number.${NC}"
-            fi
-        done
+        # Validate URL format
+        if [[ "$nexus_url" =~ ^https?:// ]]; then
+            nexus_enabled="true"
+            echo ""
+            echo -e "${GREEN}✓${NC} Nexus configured: $nexus_url"
+        else
+            echo -e "${RED}Invalid URL format. Must start with http:// or https://${NC}"
+            echo -e "${YELLOW}Skipping Nexus configuration.${NC}"
+            nexus_enabled="false"
+            nexus_url=""
+        fi
+    else
+        echo -e "${YELLOW}No URL provided, skipping Nexus configuration.${NC}"
+        nexus_enabled="false"
     fi
 else
-    echo -e "${YELLOW}No Nexus repository manager detected.${NC}"
-    echo ""
-    read -p "Do you want to configure a Nexus proxy manually? (y/N): " configure_nexus
-    if [[ "$configure_nexus" =~ ^[Yy] ]]; then
-        read -p "Enter Nexus URL (e.g., http://nexus.example.com:8081): " custom_url
-        if [[ "$custom_url" =~ ^https?:// ]]; then
-            nexus_url="$custom_url"
-            nexus_enabled="true"
-        fi
-    fi
+    echo -e "${YELLOW}Skipping Nexus configuration.${NC}"
 fi
 
 # Write configuration
