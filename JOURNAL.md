@@ -96,17 +96,21 @@ This assumption is incorrect - Nexus may only be used for language-specific pack
 ### Solution
 Set `nexus.enabled: false` in config.yaml to disable ALL Nexus functionality for now.
 
+### Important Distinction
+- **Build-time**: Uses host system's package configurations
+- **Runtime**: Uses `component_repos` configurations inside the container
+
+The `component_repos` section configures package managers INSIDE the deployed container, not during the Docker build. Build should rely on host system's existing package manager setups.
+
 ### Better Solution (TODO)
-Separate Nexus configuration:
+Separate build-time vs runtime Nexus usage:
 ```yaml
 nexus:
   enabled: true
   url: "http://localhost:8081"
-  repositories:
-    apt: false  # Don't use for APT
-    pypi: true  # Use for Python
-    npm: true   # Use for Node.js
-    # etc.
+  build_time:
+    apt: false  # Don't use for Docker build
+  # component_repos handles runtime configuration
 ```
 
 ---
