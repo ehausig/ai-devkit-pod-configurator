@@ -703,7 +703,7 @@ read_config() {
 # Get configured container build tool
 get_container_tool() {
     # First check if we have a build_command (new format)
-    local build_cmd=$(read_config "build_command")
+    local build_cmd=$(read_config "container.build_command")
     if [[ -n "$build_cmd" ]]; then
         # Extract tool name from command (for compatibility)
         # Handle "sudo nerdctl ..." -> "nerdctl"
@@ -717,7 +717,7 @@ get_container_tool() {
     
     # Fall back to old format
     if [[ -f "$CONFIG_FILE" ]]; then
-        local tool=$(read_config "build_tool")
+        local tool=$(read_config "container.build_tool")
         if [[ -n "$tool" ]]; then
             # Verify tool is still available
             if command -v "$tool" &> /dev/null; then
@@ -746,7 +746,7 @@ get_container_tool() {
 
 # Get the full build command from config
 get_build_command() {
-    local build_cmd=$(read_config "build_command")
+    local build_cmd=$(read_config "container.build_command")
     if [[ -n "$build_cmd" ]]; then
         echo "$build_cmd"
     else
@@ -758,7 +758,7 @@ get_build_command() {
 
 # Get configured runtime
 get_configured_runtime() {
-    local runtime=$(read_config "runtime")
+    local runtime=$(read_config "container.runtime")
     if [[ -n "$runtime" ]]; then
         echo "$runtime"
     else
@@ -769,7 +769,7 @@ get_configured_runtime() {
 
 # Get configured import method
 get_import_method() {
-    local method=$(read_config "runtime_import")
+    local method=$(read_config "container.runtime_import")
     if [[ -n "$method" ]]; then
         echo "$method"
     else
@@ -788,6 +788,46 @@ get_import_method() {
 }
 
 # Container tool abstraction functions
+
+# Execute a container command with the configured build command
+container_exec() {
+    local build_cmd=$(get_build_command)
+    local subcommand="$1"
+    shift
+    local args="$*"
+    
+    # If we have a full command (new format), use it directly
+    if [[ "$build_cmd" == *" "* ]]; then
+        # Full command with options
+        $build_cmd $subcommand $args
+    else
+        # Fall back to tool-specific logic
+        local tool="$build_cmd"
+        case "$tool" in
+            "docker")
+                if [[ "$DOCKER_NEEDS_SUDO" == "true" ]]; then
+                    sudo docker $subcommand $args
+                else
+                    docker $subcommand $args
+                fi
+                ;;
+            "nerdctl")
+                if [[ "$NERDCTL_NEEDS_SUDO" == "true" ]]; then
+                    sudo nerdctl $subcommand $args
+                else
+                    nerdctl $subcommand $args
+                fi
+                ;;
+            "podman")
+                podman $subcommand $args
+                ;;
+            *)
+                error "Unsupported container tool: $tool"
+                ;;
+        esac
+    fi
+}
+
 container_build() {
     local build_cmd=$(get_build_command)
     local build_args="$*"
@@ -1014,29 +1054,18 @@ load_image_to_runtime() {
         "k3s")
             # Check if using nerdctl - if so, image is already in the right place!
             if [[ "$container_tool" == "nerdctl" ]]; then
-                log "Using nerdctl with K3s - image already in containerd"
-                # nerdctl builds directly into containerd's k8s.io namespace
-                # Just verify the image is there
-                if sudo k3s ctr -n k8s.io images list | grep -q "$image_name"; then
+                log "Using nerdctl with K3s - checking if image is in containerd"
+                # Use the configured command which includes socket and namespace settings
+                if container_exec images 2>/dev/null | grep -q "$image_name"; then
                     success "Image $image_name available in K3s containerd (built with nerdctl)"
                     return 0
-                else
-                    # Try without sudo in case nerdctl doesn't need it
-                    if nerdctl -n k8s.io images list 2>/dev/null | grep -q "$image_name"; then
-                        success "Image $image_name available in K3s containerd (built with nerdctl)"
-                        return 0
-                    fi
-                    warning "Image not found in k8s.io namespace, checking default namespace..."
-                    # Sometimes nerdctl builds to default namespace, need to tag it for k8s.io
-                    if nerdctl images list | grep -q "$image_name"; then
-                        log "Image found in default namespace, tagging for k8s.io..."
-                        nerdctl tag "$image_name" "$image_name" 
-                        # Now ensure it's in k8s.io namespace
-                        nerdctl -n k8s.io pull "$image_name" >> "$LOG_FILE" 2>&1
-                        success "Image $image_name tagged and available in K3s"
-                        return 0
-                    fi
                 fi
+                # Also check with k3s ctr as a fallback
+                if sudo k3s ctr -n k8s.io images list | grep -q "$image_name"; then
+                    success "Image $image_name available in K3s containerd"
+                    return 0
+                fi
+                warning "Image not found via nerdctl, may need import"
             else
                 # Using docker or podman - need to import
                 log "Using K3s image import method from $container_tool"
@@ -1128,7 +1157,7 @@ verify_image_in_runtime() {
     # Verify that an image is available in the Kubernetes container runtime
     # Args: $1 = image name with tag
     local image_name="$1"
-    local runtime=$(detect_container_runtime)
+    local runtime=$(get_configured_runtime)
     local container_tool=$(get_container_tool)
     
     log "Verifying image $image_name is available in $runtime..."
@@ -1142,18 +1171,20 @@ verify_image_in_runtime() {
             fi
             ;;
         "k3s")
-            # If using nerdctl, check directly with nerdctl
+            # If using nerdctl, check directly with the configured command
             if [[ "$container_tool" == "nerdctl" ]]; then
-                # Check k8s.io namespace first
-                if nerdctl -n k8s.io images 2>/dev/null | grep -q "$image_name"; then
-                    success "Image $image_name found in K3s (via nerdctl)"
+                # Use the container_exec abstraction to get the full command with socket/namespace
+                # Check if image exists (container_exec handles the full command)
+                if container_exec images 2>/dev/null | grep -q "$image_name"; then
+                    success "Image $image_name found in K3s (via nerdctl with configured command)"
                     return 0
                 fi
-                # Check default namespace
-                if nerdctl images 2>/dev/null | grep -q "$image_name"; then
-                    success "Image $image_name found in nerdctl default namespace"
-                    log "Note: Image may need to be in k8s.io namespace for K3s"
-                    return 0
+                # Also try with explicit k8s.io namespace if not already included
+                if ! [[ "$(get_build_command)" == *"k8s.io"* ]]; then
+                    if container_exec -n k8s.io images 2>/dev/null | grep -q "$image_name"; then
+                        success "Image $image_name found in K3s k8s.io namespace"
+                        return 0
+                    fi
                 fi
             fi
             # Fallback to k3s ctr check
@@ -1290,12 +1321,12 @@ check_deps() {
     fi
     
     # Read configuration
-    local configured_tool=$(read_config "build_command")
+    local configured_tool=$(read_config "container.build_command")
     if [[ -z "$configured_tool" ]]; then
         # Fall back to old config format
-        configured_tool=$(read_config "build_tool")
+        configured_tool=$(read_config "container.build_tool")
     fi
-    local configured_runtime=$(read_config "runtime")
+    local configured_runtime=$(read_config "container.runtime")
     
     if [[ -z "$configured_tool" ]] || [[ -z "$configured_runtime" ]]; then
         echo ""
