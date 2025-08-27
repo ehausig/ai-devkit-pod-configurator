@@ -177,8 +177,12 @@ EOF
 # PHASE 2: REPOSITORY CONFIGURATION
 # ============================================================================
 
-# Repository TUI will be implemented here
-# For now, placeholder that saves minimal config
+# Global variables for repository configuration
+declare -A comp_configs
+NEXUS_URL=""
+NEXUS_AUTH_TYPE="anonymous"
+NEXUS_USERNAME=""
+NEXUS_PASSWORD=""
 
 configure_repositories() {
     echo ""
@@ -188,10 +192,214 @@ configure_repositories() {
         return
     fi
     
-    # This will be replaced with professional TUI
+    # Get eligible components
+    local components=()
+    while IFS= read -r comp; do
+        components+=("$comp")
+    done < <(find_eligible_components 2>/dev/null)
+    
+    if [[ ${#components[@]} -eq 0 ]]; then
+        echo "No components with repository support found"
+        return
+    fi
+    
+    # Parse components
+    local comp_ids=() comp_names=() comp_formats=()
+    for comp in "${components[@]}"; do
+        IFS=':' read -r id name format _ <<< "$comp"
+        comp_ids+=("$id")
+        comp_names+=("$name")
+        comp_formats+=("$format")
+    done
+    
+    # Repository configuration menu
+    while true; do
+        clear
+        printf "╔%72s╗\n" | tr ' ' '═'
+        printf "║%25s Repository Configuration %26s║\n" "" ""
+        printf "╚%72s╝\n\n" | tr ' ' '═'
+        
+        # Display components with status
+        local configured=0
+        for i in "${!comp_ids[@]}"; do
+            local status="○"
+            if [[ -n "${comp_configs[${comp_ids[$i]}]}" ]]; then
+                status="${GREEN}✓${NC}"
+                ((configured++))
+            fi
+            printf "  %b %-40s %10s\n" "$status" "${comp_names[$i]:0:40}" "(${comp_formats[$i]})"
+        done
+        
+        echo ""
+        echo "─────────────────────────────────────────────────────────────────────────"
+        printf "  %d/%d configured" $configured ${#comp_ids[@]}
+        [[ -n "$NEXUS_URL" ]] && printf "    Nexus: %s" "$NEXUS_URL"
+        echo -e "\n"
+        
+        echo "Options:"
+        echo "  [1-${#comp_ids[@]}] Configure component"
+        [[ -z "$NEXUS_URL" ]] && echo "  [n] Configure Nexus"
+        echo "  [s] Save and exit"
+        echo "  [q] Quit without saving"
+        echo ""
+        
+        read -rsn1 -p "Select: " key
+        echo ""
+        
+        case "$key" in
+            [1-9])
+                if [[ $key -le ${#comp_ids[@]} ]]; then
+                    configure_single_component $((key-1)) "${comp_ids[$((key-1))]}" "${comp_names[$((key-1))]}" "${comp_formats[$((key-1))]}"
+                fi
+                ;;
+            n|N)
+                [[ -z "$NEXUS_URL" ]] && configure_nexus
+                ;;
+            s|S)
+                save_repository_configuration
+                break
+                ;;
+            q|Q)
+                break
+                ;;
+        esac
+    done
+}
+
+configure_single_component() {
+    local idx=$1
+    local id=$2
+    local name=$3
+    local format=$4
+    
+    clear
+    echo "Configure: $name"
+    echo "Format: $format"
     echo ""
-    echo "Repository configuration coming soon..."
-    echo "(Currently in development)"
+    
+    local current="${comp_configs[$id]}"
+    [[ -n "$current" ]] && echo "Current: $current" && echo ""
+    
+    echo "[1] Use default (no configuration)"
+    [[ -n "$NEXUS_URL" ]] && echo "[2] Use Nexus repository"
+    echo "[3] Custom repository URL"
+    echo "[4] Clear configuration"
+    echo "[5] Back"
+    echo ""
+    
+    read -rsn1 -p "Select: " choice
+    echo ""
+    
+    case "$choice" in
+        1)
+            comp_configs["$id"]="default"
+            echo -e "${GREEN}✓${NC} Will use default repository"
+            sleep 0.5
+            ;;
+        2)
+            if [[ -n "$NEXUS_URL" ]]; then
+                comp_configs["$id"]="nexus:${format}-proxy"
+                echo -e "${GREEN}✓${NC} Will use Nexus repository"
+                sleep 0.5
+            fi
+            ;;
+        3)
+            read -p "Repository URL: " url
+            if [[ -n "$url" ]]; then
+                comp_configs["$id"]="custom:$url"
+                echo -e "${GREEN}✓${NC} Custom repository configured"
+                sleep 0.5
+            fi
+            ;;
+        4)
+            unset comp_configs["$id"]
+            echo "Configuration cleared"
+            sleep 0.5
+            ;;
+    esac
+}
+
+configure_nexus() {
+    clear
+    echo "Nexus Repository Manager Configuration"
+    echo ""
+    read -p "Nexus URL [http://localhost:8081]: " url
+    NEXUS_URL="${url:-http://localhost:8081}"
+    NEXUS_URL="${NEXUS_URL%/}"  # Remove trailing slash
+    
+    echo ""
+    echo "[1] Anonymous access"
+    echo "[2] Basic authentication"
+    read -rsn1 -p "Select: " auth
+    echo ""
+    
+    if [[ "$auth" == "2" ]]; then
+        NEXUS_AUTH_TYPE="basic"
+        read -p "Username: " NEXUS_USERNAME
+        read -sp "Password: " NEXUS_PASSWORD
+        echo ""
+    fi
+    
+    echo -e "${GREEN}✓${NC} Nexus configured"
+    sleep 1
+}
+
+save_repository_configuration() {
+    echo "Saving configuration..."
+    
+    # Append Nexus configuration if configured
+    if [[ -n "$NEXUS_URL" ]]; then
+        cat >> "$CONFIG_FILE" << EOF
+
+nexus:
+  enabled: true
+  url: "$NEXUS_URL"
+  auth:
+    type: "$NEXUS_AUTH_TYPE"
+EOF
+        if [[ "$NEXUS_AUTH_TYPE" == "basic" ]]; then
+            cat >> "$CONFIG_FILE" << EOF
+    username: "$NEXUS_USERNAME"
+    password: "encrypted:$(echo -n "$NEXUS_PASSWORD" | base64)"
+EOF
+        fi
+    fi
+    
+    # Append component repositories if any configured
+    if [[ ${#comp_configs[@]} -gt 0 ]]; then
+        echo "" >> "$CONFIG_FILE"
+        echo "component_repos:" >> "$CONFIG_FILE"
+        
+        for id in "${!comp_configs[@]}"; do
+            local config="${comp_configs[$id]}"
+            
+            if [[ "$config" == "nexus:"* ]]; then
+                local repo_name="${config#nexus:}"
+                cat >> "$CONFIG_FILE" << EOF
+  $id:
+    - name: "$repo_name"
+      url: "${NEXUS_URL}/repository/$repo_name"
+      type: "local_readonly"
+      auth: "inherit"
+      primary: true
+EOF
+            elif [[ "$config" == "custom:"* ]]; then
+                local url="${config#custom:}"
+                cat >> "$CONFIG_FILE" << EOF
+  $id:
+    - name: "custom"
+      url: "$url"
+      type: "remote"
+      auth: "anonymous"
+      primary: true
+EOF
+            fi
+            # "default" entries are not written - component will use defaults
+        done
+    fi
+    
+    echo -e "${GREEN}✓${NC} Configuration saved"
+    sleep 0.5
 }
 
 # ============================================================================
