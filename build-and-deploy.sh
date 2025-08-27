@@ -638,70 +638,26 @@ check_runtime_status() {
 # Container Tool Configuration System
 CONFIG_FILE="$HOME/.ai-devkit/config.yaml"
 
-# Read configuration from YAML file
+# Read configuration from YAML file using yq
 read_config() {
     local key="$1"
     if [[ ! -f "$CONFIG_FILE" ]]; then
         return
     fi
     
-    # Handle nested keys like "container.build_command"
-    if [[ "$key" == *"."* ]]; then
-        # Use yq if available for more reliable YAML parsing
-        if command -v yq &>/dev/null; then
-            # Try mikefarah/yq syntax first
-            local value=$(yq eval ".${key} // \"\"" "$CONFIG_FILE" 2>/dev/null)
-            if [[ -n "$value" ]] && [[ "$value" != "null" ]] && [[ "$value" != "" ]]; then
-                echo "$value"
-                return
-            fi
-            # Try kislyuk/yq syntax
-            value=$(yq -r ".${key} // \"\"" "$CONFIG_FILE" 2>/dev/null)
-            if [[ -n "$value" ]] && [[ "$value" != "null" ]] && [[ "$value" != "" ]]; then
-                echo "$value"
-                return
-            fi
-        fi
-        
-        # Fallback to simple bash parsing for two-level keys
-        local section="${key%%.*}"
-        local field="${key#*.}"
-        
-        # Read the file and parse
-        local in_section=0
-        local value=""
-        while IFS= read -r line; do
-            # Check if we're entering the target section (no leading spaces)
-            if [[ "$line" =~ ^${section}:[[:space:]]*$ ]]; then
-                in_section=1
-                continue
-            fi
-            
-            # If we're in the section
-            if [[ $in_section -eq 1 ]]; then
-                # Check if line starts with exactly 2 spaces (YAML indent for level 1)
-                if [[ "$line" =~ ^"  "[^[:space:]] ]]; then
-                    # Check if this line has our field
-                    if [[ "$line" =~ ^"  "${field}:[[:space:]]* ]]; then
-                        # Extract the value after the colon and spaces
-                        value="${line#*: }"
-                        # Remove leading/trailing spaces and quotes
-                        value="${value#"${value%%[![:space:]]*}"}"  # Remove leading spaces
-                        value="${value%"${value##*[![:space:]]}"}"  # Remove trailing spaces
-                        value="${value#\"}"  # Remove leading quote
-                        value="${value%\"}"  # Remove trailing quote
-                        echo "$value"
-                        return
-                    fi
-                elif [[ "$line" =~ ^[^[:space:]] ]] && [[ -n "${line// /}" ]]; then
-                    # We've hit another top-level section
-                    in_section=0
-                fi
-            fi
-        done < "$CONFIG_FILE"
-    else
-        # Simple top-level key
-        grep "^${key}:" "$CONFIG_FILE" 2>/dev/null | head -1 | sed 's/^[^:]*:[[:space:]]*//' | sed 's/^"//;s/"$//'
+    # Use yq (kislyuk/yq with jq syntax) for YAML parsing
+    if ! command -v yq &>/dev/null; then
+        error "yq is required but not installed. Please install: apt-get install yq"
+        exit 1
+    fi
+    
+    # Use jq syntax for kislyuk/yq to read the value
+    # The // operator provides a default empty string if the key doesn't exist
+    local value=$(yq -r ".${key} // \"\"" "$CONFIG_FILE" 2>/dev/null)
+    
+    # Return the value if it's not null or empty
+    if [[ -n "$value" ]] && [[ "$value" != "null" ]]; then
+        echo "$value"
     fi
 }
 
@@ -751,14 +707,7 @@ get_container_tool() {
 
 # Get the full build command from config
 get_build_command() {
-    local build_cmd=$(read_config "container.build_command")
-    if [[ -n "$build_cmd" ]]; then
-        echo "$build_cmd"
-    else
-        # Fall back to tool name only
-        local tool=$(get_container_tool)
-        echo "$tool"
-    fi
+    read_config "container.build_command"
 }
 
 # Get configured runtime
@@ -796,81 +745,23 @@ get_import_method() {
 
 # Execute a container command with the configured build command
 container_exec() {
-    local build_cmd=$(get_build_command)
-    local subcommand="$1"
-    shift
-    local args="$*"
-    
-    # If we have a full command (new format), use it directly
-    if [[ "$build_cmd" == *" "* ]]; then
-        # Full command with options
-        $build_cmd $subcommand $args
-    else
-        # Fall back to tool-specific logic
-        local tool="$build_cmd"
-        case "$tool" in
-            "docker")
-                if [[ "$DOCKER_NEEDS_SUDO" == "true" ]]; then
-                    sudo docker $subcommand $args
-                else
-                    docker $subcommand $args
-                fi
-                ;;
-            "nerdctl")
-                if [[ "$NERDCTL_NEEDS_SUDO" == "true" ]]; then
-                    sudo nerdctl $subcommand $args
-                else
-                    nerdctl $subcommand $args
-                fi
-                ;;
-            "podman")
-                podman $subcommand $args
-                ;;
-            *)
-                error "Unsupported container tool: $tool"
-                ;;
-        esac
+    local build_cmd=$(read_config "container.build_command")
+    if [[ -z "$build_cmd" ]]; then
+        error "No container build command configured in ~/.ai-devkit/config.yaml"
+        return 1
     fi
+    
+    # Execute the command with all arguments
+    $build_cmd "$@"
 }
 
+# Build container image
 container_build() {
-    local build_cmd=$(get_build_command)
-    local build_args="$*"
-    
-    # If we have a full command (new format), use it directly
-    if [[ "$build_cmd" == *" "* ]]; then
-        # Full command with options
-        $build_cmd build $build_args
-    else
-        # Just a tool name (old format or fallback)
-        case "$build_cmd" in
-            "docker")
-                if [[ "$DOCKER_NEEDS_SUDO" == "true" ]]; then
-                    sudo docker build $build_args
-                else
-                    docker build $build_args
-                fi
-                ;;
-            "nerdctl")
-                if [[ "$NERDCTL_NEEDS_SUDO" == "true" ]]; then
-                    sudo nerdctl build $build_args
-                else
-                    nerdctl build $build_args
-                fi
-                ;;
-            "podman")
-                podman build $build_args
-                ;;
-            *)
-                error "Unsupported container tool: $build_cmd"
-                ;;
-        esac
-    fi
+    container_exec build "$@"
 }
 
 container_save() {
-    local build_cmd=$(get_build_command)
-    local image="$1"
+    container_exec save "$@"
     
     # If we have a full command (new format), use it directly
     if [[ "$build_cmd" == *" "* ]]; then
