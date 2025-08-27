@@ -508,7 +508,7 @@ style_line() {
 # ============================================================================
 
 # Logging functions with themed output
-log() { 
+log() {
     local message="$1"
     local style="${2:-$LOG_DEFAULT_STYLE}"
     echo -e "${style}${message}${STYLE_RESET}"
