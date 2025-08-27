@@ -4088,17 +4088,42 @@ deploy_to_kubernetes() {
 
 # Function to setup port forwarding
 setup_port_forwarding() {
+    # Kill any existing port forwards for our ports
+    echo "Cleaning up existing port forwards..." >> "$LOG_FILE"
+    
+    # Method 1: Kill by process pattern
     pkill -f 'kubectl.*port-forward.*ai-devkit' 2>/dev/null || true
-    sleep 1
+    
+    # Method 2: Find and kill processes using our specific ports
+    for port in 2222 8090; do
+        # Find process using the port
+        local pid=$(lsof -ti:$port 2>/dev/null)
+        if [[ -n "$pid" ]]; then
+            echo "Killing process $pid using port $port" >> "$LOG_FILE"
+            kill -9 $pid 2>/dev/null || true
+        fi
+    done
+    
+    # Wait a moment for ports to be released
+    sleep 2
+    
+    # Start new port forwarding
+    echo "Starting port forwarding..." >> "$LOG_FILE"
     kubectl port-forward -n ${NAMESPACE} service/ai-devkit 2222:22 8090:8090 >> "$LOG_FILE" 2>&1 &
     PORT_FORWARD_PID=$!
     sleep 2
     
     # Check if port forwarding is running
     if ! ps -p $PORT_FORWARD_PID > /dev/null 2>&1; then
-        # Update status in TUI context
+        echo "Port forwarding failed to start (PID $PORT_FORWARD_PID not running)" >> "$LOG_FILE"
+        # Try to see what's using the ports
+        echo "Checking what's using the ports:" >> "$LOG_FILE"
+        lsof -i:2222 >> "$LOG_FILE" 2>&1 || true
+        lsof -i:8090 >> "$LOG_FILE" 2>&1 || true
         return 1
     fi
+    
+    echo "Port forwarding started successfully (PID $PORT_FORWARD_PID)" >> "$LOG_FILE"
     return 0
 }
 
