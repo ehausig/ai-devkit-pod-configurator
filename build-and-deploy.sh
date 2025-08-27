@@ -724,7 +724,7 @@ get_container_tool() {
                 echo "$tool"
                 return 0
             else
-                error "Configured tool '$tool' is not available. Please run ./configure-ai-devkit.sh"
+                error "Configured tool '$tool' is not available. Please check your ~/.ai-devkit/config.yaml"
             fi
         fi
     fi
@@ -733,13 +733,13 @@ get_container_tool() {
     echo ""
     echo "${YELLOW}Container runtime not configured.${NC}"
     echo ""
-    echo "Please run: ${BOLD}./configure-ai-devkit.sh${NC}"
+    echo "Please create: ${BOLD}~/.ai-devkit/config.yaml${NC}"
     echo ""
-    echo "This will:"
-    echo "  • Detect available container tools (docker, nerdctl, podman)"
-    echo "  • Identify your Kubernetes runtime"
-    echo "  • Recommend the best configuration"
-    echo "  • Save your preferences for future use"
+    echo "Required configuration:"
+    echo "  container:"
+    echo "    build_command: \"<docker|nerdctl|podman or full command>\""
+    echo "    runtime: \"<k3s|minikube|kind|docker-desktop|colima>\""
+    echo "    runtime_import: \"<direct|save-load|none>\"
     echo ""
     exit 1
 }
@@ -1314,9 +1314,13 @@ check_deps() {
         echo ""
         echo "${YELLOW}Container runtime not configured.${NC}"
         echo ""
-        echo "Please run: ${BOLD}./configure-ai-devkit.sh${NC}"
+        echo "Please create: ${BOLD}~/.ai-devkit/config.yaml${NC}"
         echo ""
-        echo "This will detect your available tools and save your preferences."
+        echo "Example configuration:"
+        echo "  container:"
+        echo "    build_command: \"sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io\""
+        echo "    runtime: \"k3s\""
+        echo "    runtime_import: \"direct\""
         exit 1
     fi
     
@@ -1331,7 +1335,8 @@ check_deps() {
     if [[ -z "$configured_tool" ]] || [[ -z "$configured_runtime" ]]; then
         echo ""
         echo "${YELLOW}Configuration incomplete.${NC}"
-        echo "Please run: ./configure-ai-devkit.sh"
+        echo "Please check your ~/.ai-devkit/config.yaml file."
+        echo "Required fields: container.build_command and container.runtime"
         exit 1
     fi
     
@@ -1343,12 +1348,26 @@ check_deps() {
     # Check if it's a full command or just a tool name
     if [[ "$configured_tool" == *" "* ]]; then
         # Full command - test it directly
+        # Try different test commands since not all tools support 'version'
         if $configured_tool version &> /dev/null 2>&1; then
             echo "✓"
             echo "    Using: $configured_tool"
+        elif $configured_tool --version &> /dev/null 2>&1; then
+            echo "✓"
+            echo "    Using: $configured_tool"
+        elif $configured_tool info &> /dev/null 2>&1; then
+            echo "✓"
+            echo "    Using: $configured_tool"
         else
-            echo "✗ (command failed)"
-            error "Configured command '$configured_tool' is not working properly."
+            # For nerdctl with k3s, the command might work even if version doesn't
+            # Try a simple images list command
+            if $configured_tool images &> /dev/null 2>&1; then
+                echo "✓"
+                echo "    Using: $configured_tool"
+            else
+                echo "✗ (command failed)"
+                error "Configured command '$configured_tool' is not working properly."
+            fi
         fi
     else
         # Simple tool name - use existing logic
@@ -1371,7 +1390,7 @@ check_deps() {
         else
             echo "✗ (not found)"
             echo ""
-            error "Configured tool '$configured_tool' is not installed.\nPlease install it or run ./configure-ai-devkit.sh to reconfigure."
+            error "Configured tool '$configured_tool' is not installed.\nPlease install it or update ~/.ai-devkit/config.yaml"
         fi
     fi
     
