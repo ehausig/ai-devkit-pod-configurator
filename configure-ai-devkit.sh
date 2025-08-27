@@ -222,46 +222,12 @@ elif [[ "$selected_command" == *"docker"* ]] && [[ "$runtime" == "docker-desktop
 fi
 
 # ============================================================================
-# NEXUS CONFIGURATION
+# INITIAL CONFIGURATION VALUES
 # ============================================================================
 
-# Simple Nexus configuration - ask the user directly
-echo ""
-echo -e "${BLUE}Basic Nexus Configuration${NC}"
-echo -e "${YELLOW}For advanced repository configuration, see Step 2 below.${NC}"
-echo ""
-
+# Initialize Nexus variables (will be configured in Step 2)
 nexus_enabled="false"
 nexus_url=""
-
-read -p "Do you want to configure a Nexus repository manager? (y/N): " configure_nexus
-
-if [[ "$configure_nexus" =~ ^[Yy] ]]; then
-    echo ""
-    read -p "Enter Nexus URL (e.g., http://nexus.example.com:8081): " nexus_url
-    
-    if [[ -n "$nexus_url" ]]; then
-        # Remove trailing slash if present
-        nexus_url="${nexus_url%/}"
-        
-        # Validate URL format
-        if [[ "$nexus_url" =~ ^https?:// ]]; then
-            nexus_enabled="true"
-            echo ""
-            echo -e "${GREEN}✓${NC} Nexus configured: $nexus_url"
-        else
-            echo -e "${RED}Invalid URL format. Must start with http:// or https://${NC}"
-            echo -e "${YELLOW}Skipping Nexus configuration.${NC}"
-            nexus_enabled="false"
-            nexus_url=""
-        fi
-    else
-        echo -e "${YELLOW}No URL provided, skipping Nexus configuration.${NC}"
-        nexus_enabled="false"
-    fi
-else
-    echo -e "${YELLOW}Skipping Nexus configuration.${NC}"
-fi
 
 # Write configuration
 cat > "$CONFIG_FILE" << EOF
@@ -279,19 +245,7 @@ container:
   # How to import images to runtime
   runtime_import: $import_method
 
-nexus:
-  # Whether to use Nexus proxy
-  enabled: $nexus_enabled
-  
-  # Nexus URL (if enabled)
-  url: "$nexus_url"
-  
-  # Repository types to proxy (can be customized)
-  repositories:
-    apt: true
-    pypi: true
-    npm: true
-    go: true
+# Nexus configuration will be added in Step 2 if user configures it
 EOF
 
 # Save initial configuration (will be updated if repositories are configured)
@@ -302,11 +256,6 @@ echo "  • Build tool: $selected_description"
 echo "  • Command: $selected_command"
 echo "  • Runtime: $runtime"
 echo "  • Import method: $import_method"
-if [[ "$nexus_enabled" == "true" ]]; then
-    echo "  • Nexus proxy: $nexus_url"
-else
-    echo "  • Nexus proxy: disabled"
-fi
 echo ""
 
 # ============================================================================
@@ -338,8 +287,7 @@ cleanup_terminal() {
     [[ -n "$SAVED_STTY" ]] && stty "$SAVED_STTY" 2>/dev/null
     # Show cursor
     tput cnorm 2>/dev/null || true
-    # Clear screen
-    clear
+    # Don't clear screen - let user see the results
 }
 
 # Function to configure component repositories
@@ -369,18 +317,28 @@ configure_component_repositories() {
     # Configure component repositories
     echo ""
     echo -e "${BLUE}Configuring component repositories...${NC}"
-    echo -e "${YELLOW}This will open an interactive interface for selecting repositories.${NC}"
+    echo -e "${YELLOW}Opening interactive repository selector...${NC}"
     echo ""
-    read -p "Press Enter to continue..." -r
+    echo "Instructions:"
+    echo "  • Use arrow keys or j/k to navigate components"
+    echo "  • Press SPACE to configure a component's repository"
+    echo "  • Press 's' to save configuration"
+    echo "  • Press 'q' to quit without saving"
+    echo ""
+    read -p "Press Enter to start..." -r
     
     # Run the dual-panel TUI
-    setup_terminal
-    trap cleanup_terminal EXIT INT TERM
-    
-    configure_repositories_tui "${components[@]}"
-    
-    cleanup_terminal
-    trap - EXIT INT TERM
+    if [[ ${#components[@]} -gt 0 ]]; then
+        setup_terminal
+        trap cleanup_terminal EXIT INT TERM
+        
+        configure_repositories_tui "${components[@]}"
+        
+        cleanup_terminal
+        trap - EXIT INT TERM
+    else
+        echo -e "${RED}No components available for configuration${NC}"
+    fi
     
     echo ""
     echo -e "${GREEN}✓ Repository configuration complete${NC}"
