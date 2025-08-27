@@ -700,7 +700,7 @@ get_container_tool() {
     echo "  container:"
     echo "    build_command: \"<docker|nerdctl|podman or full command>\""
     echo "    runtime: \"<k3s|minikube|kind|docker-desktop|colima>\""
-    echo "    runtime_import: \"<direct|save-load|none>\"
+    echo "    runtime_import: \"<direct|save-load|none>\""
     echo ""
     exit 1
 }
@@ -712,13 +712,7 @@ get_build_command() {
 
 # Get configured runtime
 get_configured_runtime() {
-    local runtime=$(read_config "container.runtime")
-    if [[ -n "$runtime" ]]; then
-        echo "$runtime"
-    else
-        # Fall back to detection
-        detect_container_runtime
-    fi
+    read_config "container.runtime"
 }
 
 # Get configured import method
@@ -769,10 +763,6 @@ container_rmi() {
 }
 
 
-is_docker_desktop() {
-    local runtime=$(read_config "container.runtime")
-    [[ "$runtime" == "docker-desktop" ]]
-}
 
 load_image_to_runtime() {
     # Load container image into the Kubernetes container runtime
@@ -782,7 +772,7 @@ load_image_to_runtime() {
     local container_tool=$(get_container_tool)
     local import_method=$(get_import_method)
     
-    log "Loading image $image_name into $runtime runtime using $container_tool (method: $import_method)..."
+    echo "[LOG] Loading image $image_name into $runtime runtime using $container_tool (method: $import_method)..."
     
     # Handle based on import method from configuration
     case "$import_method" in
