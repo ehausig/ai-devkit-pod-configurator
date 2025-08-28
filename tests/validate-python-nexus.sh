@@ -45,12 +45,35 @@ test_pypi_access() {
     
     # Test connectivity to host:port
     echo "Testing connectivity to $host:$port..."
-    if nc -zv -w 5 "$host" "$port" 2>&1; then
-        echo -e "${GREEN}✓ Successfully connected to $host:$port${NC}"
-        return 0
+    
+    # Try nc first (netcat)
+    if command -v nc &> /dev/null; then
+        if nc -zv -w 5 "$host" "$port" 2>&1; then
+            echo -e "${GREEN}✓ Successfully connected to $host:$port${NC}"
+            return 0
+        else
+            echo -e "${RED}✗ Failed to connect to $host:$port${NC}"
+            return 1
+        fi
+    # Fallback to curl
+    elif command -v curl &> /dev/null; then
+        if curl -s --connect-timeout 5 "http://$host:$port" >/dev/null 2>&1; then
+            echo -e "${GREEN}✓ Successfully connected to $host:$port (via curl)${NC}"
+            return 0
+        else
+            echo -e "${RED}✗ Failed to connect to $host:$port${NC}"
+            return 1
+        fi
+    # Fallback to python
     else
-        echo -e "${RED}✗ Failed to connect to $host:$port${NC}"
-        return 1
+        python3 -c "import socket; socket.create_connection(('$host', $port), timeout=5)" 2>/dev/null
+        if [[ $? -eq 0 ]]; then
+            echo -e "${GREEN}✓ Successfully connected to $host:$port (via Python)${NC}"
+            return 0
+        else
+            echo -e "${RED}✗ Failed to connect to $host:$port${NC}"
+            return 1
+        fi
     fi
 }
 
@@ -92,6 +115,28 @@ main() {
             fi
         done < ~/.config/pip/pip.conf
     fi
+    
+    # Test actual package installation
+    echo -e "\n${YELLOW}Testing package installation via Nexus:${NC}"
+    
+    # Create a temporary virtual environment
+    temp_venv="/tmp/test_venv_$$"
+    python3 -m venv "$temp_venv"
+    source "$temp_venv/bin/activate"
+    
+    # Try to install a simple package
+    echo "Attempting to install 'requests' package..."
+    if pip install requests --no-cache-dir 2>&1 | tee /tmp/pip_test.log | grep -q "Successfully installed"; then
+        echo -e "${GREEN}✓ Successfully installed package via Nexus${NC}"
+        # Show where it came from
+        grep -E "Downloading|Looking in indexes" /tmp/pip_test.log | head -3
+    else
+        echo -e "${RED}✗ Failed to install package${NC}"
+        tail -5 /tmp/pip_test.log
+    fi
+    
+    deactivate
+    rm -rf "$temp_venv"
     
     echo -e "\n${GREEN}Validation Complete${NC}"
 }

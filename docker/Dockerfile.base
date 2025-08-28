@@ -38,7 +38,7 @@ RUN apt-get update && apt-get install -y \
     git \
     vim \
     jq \
-		lsof \
+    lsof \
     bc \
     wget \
     bash-completion \
@@ -54,6 +54,10 @@ RUN apt-get update && apt-get install -y \
     openssh-server \
     sudo \
     locales \
+    netcat-openbsd \
+    python3-pip \
+    python3-yaml \
+    yamllint \
     --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
@@ -66,6 +70,9 @@ RUN locale-gen en_US.UTF-8 && \
 ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
 ENV LANGUAGE=en_US:en
+
+# Install yq (kislyuk version for YAML processing with jq syntax)
+RUN pip3 install --no-cache-dir yq
 
 # Install GitHub CLI (gh) - handle both proxy and non-proxy scenarios
 RUN if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
