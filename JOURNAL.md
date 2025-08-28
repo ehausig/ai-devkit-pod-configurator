@@ -494,8 +494,7 @@ components:
 1. Created `lib/config-reader.sh` - Centralized config reading functions
 2. Updated `lib/component-config-generator.sh` - Uses new config reader
 3. Fixed validation scripts - Read actual configured URLs instead of hardcoded
-4. Created migration script - `migrate-config.sh` for easy transition
-5. Added `config.yaml.example` - Documents new format
+4. Added `config.yaml.example` - Documents new format
 
 ### Benefits
 - Consistent with component YAML structure

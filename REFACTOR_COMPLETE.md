@@ -128,7 +128,9 @@ component_repos:
 ## Migration from Previous System
 
 If upgrading from a previous version:
-1. Update your `config.yaml` with required container settings
+1. Update your `config.yaml` to the new format (see `config.yaml.example`)
+   - Change `component_repos:` to `components:` array
+   - Each component needs an `id:` field and `repositories:` array
 2. Remove any detection overrides or workarounds
 3. Test deployment with no components first
 4. Gradually add components and verify configurations
