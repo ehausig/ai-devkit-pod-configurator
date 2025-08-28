@@ -3619,6 +3619,8 @@ EOF
         success "Generated repository configurations for ${#configs_generated[@]} component(s)"
     else
         log "No repository configurations needed for selected components"
+        # Create empty config-mounts.txt to signal no configs needed
+        touch "$TEMP_DIR/config-mounts.txt"
     fi
 }
 
@@ -4187,20 +4189,20 @@ generate_dynamic_deployment() {
     
     local deployment_file="$TEMP_DIR/deployment-dynamic.yaml"
     
-    # Start with base deployment
-    cp kubernetes/deployment.yaml "$deployment_file"
-    
-    # If we have config mounts info, generate a minimal deployment
-    if [[ -f "$TEMP_DIR/config-mounts.txt" ]]; then
-        echo "Customizing deployment for selected components only..." >> "$LOG_FILE"
-        
-        # For now, we'll use the standard deployment.yaml
-        # In future, we could generate a completely custom deployment
-        # that only includes the necessary volume mounts
-        
-        # The ConfigMap references in deployment.yaml are marked as optional: true
-        # so non-existent configs won't cause failures
+    # Source the dynamic deployment generator
+    if [[ -f "lib/generate-dynamic-deployment.sh" ]]; then
+        source "lib/generate-dynamic-deployment.sh"
+    else
+        echo "Warning: generate-dynamic-deployment.sh not found, using static deployment" >> "$LOG_FILE"
+        cp kubernetes/deployment.yaml "$deployment_file"
+        echo "$deployment_file"
+        return
     fi
+    
+    # Generate truly dynamic deployment with only necessary mounts
+    generate_dynamic_kubernetes_deployment "$TEMP_DIR/config-mounts.txt" "$deployment_file"
+    
+    echo "Generated dynamic deployment at $deployment_file" >> "$LOG_FILE"
     
     # Only output the deployment file path to stdout (for command substitution)
     echo "$deployment_file"
