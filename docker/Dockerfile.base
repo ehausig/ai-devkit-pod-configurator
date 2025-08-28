@@ -96,9 +96,9 @@ RUN useradd -ms /bin/bash devuser && \
     echo 'devuser ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
 # Create directories for the devuser AFTER user creation
-RUN mkdir -p /home/devuser/.config/claude-code && \
-    mkdir -p /home/devuser/workspace && \
-    mkdir -p /home/devuser/.claude && \
+RUN mkdir -p /home/devuser/workspace && \
+    mkdir -p /home/devuser/.config && \
+    mkdir -p /home/devuser/.local/bin && \
     chown -R devuser:devuser /home/devuser/
 
 # Configure SSH
@@ -205,4 +205,4 @@ ENTRYPOINT ["/entrypoint.sh"]
 # INJECT_FILES_PLACEHOLDER
 
 # Set up volume mount points for persistence - MUST be last!
-VOLUME ["/home/devuser/.config/claude-code", "/home/devuser/workspace"]
+VOLUME ["/home/devuser/workspace"]
