@@ -6,6 +6,10 @@
 
 set -e
 
+# Source the config reader library for consistent config access
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/config-reader.sh"
+
 # Color definitions for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -76,9 +80,9 @@ generate_pip_config() {
     echo "Generating pip configuration for $component_id..." >&2
     
     # Read repository configuration from config.yaml
-    local repos=$(yq -r ".component_repos.${component_id} // []" "$CONFIG_FILE" 2>/dev/null)
+    local repos=$(read_component_repos "$component_id" "$CONFIG_FILE")
     
-    if [[ "$repos" == "[]" ]] || [[ "$repos" == "null" ]]; then
+    if [[ "$repos" == "[]" ]] || [[ "$repos" == "null" ]] || [[ -z "$repos" ]]; then
         echo "No repository configuration found for $component_id" >&2
         return 1
     fi
@@ -129,9 +133,9 @@ generate_npm_config() {
     echo "Generating npm configuration for $component_id..." >&2
     
     # Read repository configuration from config.yaml
-    local repos=$(yq -r ".component_repos.${component_id} // []" "$CONFIG_FILE" 2>/dev/null)
+    local repos=$(read_component_repos "$component_id" "$CONFIG_FILE")
     
-    if [[ "$repos" == "[]" ]] || [[ "$repos" == "null" ]]; then
+    if [[ "$repos" == "[]" ]] || [[ "$repos" == "null" ]] || [[ -z "$repos" ]]; then
         echo "No repository configuration found for $component_id" >&2
         return 1
     fi
@@ -164,9 +168,9 @@ generate_go_config() {
     echo "Generating Go proxy configuration for $component_id..." >&2
     
     # Read repository configuration from config.yaml
-    local repos=$(yq -r ".component_repos.${component_id} // []" "$CONFIG_FILE" 2>/dev/null)
+    local repos=$(read_component_repos "$component_id" "$CONFIG_FILE")
     
-    if [[ "$repos" == "[]" ]] || [[ "$repos" == "null" ]]; then
+    if [[ "$repos" == "[]" ]] || [[ "$repos" == "null" ]] || [[ -z "$repos" ]]; then
         echo "No repository configuration found for $component_id" >&2
         return 1
     fi
@@ -203,9 +207,9 @@ generate_maven_config() {
     echo "Generating Maven configuration for $component_id..." >&2
     
     # Read repository configuration from config.yaml
-    local repos=$(yq -r ".component_repos.${component_id} // []" "$CONFIG_FILE" 2>/dev/null)
+    local repos=$(read_component_repos "$component_id" "$CONFIG_FILE")
     
-    if [[ "$repos" == "[]" ]] || [[ "$repos" == "null" ]]; then
+    if [[ "$repos" == "[]" ]] || [[ "$repos" == "null" ]] || [[ -z "$repos" ]]; then
         echo "No repository configuration found for $component_id" >&2
         return 1
     fi
@@ -246,9 +250,9 @@ generate_cargo_config() {
     echo "Generating Cargo configuration for $component_id..." >&2
     
     # Read repository configuration from config.yaml
-    local repos=$(yq -r ".component_repos.${component_id} // []" "$CONFIG_FILE" 2>/dev/null)
+    local repos=$(read_component_repos "$component_id" "$CONFIG_FILE")
     
-    if [[ "$repos" == "[]" ]] || [[ "$repos" == "null" ]]; then
+    if [[ "$repos" == "[]" ]] || [[ "$repos" == "null" ]] || [[ -z "$repos" ]]; then
         echo "No repository configuration found for $component_id" >&2
         return 1
     fi
@@ -281,9 +285,9 @@ generate_gem_config() {
     echo "Generating RubyGems configuration for $component_id..." >&2
     
     # Read repository configuration from config.yaml
-    local repos=$(yq -r ".component_repos.${component_id} // []" "$CONFIG_FILE" 2>/dev/null)
+    local repos=$(read_component_repos "$component_id" "$CONFIG_FILE")
     
-    if [[ "$repos" == "[]" ]] || [[ "$repos" == "null" ]]; then
+    if [[ "$repos" == "[]" ]] || [[ "$repos" == "null" ]] || [[ -z "$repos" ]]; then
         echo "No repository configuration found for $component_id" >&2
         return 1
     fi
@@ -311,9 +315,9 @@ generate_sbt_config() {
     echo "Generating SBT configuration for $component_id..." >&2
     
     # Read repository configuration from config.yaml
-    local repos=$(yq -r ".component_repos.${component_id} // []" "$CONFIG_FILE" 2>/dev/null)
+    local repos=$(read_component_repos "$component_id" "$CONFIG_FILE")
     
-    if [[ "$repos" == "[]" ]] || [[ "$repos" == "null" ]]; then
+    if [[ "$repos" == "[]" ]] || [[ "$repos" == "null" ]] || [[ -z "$repos" ]]; then
         echo "No repository configuration found for $component_id" >&2
         return 1
     fi
@@ -347,9 +351,9 @@ generate_gradle_config() {
     echo "Generating Gradle configuration for $component_id..." >&2
     
     # Read repository configuration from config.yaml
-    local repos=$(yq -r ".component_repos.${component_id} // []" "$CONFIG_FILE" 2>/dev/null)
+    local repos=$(read_component_repos "$component_id" "$CONFIG_FILE")
     
-    if [[ "$repos" == "[]" ]] || [[ "$repos" == "null" ]]; then
+    if [[ "$repos" == "[]" ]] || [[ "$repos" == "null" ]] || [[ -z "$repos" ]]; then
         echo "No repository configuration found for $component_id" >&2
         return 1
     fi
@@ -394,8 +398,7 @@ generate_component_config() {
     fi
     
     # Check if component has repository configuration in config.yaml
-    local has_config=$(yq -r ".component_repos.${component_id} // null" "$CONFIG_FILE" 2>/dev/null)
-    if [[ "$has_config" == "null" ]]; then
+    if ! has_component_repos "$component_id" "$CONFIG_FILE"; then
         echo "No repository configuration for $component_id in config.yaml" >&2
         return 0
     fi

@@ -465,6 +465,46 @@ Successfully refactored the entire build and deployment system to achieve proper
 
 ---
 
+## 2024-01-28: Config Format Refactor to Components Array
+
+### Problem
+The old `component_repos` format used component IDs as keys, which was inconsistent with how components are defined in YAML files and made parsing more complex.
+
+### Solution
+Refactored to use a `components` array with explicit `id` fields:
+
+#### Old Format:
+```yaml
+component_repos:
+  PYTHON_3_11:
+    - name: "python-group"
+      url: "http://localhost:8090"
+```
+
+#### New Format:
+```yaml
+components:
+  - id: "PYTHON_3_11"
+    repositories:
+      - name: "python-group"
+        url: "http://localhost:8090"
+```
+
+### Implementation
+1. Created `lib/config-reader.sh` - Centralized config reading functions
+2. Updated `lib/component-config-generator.sh` - Uses new config reader
+3. Fixed validation scripts - Read actual configured URLs instead of hardcoded
+4. Created migration script - `migrate-config.sh` for easy transition
+5. Added `config.yaml.example` - Documents new format
+
+### Benefits
+- Consistent with component YAML structure
+- Easier to parse and validate
+- More extensible for future component properties
+- Cleaner yq queries
+
+---
+
 ## Future Considerations
 - Separate Nexus APT proxy from language package proxies
 - May need to reintroduce `configure-ai-devkit.sh` for initial setup

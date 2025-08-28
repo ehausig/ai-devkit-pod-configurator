@@ -1,0 +1,95 @@
+# AI DevKit Pod Configurator - Configuration File Example
+# Copy this file to ~/.ai-devkit/config.yaml and customize for your environment
+
+# Container runtime configuration (REQUIRED)
+container:
+  build_command: "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
+  runtime: "k3s"                # k3s|minikube|kind|docker-desktop|none
+  runtime_import: "direct"       # direct|save-load|none
+  container_host: "pop-os"       # Optional: Override auto-detected host
+
+# Nexus configuration (OPTIONAL)
+# Set enabled: false if not using Nexus for Docker image builds
+nexus:
+  enabled: false
+  url: "http://localhost:8081"
+  auth:
+    type: "basic"                # anonymous|basic
+    username: "admin"
+    password: "encrypted:YWRtaW4K"  # Base64 encoded
+
+# Components configuration (OPTIONAL)
+# Define repository configurations for each component by ID
+# The ID must match the component YAML file's id field
+components:
+  - id: "PYTHON_3_11"
+    repositories:
+      - name: "python-group"
+        url: "http://localhost:8090"
+        type: "local_readonly"
+        auth: "inherit"
+        primary: true
+      - name: "python-hosted"
+        url: "http://localhost:8084"
+        type: "local_readwrite"
+        auth: "inherit"
+        primary: false
+
+  - id: "NODEJS_20_X_LTS"
+    repositories:
+      - name: "npm-group"
+        url: "http://localhost:8091"
+        type: "local_readonly"
+        auth: "inherit"
+        primary: true
+      - name: "npm-hosted"
+        url: "http://localhost:8085"
+        type: "local_readwrite"
+        auth: "inherit"
+        primary: false
+
+  - id: "GO_1_22"
+    repositories:
+      - name: "go-group"
+        url: "http://localhost:8095"
+        type: "local_readonly"
+        auth: "inherit"
+        primary: true
+      - name: "go-hosted"
+        url: "http://localhost:8089"
+        type: "local_readwrite"
+        auth: "inherit"
+        primary: false
+
+  - id: "MAVEN"
+    repositories:
+      - name: "maven-public"
+        url: "http://localhost:8081/repository/maven-public"
+        type: "local_readonly"
+        auth: "inherit"
+        primary: true
+      - name: "maven-releases"
+        url: "http://localhost:8081/repository/maven-releases"
+        type: "local_readwrite"
+        auth: "inherit"
+        primary: false
+
+  - id: "RUST_STABLE"
+    repositories:
+      - name: "rust-group"
+        url: "http://localhost:8092"
+        type: "local_readonly"
+        auth: "inherit"
+        primary: true
+      - name: "rust-hosted"
+        url: "http://localhost:8086"
+        type: "local_readwrite"
+        auth: "inherit"
+        primary: false
+
+# Notes:
+# - Replace "localhost" with your actual Nexus server hostname or IP
+# - The ports should match your Nexus repository connector ports
+# - For k3s, use your host machine name instead of localhost
+# - For colima, the system will translate to host.lima.internal automatically
+# - For docker-desktop, the system will translate to host.docker.internal automatically
