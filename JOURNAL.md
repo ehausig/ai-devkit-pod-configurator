@@ -115,11 +115,70 @@ nexus:
 
 ---
 
+## 2024-01-27: Nexus Repository Validation Scripts
+
+### Purpose
+Created test scripts to validate that components inside the deployed container can successfully access Nexus repositories.
+
+### Scripts Created
+
+#### 1. `tests/validate-python-nexus.sh`
+- Tests Python/pip configuration and Nexus connectivity
+- Validates pip config pointing to Nexus
+- Tests package installation from Nexus PyPI proxy
+- Checks both python-group (port 8090) and python-hosted (port 8084)
+
+#### 2. `tests/validate-nodejs-nexus.sh`
+- Tests Node.js/npm configuration and Nexus connectivity
+- Validates npm registry configuration
+- Tests package installation from Nexus NPM proxy
+- Checks both npm-group (port 8091) and npm-hosted (port 8085)
+- Tests npm publish capability (dry-run)
+
+#### 3. `tests/validate-all-nexus.sh`
+- Main test runner that orchestrates all validation tests
+- Checks Nexus server connectivity and port availability
+- Runs component-specific tests based on what's installed
+- Generates detailed validation report
+- Provides summary of test results
+
+### Usage
+These scripts should be executed INSIDE the deployed container:
+```bash
+# Copy scripts to container
+kubectl cp tests/validate-all-nexus.sh ai-devkit:/tmp/ -n ai-devkit
+kubectl cp tests/validate-python-nexus.sh ai-devkit:/tmp/ -n ai-devkit
+kubectl cp tests/validate-nodejs-nexus.sh ai-devkit:/tmp/ -n ai-devkit
+
+# Execute inside container
+kubectl exec -it ai-devkit -n ai-devkit -- bash /tmp/validate-all-nexus.sh
+
+# Or run individual tests
+kubectl exec -it ai-devkit -n ai-devkit -- bash /tmp/validate-python-nexus.sh
+kubectl exec -it ai-devkit -n ai-devkit -- bash /tmp/validate-nodejs-nexus.sh
+```
+
+### Key Validation Points
+1. **Network connectivity**: Verifies Nexus hostname resolves and ports are accessible
+2. **Configuration**: Checks pip/npm configs point to Nexus repositories
+3. **Authentication**: Validates if authentication is configured (or anonymous access)
+4. **Package retrieval**: Tests actual package installations through Nexus
+5. **Repository access**: Validates both group and hosted repository endpoints
+
+### Important Notes
+- Scripts use color-coded output (green=pass, red=fail, yellow=warning)
+- Generate detailed reports in `/tmp/nexus-validation-report-*.txt`
+- Exit with appropriate codes for CI/CD integration
+- Support both authenticated and anonymous Nexus access
+
+---
+
 ## Future Considerations
 - Separate Nexus APT proxy from language package proxies
 - May need to reintroduce `configure-ai-devkit.sh` for initial setup
 - Consider config schema validation
 - Document all required config fields
+- Add validation for additional package managers (Maven, Gradle, etc.)
 
 ---
 
