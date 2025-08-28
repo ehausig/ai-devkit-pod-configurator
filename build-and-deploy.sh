@@ -627,7 +627,7 @@ check_runtime_status() {
             ;;
         *)
             # Don't fail on unknown runtime, just warn
-            warning "Unable to verify runtime status for: $runtime"
+            echo "Warning: Unable to verify runtime status for: $runtime" >> "$LOG_FILE" 2>&1
             ;;
     esac
     
@@ -772,16 +772,16 @@ load_image_to_runtime() {
     local container_tool=$(get_container_tool)
     local import_method=$(get_import_method)
     
-    echo "[LOG] Loading image $image_name into $runtime runtime using $container_tool (method: $import_method)..."
+    echo "[LOG] Loading image $image_name into $runtime runtime using $container_tool (method: $import_method)..." >> "$LOG_FILE"
     
     # Handle based on import method from configuration
     case "$import_method" in
         "direct")
             # Direct method - image is already in the right place (e.g., nerdctl with K3s)
-            log "Using direct method - image built directly into runtime storage"
+            echo "Using direct method - image built directly into runtime storage" >> "$LOG_FILE"
             # Just verify the image is available
             if verify_image_in_runtime "$image_name"; then
-                success "Image $image_name confirmed available (direct method)"
+                echo "Image $image_name confirmed available (direct method)" >> "$LOG_FILE"
                 return 0
             else
                 error "Image $image_name not found despite direct build method"
@@ -791,45 +791,45 @@ load_image_to_runtime() {
             
         "none")
             # No import needed (e.g., Docker Desktop)
-            log "No import needed - runtime shares storage with build tool"
+            echo "No import needed - runtime shares storage with build tool" >> "$LOG_FILE"
             return 0
             ;;
             
         "save-load")
             # Traditional save and load method
-            log "Using save-load method to transfer image"
+            echo "Using save-load method to transfer image" >> "$LOG_FILE"
             ;; # Continue with runtime-specific logic below
         *)
-            warning "Unknown import method: $import_method, falling back to runtime detection"
+            echo "Warning: Unknown import method: $import_method, falling back to runtime detection" >> "$LOG_FILE" 2>&1
             ;;
     esac
     
     # If we're using save-load or unknown method, continue with runtime-specific logic
     case "$runtime" in
         "colima")
-            log "Using Colima image import method"
+            echo "Using Colima image import method" >> "$LOG_FILE"
             container_save "$image_name" | colima ssh -- sudo ctr -n k8s.io images import - >> "$LOG_FILE" 2>&1
             ;;
         "k3s")
             # Check if using nerdctl - if so, image is already in the right place!
             if [[ "$container_tool" == "nerdctl" ]]; then
-                log "Using nerdctl with K3s - checking if image is in containerd"
+                echo "Using nerdctl with K3s - checking if image is in containerd" >> "$LOG_FILE"
                 # Use the configured command which includes socket and namespace settings
                 if container_exec images 2>/dev/null | grep -q "$image_name"; then
-                    success "Image $image_name available in K3s containerd (built with nerdctl)"
+                    echo "Image $image_name available in K3s containerd (built with nerdctl)" >> "$LOG_FILE"
                     return 0
                 fi
                 # Also check with k3s ctr as a fallback
                 if sudo k3s ctr -n k8s.io images list | grep -q "$image_name"; then
-                    success "Image $image_name available in K3s containerd"
+                    echo "Image $image_name available in K3s containerd" >> "$LOG_FILE"
                     return 0
                 fi
-                warning "Image not found via nerdctl, may need import"
+                echo "Warning: Image not found via nerdctl, may need import" >> "$LOG_FILE" 2>&1
             else
                 # Using docker or podman - need to import
-                log "Using K3s image import method from $container_tool"
+                echo "Using K3s image import method from $container_tool" >> "$LOG_FILE"
                 # K3s uses containerd with k8s.io namespace
-                log "Exporting image from $container_tool..."
+                echo "Exporting image from $container_tool..." >> "$LOG_FILE"
                 container_save "$image_name" > /tmp/ai-devkit-image.tar 2>> "$LOG_FILE"
                 
                 if [[ ! -f /tmp/ai-devkit-image.tar || ! -s /tmp/ai-devkit-image.tar ]]; then
@@ -838,20 +838,20 @@ load_image_to_runtime() {
                     return 1
                 fi
                 
-                log "Importing image into K3s containerd (this may take a moment)..."
+                echo "Importing image into K3s containerd (this may take a moment)..." >> "$LOG_FILE"
                 sudo k3s ctr -n k8s.io images import /tmp/ai-devkit-image.tar >> "$LOG_FILE" 2>&1
                 local import_result=$?
                 rm -f /tmp/ai-devkit-image.tar
                 
                 if [[ $import_result -eq 0 ]]; then
                     # Verify the image is actually available
-                    log "Verifying image availability in K3s..."
+                    echo "Verifying image availability in K3s..." >> "$LOG_FILE"
                     if sudo k3s ctr -n k8s.io images list | grep -q "$image_name"; then
-                        success "Image $image_name successfully imported into K3s"
-                        log "Image confirmed in K3s containerd namespace k8s.io"
+                        echo "Image $image_name successfully imported into K3s" >> "$LOG_FILE"
+                        echo "Image confirmed in K3s containerd namespace k8s.io" >> "$LOG_FILE"
                     else
-                        warning "Image import reported success but image not found in K3s"
-                        log "Checking all namespaces..."
+                        echo "Warning: Image import reported success but image not found in K3s" >> "$LOG_FILE" 2>&1
+                        echo "Checking all namespaces..." >> "$LOG_FILE"
                         sudo k3s ctr namespaces list >> "$LOG_FILE" 2>&1
                         sudo k3s ctr -n k8s.io images list >> "$LOG_FILE" 2>&1
                         return 1
@@ -863,7 +863,7 @@ load_image_to_runtime() {
             fi
             ;;
         "podman")
-            log "Using Podman with Kubernetes image import method"
+            echo "Using Podman with Kubernetes image import method" >> "$LOG_FILE"
             # For Podman with Kubernetes, we may need to use different approaches
             if command -v skopeo &> /dev/null; then
                 container_save "$image_name" | skopeo copy docker-archive:/dev/stdin containers-storage:"$image_name" >> "$LOG_FILE" 2>&1
@@ -873,11 +873,11 @@ load_image_to_runtime() {
             fi
             ;;
         "containerd")
-            log "Using containerd image import method"
+            echo "Using containerd image import method" >> "$LOG_FILE"
             container_save "$image_name" | sudo ctr -n k8s.io images import - >> "$LOG_FILE" 2>&1
             ;;
         "docker-desktop")
-            log "$container_tool Desktop detected - image should be available directly"
+            echo "$container_tool Desktop detected - image should be available directly" >> "$LOG_FILE"
             # Docker Desktop shares images between Docker and Kubernetes
             # No explicit import needed for Docker Desktop
             # For Podman Desktop (if it exists), we might need to import
@@ -886,25 +886,25 @@ load_image_to_runtime() {
             fi
             ;;
         "cri-o")
-            log "Using CRI-O image import method"
+            echo "Using CRI-O image import method" >> "$LOG_FILE"
             # CRI-O typically uses podman or skopeo for image operations
             if command -v skopeo &> /dev/null; then
                 container_save "$image_name" | skopeo copy docker-archive:/dev/stdin containers-storage:"$image_name" >> "$LOG_FILE" 2>&1
             else
-                warning "CRI-O detected but skopeo not available. Image import may fail."
+                echo "Warning: CRI-O detected but skopeo not available. Image import may fail." >> "$LOG_FILE" 2>&1
                 container_save "$image_name" | sudo ctr -n k8s.io images import - >> "$LOG_FILE" 2>&1
             fi
             ;;
         *)
-            warning "Unknown container runtime: $runtime"
-            log "Attempting generic containerd import method with $container_tool"
+            echo "Warning: Unknown container runtime: $runtime" >> "$LOG_FILE" 2>&1
+            echo "Attempting generic containerd import method with $container_tool" >> "$LOG_FILE"
             container_save "$image_name" | sudo ctr -n k8s.io images import - >> "$LOG_FILE" 2>&1
             ;;
     esac
     
     local exit_code=$?
     if [[ $exit_code -eq 0 ]]; then
-        success "Image loaded successfully into $runtime using $container_tool"
+        echo "Image loaded successfully into $runtime using $container_tool" >> "$LOG_FILE"
     else
         error "Failed to load image into $runtime using $container_tool (exit code: $exit_code)"
     fi
@@ -919,13 +919,13 @@ verify_image_in_runtime() {
     local runtime=$(get_configured_runtime)
     local container_tool=$(get_container_tool)
     
-    log "Verifying image $image_name is available in $runtime..."
+    echo "Verifying image $image_name is available in $runtime..." >> "$LOG_FILE"
     
     case "$runtime" in
         "colima")
             # Check if image exists in Colima's containerd
             if colima ssh -- sudo ctr -n k8s.io images list 2>/dev/null | grep -q "$image_name"; then
-                success "Image $image_name found in Colima"
+                echo "Image $image_name found in Colima" >> "$LOG_FILE"
                 return 0
             fi
             ;;
@@ -935,20 +935,20 @@ verify_image_in_runtime() {
                 # Use the container_exec abstraction to get the full command with socket/namespace
                 # Check if image exists (container_exec handles the full command)
                 if container_exec images 2>/dev/null | grep -q "$image_name"; then
-                    success "Image $image_name found in K3s (via nerdctl with configured command)"
+                    echo "Image $image_name found in K3s (via nerdctl with configured command)" >> "$LOG_FILE"
                     return 0
                 fi
                 # Also try with explicit k8s.io namespace if not already included
                 if ! [[ "$(get_build_command)" == *"k8s.io"* ]]; then
                     if container_exec -n k8s.io images 2>/dev/null | grep -q "$image_name"; then
-                        success "Image $image_name found in K3s k8s.io namespace"
+                        echo "Image $image_name found in K3s k8s.io namespace" >> "$LOG_FILE"
                         return 0
                     fi
                 fi
             fi
             # Fallback to k3s ctr check
             if sudo k3s ctr -n k8s.io images list 2>/dev/null | grep -q "$image_name"; then
-                success "Image $image_name found in K3s"
+                echo "Image $image_name found in K3s" >> "$LOG_FILE"
                 return 0
             fi
             ;;
@@ -956,7 +956,7 @@ verify_image_in_runtime() {
             # Docker Desktop shares images between Docker and Kubernetes
             if [[ "$container_tool" == "docker" ]] || [[ "$container_tool" == "nerdctl" ]]; then
                 if docker images --format "{{.Repository}}:{{.Tag}}" | grep -q "^${image_name}$"; then
-                    success "Image $image_name found in Docker Desktop"
+                    echo "Image $image_name found in Docker Desktop" >> "$LOG_FILE"
                     return 0
                 fi
             fi
@@ -964,32 +964,32 @@ verify_image_in_runtime() {
         "containerd")
             # Check generic containerd
             if sudo ctr -n k8s.io images list 2>/dev/null | grep -q "$image_name"; then
-                success "Image $image_name found in containerd"
+                echo "Image $image_name found in containerd" >> "$LOG_FILE"
                 return 0
             fi
             ;;
         *)
-            warning "Cannot verify image for runtime: $runtime"
+            echo "Warning: Cannot verify image for runtime: $runtime" >> "$LOG_FILE" 2>&1
             return 1
             ;;
     esac
     
-    error "Image $image_name not found in $runtime"
-    log "Troubleshooting: Check $LOG_FILE for import errors"
-    log "You can manually check images with:"
+    echo "Error: Image $image_name not found in $runtime" >> "$LOG_FILE" 2>&1
+    echo "Troubleshooting: Check $LOG_FILE for import errors" >> "$LOG_FILE"
+    echo "You can manually check images with:" >> "$LOG_FILE"
     case "$runtime" in
         "k3s")
             if [[ "$container_tool" == "nerdctl" ]]; then
-                log "  nerdctl -n k8s.io images"
-                log "  nerdctl images"
+                echo "  nerdctl -n k8s.io images" >> "$LOG_FILE"
+                echo "  nerdctl images" >> "$LOG_FILE"
             fi
-            log "  sudo k3s ctr -n k8s.io images list"
+            echo "  sudo k3s ctr -n k8s.io images list" >> "$LOG_FILE"
             ;;
         "colima")
-            log "  colima ssh -- sudo ctr -n k8s.io images list"
+            echo "  colima ssh -- sudo ctr -n k8s.io images list" >> "$LOG_FILE"
             ;;
         *)
-            log "  sudo ctr -n k8s.io images list"
+            echo "  sudo ctr -n k8s.io images list" >> "$LOG_FILE"
             ;;
     esac
     return 1
