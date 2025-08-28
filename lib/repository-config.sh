@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # Repository Configuration Functions
-# This library provides functions for configuring artifact repositories
+# This library provides generic functions for repository configuration
+# Language-specific logic has been moved to component-config-generator.sh
 
 # Color definitions
 RED='\033[0;31m'
@@ -177,142 +178,6 @@ get_recommended_repositories() {
     fi
 }
 
-# Function to generate pip configuration
-generate_pip_config() {
-    local primary_url="$1"
-    local extra_urls="$2"
-    
-    cat << EOF
-[global]
-index-url = ${primary_url}/simple
-EOF
-    
-    if [[ -n "$extra_urls" ]]; then
-        echo "extra-index-url ="
-        for url in $extra_urls; do
-            echo "    ${url}/simple"
-        done
-    fi
-    
-    # Extract host for trusted-host
-    local host=$(echo "$primary_url" | sed -E 's|https?://([^:/]+).*|\1|')
-    echo "trusted-host = $host"
-}
-
-# Function to generate npm configuration
-generate_npm_config() {
-    local primary_url="$1"
-    local extra_urls="$2"
-    
-    echo "registry=${primary_url}"
-    
-    # Add scoped registries if needed
-    local i=1
-    for url in $extra_urls; do
-        echo "@scope${i}:registry=${url}"
-        ((i++))
-    done
-}
-
-# Function to generate Maven settings.xml
-generate_maven_settings() {
-    local primary_url="$1"
-    local extra_urls="$2"
-    
-    cat << 'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
-          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0
-                              http://maven.apache.org/xsd/settings-1.0.0.xsd">
-    <profiles>
-        <profile>
-            <id>nexus</id>
-            <repositories>
-EOF
-    
-    # Add primary repository
-    cat << EOF
-                <repository>
-                    <id>central</id>
-                    <url>${primary_url}</url>
-                    <releases><enabled>true</enabled></releases>
-                    <snapshots><enabled>true</enabled></snapshots>
-                </repository>
-EOF
-    
-    # Add extra repositories
-    local i=1
-    for url in $extra_urls; do
-        cat << EOF
-                <repository>
-                    <id>repo${i}</id>
-                    <url>${url}</url>
-                    <releases><enabled>true</enabled></releases>
-                    <snapshots><enabled>false</enabled></snapshots>
-                </repository>
-EOF
-        ((i++))
-    done
-    
-    cat << 'EOF'
-            </repositories>
-        </profile>
-    </profiles>
-    <activeProfiles>
-        <activeProfile>nexus</activeProfile>
-    </activeProfiles>
-</settings>
-EOF
-}
-
-# Function to generate Cargo config
-generate_cargo_config() {
-    local primary_url="$1"
-    
-    cat << EOF
-[source.crates-io]
-replace-with = "custom"
-
-[source.custom]
-registry = "sparse+${primary_url}/"
-EOF
-}
-
-# Function to generate Go proxy environment
-generate_go_env() {
-    local primary_url="$1"
-    local extra_urls="$2"
-    
-    local proxy_list="${primary_url}"
-    for url in $extra_urls; do
-        proxy_list="${proxy_list},${url}"
-    done
-    
-    echo "export GOPROXY=\"${proxy_list},direct\""
-    echo "export GOPRIVATE=\"\""
-    echo "export GONOSUMDB=\"\""
-}
-
-# Function to generate SBT repositories file
-generate_sbt_repositories() {
-    local primary_url="$1"
-    local extra_urls="$2"
-    
-    cat << EOF
-[repositories]
-local
-EOF
-    
-    echo "maven-central: ${primary_url}"
-    
-    local i=1
-    for url in $extra_urls; do
-        echo "repo-${i}: ${url}"
-        ((i++))
-    done
-}
-
 # Function to save component repository configuration
 save_component_repos() {
     local component_id="$1"
@@ -376,17 +241,12 @@ decrypt_password() {
 }
 
 # Export functions
+export -f read_config
 export -f find_eligible_components
 export -f fetch_nexus_repositories
 export -f cache_nexus_repositories
 export -f read_nexus_cache
 export -f get_recommended_repositories
-export -f generate_pip_config
-export -f generate_npm_config
-export -f generate_maven_settings
-export -f generate_cargo_config
-export -f generate_go_env
-export -f generate_sbt_repositories
 export -f save_component_repos
 export -f merge_config
 export -f encrypt_password

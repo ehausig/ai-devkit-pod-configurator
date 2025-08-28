@@ -131,20 +131,17 @@ if [ "$(id -u)" = "0" ]; then
         exec sleep infinity
     else
         echo "Switching to devuser to run: $*"
-        # Build environment preservation string dynamically
+        # Build environment preservation string - only essential environment variables
         ENV_PRESERVE="export TERM='$TERM' && export FORCE_COLOR='$FORCE_COLOR' && export CI='$CI'"
         
-        # Add component-specific environment variables if they exist
-        [ -n "$PIP_INDEX_URL" ] && ENV_PRESERVE="$ENV_PRESERVE && export PIP_INDEX_URL='$PIP_INDEX_URL'"
-        [ -n "$PIP_TRUSTED_HOST" ] && ENV_PRESERVE="$ENV_PRESERVE && export PIP_TRUSTED_HOST='$PIP_TRUSTED_HOST'"
-        [ -n "$NPM_CONFIG_REGISTRY" ] && ENV_PRESERVE="$ENV_PRESERVE && export NPM_CONFIG_REGISTRY='$NPM_CONFIG_REGISTRY'"
-        [ -n "$GOPROXY" ] && ENV_PRESERVE="$ENV_PRESERVE && export GOPROXY='$GOPROXY'"
-        [ -n "$CARGO_REGISTRIES_CRATES_IO_PROTOCOL" ] && ENV_PRESERVE="$ENV_PRESERVE && export CARGO_REGISTRIES_CRATES_IO_PROTOCOL='$CARGO_REGISTRIES_CRATES_IO_PROTOCOL'"
-        [ -n "$CARGO_HTTP_CHECK_REVOKE" ] && ENV_PRESERVE="$ENV_PRESERVE && export CARGO_HTTP_CHECK_REVOKE='$CARGO_HTTP_CHECK_REVOKE'"
-        [ -n "$CARGO_NET_GIT_FETCH_WITH_CLI" ] && ENV_PRESERVE="$ENV_PRESERVE && export CARGO_NET_GIT_FETCH_WITH_CLI='$CARGO_NET_GIT_FETCH_WITH_CLI'"
+        # Preserve proxy settings if they exist (generic, not language-specific)
+        [ -n "$HTTP_PROXY" ] && ENV_PRESERVE="$ENV_PRESERVE && export HTTP_PROXY='$HTTP_PROXY'"
+        [ -n "$HTTPS_PROXY" ] && ENV_PRESERVE="$ENV_PRESERVE && export HTTPS_PROXY='$HTTPS_PROXY'"
         [ -n "$NO_PROXY" ] && ENV_PRESERVE="$ENV_PRESERVE && export NO_PROXY='$NO_PROXY'"
         [ -n "$no_proxy" ] && ENV_PRESERVE="$ENV_PRESERVE && export no_proxy='$no_proxy'"
-        [ -n "$SBT_OPTS" ] && ENV_PRESERVE="$ENV_PRESERVE && export SBT_OPTS='$SBT_OPTS'"
+        
+        # Component-specific environment variables are now handled via mounted config files
+        # Repository configurations are mounted directly to the appropriate locations
         
         exec su - devuser -c "$ENV_PRESERVE && $*"
     fi

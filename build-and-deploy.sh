@@ -3490,6 +3490,132 @@ EOF
     fi
 }
 
+# Function to generate dynamic repository configurations for selected components
+generate_repository_configs() {
+    log "Generating repository configurations for selected components..."
+    
+    # Source the component config generator
+    if [[ -f "lib/component-config-generator.sh" ]]; then
+        source "lib/component-config-generator.sh"
+    else
+        warning "component-config-generator.sh not found, skipping repository config generation"
+        return
+    fi
+    
+    # Create temporary directory for configs
+    local config_temp_dir="$TEMP_DIR/generated-configs"
+    mkdir -p "$config_temp_dir"
+    
+    # Track which configs were generated
+    local configs_generated=()
+    local config_mounts=()
+    
+    # Generate configs for each selected component
+    for i in "${!SELECTED_YAML_FILES[@]}"; do
+        local yaml_file="${SELECTED_YAML_FILES[$i]}"
+        local component_id="${SELECTED_IDS[$i]}"
+        local component_name="${SELECTED_NAMES[$i]}"
+        
+        # Check if component has repository configuration
+        local format=$(yq -r '.installation.repos.format // ""' "$yaml_file" 2>/dev/null)
+        
+        if [[ -n "$format" ]] && [[ "$format" != "null" ]]; then
+            log "Checking repository config for $component_name (format: $format)..."
+            
+            # Check if user has configured repos for this component
+            local has_config=$(yq -r ".component_repos.${component_id} // null" "$CONFIG_FILE" 2>/dev/null)
+            
+            if [[ "$has_config" != "null" ]]; then
+                log "Generating $format configuration for $component_id..."
+                
+                # Generate the config file
+                TEMP_DIR="$config_temp_dir" generate_component_config "$yaml_file" "$config_temp_dir"
+                
+                # Track what was generated based on format
+                case "$format" in
+                    "pypi")
+                        configs_generated+=("pip")
+                        config_mounts+=("pip:$config_temp_dir/pip.conf:/home/devuser/.config/pip/pip.conf")
+                        ;;
+                    "npm")
+                        configs_generated+=("npm")
+                        config_mounts+=("npm:$config_temp_dir/npmrc:/home/devuser/.npmrc")
+                        ;;
+                    "go")
+                        configs_generated+=("go")
+                        # Go uses environment variables, will be added to env config
+                        ;;
+                    "maven2")
+                        configs_generated+=("maven")
+                        config_mounts+=("maven:$config_temp_dir/settings.xml:/home/devuser/.m2/settings.xml")
+                        ;;
+                    "cargo")
+                        configs_generated+=("cargo")
+                        config_mounts+=("cargo:$config_temp_dir/cargo-config.toml:/home/devuser/.cargo/config.toml")
+                        ;;
+                    "rubygems")
+                        configs_generated+=("gem")
+                        config_mounts+=("gem:$config_temp_dir/gemrc:/home/devuser/.gemrc")
+                        ;;
+                    "sbt")
+                        configs_generated+=("sbt")
+                        config_mounts+=("sbt:$config_temp_dir/repositories:/home/devuser/.sbt/repositories")
+                        ;;
+                    "gradle")
+                        configs_generated+=("gradle")
+                        config_mounts+=("gradle:$config_temp_dir/gradle.properties:/home/devuser/.gradle/gradle.properties")
+                        ;;
+                esac
+            fi
+        fi
+    done
+    
+    # Generate ConfigMap if any configs were created
+    if [[ ${#configs_generated[@]} -gt 0 ]]; then
+        log "Creating dynamic nexus-proxy-config ConfigMap..."
+        
+        local configmap_file="$TEMP_DIR/nexus-config-dynamic.yaml"
+        cat > "$configmap_file" << 'EOF'
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nexus-proxy-config
+  namespace: ai-devkit
+data:
+EOF
+        
+        # Add each generated config to the ConfigMap
+        for mount_info in "${config_mounts[@]}"; do
+            IFS=':' read -r config_type source_file mount_path <<< "$mount_info"
+            
+            if [[ -f "$source_file" ]]; then
+                local config_key=""
+                case "$config_type" in
+                    "pip") config_key="pip.conf" ;;
+                    "npm") config_key="npmrc" ;;
+                    "maven") config_key="settings.xml" ;;
+                    "cargo") config_key="cargo-config.toml" ;;
+                    "gem") config_key="gemrc" ;;
+                    "sbt") config_key="repositories" ;;
+                    "gradle") config_key="gradle.properties" ;;
+                esac
+                
+                if [[ -n "$config_key" ]]; then
+                    echo "  $config_key: |" >> "$configmap_file"
+                    sed 's/^/    /' "$source_file" >> "$configmap_file"
+                fi
+            fi
+        done
+        
+        # Store the mount info for later use in deployment generation
+        echo "${config_mounts[@]}" > "$TEMP_DIR/config-mounts.txt"
+        
+        success "Generated repository configurations for ${#configs_generated[@]} component(s)"
+    else
+        log "No repository configurations needed for selected components"
+    fi
+}
+
 # Function to extract inject_files from YAML using yq
 extract_inject_files_from_yaml() {
     local yaml_file=$1
@@ -3660,6 +3786,9 @@ create_custom_dockerfile() {
     
     # Generate component imports if not already done by a pre-build script
     generate_component_imports
+    
+    # Generate repository configurations for selected components
+    generate_repository_configs
     
     # Create placeholder files if they don't exist (for when no components are selected)
     touch "$TEMP_DIR/component-imports.txt" 2>/dev/null || true
@@ -4046,6 +4175,30 @@ build_docker_image() {
     cd ..
 }
 
+# Function to generate dynamic deployment YAML with only selected component mounts
+generate_dynamic_deployment() {
+    log "Generating dynamic deployment YAML..."
+    
+    local deployment_file="$TEMP_DIR/deployment-dynamic.yaml"
+    
+    # Start with base deployment
+    cp kubernetes/deployment.yaml "$deployment_file"
+    
+    # If we have config mounts info, generate a minimal deployment
+    if [[ -f "$TEMP_DIR/config-mounts.txt" ]]; then
+        log "Customizing deployment for selected components only..."
+        
+        # For now, we'll use the standard deployment.yaml
+        # In future, we could generate a completely custom deployment
+        # that only includes the necessary volume mounts
+        
+        # The ConfigMap references in deployment.yaml are marked as optional: true
+        # so non-existent configs won't cause failures
+    fi
+    
+    echo "$deployment_file"
+}
+
 # Function to deploy to Kubernetes
 deploy_to_kubernetes() {
     echo -e "\nKubernetes deployment output:" >> "$LOG_FILE"
@@ -4072,13 +4225,19 @@ deploy_to_kubernetes() {
     # Create SSH host keys secret
     create_ssh_host_keys_secret
     
-    # Apply Nexus configuration if available
-    if [[ "$NEXUS_AVAILABLE" = true ]]; then
+    # Apply dynamic Nexus configuration if generated
+    if [[ -f "$TEMP_DIR/nexus-config-dynamic.yaml" ]]; then
+        log "Applying dynamic repository configuration..."
+        kubectl apply -f "$TEMP_DIR/nexus-config-dynamic.yaml" >> "$LOG_FILE" 2>&1
+    elif [[ "$NEXUS_AVAILABLE" = true ]] && [[ -f "kubernetes/nexus-config.yaml" ]]; then
+        # Fallback to static config if it exists (for backward compatibility)
+        log "Applying static Nexus configuration..."
         kubectl apply -f kubernetes/nexus-config.yaml >> "$LOG_FILE" 2>&1
     fi
     
-    # Apply deployment
-    kubectl apply -f kubernetes/deployment.yaml >> "$LOG_FILE" 2>&1
+    # Generate and apply dynamic deployment
+    local deployment_yaml=$(generate_dynamic_deployment)
+    kubectl apply -f "$deployment_yaml" >> "$LOG_FILE" 2>&1
     
     # Wait for deployment
     kubectl wait --for=condition=available --timeout=120s deployment/ai-devkit -n ${NAMESPACE} >> "$LOG_FILE" 2>&1
