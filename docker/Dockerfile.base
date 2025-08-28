@@ -97,9 +97,13 @@ RUN useradd -ms /bin/bash devuser && \
 
 # Create directories for the devuser AFTER user creation
 RUN mkdir -p /home/devuser/workspace && \
-    mkdir -p /home/devuser/.config && \
+    mkdir -p /home/devuser/.config/ai-devkit && \
     mkdir -p /home/devuser/.local/bin && \
     chown -R devuser:devuser /home/devuser/
+
+# Add README to explain the ai-devkit directory
+COPY docker/config/ai-devkit-README.md /home/devuser/.config/ai-devkit/README.md
+RUN chown devuser:devuser /home/devuser/.config/ai-devkit/README.md
 
 # Configure SSH
 RUN mkdir /var/run/sshd && \
