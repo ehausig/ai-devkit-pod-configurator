@@ -85,6 +85,13 @@ chown -R devuser:devuser /home/devuser/.config/ai-devkit 2>/dev/null || true
 chown -R devuser:devuser /home/devuser/.local 2>/dev/null || true
 chown -R devuser:devuser /home/devuser/.tui-test-templates 2>/dev/null || true
 
+# Copy README to ai-devkit config directory (in case PVC mount overwrote it)
+if [ -f /usr/local/share/ai-devkit-README.md ] && [ ! -f /home/devuser/.config/ai-devkit/README.md ]; then
+    echo "Restoring ai-devkit README to config directory..."
+    cp /usr/local/share/ai-devkit-README.md /home/devuser/.config/ai-devkit/README.md
+    chown devuser:devuser /home/devuser/.config/ai-devkit/README.md
+fi
+
 # Add user's local bin to PATH
 add_if_not_exists 'export PATH="$HOME/.local/bin:$PATH"' "$BASHRC"
 

@@ -102,8 +102,11 @@ RUN mkdir -p /home/devuser/workspace && \
     chown -R devuser:devuser /home/devuser/
 
 # Add README to explain the ai-devkit directory
+# Copy to both the target location AND a backup location (since PVC mount will override)
 COPY docker/config/ai-devkit-README.md /home/devuser/.config/ai-devkit/README.md
-RUN chown devuser:devuser /home/devuser/.config/ai-devkit/README.md
+COPY docker/config/ai-devkit-README.md /usr/local/share/ai-devkit-README.md
+RUN chown devuser:devuser /home/devuser/.config/ai-devkit/README.md && \
+    chmod 644 /usr/local/share/ai-devkit-README.md
 
 # Configure SSH
 RUN mkdir /var/run/sshd && \
