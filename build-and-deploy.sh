@@ -3492,6 +3492,12 @@ EOF
 
 # Function to generate dynamic repository configurations for selected components
 generate_repository_configs() {
+    # Skip if no components selected
+    if [[ ${#SELECTED_YAML_FILES[@]} -eq 0 ]]; then
+        log "No components selected, skipping repository configuration generation"
+        return
+    fi
+    
     log "Generating repository configurations for selected components..."
     
     # Source the component config generator
@@ -4177,7 +4183,7 @@ build_docker_image() {
 
 # Function to generate dynamic deployment YAML with only selected component mounts
 generate_dynamic_deployment() {
-    log "Generating dynamic deployment YAML..."
+    echo "Generating dynamic deployment YAML..." >> "$LOG_FILE"
     
     local deployment_file="$TEMP_DIR/deployment-dynamic.yaml"
     
@@ -4186,7 +4192,7 @@ generate_dynamic_deployment() {
     
     # If we have config mounts info, generate a minimal deployment
     if [[ -f "$TEMP_DIR/config-mounts.txt" ]]; then
-        log "Customizing deployment for selected components only..."
+        echo "Customizing deployment for selected components only..." >> "$LOG_FILE"
         
         # For now, we'll use the standard deployment.yaml
         # In future, we could generate a completely custom deployment
@@ -4196,6 +4202,7 @@ generate_dynamic_deployment() {
         # so non-existent configs won't cause failures
     fi
     
+    # Only output the deployment file path to stdout (for command substitution)
     echo "$deployment_file"
 }
 
