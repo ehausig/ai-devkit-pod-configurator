@@ -4157,6 +4157,7 @@ build_docker_image() {
     # Copy config files
     cp docker/config/bashrc "$TEMP_DIR/docker/config/" 2>/dev/null
     cp docker/config/profile "$TEMP_DIR/docker/config/" 2>/dev/null
+    cp docker/config/ai-devkit-README.md "$TEMP_DIR/docker/config/" 2>/dev/null
     
     # Copy other needed directories
     cp -r templates "$TEMP_DIR/" 2>/dev/null
