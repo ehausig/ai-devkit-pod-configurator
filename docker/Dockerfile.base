@@ -55,9 +55,6 @@ RUN apt-get update && apt-get install -y \
     sudo \
     locales \
     netcat-openbsd \
-    python3-pip \
-    python3-yaml \
-    yamllint \
     --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
@@ -71,8 +68,10 @@ ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
 ENV LANGUAGE=en_US:en
 
-# Install yq (kislyuk version for YAML processing with jq syntax)
-RUN pip3 install --no-cache-dir yq
+# Install yq for YAML processing
+# Note: The host build system requires kislyuk/yq (Python-based with jq syntax)
+# but we can't install that in the base image since Python is a component.
+# The yq tools are only needed on the host for building, not in the container runtime.
 
 # Install GitHub CLI (gh) - handle both proxy and non-proxy scenarios
 RUN if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
