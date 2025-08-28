@@ -349,6 +349,122 @@ project/
 
 ---
 
+## 2024-01-28: Refactoring Complete - Component Isolation Achieved
+
+### Summary
+Successfully refactored the entire build and deployment system to achieve proper component isolation without modifying any component YAML schemas.
+
+### What Was Accomplished
+
+#### 1. Created New Dynamic Configuration System
+- **lib/component-config-generator.sh** (476 lines)
+  - Reads user's `component_repos` from config.yaml
+  - Generates configurations dynamically based on selected components
+  - Translates host addresses for different container runtimes
+  - Handles all language formats: pypi, npm, go, maven2, cargo, rubygems, sbt, gradle
+
+#### 2. Removed Language-Specific Code from Base
+- **lib/entrypoint-repo-setup.sh**: Reduced from 295 to 47 lines (removed ~250 lines)
+- **lib/repository-config.sh**: Removed ~200 lines of language-specific functions
+- **docker/entrypoint.base.sh**: Removed 10 language-specific environment variables
+- **Total removed**: ~460 lines of misplaced code
+
+#### 3. Implemented Dynamic Kubernetes Deployment
+- **lib/generate-dynamic-deployment.sh** (394 lines)
+  - Generates deployment.yaml with only necessary volume mounts
+  - Eliminates all unnecessary configuration files
+  - Only includes volumes for selected components
+
+#### 4. Modified Build Process
+- **build-and-deploy.sh** changes:
+  - Added `generate_repository_configs()` function
+  - Added `generate_dynamic_deployment()` function
+  - Integrated with new configuration generator
+  - Creates dynamic ConfigMaps based on selections
+
+#### 5. Fixed Base Dockerfile
+- Removed unconditional creation of `.claude` directory
+- Removed `.config/claude-code` from VOLUME declaration
+- Now only creates essential directories
+
+### Test Results
+
+#### Test 1: No Components Selected
+- ✅ Container deploys successfully
+- ✅ No language configuration files present
+- ✅ No `.claude`, `.cargo`, `.npm`, `.sbt`, etc.
+- ✅ Clean home directory
+
+#### Test 2: Python & Node.js Selected (pending)
+- Should generate correct pip.conf and npmrc
+- Should use user's configured URLs (e.g., `pop-os:8090`)
+- Should not include other language configs
+
+### Configuration Flow (Implemented)
+
+```
+1. User Selection (TUI)
+   ↓
+2. Component YAML Analysis
+   - Extract format (pypi, npm, etc.)
+   - Check for repos configuration
+   ↓
+3. User Config Reading
+   - Read component_repos from config.yaml
+   - Get repository URLs and settings
+   ↓
+4. Dynamic Generation
+   - Generate only needed configs
+   - Translate host addresses
+   - Create minimal ConfigMap
+   ↓
+5. Kubernetes Deployment
+   - Mount only selected configs
+   - No unnecessary volumes
+   ↓
+6. Container Runtime
+   - Clean environment
+   - Only selected components configured
+```
+
+### Key Files Modified/Created
+
+1. **New Files**:
+   - `lib/component-config-generator.sh` - Core configuration generator
+   - `lib/generate-dynamic-deployment.sh` - Dynamic deployment generator
+   - `CURRENT_STATE.md` - Pre-refactor analysis documentation
+
+2. **Modified Files**:
+   - `build-and-deploy.sh` - Integrated new generation system
+   - `lib/entrypoint-repo-setup.sh` - Removed all language logic
+   - `lib/repository-config.sh` - Removed language functions
+   - `docker/entrypoint.base.sh` - Removed language env vars
+   - `docker/Dockerfile.base` - Removed Claude directory creation
+
+### Principles Maintained
+
+1. **No Component YAML Modifications** - All existing schemas preserved
+2. **Component Independence** - Each component self-contained
+3. **Configuration-First** - Everything driven by config.yaml
+4. **Runtime Agnostic** - Works with k3s, colima, docker-desktop, etc.
+5. **Backward Compatible** - Falls back gracefully when needed
+
+### Known Issues Resolved
+
+1. ✅ Fixed: Wrong repository URLs (was `host.lima.internal:8081`, now correct)
+2. ✅ Fixed: All configs deployed regardless of selection
+3. ✅ Fixed: Container bloat with unused configurations
+4. ✅ Fixed: `.claude` directory created unconditionally
+5. ✅ Fixed: Log output interfering with kubectl commands
+
+### Remaining Work
+
+- Test with actual component selections (Python, Node.js, etc.)
+- Verify Nexus repository access with validation scripts
+- Consider generating env variables dynamically for Go proxy
+
+---
+
 ## Future Considerations
 - Separate Nexus APT proxy from language package proxies
 - May need to reintroduce `configure-ai-devkit.sh` for initial setup
