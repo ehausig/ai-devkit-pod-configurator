@@ -220,6 +220,12 @@ registry=http://pop-os:8091/
 - **Check**: Runtime detection in config.yaml
 - **Option**: Set explicit `container.container_host` in config.yaml
 
+### Issue: README.md not in ~/.config/ai-devkit
+- **Cause**: PersistentVolumeClaim mounts override Docker image contents
+- **Solution**: README is automatically restored at container startup
+- **Check**: Look for "Restoring ai-devkit README" in container logs
+- **File Location**: Backup stored at `/usr/local/share/ai-devkit-README.md`
+
 ## Next Steps
 
 1. Test with various component combinations
