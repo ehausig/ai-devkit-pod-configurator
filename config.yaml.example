@@ -88,8 +88,9 @@ components:
         primary: false
 
 # Notes:
-# - Replace "localhost" with your actual Nexus server hostname or IP
+# - IMPORTANT: Replace "localhost" with your actual hostname (e.g., "pop-os")
+# - For k3s: Use your host machine name (run 'hostname' to find it)
+# - For colima: Can use "localhost" (auto-translates to host.lima.internal)
+# - For docker-desktop: Can use "localhost" (auto-translates to host.docker.internal)
 # - The ports should match your Nexus repository connector ports
-# - For k3s, use your host machine name instead of localhost
-# - For colima, the system will translate to host.lima.internal automatically
-# - For docker-desktop, the system will translate to host.docker.internal automatically
+# - Example: http://pop-os:8090 instead of http://localhost:8090

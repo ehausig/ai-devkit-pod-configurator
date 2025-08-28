@@ -47,15 +47,14 @@ get_container_host() {
             echo "host.minikube.internal"
             ;;
         "k3s")
-            # For K3s, try to detect the host machine name or use the Nexus URL host
-            local nexus_url=$(yq -r '.nexus.url // ""' "$CONFIG_FILE" 2>/dev/null)
-            if [[ -n "$nexus_url" ]] && [[ "$nexus_url" != "null" ]]; then
-                # Extract host from URL (e.g., http://pop-os:8081 -> pop-os)
-                echo "$nexus_url" | sed -E 's|https?://([^:/]+).*|\1|'
-            else
-                # Fallback to gateway IP
-                echo "host.k3s.internal"
+            # For K3s, use the host machine name
+            # Try to get the actual hostname (not localhost)
+            local host_name=$(hostname 2>/dev/null || echo "host.k3s.internal")
+            # Don't use "localhost" as it won't work in the container
+            if [[ "$host_name" == "localhost" ]]; then
+                host_name="host.k3s.internal"
             fi
+            echo "$host_name"
             ;;
         *)
             echo "host.docker.internal"

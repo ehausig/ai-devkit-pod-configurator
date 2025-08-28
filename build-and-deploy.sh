@@ -3500,8 +3500,12 @@ generate_repository_configs() {
     
     log "Generating repository configurations for selected components..."
     
-    # Source the component config generator
+    # Source the component config generator and its dependencies
     if [[ -f "lib/component-config-generator.sh" ]]; then
+        # Ensure config-reader.sh is available for the generator
+        if [[ -f "lib/config-reader.sh" ]]; then
+            source "lib/config-reader.sh"
+        fi
         source "lib/component-config-generator.sh"
     else
         warning "component-config-generator.sh not found, skipping repository config generation"
@@ -3528,10 +3532,10 @@ generate_repository_configs() {
         if [[ -n "$format" ]] && [[ "$format" != "null" ]]; then
             log "Checking repository config for $component_name (format: $format)..."
             
-            # Check if user has configured repos for this component
-            local has_config=$(yq -r ".component_repos.${component_id} // null" "$CONFIG_FILE" 2>/dev/null)
+            # Check if user has configured repos for this component (new format)
+            local has_config=$(yq -r ".components[] | select(.id == \"${component_id}\") | .repositories // null" "$CONFIG_FILE" 2>/dev/null)
             
-            if [[ "$has_config" != "null" ]]; then
+            if [[ "$has_config" != "null" ]] && [[ -n "$has_config" ]]; then
                 log "Generating $format configuration for $component_id..."
                 
                 # Generate the config file
