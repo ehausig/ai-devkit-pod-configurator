@@ -119,22 +119,47 @@ generate_deployment_volumes() {
         return 0
     fi
     
-    # Extract unique volume names from YAML array items
-    local volume_names=""
+    # Extract unique volume names and their permissions from YAML array items
+    local volume_info=""
     if [[ "$all_mounts" == -* ]]; then
-        # Extract names from YAML array items
-        volume_names=$(echo "$all_mounts" | grep "name:" | sed 's/.*name: *"\?\([^"]*\)"\?.*/\1/' | sort -u)
-    fi
-    
-    # Generate volume definitions for each unique name
-    if [[ -n "$volume_names" ]]; then
+        # Process each unique volume name
+        local volume_names=$(echo "$all_mounts" | grep "name:" | sed 's/.*name: *"\?\([^"]*\)"\?.*/\1/' | sort -u)
+        
         while IFS= read -r volume_name; do
             if [[ -n "$volume_name" ]]; then
+                # Find the permissions for this volume (take first occurrence)
+                local permissions=""
+                local mount_entry=$(echo "$all_mounts" | grep -A5 "name: *\"*$volume_name\"*" | head -6)
+                if [[ -n "$mount_entry" ]]; then
+                    permissions=$(echo "$mount_entry" | grep "permissions:" | head -1 | sed 's/.*permissions: *"\?\([^"]*\)"\?.*/\1/')
+                fi
+                
+                # Default permissions based on target path if not specified
+                if [[ -z "$permissions" ]] || [[ "$permissions" == '""' ]]; then
+                    # Check if this is a test directory mount
+                    local target=$(echo "$mount_entry" | grep "target:" | head -1 | sed 's/.*target: *"\?\([^"]*\)"\?.*/\1/')
+                    if [[ "$target" =~ \.ai-devkit/tests/ ]]; then
+                        permissions="0755"
+                    else
+                        permissions="0644"
+                    fi
+                fi
+                
+                # Convert permissions to decimal for Kubernetes (it expects decimal, not octal string)
+                local mode_decimal=420  # Default 0644 in decimal
+                if [[ "$permissions" == "0755" ]]; then
+                    mode_decimal=493  # 0755 in decimal
+                elif [[ "$permissions" == "0644" ]]; then
+                    mode_decimal=420  # 0644 in decimal
+                elif [[ "$permissions" == "0600" ]]; then
+                    mode_decimal=384  # 0600 in decimal
+                fi
+                
                 cat <<EOF
       - name: $volume_name
         configMap:
           name: component-configs
-          defaultMode: 0644
+          defaultMode: $mode_decimal
 EOF
             fi
         done <<< "$volume_names"
@@ -206,9 +231,8 @@ EOF
         echo "          subPath: $(basename $target)"
     fi
     
-    if [[ -n "$permissions" ]] && [[ "$permissions" != "null" ]] && [[ "$permissions" != '""' ]]; then
-        echo "          defaultMode: $permissions"
-    fi
+    # Note: defaultMode is not valid on volumeMounts, only on volume definitions
+    # Permissions should be set in the volume definition, not the mount
 }
 
 # Export functions
