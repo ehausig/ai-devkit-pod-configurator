@@ -1,0 +1,11 @@
+# Volume mount specifications for Gradle
+mounts:
+  - name: "gradle-init"
+    source: "init.gradle"
+    target: "/home/devuser/.gradle/init.gradle"
+    type: "file"
+  - name: "gradle-tests"
+    source: "tests/"
+    target: "/home/devuser/.ai-devkit/tests/gradle/"
+    type: "directory"
+    permissions: "0755"

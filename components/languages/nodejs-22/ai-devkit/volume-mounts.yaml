@@ -1,0 +1,7 @@
+# Volume mount specifications for nodejs-22
+mounts:
+  - name: "nodejs-22-tests"
+    source: "tests/"
+    target: "/home/devuser/.ai-devkit/tests/nodejs-22/"
+    type: "directory"
+    permissions: "0755"

@@ -1,0 +1,7 @@
+# Volume mount specifications for java-17-adoptium
+mounts:
+  - name: "java-17-adoptium-tests"
+    source: "tests/"
+    target: "/home/devuser/.ai-devkit/tests/java-17-adoptium/"
+    type: "directory"
+    permissions: "0755"

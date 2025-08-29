@@ -1,0 +1,7 @@
+# Volume mount specifications for scala-2.13
+mounts:
+  - name: "scala-2.13-tests"
+    source: "tests/"
+    target: "/home/devuser/.ai-devkit/tests/scala-2.13/"
+    type: "directory"
+    permissions: "0755"

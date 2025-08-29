@@ -1,0 +1,7 @@
+# Volume mount specifications for java-21-adoptium
+mounts:
+  - name: "java-21-adoptium-tests"
+    source: "tests/"
+    target: "/home/devuser/.ai-devkit/tests/java-21-adoptium/"
+    type: "directory"
+    permissions: "0755"

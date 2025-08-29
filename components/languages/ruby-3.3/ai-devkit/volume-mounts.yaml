@@ -1,0 +1,7 @@
+# Volume mount specifications for ruby-3.3
+mounts:
+  - name: "ruby-3.3-tests"
+    source: "tests/"
+    target: "/home/devuser/.ai-devkit/tests/ruby-3.3/"
+    type: "directory"
+    permissions: "0755"

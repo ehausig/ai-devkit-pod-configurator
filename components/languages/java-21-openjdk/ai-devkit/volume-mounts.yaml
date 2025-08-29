@@ -1,0 +1,7 @@
+# Volume mount specifications for java-21-openjdk
+mounts:
+  - name: "java-21-openjdk-tests"
+    source: "tests/"
+    target: "/home/devuser/.ai-devkit/tests/java-21-openjdk/"
+    type: "directory"
+    permissions: "0755"

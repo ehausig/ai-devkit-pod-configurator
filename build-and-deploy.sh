@@ -3531,9 +3531,9 @@ generate_repository_configs() {
         # Convert path like "components/languages/python-3.11.yaml" to "components/languages/python-3.11/"
         local component_dir="${yaml_file%.yaml}/"
         
-        # Check if this component has the new ai-devkit configuration structure
+        # All components must use the new ai-devkit configuration structure
         if [[ -d "$component_dir/ai-devkit" ]]; then
-            log "Processing component $component_name with new template system..."
+            log "Processing component $component_name..."
             
             # Generate component configuration using template processor
             if generate_component_configuration "$component_dir" "$component_id" "$config_temp_dir"; then
@@ -3545,17 +3545,17 @@ generate_repository_configs() {
                 if [[ -n "$component_mounts" ]]; then
                     all_volume_mounts+=("$component_mounts")
                 fi
+                
+                # Stage component tests for injection
+                stage_component_tests "$component_dir" "$component_name" "$config_temp_dir"
             else
                 log "No template configuration generated for $component_id"
             fi
         else
-            # Legacy component - check if it has repository configuration in old format
+            # Component doesn't have ai-devkit structure - check if it needs migration
             local format=$(yq -r '.installation.repos.format // ""' "$yaml_file" 2>/dev/null)
-            
             if [[ -n "$format" ]] && [[ "$format" != "null" ]]; then
-                warning "Component $component_name uses legacy format ($format) - consider migrating to template system"
-                # For now, keep legacy components working but log the need to migrate
-                configs_generated+=("$component_id-legacy")
+                log "Component $component_name has repository configuration but no ai-devkit structure"
             fi
         fi
     done

@@ -1,0 +1,7 @@
+# Volume mount specifications for go-1.21
+mounts:
+  - name: "go-1.21-tests"
+    source: "tests/"
+    target: "/home/devuser/.ai-devkit/tests/go-1.21/"
+    type: "directory"
+    permissions: "0755"
