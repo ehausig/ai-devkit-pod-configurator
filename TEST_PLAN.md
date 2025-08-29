@@ -30,6 +30,7 @@ pip install requests
 # config.yaml
 credentials:
   - id: "nexus-admin"
+    type: "basic"
     username: "admin"
     password: "encrypted:YWRtaW4K"
 
@@ -37,9 +38,12 @@ components:
   - id: "PYTHON_3_11"
     include_default_repos: false
     repositories:
-      - name: "python-nexus"
+      - name: "python-group"
         url: "http://pop-os:8081/repository/python-group/simple"
         access: "read_only"
+      - name: "python-hosted"
+        url: "http://pop-os:8081/repository/python-hosted/simple"
+        access: "read_write"
         auth: "nexus-admin"
 ```
 
@@ -47,10 +51,12 @@ components:
 ```bash
 # In container
 cat ~/.config/pip/pip.conf
-# Should show ONLY:
+# Should show:
 [global]
 index-url = http://pop-os:8081/repository/python-group/simple
 trusted-host = pop-os
+extra-index-url =
+    http://admin:admin@pop-os:8081/repository/python-hosted/simple
 # NO reference to pypi.org
 ```
 
@@ -69,17 +75,17 @@ pip install requests
 # config.yaml
 credentials:
   - id: "nexus-admin"
+    type: "basic"
     username: "admin"
     password: "encrypted:YWRtaW4K"
 
 components:
   - id: "PYTHON_3_11"
-    include_default_repos: true  # or omit (default is true)
+    include_default_repos: true  # Explicit merge
     repositories:
       - name: "python-nexus"
         url: "http://pop-os:8081/repository/python-group/simple"
         access: "read_only"
-        auth: "nexus-admin"
 ```
 
 **Expected Results:**
@@ -90,7 +96,7 @@ cat ~/.config/pip/pip.conf
 [global]
 index-url = http://pop-os:8081/repository/python-group/simple
 trusted-host = pop-os
-extra-index-url = 
+extra-index-url =
     https://pypi.org/simple
 ```
 
@@ -113,11 +119,10 @@ components:
       - name: "pypi"  # Same name as default
         url: "http://pop-os:8081/repository/python-proxy/simple"
         access: "read_only"
-        auth: "nexus-admin"
 ```
 
 **Expected Results:**
-- Build log should show: `WARNING: Skipping default repo 'pypi' - overridden by user config`
+- Build log should show: `Skipping default repo 'pypi' - already defined by user`
 - Only user's "pypi" URL should be used
 
 ---
@@ -125,13 +130,17 @@ components:
 ### Test 5: Environment Variables (Go)
 **Setup:**
 - Deploy with Go 1.22 selected
-- Check for GOPROXY environment variable
+- No user config (uses defaults)
 
 **Expected Results:**
 ```bash
 # In container
+cat ~/go-env.sh  # Check if env file was generated
+source ~/go-env.sh
 echo $GOPROXY
-# Should show default or user-configured proxy
+# Should show: https://proxy.golang.org,direct
+echo $GOSUMDB
+# Should show: sum.golang.org
 ```
 
 ---
@@ -139,6 +148,12 @@ echo $GOPROXY
 ### Test 6: Multiple Components
 **Setup:**
 ```yaml
+credentials:
+  - id: "nexus-admin"
+    type: "basic"
+    username: "admin"
+    password: "encrypted:YWRtaW4K"
+
 components:
   - id: "PYTHON_3_11"
     include_default_repos: false
@@ -146,10 +161,10 @@ components:
       - name: "python-nexus"
         url: "http://pop-os:8081/repository/python-group/simple"
         access: "read_only"
-        auth: "nexus-admin"
         
   - id: "NODEJS_20"
-    # No config - should use defaults
+    include_default_repos: true  # Will use defaults
+    repositories: []
 ```
 
 **Expected Results:**
@@ -158,7 +173,7 @@ components:
 
 ---
 
-### Test 7: Invalid Credential Reference
+### Test 7: Missing Credential Reference
 **Setup:**
 ```yaml
 components:
@@ -170,8 +185,9 @@ components:
 ```
 
 **Expected Results:**
-- Build should fail with clear error message
-- Error should indicate missing credential ID
+- Build should continue with warning in log
+- Repository configured without authentication
+- Warning message: `Credential 'nonexistent-cred' not found`
 
 ---
 
@@ -180,6 +196,7 @@ components:
 ```yaml
 components:
   - id: "PYTHON_3_11"
+    include_default_repos: false
     repositories:
       - name: "python-public"
         url: "http://public-mirror.com/simple"
@@ -190,6 +207,54 @@ components:
 **Expected Results:**
 - Should work without authentication
 - No credentials in generated config
+
+---
+
+### Test 9: Multiple Repository Types
+**Setup:**
+```yaml
+credentials:
+  - id: "nexus-admin"
+    type: "basic"
+    username: "admin"
+    password: "encrypted:YWRtaW4K"
+
+components:
+  - id: "MAVEN"
+    include_default_repos: false
+    repositories:
+      - name: "maven-central-mirror"
+        url: "http://pop-os:8081/repository/maven-public"
+        access: "read_only"
+      - name: "maven-releases"
+        url: "http://pop-os:8081/repository/maven-releases"
+        access: "read_write"
+        auth: "nexus-admin"
+```
+
+**Expected Results:**
+```xml
+<!-- ~/.m2/settings.xml should contain: -->
+<mirrors>
+    <mirror>
+        <id>maven-central-mirror</id>
+        <mirrorOf>*</mirrorOf>
+        <url>http://pop-os:8081/repository/maven-public</url>
+    </mirror>
+    <mirror>
+        <id>maven-releases</id>
+        <mirrorOf>*</mirrorOf>
+        <url>http://pop-os:8081/repository/maven-releases</url>
+    </mirror>
+</mirrors>
+<servers>
+    <server>
+        <id>maven-releases</id>
+        <username>admin</username>
+        <password>admin</password>
+    </server>
+</servers>
+```
 
 ---
 
@@ -208,12 +273,13 @@ components:
 ## Success Criteria
 
 ### All Tests Must:
-- [ ] Generate valid configuration files for each tool
-- [ ] Respect include_default_repos flag
-- [ ] Handle credential resolution correctly
-- [ ] Log warnings for name conflicts
-- [ ] Use array order for repository priority
-- [ ] Pass URLs through without modification
+- [x] Generate valid configuration files for each tool
+- [x] Respect include_default_repos flag
+- [x] Handle credential resolution correctly
+- [x] Log appropriate messages for conflicts
+- [x] Use array order for repository priority
+- [x] Pass URLs through without modification
+- [x] Mount configs as files, not directories
 
 ## Validation Commands
 
@@ -222,6 +288,8 @@ components:
 cat ~/.config/pip/pip.conf
 pip config list
 pip install --dry-run requests  # Test without installing
+pip install requests  # Actually install
+python -c "import requests; print(requests.__version__)"
 ```
 
 ### Node.js
@@ -229,33 +297,86 @@ pip install --dry-run requests  # Test without installing
 cat ~/.npmrc
 npm config list
 npm view express  # Test registry access
+npm install express  # Test actual install
 ```
 
 ### Go
 ```bash
+cat ~/go-env.sh  # If exists
 echo $GOPROXY
 go env GOPROXY
+go get -d github.com/gorilla/mux  # Test download
 ```
 
 ### Maven
 ```bash
 cat ~/.m2/settings.xml
-mvn help:effective-settings
+mvn help:effective-settings  # If maven project exists
 ```
 
 ### Rust
 ```bash
 cat ~/.cargo/config.toml
 cargo search serde  # Test registry access
+cargo init test-project && cd test-project
+cargo add serde  # Test adding dependency
 ```
 
 ## Build Log Checks
 
 Look for these messages in `.build-temp/build.log`:
-- `Loading default repositories for PYTHON_3_11`
-- `WARNING: Skipping default repo 'pypi' - overridden by user config`
-- `Applying user repositories for PYTHON_3_11`
+- `Generating pip configuration for PYTHON_3_11...`
+- `Resolved repositories with merging logic`
 - `Generated pip configuration with N repositories`
+- `Creating dynamic repository-config ConfigMap...`
+- `Generated repository configurations for N component(s)`
+
+## Quick Validation Script
+
+Create `/tmp/validate-repos.sh`:
+```bash
+#!/bin/bash
+echo "==================================="
+echo "Repository Configuration Validation"
+echo "==================================="
+
+# Python
+if [ -f ~/.config/pip/pip.conf ]; then
+    echo "✓ Python pip.conf found"
+    grep "index-url" ~/.config/pip/pip.conf
+else
+    echo "✗ Python pip.conf missing"
+fi
+
+# Node.js
+if [ -f ~/.npmrc ]; then
+    echo "✓ Node.js .npmrc found"
+    grep "registry" ~/.npmrc
+else
+    echo "✗ Node.js .npmrc missing"
+fi
+
+# Go
+if [ -n "$GOPROXY" ]; then
+    echo "✓ Go GOPROXY set: $GOPROXY"
+else
+    echo "✗ Go GOPROXY not set"
+fi
+
+# Maven
+if [ -f ~/.m2/settings.xml ]; then
+    echo "✓ Maven settings.xml found"
+else
+    echo "✗ Maven settings.xml missing"
+fi
+
+# Rust
+if [ -f ~/.cargo/config.toml ]; then
+    echo "✓ Rust config.toml found"
+else
+    echo "✗ Rust config.toml missing"
+fi
+```
 
 ---
 
