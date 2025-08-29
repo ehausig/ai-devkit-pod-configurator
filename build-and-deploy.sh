@@ -4374,16 +4374,29 @@ main() {
         tput el
     done
     
+    # Check for warnings in the log
+    local warning_count=$(grep -ci "warning:" "$LOG_FILE" 2>/dev/null || echo "0")
+    
     # Center the final prompt
     local final_prompt_text="Press ENTER to return to terminal"
+    if [[ $warning_count -gt 0 ]]; then
+        final_prompt_text="⚠ $warning_count warning(s) in build log • Press ENTER to return"
+    fi
     local final_prompt_len=${#final_prompt_text}
     local final_prompt_pos=$(( (term_width - final_prompt_len) / 2 ))
     
     tput cup $prompt_row $final_prompt_pos
-    printf "%bPress %b%bENTER%b%b to return to terminal%b" \
-        "$INSTRUCTION_TEXT_STYLE" \
-        "$STYLE_RESET" "$INSTRUCTION_KEY_STYLE" "$STYLE_RESET" "$INSTRUCTION_TEXT_STYLE" \
-        "$STYLE_RESET"
+    if [[ $warning_count -gt 0 ]]; then
+        printf "%b⚠ %b warning(s) in build log • Press %b%bENTER%b%b to return%b" \
+            "$COLOR_YELLOW" "$warning_count" \
+            "$STYLE_RESET" "$INSTRUCTION_KEY_STYLE" "$STYLE_RESET" "$INSTRUCTION_TEXT_STYLE" \
+            "$STYLE_RESET"
+    else
+        printf "%bPress %b%bENTER%b%b to return to terminal%b" \
+            "$INSTRUCTION_TEXT_STYLE" \
+            "$STYLE_RESET" "$INSTRUCTION_KEY_STYLE" "$STYLE_RESET" "$INSTRUCTION_TEXT_STYLE" \
+            "$STYLE_RESET"
+    fi
     read -r
 
     # Clean up and return to prompt
@@ -4393,6 +4406,13 @@ main() {
 
     # Display simplified connection instructions at terminal
     if [[ $all_success == true ]]; then
+        # Check for warnings again
+        local warning_count=$(grep -ci "warning:" "$LOG_FILE" 2>/dev/null || echo "0")
+        if [[ $warning_count -gt 0 ]]; then
+            echo ""
+            style_line "$COLOR_YELLOW" "⚠ Build completed with $warning_count warning(s)"
+            style_line "$COLOR_GRAY" "View warnings: grep -i warning $LOG_FILE"
+        fi
         echo ""
         style_line "$COLOR_GRAY" "Connection Info:"
         echo ""

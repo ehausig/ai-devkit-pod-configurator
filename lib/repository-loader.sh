@@ -107,12 +107,13 @@ get_include_defaults() {
     fi
     
     # Check include_default_repos flag (default: true)
-    local include=$(yq -r ".components[] | select(.id == \"$component_id\") | .include_default_repos // \"true\"" "$CONFIG_FILE" 2>/dev/null)
+    # Note: yq returns "true" or "false" as strings for boolean values
+    local include=$(yq -r ".components[] | select(.id == \"$component_id\") | .include_default_repos" "$CONFIG_FILE" 2>/dev/null)
     
     if [[ -z "$include" ]] || [[ "$include" == "null" ]]; then
-        echo "true"
+        echo "true"  # Default if not specified
     else
-        echo "$include"
+        echo "$include"  # Will be "true" or "false" as string
     fi
 }
 
