@@ -1,0 +1,12 @@
+# Volume mount specifications for Go 1.22
+mounts:
+  - name: "go-env"
+    source: "go-env.sh"
+    target: "/home/devuser/.config/go-env.sh"
+    type: "file"
+    permissions: "0644"
+  - name: "go-tests"
+    source: "tests/"
+    target: "/home/devuser/.ai-devkit/tests/go-1.22/"
+    type: "directory"
+    permissions: "0755"

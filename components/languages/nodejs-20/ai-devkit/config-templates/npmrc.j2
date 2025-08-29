@@ -1,0 +1,12 @@
+{% if repositories and repositories|length > 0 %}
+registry={{ repositories[0].url }}
+{% if repositories|length > 1 %}
+# Additional registries:
+{% for repo in repositories[1:] %}
+# {{ repo.name }}: {{ repo.url }}
+{% endfor %}
+{% endif %}
+{% else %}
+# Using default npm registry
+registry=https://registry.npmjs.org/
+{% endif %}

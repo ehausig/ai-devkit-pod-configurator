@@ -1,0 +1,11 @@
+# Volume mount specifications for Node.js 20
+mounts:
+  - name: "npm-config"
+    source: "npmrc"
+    target: "/home/devuser/.npmrc"
+    type: "file"
+  - name: "nodejs-tests"
+    source: "tests/"
+    target: "/home/devuser/.ai-devkit/tests/nodejs-20/"
+    type: "directory"
+    permissions: "0755"
