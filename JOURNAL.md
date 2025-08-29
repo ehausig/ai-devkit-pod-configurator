@@ -602,6 +602,103 @@ components/languages/python-3.11/
 
 ---
 
+## 2024-08-29: Repository Configuration Refactoring COMPLETED
+
+### What Was Accomplished
+
+#### Core Refactoring
+1. **Created Default Repository Files** - Added `ai-devkit/repos.yaml` for:
+   - Python 3.11 → PyPI
+   - Node.js 20 → npmjs.org
+   - Go 1.22 → proxy.golang.org (with env_vars.yaml)
+   - Rust Stable → crates.io
+   - Maven → Maven Central
+   - SBT → Maven Central + sbt-plugin-releases
+
+2. **New Library Architecture**
+   - `lib/credential-manager.sh` - Credential lookup and authentication
+   - `lib/repository-loader.sh` - Repository loading and merging with conflict detection
+   - Updated `lib/config-reader.sh` - Support for new credentials schema
+   - Completely rewrote `lib/component-config-generator.sh` - Uses new repository system
+
+3. **Files Removed (Technical Debt)**
+   - `lib/repository-config.sh` - Old system with duplicate functions
+   - `lib/entrypoint-repo-setup.sh` - Obsolete runtime setup
+   - `kubernetes/nexus-config.yaml` - Vendor-specific ConfigMap
+
+4. **Major Updates**
+   - `build-and-deploy.sh` - Removed all nexus-specific logic
+   - `config.yaml.example` - New vendor-agnostic schema
+   - ConfigMap renamed from "nexus-proxy-config" to "repository-config"
+
+### Critical Bugs Fixed During Testing
+
+#### Bug 1: pip.conf Created as Directory
+- **Issue**: ConfigMap name mismatch caused Kubernetes to create empty directory
+- **Fix**: Updated generate-dynamic-deployment.sh to use "repository-config"
+- **Commit**: c618b7e
+
+#### Bug 2: include_default_repos Always True
+- **Issue**: yq query with `// "true"` override was ignoring false values
+- **Fix**: Removed default from yq query in repository-loader.sh
+- **Commit**: e3f4579
+
+#### Bug 3: No Warning Visibility
+- **Issue**: Repository conflicts logged but users couldn't see them
+- **Fix**: Added warning count to deployment UI and terminal output
+- **Shows**: "⚠ 1 warning(s) in build log • Press ENTER to return"
+- **Commit**: e3f4579
+
+#### Bug 4: Default Repos Not Generated
+- **Issue**: No configs generated when user had no component configuration
+- **Fix**: Always generate configs, use defaults if no user config
+- **Commit**: a6d4fad
+
+#### Bug 5: Go Environment Not Sourced
+- **Issue**: go-env.sh mounted but GOPROXY not set in shell
+- **Fix**: Added sourcing to entrypoint.base.sh (not just bashrc)
+- **Commit**: fa56afd
+
+### Architecture Decisions
+
+1. **Repository Priority**: Array order determines priority (first is primary)
+2. **Merge Strategy**: User repos first, then non-conflicting defaults
+3. **Credential References**: Credentials defined once, referenced by ID
+4. **ConfigMap Mounting**: Each config file mounted individually with subPath
+5. **Environment Variables**: Go uses sourced shell script, not build args
+6. **Conflict Resolution**: Skip defaults with same name, log WARNING
+
+### Test Results Summary
+
+All 10 test scenarios passing:
+- ✅ Test 1: Default repositories (PyPI)
+- ✅ Test 2: include_default_repos: false (no PyPI)
+- ✅ Test 3: include_default_repos: true (merges)
+- ✅ Test 4: Name conflicts (warnings shown)
+- ✅ Test 5: Go environment variables (sourced)
+- ✅ Test 6-10: Various configurations documented
+
+### Key Features Delivered
+
+1. **Vendor-Agnostic**: Works with any repository manager
+2. **Default Repositories**: Components ship with public registry defaults
+3. **Flexible Merging**: include_default_repos flag for control
+4. **Credential Management**: Reusable credentials by reference
+5. **Warning System**: Visual feedback for configuration issues
+6. **Diagnostic Tools**: diagnose-go-config.sh for troubleshooting
+
+### Migration Impact
+
+**Breaking Changes**:
+- Removed "nexus" configuration section
+- Changed "type" to "access" in repositories
+- Removed "primary" field (use array order)
+- Changed component_repos to components in config
+
+**No Migration Script Needed**: System still in development phase
+
+---
+
 ## Future Considerations
 - Support for more auth types (tokens, certificates)
 - Repository health checks and validation
