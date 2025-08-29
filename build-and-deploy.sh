@@ -934,19 +934,28 @@ verify_image_in_runtime() {
             if [[ "$container_tool" == "nerdctl" ]]; then
                 # Debug: Log what we're checking
                 echo "Checking for image with nerdctl..." >> "$LOG_FILE"
+                echo "Looking for: ${image_name} with tag ${IMAGE_TAG}" >> "$LOG_FILE"
                 container_exec images >> "$LOG_FILE" 2>&1
                 
                 # Use the container_exec abstraction to get the full command with socket/namespace
-                # Check if image exists (container_exec handles the full command)
-                # Note: Image might be listed as docker.io/library/ai-devkit:latest
-                if container_exec images 2>/dev/null | grep -E "(docker.io/library/)?${image_name}" | grep -q "${IMAGE_TAG}"; then
-                    echo "Image $image_name found in K3s (via nerdctl with configured command)" >> "$LOG_FILE"
+                # Check if image exists - nerdctl shows REPOSITORY and TAG in separate columns
+                # The image name might just be "ai-devkit" or with docker.io prefix
+                local image_check=$(container_exec images 2>/dev/null | grep "^${image_name}[[:space:]]" | grep "[[:space:]]${IMAGE_TAG}[[:space:]]")
+                if [[ -n "$image_check" ]]; then
+                    echo "Image $image_name:$IMAGE_TAG found in K3s (simple name match)" >> "$LOG_FILE"
+                    return 0
+                fi
+                
+                # Also check with docker.io/library prefix
+                image_check=$(container_exec images 2>/dev/null | grep "^docker.io/library/${image_name}[[:space:]]" | grep "[[:space:]]${IMAGE_TAG}[[:space:]]")
+                if [[ -n "$image_check" ]]; then
+                    echo "Image $image_name:$IMAGE_TAG found in K3s (with docker.io prefix)" >> "$LOG_FILE"
                     return 0
                 fi
             fi
             # Fallback to k3s ctr check
             if sudo k3s ctr -n k8s.io images list 2>/dev/null | grep -q "$image_name"; then
-                echo "Image $image_name found in K3s" >> "$LOG_FILE"
+                echo "Image $image_name found in K3s (via k3s ctr)" >> "$LOG_FILE"
                 return 0
             fi
             ;;
