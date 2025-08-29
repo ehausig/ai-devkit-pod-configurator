@@ -197,9 +197,40 @@ components:
     repositories: []
 ```
 
+**Deployment:**
+- Select BOTH Python 3.11 AND Node.js 20 in the TUI
+- Deploy the container
+
 **Expected Results:**
-- Python: Only Nexus repository
-- Node.js: Default npm registry (https://registry.npmjs.org/)
+```bash
+# In container - Python should only use Nexus
+cat ~/.config/pip/pip.conf
+# Should show:
+[global]
+index-url = http://pop-os:8081/repository/python-group/simple
+trusted-host = pop-os
+# NO pypi.org
+
+# Node.js should use defaults
+cat ~/.npmrc
+# Should show:
+registry=https://registry.npmjs.org/
+```
+
+**Validation:**
+```bash
+# Test Python uses only Nexus
+pip config list | grep index-url
+# Should show only the Nexus URL
+
+# Test Node.js uses npm registry
+npm config get registry
+# Should show: https://registry.npmjs.org/
+
+# Verify both tools work
+pip install --dry-run requests
+npm view express version
+```
 
 ---
 
@@ -208,6 +239,7 @@ components:
 ```yaml
 components:
   - id: "PYTHON_3_11"
+    include_default_repos: false
     repositories:
       - name: "python-nexus"
         url: "http://pop-os:8081/repository/python-group/simple"
@@ -215,13 +247,26 @@ components:
 ```
 
 **Expected Results:**
-- Build should continue with warning in log
+- Build should continue (not fail)
+- Warning in build log: `Credential 'nonexistent-cred' not found`
 - Repository configured without authentication
-- Warning message: `Credential 'nonexistent-cred' not found`
+
+**Validation:**
+```bash
+# Check build log for warning
+grep -i "credential.*not found" build-and-deploy.log
+
+# In container, verify config has no auth
+cat ~/.config/pip/pip.conf
+# Should show URL without username:password
+
+# Test that pip still works (if repo allows anonymous)
+pip search requests 2>/dev/null || echo "Anonymous access may be denied"
+```
 
 ---
 
-### Test 8: No Authentication
+### Test 8: No Authentication (Anonymous Access)
 **Setup:**
 ```yaml
 components:
@@ -235,12 +280,32 @@ components:
 ```
 
 **Expected Results:**
-- Should work without authentication
-- No credentials in generated config
+- Build completes successfully
+- No authentication in generated config
+- pip.conf contains plain URL
+
+**Validation:**
+```bash
+# In container
+cat ~/.config/pip/pip.conf
+# Should show:
+[global]
+index-url = http://public-mirror.com/simple
+trusted-host = public-mirror.com
+# No username:password in URL
+
+# Verify pip config
+pip config list | grep index-url
+# Should show clean URL without auth
+
+# Test with public PyPI (if online)
+# Temporarily change to test PyPI
+pip install --index-url https://pypi.org/simple --dry-run requests
+```
 
 ---
 
-### Test 9: Multiple Repository Types
+### Test 9: Multiple Repository Types (Maven)
 **Setup:**
 ```yaml
 credentials:
@@ -261,6 +326,10 @@ components:
         access: "read_write"
         auth: "nexus-admin"
 ```
+
+**Deployment:**
+- Select Maven in the TUI
+- Deploy the container
 
 **Expected Results:**
 ```xml
@@ -284,6 +353,95 @@ components:
         <password>admin</password>
     </server>
 </servers>
+```
+
+**Validation:**
+```bash
+# In container
+cat ~/.m2/settings.xml
+
+# Verify Maven can resolve dependencies
+cd /tmp
+cat > pom.xml << 'EOF'
+<project>
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>test</groupId>
+  <artifactId>test</artifactId>
+  <version>1.0</version>
+  <dependencies>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.13.2</version>
+    </dependency>
+  </dependencies>
+</project>
+EOF
+
+# Test dependency resolution
+mvn dependency:resolve
+# Should download from configured repositories
+
+# Check effective settings
+mvn help:effective-settings | grep -A5 "<mirror>"
+```
+
+---
+
+### Test 10: Rust with Custom Registry
+**Setup:**
+```yaml
+credentials:
+  - id: "cargo-token"
+    type: "token"
+    token: "encrypted:Y2FyZ290b2tlbg=="
+
+components:
+  - id: "RUST_STABLE"
+    include_default_repos: false
+    repositories:
+      - name: "corporate-crates"
+        url: "http://crates.corp.local"
+        access: "read_write"
+        auth: "cargo-token"
+```
+
+**Deployment:**
+- Select Rust Stable in the TUI
+- Deploy the container
+
+**Expected Results:**
+```toml
+# ~/.cargo/config.toml should contain:
+[source.crates-io]
+replace-with = "custom"
+
+[source.custom]
+registry = "http://crates.corp.local"
+
+[registries.custom]
+token = "cargotooken"
+```
+
+**Validation:**
+```bash
+# In container
+cat ~/.cargo/config.toml
+
+# Test cargo configuration
+cargo --version
+
+# Create a test project
+cd /tmp
+cargo init test-project
+cd test-project
+
+# Try to add a dependency (will fail if registry is not accessible)
+cargo search serde --limit 1
+# Should search in corporate registry
+
+# If you have a working registry:
+cargo add serde --dry-run
 ```
 
 ---
