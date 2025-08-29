@@ -301,7 +301,7 @@ pip config list | grep index-url
 
 # Test with public PyPI (if online)
 # Temporarily change to test PyPI
-pip install --index-url https://pypi.org/simple --dry-run requests
+pip download --index-url https://pypi.org/simple --no-deps --no-binary :all: requests
 ```
 
 ---
@@ -469,6 +469,7 @@ cargo add serde --dry-run
 - ✅ **Test 5**: Go environment mounted (requires entrypoint fix for sourcing)
 - ✅ **Test 6**: Multiple components work correctly (Python uses only Nexus, Node.js uses defaults)
 - ✅ **Test 7**: Missing credential reference handled gracefully (repo configured without auth)
+- ✅ **Test 8**: Anonymous access works correctly (no auth in URL)
 
 ### Known Issues Fixed:
 1. **pip.conf as directory** - Fixed ConfigMap name mismatch
