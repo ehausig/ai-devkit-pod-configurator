@@ -1,14 +1,15 @@
 #!/bin/bash
 
 # Component Configuration Generator
-# This script generates repository configurations dynamically based on selected components
-# and user's config.yaml settings. It replaces the hardcoded language-specific logic.
+# Completely rewritten for new repository configuration system
 
 set -e
 
-# Source the config reader library for consistent config access
+# Source dependencies
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/config-reader.sh"
+source "$SCRIPT_DIR/repository-loader.sh"
+source "$SCRIPT_DIR/credential-manager.sh"
 
 # Color definitions for output
 RED='\033[0;31m'
@@ -47,10 +48,8 @@ get_container_host() {
             echo "host.minikube.internal"
             ;;
         "k3s")
-            # For K3s, use the host machine name
-            # Try to get the actual hostname (not localhost)
+            # For K3s, use the actual hostname
             local host_name=$(hostname 2>/dev/null || echo "host.k3s.internal")
-            # Don't use "localhost" as it won't work in the container
             if [[ "$host_name" == "localhost" ]]; then
                 host_name="host.k3s.internal"
             fi
@@ -78,50 +77,73 @@ generate_pip_config() {
     
     echo "Generating pip configuration for $component_id..." >&2
     
-    # Read repository configuration from config.yaml
-    local repos=$(read_component_repos "$component_id" "$CONFIG_FILE")
+    # Resolve repositories with merging logic
+    local repos=$(resolve_repositories "$component_id")
     
-    if [[ "$repos" == "[]" ]] || [[ "$repos" == "null" ]] || [[ -z "$repos" ]]; then
-        echo "No repository configuration found for $component_id" >&2
+    if [[ -z "$repos" ]] || [[ "$repos" == "[]" ]] || [[ "$repos" == "null" ]]; then
+        echo "No repositories configured for $component_id" >&2
         return 1
     fi
     
-    # Get primary repository
-    local primary_url=$(echo "$repos" | yq -r '.[] | select(.primary == true) | .url' 2>/dev/null | head -1)
-    if [[ -z "$primary_url" ]] || [[ "$primary_url" == "null" ]]; then
-        # Fallback to first repository if no primary designated
-        primary_url=$(echo "$repos" | yq -r '.[0].url' 2>/dev/null)
-    fi
+    # Parse repositories
+    local num_repos=$(echo "$repos" | yq -r '. | length')
     
-    if [[ -z "$primary_url" ]] || [[ "$primary_url" == "null" ]]; then
-        echo "No repository URL found for $component_id" >&2
+    if [[ $num_repos -eq 0 ]]; then
+        echo "No repositories to configure for $component_id" >&2
         return 1
     fi
+    
+    # Start building pip.conf
+    echo "[global]" > "$config_file"
+    
+    # First repository becomes index-url
+    local first_repo=$(echo "$repos" | yq -r '.[0]')
+    local url=$(echo "$first_repo" | yq -r '.url // ""')
+    local auth=$(echo "$first_repo" | yq -r '.auth // ""')
     
     # Translate URL for container access
-    primary_url=$(translate_url "$primary_url")
+    url=$(translate_url "$url")
     
-    # Extract host for trusted-host
-    local host=$(echo "$primary_url" | sed -E 's|https?://([^:/]+).*|\1|')
-    
-    # Generate pip.conf
-    cat > "$config_file" << EOF
-[global]
-index-url = ${primary_url}/simple
-trusted-host = $host
-EOF
-    
-    # Add extra index URLs if present
-    local extra_urls=$(echo "$repos" | yq -r '.[] | select(.primary != true) | .url' 2>/dev/null)
-    if [[ -n "$extra_urls" ]] && [[ "$extra_urls" != "null" ]]; then
-        echo "extra-index-url =" >> "$config_file"
-        while IFS= read -r url; do
-            url=$(translate_url "$url")
-            echo "    ${url}/simple" >> "$config_file"
-        done <<< "$extra_urls"
+    # Add authentication if needed
+    if [[ -n "$auth" ]] && [[ "$auth" != "null" ]]; then
+        if has_basic_auth "$auth"; then
+            url=$(add_basic_auth_to_url "$url" "$auth")
+        fi
     fi
     
-    echo "Generated pip.conf at $config_file" >&2
+    echo "index-url = $url" >> "$config_file"
+    
+    # Extract host for trusted-host
+    local host=$(echo "$url" | sed -E 's|https?://([^:/]+).*|\1|' | sed 's/@.*//')
+    if [[ -n "$host" ]] && [[ "$url" == http://* ]]; then
+        echo "trusted-host = $host" >> "$config_file"
+    fi
+    
+    # Additional repositories become extra-index-url
+    if [[ $num_repos -gt 1 ]]; then
+        echo "extra-index-url =" >> "$config_file"
+        
+        for i in $(seq 1 $((num_repos - 1))); do
+            local repo=$(echo "$repos" | yq -r ".[$i]")
+            local extra_url=$(echo "$repo" | yq -r '.url // ""')
+            local extra_auth=$(echo "$repo" | yq -r '.auth // ""')
+            
+            # Translate URL
+            extra_url=$(translate_url "$extra_url")
+            
+            # Add authentication if needed
+            if [[ -n "$extra_auth" ]] && [[ "$extra_auth" != "null" ]]; then
+                if has_basic_auth "$extra_auth"; then
+                    extra_url=$(add_basic_auth_to_url "$extra_url" "$extra_auth")
+                fi
+            fi
+            
+            echo "    $extra_url" >> "$config_file"
+        done
+    fi
+    
+    echo "Generated pip configuration with $num_repos repositories" >&2
+    return 0
 }
 
 # Function to generate npm configuration
@@ -131,114 +153,172 @@ generate_npm_config() {
     
     echo "Generating npm configuration for $component_id..." >&2
     
-    # Read repository configuration from config.yaml
-    local repos=$(read_component_repos "$component_id" "$CONFIG_FILE")
+    # Resolve repositories with merging logic
+    local repos=$(resolve_repositories "$component_id")
     
-    if [[ "$repos" == "[]" ]] || [[ "$repos" == "null" ]] || [[ -z "$repos" ]]; then
-        echo "No repository configuration found for $component_id" >&2
+    if [[ -z "$repos" ]] || [[ "$repos" == "[]" ]] || [[ "$repos" == "null" ]]; then
+        echo "No repositories configured for $component_id" >&2
         return 1
     fi
     
-    # Get primary repository
-    local primary_url=$(echo "$repos" | yq -r '.[] | select(.primary == true) | .url' 2>/dev/null | head -1)
-    if [[ -z "$primary_url" ]] || [[ "$primary_url" == "null" ]]; then
-        primary_url=$(echo "$repos" | yq -r '.[0].url' 2>/dev/null)
-    fi
+    # Parse repositories
+    local num_repos=$(echo "$repos" | yq -r '. | length')
     
-    if [[ -z "$primary_url" ]] || [[ "$primary_url" == "null" ]]; then
-        echo "No repository URL found for $component_id" >&2
+    if [[ $num_repos -eq 0 ]]; then
+        echo "No repositories to configure for $component_id" >&2
         return 1
     fi
+    
+    # First repository becomes the main registry
+    local first_repo=$(echo "$repos" | yq -r '.[0]')
+    local url=$(echo "$first_repo" | yq -r '.url // ""')
+    local auth=$(echo "$first_repo" | yq -r '.auth // ""')
     
     # Translate URL for container access
-    primary_url=$(translate_url "$primary_url")
+    url=$(translate_url "$url")
     
-    # Generate npmrc
-    echo "registry=${primary_url}/" > "$config_file"
+    echo "registry=$url" > "$config_file"
     
-    echo "Generated npmrc at $config_file" >&2
+    # Add authentication if needed
+    if [[ -n "$auth" ]] && [[ "$auth" != "null" ]]; then
+        local username=$(get_credential_username "$auth")
+        local password=$(get_credential_password "$auth")
+        
+        if [[ -n "$username" ]] && [[ -n "$password" ]]; then
+            # Extract host from URL for auth
+            local host=$(echo "$url" | sed -E 's|https?://([^/]+).*|\1|')
+            echo "//$host/:_authToken=$(echo -n "${username}:${password}" | base64)" >> "$config_file"
+        fi
+    fi
+    
+    echo "Generated npm configuration with $num_repos repositories" >&2
+    return 0
 }
 
-# Function to generate Go proxy configuration
-generate_go_config() {
+# Function to generate Go environment variables
+generate_go_env() {
     local component_id="$1"
-    local config_file="$2"
+    local env_file="$2"
     
-    echo "Generating Go proxy configuration for $component_id..." >&2
+    echo "Generating Go environment configuration for $component_id..." >&2
     
-    # Read repository configuration from config.yaml
-    local repos=$(read_component_repos "$component_id" "$CONFIG_FILE")
+    # Resolve repositories with merging logic
+    local repos=$(resolve_repositories "$component_id")
     
-    if [[ "$repos" == "[]" ]] || [[ "$repos" == "null" ]] || [[ -z "$repos" ]]; then
-        echo "No repository configuration found for $component_id" >&2
+    if [[ -z "$repos" ]] || [[ "$repos" == "[]" ]] || [[ "$repos" == "null" ]]; then
+        echo "No repositories configured for $component_id" >&2
         return 1
     fi
     
-    # Build proxy list from all repositories
-    local proxy_list=""
-    local urls=$(echo "$repos" | yq -r '.[].url' 2>/dev/null)
-    while IFS= read -r url; do
-        if [[ -n "$url" ]] && [[ "$url" != "null" ]]; then
-            url=$(translate_url "$url")
-            if [[ -z "$proxy_list" ]]; then
-                proxy_list="$url"
-            else
-                proxy_list="${proxy_list},${url}"
-            fi
+    # Get first repository URL for GOPROXY
+    local first_repo=$(echo "$repos" | yq -r '.[0]')
+    local url=$(echo "$first_repo" | yq -r '.url // ""')
+    local auth=$(echo "$first_repo" | yq -r '.auth // ""')
+    
+    # Translate URL for container access
+    url=$(translate_url "$url")
+    
+    # Add authentication if needed
+    if [[ -n "$auth" ]] && [[ "$auth" != "null" ]]; then
+        if has_basic_auth "$auth"; then
+            url=$(add_basic_auth_to_url "$url" "$auth")
         fi
-    done <<< "$urls"
+    fi
     
-    # Generate go env file
-    cat > "$config_file" << EOF
-export GOPROXY="${proxy_list},direct"
-export GOPRIVATE=""
-export GONOSUMDB=""
-EOF
+    # Write environment variables
+    echo "export GOPROXY=\"${url},direct\"" > "$env_file"
+    echo "export GOSUMDB=\"sum.golang.org\"" >> "$env_file"
+    echo "export GO111MODULE=on" >> "$env_file"
     
-    echo "Generated Go env at $config_file" >&2
+    echo "Generated Go environment configuration" >&2
+    return 0
 }
 
 # Function to generate Maven settings.xml
-generate_maven_config() {
+generate_maven_settings() {
     local component_id="$1"
     local config_file="$2"
     
-    echo "Generating Maven configuration for $component_id..." >&2
+    echo "Generating Maven settings for $component_id..." >&2
     
-    # Read repository configuration from config.yaml
-    local repos=$(read_component_repos "$component_id" "$CONFIG_FILE")
+    # Resolve repositories with merging logic
+    local repos=$(resolve_repositories "$component_id")
     
-    if [[ "$repos" == "[]" ]] || [[ "$repos" == "null" ]] || [[ -z "$repos" ]]; then
-        echo "No repository configuration found for $component_id" >&2
+    if [[ -z "$repos" ]] || [[ "$repos" == "[]" ]] || [[ "$repos" == "null" ]]; then
+        echo "No repositories configured for $component_id" >&2
         return 1
     fi
     
-    # Get primary repository
-    local primary_url=$(echo "$repos" | yq -r '.[] | select(.primary == true) | .url' 2>/dev/null | head -1)
-    if [[ -z "$primary_url" ]] || [[ "$primary_url" == "null" ]]; then
-        primary_url=$(echo "$repos" | yq -r '.[0].url' 2>/dev/null)
-    fi
-    
-    primary_url=$(translate_url "$primary_url")
-    
-    # Generate settings.xml
-    cat > "$config_file" << EOF
+    # Start building settings.xml
+    cat > "$config_file" << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0
                               http://maven.apache.org/xsd/settings-1.0.0.xsd">
     <mirrors>
-        <mirror>
-            <id>nexus</id>
-            <mirrorOf>*</mirrorOf>
-            <url>${primary_url}</url>
-        </mirror>
-    </mirrors>
-</settings>
 EOF
     
-    echo "Generated settings.xml at $config_file" >&2
+    # Process each repository
+    local num_repos=$(echo "$repos" | yq -r '. | length')
+    
+    for i in $(seq 0 $((num_repos - 1))); do
+        local repo=$(echo "$repos" | yq -r ".[$i]")
+        local name=$(echo "$repo" | yq -r '.name // "repo'$i'"')
+        local url=$(echo "$repo" | yq -r '.url // ""')
+        local auth=$(echo "$repo" | yq -r '.auth // ""')
+        
+        # Translate URL
+        url=$(translate_url "$url")
+        
+        # Add as mirror
+        cat >> "$config_file" << EOF
+        <mirror>
+            <id>$name</id>
+            <mirrorOf>*</mirrorOf>
+            <url>$url</url>
+        </mirror>
+EOF
+    done
+    
+    echo "    </mirrors>" >> "$config_file"
+    
+    # Add authentication servers if needed
+    local has_auth=false
+    for i in $(seq 0 $((num_repos - 1))); do
+        local repo=$(echo "$repos" | yq -r ".[$i]")
+        local auth=$(echo "$repo" | yq -r '.auth // ""')
+        
+        if [[ -n "$auth" ]] && [[ "$auth" != "null" ]]; then
+            if [[ "$has_auth" == "false" ]]; then
+                echo "    <servers>" >> "$config_file"
+                has_auth=true
+            fi
+            
+            local name=$(echo "$repo" | yq -r '.name // "repo'$i'"')
+            local username=$(get_credential_username "$auth")
+            local password=$(get_credential_password "$auth")
+            
+            if [[ -n "$username" ]] && [[ -n "$password" ]]; then
+                cat >> "$config_file" << EOF
+        <server>
+            <id>$name</id>
+            <username>$username</username>
+            <password>$password</password>
+        </server>
+EOF
+            fi
+        fi
+    done
+    
+    if [[ "$has_auth" == "true" ]]; then
+        echo "    </servers>" >> "$config_file"
+    fi
+    
+    echo "</settings>" >> "$config_file"
+    
+    echo "Generated Maven settings with $num_repos repositories" >&2
+    return 0
 }
 
 # Function to generate Cargo configuration
@@ -248,234 +328,89 @@ generate_cargo_config() {
     
     echo "Generating Cargo configuration for $component_id..." >&2
     
-    # Read repository configuration from config.yaml
-    local repos=$(read_component_repos "$component_id" "$CONFIG_FILE")
+    # Resolve repositories with merging logic
+    local repos=$(resolve_repositories "$component_id")
     
-    if [[ "$repos" == "[]" ]] || [[ "$repos" == "null" ]] || [[ -z "$repos" ]]; then
-        echo "No repository configuration found for $component_id" >&2
+    if [[ -z "$repos" ]] || [[ "$repos" == "[]" ]] || [[ "$repos" == "null" ]]; then
+        echo "No repositories configured for $component_id" >&2
         return 1
     fi
     
-    # Get primary repository
-    local primary_url=$(echo "$repos" | yq -r '.[] | select(.primary == true) | .url' 2>/dev/null | head -1)
-    if [[ -z "$primary_url" ]] || [[ "$primary_url" == "null" ]]; then
-        primary_url=$(echo "$repos" | yq -r '.[0].url' 2>/dev/null)
-    fi
+    # Get first repository
+    local first_repo=$(echo "$repos" | yq -r '.[0]')
+    local url=$(echo "$first_repo" | yq -r '.url // ""')
+    local auth=$(echo "$first_repo" | yq -r '.auth // ""')
     
-    primary_url=$(translate_url "$primary_url")
+    # Translate URL
+    url=$(translate_url "$url")
     
-    # Generate config.toml
-    cat > "$config_file" << EOF
-[source.crates-io]
-replace-with = "nexus"
-
-[source.nexus]
-registry = "sparse+${primary_url}/"
-EOF
+    # Generate Cargo config
+    echo "[source.crates-io]" > "$config_file"
+    echo "replace-with = \"custom\"" >> "$config_file"
+    echo "" >> "$config_file"
+    echo "[source.custom]" >> "$config_file"
+    echo "registry = \"$url\"" >> "$config_file"
     
-    echo "Generated cargo config at $config_file" >&2
-}
-
-# Function to generate RubyGems configuration
-generate_gem_config() {
-    local component_id="$1"
-    local config_file="$2"
-    
-    echo "Generating RubyGems configuration for $component_id..." >&2
-    
-    # Read repository configuration from config.yaml
-    local repos=$(read_component_repos "$component_id" "$CONFIG_FILE")
-    
-    if [[ "$repos" == "[]" ]] || [[ "$repos" == "null" ]] || [[ -z "$repos" ]]; then
-        echo "No repository configuration found for $component_id" >&2
-        return 1
-    fi
-    
-    # Generate gemrc with all repositories as sources
-    echo "---" > "$config_file"
-    echo ":sources:" >> "$config_file"
-    
-    local urls=$(echo "$repos" | yq -r '.[].url' 2>/dev/null)
-    while IFS= read -r url; do
-        if [[ -n "$url" ]] && [[ "$url" != "null" ]]; then
-            url=$(translate_url "$url")
-            echo "  - ${url}" >> "$config_file"
+    # Add authentication if needed
+    if [[ -n "$auth" ]] && [[ "$auth" != "null" ]]; then
+        local token=$(get_credential_token "$auth")
+        if [[ -n "$token" ]]; then
+            echo "" >> "$config_file"
+            echo "[registries.custom]" >> "$config_file"
+            echo "token = \"$token\"" >> "$config_file"
         fi
-    done <<< "$urls"
-    
-    echo "Generated gemrc at $config_file" >&2
-}
-
-# Function to generate SBT repositories configuration
-generate_sbt_config() {
-    local component_id="$1"
-    local config_file="$2"
-    
-    echo "Generating SBT configuration for $component_id..." >&2
-    
-    # Read repository configuration from config.yaml
-    local repos=$(read_component_repos "$component_id" "$CONFIG_FILE")
-    
-    if [[ "$repos" == "[]" ]] || [[ "$repos" == "null" ]] || [[ -z "$repos" ]]; then
-        echo "No repository configuration found for $component_id" >&2
-        return 1
     fi
     
-    # Generate repositories file
-    echo "[repositories]" > "$config_file"
-    echo "local" >> "$config_file"
-    
-    local i=0
-    local urls=$(echo "$repos" | yq -r '.[].url' 2>/dev/null)
-    while IFS= read -r url; do
-        if [[ -n "$url" ]] && [[ "$url" != "null" ]]; then
-            url=$(translate_url "$url")
-            if [[ $i -eq 0 ]]; then
-                echo "maven-central: ${url}" >> "$config_file"
-            else
-                echo "repo-${i}: ${url}" >> "$config_file"
-            fi
-            ((i++))
-        fi
-    done <<< "$urls"
-    
-    echo "Generated SBT repositories at $config_file" >&2
+    echo "Generated Cargo configuration" >&2
+    return 0
 }
 
-# Function to generate Gradle properties
-generate_gradle_config() {
-    local component_id="$1"
-    local config_file="$2"
-    
-    echo "Generating Gradle configuration for $component_id..." >&2
-    
-    # Read repository configuration from config.yaml
-    local repos=$(read_component_repos "$component_id" "$CONFIG_FILE")
-    
-    if [[ "$repos" == "[]" ]] || [[ "$repos" == "null" ]] || [[ -z "$repos" ]]; then
-        echo "No repository configuration found for $component_id" >&2
-        return 1
-    fi
-    
-    # Get primary repository
-    local primary_url=$(echo "$repos" | yq -r '.[] | select(.primary == true) | .url' 2>/dev/null | head -1)
-    if [[ -z "$primary_url" ]] || [[ "$primary_url" == "null" ]]; then
-        primary_url=$(echo "$repos" | yq -r '.[0].url' 2>/dev/null)
-    fi
-    
-    primary_url=$(translate_url "$primary_url")
-    
-    # Generate gradle.properties
-    echo "systemProp.nexus.url=${primary_url}" > "$config_file"
-    
-    echo "Generated gradle.properties at $config_file" >&2
-}
-
-# Main function to generate configuration for a component
+# Main function to generate component configuration
 generate_component_config() {
     local component_yaml="$1"
     local output_dir="${2:-$TEMP_DIR}"
     
     if [[ ! -f "$component_yaml" ]]; then
-        echo "Component YAML file not found: $component_yaml" >&2
+        echo "Component YAML not found: $component_yaml" >&2
         return 1
     fi
     
-    # Extract component metadata
-    local component_id=$(yq -r '.id' "$component_yaml" 2>/dev/null)
+    # Extract component information
+    local component_id=$(yq -r '.id // ""' "$component_yaml" 2>/dev/null)
     local format=$(yq -r '.installation.repos.format // ""' "$component_yaml" 2>/dev/null)
-    local config_file_name=$(yq -r '.installation.repos.config_file // ""' "$component_yaml" 2>/dev/null)
     
-    if [[ -z "$component_id" ]] || [[ "$component_id" == "null" ]]; then
-        echo "No component ID found in $component_yaml" >&2
-        return 1
-    fi
-    
-    if [[ -z "$format" ]] || [[ "$format" == "null" ]]; then
+    if [[ -z "$component_id" ]] || [[ -z "$format" ]] || [[ "$format" == "null" ]]; then
         echo "Component $component_id does not have repository configuration" >&2
         return 0
     fi
     
-    # Check if component has repository configuration in config.yaml
-    if ! has_component_repos "$component_id" "$CONFIG_FILE"; then
-        echo "No repository configuration for $component_id in config.yaml" >&2
-        return 0
-    fi
+    echo "Processing component $component_id with format $format" >&2
     
     # Generate configuration based on format
-    local config_path=""
     case "$format" in
         "pypi")
-            config_path="$output_dir/pip.conf"
-            generate_pip_config "$component_id" "$config_path"
+            generate_pip_config "$component_id" "$output_dir/pip.conf"
             ;;
         "npm")
-            config_path="$output_dir/npmrc"
-            generate_npm_config "$component_id" "$config_path"
+            generate_npm_config "$component_id" "$output_dir/npmrc"
             ;;
         "go")
-            config_path="$output_dir/go-env.sh"
-            generate_go_config "$component_id" "$config_path"
+            generate_go_env "$component_id" "$output_dir/go-env.sh"
             ;;
         "maven2")
-            config_path="$output_dir/settings.xml"
-            generate_maven_config "$component_id" "$config_path"
+            generate_maven_settings "$component_id" "$output_dir/settings.xml"
             ;;
         "cargo")
-            config_path="$output_dir/cargo-config.toml"
-            generate_cargo_config "$component_id" "$config_path"
-            ;;
-        "rubygems")
-            config_path="$output_dir/gemrc"
-            generate_gem_config "$component_id" "$config_path"
-            ;;
-        "sbt")
-            config_path="$output_dir/repositories"
-            generate_sbt_config "$component_id" "$config_path"
-            ;;
-        "gradle")
-            config_path="$output_dir/gradle.properties"
-            generate_gradle_config "$component_id" "$config_path"
+            generate_cargo_config "$component_id" "$output_dir/cargo-config.toml"
             ;;
         *)
-            echo "Unknown repository format: $format for component $component_id" >&2
+            echo "Unknown repository format: $format" >&2
             return 1
             ;;
     esac
     
-    # Output the generated config path for the caller
-    if [[ -f "$config_path" ]]; then
-        echo "$config_path"
-    fi
+    return 0
 }
 
-# Function to generate all configurations for selected components
-generate_all_configs() {
-    local components=("$@")
-    local configs_generated=()
-    
-    for component_yaml in "${components[@]}"; do
-        echo "Processing component: $component_yaml" >&2
-        local config_path=$(generate_component_config "$component_yaml")
-        if [[ -n "$config_path" ]]; then
-            configs_generated+=("$config_path")
-        fi
-    done
-    
-    # Return list of generated configs
-    printf '%s\n' "${configs_generated[@]}"
-}
-
-# Cleanup function
-cleanup() {
-    if [[ -d "$TEMP_DIR" ]]; then
-        rm -rf "$TEMP_DIR"
-    fi
-}
-
-# Export functions for use by other scripts
-export -f get_container_host
-export -f translate_url
+# Main function exported for use by other scripts
 export -f generate_component_config
-export -f generate_all_configs
-export -f cleanup

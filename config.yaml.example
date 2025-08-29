@@ -4,93 +4,97 @@
 # Container runtime configuration (REQUIRED)
 container:
   build_command: "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
-  runtime: "k3s"                # k3s|minikube|kind|docker-desktop|none
+  runtime: "k3s"                # k3s|minikube|kind|docker-desktop|colima|none
   runtime_import: "direct"       # direct|save-load|none
   container_host: "pop-os"       # Optional: Override auto-detected host
 
-# Nexus configuration (OPTIONAL)
-# Set enabled: false if not using Nexus for Docker image builds
-nexus:
-  enabled: false
-  url: "http://localhost:8081"
-  auth:
-    type: "basic"                # anonymous|basic
+# Credentials configuration (OPTIONAL)
+# Define reusable credentials that can be referenced by repositories
+credentials:
+  - id: "nexus-admin"
+    type: "basic"                # basic|token|bearer
     username: "admin"
     password: "encrypted:YWRtaW4K"  # Base64 encoded
+  
+  - id: "artifactory-token"
+    type: "token"
+    token: "encrypted:..."
+  
+  - id: "github-packages"
+    type: "basic"
+    username: "github-user"
+    password: "encrypted:..."       # GitHub personal access token
 
 # Components configuration (OPTIONAL)
 # Define repository configurations for each component by ID
-# The ID must match the component YAML file's id field
 components:
   - id: "PYTHON_3_11"
+    include_default_repos: false    # Set to true to merge with default PyPI
     repositories:
-      - name: "python-group"
-        url: "http://localhost:8090"
-        type: "local_readonly"
-        auth: "inherit"
-        primary: true
-      - name: "python-hosted"
-        url: "http://localhost:8084"
-        type: "local_readwrite"
-        auth: "inherit"
-        primary: false
+      - name: "nexus-pypi"
+        url: "http://localhost:8081/repository/pypi-group/simple"
+        access: "read_only"          # read_only|read_write
+        auth: "nexus-admin"          # Reference to credential ID
+      - name: "artifactory-pypi"
+        url: "https://mycompany.jfrog.io/artifactory/api/pypi/pypi/simple"
+        access: "read_write"
+        auth: "artifactory-token"
 
-  - id: "NODEJS_20_X_LTS"
+  - id: "NODEJS_20"
+    include_default_repos: true     # Merge with default npmjs.org
     repositories:
-      - name: "npm-group"
-        url: "http://localhost:8091"
-        type: "local_readonly"
-        auth: "inherit"
-        primary: true
-      - name: "npm-hosted"
-        url: "http://localhost:8085"
-        type: "local_readwrite"
-        auth: "inherit"
-        primary: false
+      - name: "corporate-npm"
+        url: "http://npm.corp.local/"
+        access: "read_only"
+        # No auth means public/anonymous access
 
   - id: "GO_1_22"
+    include_default_repos: false
     repositories:
-      - name: "go-group"
-        url: "http://localhost:8095"
-        type: "local_readonly"
-        auth: "inherit"
-        primary: true
-      - name: "go-hosted"
-        url: "http://localhost:8089"
-        type: "local_readwrite"
-        auth: "inherit"
-        primary: false
+      - name: "athens-proxy"
+        url: "http://athens.local:3000"
+        access: "read_only"
+      - name: "artifactory-go"
+        url: "https://mycompany.jfrog.io/artifactory/go"
+        access: "read_write"
+        auth: "artifactory-token"
 
   - id: "MAVEN"
+    include_default_repos: false
     repositories:
-      - name: "maven-public"
-        url: "http://localhost:8081/repository/maven-public"
-        type: "local_readonly"
-        auth: "inherit"
-        primary: true
+      - name: "maven-central-mirror"
+        url: "http://nexus.local:8081/repository/maven-public"
+        access: "read_only"
+        auth: "nexus-admin"
       - name: "maven-releases"
-        url: "http://localhost:8081/repository/maven-releases"
-        type: "local_readwrite"
-        auth: "inherit"
-        primary: false
+        url: "http://nexus.local:8081/repository/maven-releases"
+        access: "read_write"
+        auth: "nexus-admin"
 
   - id: "RUST_STABLE"
+    include_default_repos: true     # Merge with crates.io
     repositories:
-      - name: "rust-group"
-        url: "http://localhost:8092"
-        type: "local_readonly"
-        auth: "inherit"
-        primary: true
-      - name: "rust-hosted"
-        url: "http://localhost:8086"
-        type: "local_readwrite"
-        auth: "inherit"
-        primary: false
+      - name: "corporate-crates"
+        url: "http://crates.corp.local"
+        access: "read_only"
+
+  - id: "SBT"
+    include_default_repos: false
+    repositories:
+      - name: "sbt-mirror"
+        url: "http://nexus.local:8081/repository/sbt-proxy"
+        access: "read_only"
+        auth: "nexus-admin"
 
 # Notes:
-# - IMPORTANT: Replace "localhost" with your actual hostname (e.g., "pop-os")
-# - For k3s: Use your host machine name (run 'hostname' to find it)
-# - For colima: Can use "localhost" (auto-translates to host.lima.internal)
-# - For docker-desktop: Can use "localhost" (auto-translates to host.docker.internal)
-# - The ports should match your Nexus repository connector ports
-# - Example: http://pop-os:8090 instead of http://localhost:8090
+# - Repository URLs should be complete (including /simple for PyPI, etc.)
+# - Array order determines priority (first repository is primary)
+# - include_default_repos: true will append default public repos after your custom ones
+# - include_default_repos: false will use ONLY your specified repositories
+# - Credentials are referenced by ID and defined once for reuse
+# - Access types: read_only (pull only), read_write (pull and push)
+# - Container host is auto-detected but can be overridden:
+#   - k3s: Uses machine hostname
+#   - colima: Uses host.lima.internal
+#   - docker-desktop: Uses host.docker.internal
+#   - minikube: Uses host.minikube.internal

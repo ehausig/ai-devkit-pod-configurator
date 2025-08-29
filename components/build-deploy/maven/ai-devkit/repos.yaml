@@ -1,0 +1,5 @@
+# Default repository configuration for Maven
+repositories:
+  - name: "central"
+    url: "https://repo.maven.apache.org/maven2"
+    access: "read_only"

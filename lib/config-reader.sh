@@ -1,5 +1,5 @@
 #!/bin/bash
-# Config reader library for the new components array format
+# Config reader library for the new components array format with credentials
 
 # Function to read component repositories from config
 # Uses the new format: components[].id
@@ -11,6 +11,38 @@ read_component_repos() {
     local repos=$(yq -r ".components[] | select(.id == \"$component_id\") | .repositories // []" "$config_file" 2>/dev/null)
     
     echo "$repos"
+}
+
+# Function to check if component should include default repos
+read_include_defaults() {
+    local component_id="$1"
+    local config_file="${2:-$HOME/.ai-devkit/config.yaml}"
+    
+    # Read include_default_repos flag (default: true)
+    local include=$(yq -r ".components[] | select(.id == \"$component_id\") | .include_default_repos // \"true\"" "$config_file" 2>/dev/null)
+    
+    if [[ -z "$include" ]] || [[ "$include" == "null" ]]; then
+        echo "true"
+    else
+        echo "$include"
+    fi
+}
+
+# Function to read credentials array
+read_credentials() {
+    local config_file="${1:-$HOME/.ai-devkit/config.yaml}"
+    
+    # Read all credentials
+    yq -r '.credentials // []' "$config_file" 2>/dev/null
+}
+
+# Function to get specific credential by ID
+read_credential() {
+    local cred_id="$1"
+    local config_file="${2:-$HOME/.ai-devkit/config.yaml}"
+    
+    # Read specific credential
+    yq -r ".credentials[] | select(.id == \"$cred_id\") // {}" "$config_file" 2>/dev/null
 }
 
 # Function to get primary repository URL for a component

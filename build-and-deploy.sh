@@ -3582,14 +3582,14 @@ generate_repository_configs() {
     
     # Generate ConfigMap if any configs were created
     if [[ ${#configs_generated[@]} -gt 0 ]]; then
-        log "Creating dynamic nexus-proxy-config ConfigMap..."
+        log "Creating dynamic repository-config ConfigMap..."
         
-        local configmap_file="$TEMP_DIR/nexus-config-dynamic.yaml"
+        local configmap_file="$TEMP_DIR/repository-config-dynamic.yaml"
         cat > "$configmap_file" << 'EOF'
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: nexus-proxy-config
+  name: repository-config
   namespace: ai-devkit
 data:
 EOF
@@ -3689,15 +3689,6 @@ extract_installation_from_yaml() {
         full_content="$dockerfile_content"
     fi
     
-    # Extract nexus_config if it exists
-    local nexus_content=$(yq_universal '.installation.nexus_config // ""' "$yaml_file")
-    if [[ -n "$nexus_content" ]] && [[ "$nexus_content" != "null" ]]; then
-        if [[ -n "$full_content" ]]; then
-            full_content+=$NL$NL
-        fi
-        full_content+="# Nexus configuration"$NL
-        full_content+="RUN $nexus_content"
-    fi
     
     printf "%s" "$full_content"
 }
@@ -3947,18 +3938,6 @@ validate_environment() {
     echo "✓ All prerequisites verified"
 }
 
-# Check if Nexus is available
-check_nexus() {
-    # Check if Nexus is actually running and responding
-    if curl -s -o /dev/null -w "%{http_code}" http://localhost:8081 2>/dev/null | grep -q "200\|302\|301"; then
-        # Verify it's actually Nexus by checking a known endpoint
-        if curl -s http://localhost:8081/service/rest/v1/status 2>/dev/null | grep -q "edition" || \
-           curl -s http://localhost:8081/ 2>/dev/null | grep -q -i "nexus"; then
-            return 0
-        fi
-    fi
-    return 1
-}
 
 # Function to initialize component system
 initialize_components() {
@@ -4000,116 +3979,8 @@ initialize_components() {
 
 # Function to setup configuration options
 setup_configuration() {
-    # Check Nexus configuration from YAML
-    NEXUS_AVAILABLE=false
-    local nexus_enabled=$(read_config "nexus.enabled")
-    local nexus_url=$(read_config "nexus.url")
-    
-    if [[ "$nexus_enabled" == "true" ]] && [[ -n "$nexus_url" ]]; then
-        echo ""
-        echo "Optional services detected:"
-        echo "  • Nexus proxy at $nexus_url"
-        NEXUS_AVAILABLE=true
-        export DOCKER_BUILDKIT=0
-        
-        # Source repository configuration library
-        if [[ -f "${SCRIPT_DIR}/lib/repository-config.sh" ]]; then
-            source "${SCRIPT_DIR}/lib/repository-config.sh"
-        fi
-        
-        # Get the component ID from the dockerfile directory name
-        local component_id=""
-        if [[ -f "${selected_dockerfile}/component.yaml" ]]; then
-            component_id=$(grep "^id:" "${selected_dockerfile}/component.yaml" | cut -d: -f2 | xargs)
-        elif [[ -f "${selected_dockerfile}/../component.yaml" ]]; then
-            component_id=$(grep "^id:" "${selected_dockerfile}/../component.yaml" | cut -d: -f2 | xargs)
-        fi
-        
-        # Generate repository-specific build arguments
-        NEXUS_BUILD_ARGS=""
-        
-        if [[ -n "$component_id" ]]; then
-            # Check if this component has repository configuration
-            local repos=$(read_config "component_repos.${component_id}")
-            
-            if [[ -n "$repos" ]]; then
-                info "Using custom repository configuration for ${component_id}"
-                
-                # Parse repository configuration and generate build args
-                local primary_url=""
-                local extra_urls=""
-                local format=""
-                
-                # Get component format from YAML
-                local yaml_file="${selected_dockerfile}/component.yaml"
-                [[ ! -f "$yaml_file" ]] && yaml_file="${selected_dockerfile}/../component.yaml"
-                if [[ -f "$yaml_file" ]]; then
-                    format=$(grep -A10 "repos:" "$yaml_file" | grep "format:" | head -1 | cut -d: -f2 | xargs | tr -d '"')
-                fi
-                
-                # Extract primary and extra URLs from config
-                if command -v yq >/dev/null 2>&1; then
-                    primary_url=$(echo "$repos" | yq '.[] | select(.primary == true) | .url' 2>/dev/null | head -1)
-                    extra_urls=$(echo "$repos" | yq '.[] | select(.primary != true) | .url' 2>/dev/null | tr '\n' ' ')
-                fi
-                
-                # Generate format-specific build arguments
-                case "$format" in
-                    "pypi")
-                        if [[ -n "$primary_url" ]]; then
-                            NEXUS_BUILD_ARGS+=" --build-arg PIP_INDEX_URL=${primary_url}/simple"
-                            local host=$(echo "$primary_url" | sed -E 's|https?://([^:/]+).*|\1|')
-                            NEXUS_BUILD_ARGS+=" --build-arg PIP_TRUSTED_HOST=${host}"
-                            [[ -n "$extra_urls" ]] && NEXUS_BUILD_ARGS+=" --build-arg PIP_EXTRA_INDEX_URL=\"${extra_urls}\""
-                        fi
-                        ;;
-                    "npm")
-                        [[ -n "$primary_url" ]] && NEXUS_BUILD_ARGS+=" --build-arg NPM_REGISTRY=${primary_url}"
-                        ;;
-                    "go")
-                        [[ -n "$primary_url" ]] && NEXUS_BUILD_ARGS+=" --build-arg GOPROXY=${primary_url}"
-                        ;;
-                    "maven2")
-                        [[ -n "$primary_url" ]] && NEXUS_BUILD_ARGS+=" --build-arg MAVEN_REPO_URL=${primary_url}"
-                        ;;
-                    "cargo")
-                        [[ -n "$primary_url" ]] && NEXUS_BUILD_ARGS+=" --build-arg CARGO_REGISTRY_URL=${primary_url}"
-                        ;;
-                esac
-            fi
-        fi
-        
-        # Fallback to legacy Nexus configuration if no component-specific config
-        if [[ -z "$NEXUS_BUILD_ARGS" ]]; then
-            # Extract host from URL for trusted host parameter
-            local nexus_host=$(echo "$nexus_url" | sed -E 's|https?://([^:/]+).*|\1|')
-            
-            # Check which repositories are enabled (legacy format)
-            local apt_enabled=$(read_config "nexus.repositories.apt")
-            local pypi_enabled=$(read_config "nexus.repositories.pypi")
-            local npm_enabled=$(read_config "nexus.repositories.npm")
-            local go_enabled=$(read_config "nexus.repositories.go")
-            
-            # Build args based on enabled repositories
-            if [[ "$pypi_enabled" != "false" ]]; then
-                NEXUS_BUILD_ARGS+=" --build-arg PIP_INDEX_URL=${nexus_url}/repository/pypi-proxy/simple"
-                NEXUS_BUILD_ARGS+=" --build-arg PIP_TRUSTED_HOST=${nexus_host}"
-            fi
-            if [[ "$npm_enabled" != "false" ]]; then
-                NEXUS_BUILD_ARGS+=" --build-arg NPM_REGISTRY=${nexus_url}/repository/npm-proxy/"
-            fi
-            if [[ "$go_enabled" != "false" ]]; then
-                NEXUS_BUILD_ARGS+=" --build-arg GOPROXY=${nexus_url}/repository/go-proxy/"
-            fi
-            # Only enable APT if explicitly set to true (don't assume)
-            if [[ "$apt_enabled" == "true" ]]; then
-                NEXUS_BUILD_ARGS+=" --build-arg USE_NEXUS_APT=true"
-                NEXUS_BUILD_ARGS+=" --build-arg NEXUS_APT_URL=${nexus_url}"
-            fi
-        fi
-        
-        export NEXUS_BUILD_ARGS
-    fi
+    # Repository configuration is now handled at runtime via config mounts
+    # No build-time arguments needed for repositories
     
     # Check for host git configuration
     USE_HOST_GIT_CONFIG=false
@@ -4178,13 +4049,8 @@ build_docker_image() {
     cd "$TEMP_DIR"
     echo "Docker build output:" >> "../$LOG_FILE"
     echo "=================================================================================" >> "../$LOG_FILE"
-    if [[ -n "$NEXUS_BUILD_ARGS" ]]; then
-        container_build $NEXUS_BUILD_ARGS -t ${IMAGE_NAME}:${IMAGE_TAG} . >> "../$LOG_FILE" 2>&1 || \
-            (cd .. && error "Container build failed - check $LOG_FILE for details")
-    else
-        container_build -t ${IMAGE_NAME}:${IMAGE_TAG} . >> "../$LOG_FILE" 2>&1 || \
-            (cd .. && error "Container build failed - check $LOG_FILE for details")
-    fi
+    container_build -t ${IMAGE_NAME}:${IMAGE_TAG} . >> "../$LOG_FILE" 2>&1 || \
+        (cd .. && error "Container build failed - check $LOG_FILE for details")
     cd ..
 }
 
@@ -4239,14 +4105,10 @@ deploy_to_kubernetes() {
     # Create SSH host keys secret
     create_ssh_host_keys_secret
     
-    # Apply dynamic Nexus configuration if generated
-    if [[ -f "$TEMP_DIR/nexus-config-dynamic.yaml" ]]; then
+    # Apply dynamic repository configuration if generated
+    if [[ -f "$TEMP_DIR/repository-config-dynamic.yaml" ]]; then
         log "Applying dynamic repository configuration..."
-        kubectl apply -f "$TEMP_DIR/nexus-config-dynamic.yaml" >> "$LOG_FILE" 2>&1
-    elif [[ "$NEXUS_AVAILABLE" = true ]] && [[ -f "kubernetes/nexus-config.yaml" ]]; then
-        # Fallback to static config if it exists (for backward compatibility)
-        log "Applying static Nexus configuration..."
-        kubectl apply -f kubernetes/nexus-config.yaml >> "$LOG_FILE" 2>&1
+        kubectl apply -f "$TEMP_DIR/repository-config-dynamic.yaml" >> "$LOG_FILE" 2>&1
     fi
     
     # Generate and apply dynamic deployment
