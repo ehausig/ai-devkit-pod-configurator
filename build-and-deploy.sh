@@ -4054,7 +4054,8 @@ build_docker_image() {
 # Function to generate dynamic deployment YAML with only selected component mounts
 generate_dynamic_deployment() {
     echo "Generating dynamic deployment YAML..." >> "$LOG_FILE"
-    echo "Generating dynamic deployment YAML..."
+    # Send status to stderr so it doesn't interfere with function return value
+    echo "Generating dynamic deployment YAML..." >&2
     
     local deployment_file="$TEMP_DIR/deployment-dynamic.yaml"
     
