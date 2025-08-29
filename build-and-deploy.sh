@@ -3532,14 +3532,23 @@ generate_repository_configs() {
         if [[ -n "$format" ]] && [[ "$format" != "null" ]]; then
             log "Checking repository config for $component_name (format: $format)..."
             
-            # Check if user has configured repos for this component (new format)
-            local has_config=$(yq -r ".components[] | select(.id == \"${component_id}\") | .repositories // null" "$CONFIG_FILE" 2>/dev/null)
+            # Always generate config - either from user config or defaults
+            log "Generating $format configuration for $component_id..."
             
-            if [[ "$has_config" != "null" ]] && [[ -n "$has_config" ]]; then
-                log "Generating $format configuration for $component_id..."
-                
-                # Generate the config file
-                TEMP_DIR="$config_temp_dir" generate_component_config "$yaml_file" "$config_temp_dir"
+            # Generate the config file (will use defaults if no user config)
+            TEMP_DIR="$config_temp_dir" generate_component_config "$yaml_file" "$config_temp_dir"
+            
+            # Check if generation was successful
+            local generated_file=""
+            case "$format" in
+                "pypi") generated_file="$config_temp_dir/pip.conf" ;;
+                "npm") generated_file="$config_temp_dir/npmrc" ;;
+                "maven2") generated_file="$config_temp_dir/settings.xml" ;;
+                "cargo") generated_file="$config_temp_dir/cargo-config.toml" ;;
+                "go") generated_file="$config_temp_dir/go-env.sh" ;;
+            esac
+            
+            if [[ -n "$generated_file" ]] && [[ -f "$generated_file" ]]; then
                 
                 # Track what was generated based on format
                 case "$format" in
