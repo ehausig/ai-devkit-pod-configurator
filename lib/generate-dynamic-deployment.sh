@@ -82,6 +82,13 @@ EOF
           subPath: npmrc
 EOF
                     ;;
+                "go")
+                    cat >> "$output_file" << EOF
+        - name: go-env
+          mountPath: /home/devuser/.config/go-env.sh
+          subPath: go-env.sh
+EOF
+                    ;;
                 "maven")
                     cat >> "$output_file" << EOF
         - name: maven-settings
@@ -249,6 +256,18 @@ EOF
           - key: npmrc
             path: npmrc
           defaultMode: 0644
+          optional: true
+EOF
+                    ;;
+                "go")
+                    cat >> "$output_file" << EOF
+      - name: go-env
+        configMap:
+          name: repository-config
+          items:
+          - key: go-env.sh
+            path: go-env.sh
+          defaultMode: 0755
           optional: true
 EOF
                     ;;

@@ -3562,7 +3562,7 @@ generate_repository_configs() {
                         ;;
                     "go")
                         configs_generated+=("go")
-                        # Go uses environment variables, will be added to env config
+                        config_mounts+=("go:$config_temp_dir/go-env.sh:/home/devuser/.config/go-env.sh")
                         ;;
                     "maven2")
                         configs_generated+=("maven")
@@ -3612,6 +3612,7 @@ EOF
                 case "$config_type" in
                     "pip") config_key="pip.conf" ;;
                     "npm") config_key="npmrc" ;;
+                    "go") config_key="go-env.sh" ;;
                     "maven") config_key="settings.xml" ;;
                     "cargo") config_key="cargo-config.toml" ;;
                     "gem") config_key="gemrc" ;;
