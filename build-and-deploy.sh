@@ -4054,6 +4054,7 @@ build_docker_image() {
 # Function to generate dynamic deployment YAML with only selected component mounts
 generate_dynamic_deployment() {
     echo "Generating dynamic deployment YAML..." >> "$LOG_FILE"
+    echo "Generating dynamic deployment YAML..."
     
     local deployment_file="$TEMP_DIR/deployment-dynamic.yaml"
     
@@ -4068,7 +4069,7 @@ generate_dynamic_deployment() {
     fi
     
     # Generate truly dynamic deployment with template-based volume mounts
-    generate_dynamic_kubernetes_deployment "$TEMP_DIR/volume-mounts.yaml" "$deployment_file"
+    generate_dynamic_kubernetes_deployment "$TEMP_DIR/volume-mounts.yaml" "$deployment_file" 2>> "$LOG_FILE"
     
     echo "Generated dynamic deployment at $deployment_file" >> "$LOG_FILE"
     
