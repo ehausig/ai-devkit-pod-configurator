@@ -115,19 +115,30 @@ generate_configmap_entries() {
 generate_deployment_volumes() {
     local all_mounts="$1"
     
-    if [[ -z "$all_mounts" ]]; then
+    if [[ -z "$all_mounts" ]] || [[ "$all_mounts" == "[]" ]]; then
         return 0
     fi
     
-    # Generate unique volume definitions
-    echo "$all_mounts" | yq -r '.name' | sort -u | while IFS= read -r volume_name; do
-        cat <<EOF
+    # Extract unique volume names from YAML array items
+    local volume_names=""
+    if [[ "$all_mounts" == -* ]]; then
+        # Extract names from YAML array items
+        volume_names=$(echo "$all_mounts" | grep "name:" | sed 's/.*name: *"\?\([^"]*\)"\?.*/\1/' | sort -u)
+    fi
+    
+    # Generate volume definitions for each unique name
+    if [[ -n "$volume_names" ]]; then
+        while IFS= read -r volume_name; do
+            if [[ -n "$volume_name" ]]; then
+                cat <<EOF
       - name: $volume_name
         configMap:
           name: component-configs
           defaultMode: 0644
 EOF
-    done
+            fi
+        done <<< "$volume_names"
+    fi
 }
 
 # Generate deployment volume mount specifications
@@ -138,31 +149,66 @@ generate_deployment_volume_mounts() {
         return 0
     fi
     
-    # Generate volume mount definitions
-    echo "$all_mounts" | while IFS= read -r mount; do
-        local name=$(echo "$mount" | yq -r '.name')
-        local target=$(echo "$mount" | yq -r '.target')
-        local mount_type=$(echo "$mount" | yq -r '.type // "file"')
-        local permissions=$(echo "$mount" | yq -r '.permissions // ""')
+    # For now, if the mounts file is empty or contains just [], skip
+    if [[ "$all_mounts" == "[]" ]]; then
+        return 0
+    fi
+    
+    # If it starts with -, it's YAML array items - process line by line
+    if [[ "$all_mounts" == -* ]]; then
+        # Simply parse each YAML mount item
+        local current_mount=""
+        while IFS= read -r line; do
+            if [[ "$line" == "- name:"* ]]; then
+                # Start of a new mount, process previous if exists
+                if [[ -n "$current_mount" ]]; then
+                    process_single_mount "$current_mount"
+                fi
+                current_mount="$line"
+            elif [[ -n "$current_mount" ]]; then
+                current_mount="$current_mount"$'\n'"$line"
+            fi
+        done <<< "$all_mounts"
         
-        # Set executable permissions for test directories
-        if [[ "$target" =~ \.ai-devkit/tests/ ]] && [[ -z "$permissions" ]]; then
-            permissions="0755"
+        # Process last mount
+        if [[ -n "$current_mount" ]]; then
+            process_single_mount "$current_mount"
         fi
-        
-        cat <<EOF
+    fi
+}
+
+# Helper to process a single mount entry
+process_single_mount() {
+    local mount_yaml="$1"
+    
+    # Extract fields using simple grep/sed since we know the structure
+    local name=$(echo "$mount_yaml" | grep "name:" | sed 's/.*name: *"\?\([^"]*\)"\?.*/\1/')
+    local target=$(echo "$mount_yaml" | grep "target:" | sed 's/.*target: *"\?\([^"]*\)"\?.*/\1/')
+    local mount_type=$(echo "$mount_yaml" | grep "type:" | sed 's/.*type: *"\?\([^"]*\)"\?.*/\1/')
+    local permissions=$(echo "$mount_yaml" | grep "permissions:" | sed 's/.*permissions: *"\?\([^"]*\)"\?.*/\1/')
+    
+    # Default type to file if not specified
+    if [[ -z "$mount_type" ]]; then
+        mount_type="file"
+    fi
+    
+    # Set executable permissions for test directories
+    if [[ "$target" =~ \.ai-devkit/tests/ ]] && [[ -z "$permissions" ]]; then
+        permissions="0755"
+    fi
+    
+    cat <<EOF
         - name: $name
           mountPath: $target
 EOF
-        
-        if [[ "$mount_type" == "file" ]]; then
-            echo "          subPath: $(basename $target)"
-        fi
-        
-        if [[ -n "$permissions" ]] && [[ "$permissions" != "null" ]]; then
-            echo "          defaultMode: $permissions"
-        fi
-    done
+    
+    if [[ "$mount_type" == "file" ]]; then
+        echo "          subPath: $(basename $target)"
+    fi
+    
+    if [[ -n "$permissions" ]] && [[ "$permissions" != "null" ]] && [[ "$permissions" != '""' ]]; then
+        echo "          defaultMode: $permissions"
+    fi
 }
 
 # Export functions
@@ -171,3 +217,4 @@ export -f generate_volume_mounts
 export -f generate_configmap_entries
 export -f generate_deployment_volumes
 export -f generate_deployment_volume_mounts
+export -f process_single_mount

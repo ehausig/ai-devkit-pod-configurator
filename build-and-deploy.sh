@@ -3605,11 +3605,16 @@ EOF
             fi
         done
         
-        # Store volume mount information for deployment generation
+        # Store volume mount information for deployment generation as proper YAML array
         if [[ ${#all_volume_mounts[@]} -gt 0 ]]; then
-            printf '%s\n' "${all_volume_mounts[@]}" > "$TEMP_DIR/volume-mounts.yaml"
+            # Combine all mount fragments into a proper YAML array
+            {
+                for mount in "${all_volume_mounts[@]}"; do
+                    echo "$mount"
+                done
+            } > "$TEMP_DIR/volume-mounts.yaml"
         else
-            touch "$TEMP_DIR/volume-mounts.yaml"
+            echo "[]" > "$TEMP_DIR/volume-mounts.yaml"
         fi
         
         # Apply the ConfigMap
