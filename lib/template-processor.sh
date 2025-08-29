@@ -111,40 +111,46 @@ generate_component_configuration() {
     local repos_json=$(resolve_repositories "$component_id")
     
     # Process each template
-    local templates=$(echo "$config" | yq -r '.configuration.templates[]? // empty')
-    if [[ -n "$templates" ]]; then
-        echo "$templates" | while IFS= read -r template_spec; do
-            local source=$(echo "$template_spec" | yq -r '.source')
-            local output=$(echo "$template_spec" | yq -r '.output')
+    local template_count=$(echo "$config" | yq -r '.configuration.templates | length')
+    if [[ "$template_count" != "null" ]] && [[ "$template_count" != "0" ]]; then
+        for (( i=0; i<template_count; i++ )); do
+            local source=$(echo "$config" | yq -r ".configuration.templates[$i].source")
+            local output=$(echo "$config" | yq -r ".configuration.templates[$i].output")
             
-            local template_path="$component_dir/ai-devkit/$source"
-            local output_path="$output_dir/$output"
-            
-            # Prepare template data
-            local template_data=$(cat <<EOF
+            if [[ "$source" != "null" ]] && [[ "$output" != "null" ]]; then
+                local template_path="$component_dir/ai-devkit/$source"
+                local output_path="$output_dir/$output"
+                
+                # Prepare template data
+                local template_data=$(cat <<EOF
 {
     "repositories": $repos_json,
     "component_id": "$component_id",
     "format": "$format"
 }
 EOF
-            )
-            
-            process_template "$template_path" "$template_data" "$output_path"
+                )
+                
+                process_template "$template_path" "$template_data" "$output_path"
+            fi
         done
     fi
     
     # Process environment variables if specified
-    local env_source=$(echo "$config" | yq -r '.configuration.environment[]?.source // ""')
-    if [[ -n "$env_source" ]] && [[ "$env_source" != "null" ]]; then
-        local env_output=$(echo "$config" | yq -r '.configuration.environment[]?.output // ""')
-        if [[ -n "$env_output" ]] && [[ "$env_output" != "null" ]]; then
-            local env_file="$component_dir/ai-devkit/$env_source"
-            if [[ -f "$env_file" ]]; then
-                cp "$env_file" "$output_dir/$env_output"
-                echo "Generated: $output_dir/$env_output"
+    local env_count=$(echo "$config" | yq -r '.configuration.environment | length // 0')
+    if [[ "$env_count" != "null" ]] && [[ "$env_count" != "0" ]]; then
+        for (( i=0; i<env_count; i++ )); do
+            local env_source=$(echo "$config" | yq -r ".configuration.environment[$i].source // \"\"")
+            local env_output=$(echo "$config" | yq -r ".configuration.environment[$i].output // \"\"")
+            
+            if [[ -n "$env_source" ]] && [[ "$env_source" != "null" ]] && [[ -n "$env_output" ]] && [[ "$env_output" != "null" ]]; then
+                local env_file="$component_dir/ai-devkit/$env_source"
+                if [[ -f "$env_file" ]]; then
+                    cp "$env_file" "$output_dir/$env_output"
+                    echo "Generated: $output_dir/$env_output"
+                fi
             fi
-        fi
+        done
     fi
     
     return 0

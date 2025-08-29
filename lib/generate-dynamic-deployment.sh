@@ -1,11 +1,15 @@
 #!/bin/bash
 
 # Generate Dynamic Kubernetes Deployment
-# This script generates a deployment.yaml with only the necessary volume mounts
-# based on selected components
+# This script generates a deployment.yaml with dynamic volume mounts
+# based on component metadata using the new template system
+
+# Source volume mount manager for dynamic volume generation
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/volume-mount-manager.sh"
 
 generate_dynamic_kubernetes_deployment() {
-    local config_mounts_file="$1"
+    local volume_mounts_file="$1"
     local output_file="$2"
     
     # Start with the deployment header
@@ -61,73 +65,15 @@ spec:
           readOnly: true
 EOF
     
-    # Add component-specific mounts only if components were selected
-    if [[ -f "$config_mounts_file" ]] && [[ -s "$config_mounts_file" ]]; then
-        echo "        # Component-specific configuration mounts" >> "$output_file"
+    # Add component-specific volume mounts dynamically
+    if [[ -f "$volume_mounts_file" ]] && [[ -s "$volume_mounts_file" ]]; then
+        echo "        # Dynamic component volume mounts" >> "$output_file"
         
-        # Read the config mounts and add only necessary ones
-        while IFS=':' read -r config_type source_file mount_path; do
-            case "$config_type" in
-                "pip")
-                    cat >> "$output_file" << EOF
-        - name: pip-config
-          mountPath: /home/devuser/.config/pip/pip.conf
-          subPath: pip.conf
-EOF
-                    ;;
-                "npm")
-                    cat >> "$output_file" << EOF
-        - name: npm-config
-          mountPath: /home/devuser/.npmrc
-          subPath: npmrc
-EOF
-                    ;;
-                "go")
-                    cat >> "$output_file" << EOF
-        - name: go-env
-          mountPath: /home/devuser/.config/go-env.sh
-          subPath: go-env.sh
-EOF
-                    ;;
-                "maven")
-                    cat >> "$output_file" << EOF
-        - name: maven-settings
-          mountPath: /home/devuser/.m2/settings.xml
-          subPath: settings.xml
-EOF
-                    ;;
-                "cargo")
-                    cat >> "$output_file" << EOF
-        - name: cargo-dir
-          mountPath: /home/devuser/.cargo
-        - name: cargo-config
-          mountPath: /home/devuser/.cargo/config.toml
-          subPath: cargo-config.toml
-EOF
-                    ;;
-                "sbt")
-                    cat >> "$output_file" << EOF
-        - name: sbt-repositories
-          mountPath: /home/devuser/.sbt/repositories
-          subPath: repositories
-EOF
-                    ;;
-                "gradle")
-                    cat >> "$output_file" << EOF
-        - name: gradle-config
-          mountPath: /home/devuser/.gradle/gradle.properties
-          subPath: gradle.properties
-EOF
-                    ;;
-                "gem")
-                    cat >> "$output_file" << EOF
-        - name: gem-config
-          mountPath: /home/devuser/.gemrc
-          subPath: gemrc
-EOF
-                    ;;
-            esac
-        done < <(cat "$config_mounts_file" | tr ' ' '\n')
+        # Generate volume mounts using the new system
+        local mount_specs=$(cat "$volume_mounts_file" 2>/dev/null || true)
+        if [[ -n "$mount_specs" ]]; then
+            generate_deployment_volume_mounts "$mount_specs" >> "$output_file"
+        fi
     fi
     
     # Continue with environment variables and resources
@@ -220,121 +166,15 @@ EOF
           optional: true
 EOF
     
-    # Add component-specific volume definitions only if needed
-    if [[ -f "$config_mounts_file" ]] && [[ -s "$config_mounts_file" ]]; then
-        echo "      # Component-specific configuration volumes" >> "$output_file"
+    # Add dynamic component volume definitions
+    if [[ -f "$volume_mounts_file" ]] && [[ -s "$volume_mounts_file" ]]; then
+        echo "      # Dynamic component volumes" >> "$output_file"
         
-        # Track which volumes we've already added
-        local added_volumes=""
-        
-        while IFS=':' read -r config_type source_file mount_path; do
-            # Skip if we've already added this volume
-            if [[ "$added_volumes" == *"$config_type"* ]]; then
-                continue
-            fi
-            added_volumes="$added_volumes $config_type"
-            
-            case "$config_type" in
-                "pip")
-                    cat >> "$output_file" << EOF
-      - name: pip-config
-        configMap:
-          name: repository-config
-          items:
-          - key: pip.conf
-            path: pip.conf
-          defaultMode: 0644
-          optional: true
-EOF
-                    ;;
-                "npm")
-                    cat >> "$output_file" << EOF
-      - name: npm-config
-        configMap:
-          name: repository-config
-          items:
-          - key: npmrc
-            path: npmrc
-          defaultMode: 0644
-          optional: true
-EOF
-                    ;;
-                "go")
-                    cat >> "$output_file" << EOF
-      - name: go-env
-        configMap:
-          name: repository-config
-          items:
-          - key: go-env.sh
-            path: go-env.sh
-          defaultMode: 0755
-          optional: true
-EOF
-                    ;;
-                "cargo")
-                    cat >> "$output_file" << EOF
-      - name: cargo-dir
-        emptyDir: {}
-      - name: cargo-config
-        configMap:
-          name: repository-config
-          items:
-          - key: cargo-config.toml
-            path: cargo-config.toml
-          defaultMode: 0644
-          optional: true
-EOF
-                    ;;
-                "maven")
-                    cat >> "$output_file" << EOF
-      - name: maven-settings
-        configMap:
-          name: repository-config
-          items:
-          - key: settings.xml
-            path: settings.xml
-          defaultMode: 0644
-          optional: true
-EOF
-                    ;;
-                "sbt")
-                    cat >> "$output_file" << EOF
-      - name: sbt-repositories
-        configMap:
-          name: repository-config
-          items:
-          - key: repositories
-            path: repositories
-          defaultMode: 0644
-          optional: true
-EOF
-                    ;;
-                "gradle")
-                    cat >> "$output_file" << EOF
-      - name: gradle-config
-        configMap:
-          name: repository-config
-          items:
-          - key: gradle.properties
-            path: gradle.properties
-          defaultMode: 0644
-          optional: true
-EOF
-                    ;;
-                "gem")
-                    cat >> "$output_file" << EOF
-      - name: gem-config
-        configMap:
-          name: repository-config
-          items:
-          - key: gemrc
-            path: gemrc
-          defaultMode: 0644
-          optional: true
-EOF
-                    ;;
-            esac
-        done < <(cat "$config_mounts_file" | tr ' ' '\n')
+        # Generate volume definitions using the new system
+        local mount_specs=$(cat "$volume_mounts_file" 2>/dev/null || true)
+        if [[ -n "$mount_specs" ]]; then
+            generate_deployment_volumes "$mount_specs" >> "$output_file"
+        fi
     fi
     
     # Add the service definition

@@ -27,18 +27,24 @@ generate_volume_mounts() {
     local component_name="$2"
     local config_dir="$3"
     
-    local mounts=$(collect_component_mounts "$component_dir" "$component_name")
-    if [[ -z "$mounts" ]]; then
+    local mount_file="$component_dir/ai-devkit/volume-mounts.yaml"
+    if [[ ! -f "$mount_file" ]]; then
+        return 0
+    fi
+    
+    # Get the number of mounts
+    local mount_count=$(yq -r '.mounts | length' "$mount_file" 2>/dev/null)
+    if [[ -z "$mount_count" ]] || [[ "$mount_count" == "null" ]] || [[ "$mount_count" == "0" ]]; then
         return 0
     fi
     
     # Generate mount specifications for each mount
-    echo "$mounts" | while IFS= read -r mount; do
-        local name=$(echo "$mount" | yq -r '.name')
-        local source=$(echo "$mount" | yq -r '.source')
-        local target=$(echo "$mount" | yq -r '.target')
-        local mount_type=$(echo "$mount" | yq -r '.type // "file"')
-        local permissions=$(echo "$mount" | yq -r '.permissions // ""')
+    for (( i=0; i<mount_count; i++ )); do
+        local name=$(yq -r ".mounts[$i].name" "$mount_file")
+        local source=$(yq -r ".mounts[$i].source" "$mount_file")
+        local target=$(yq -r ".mounts[$i].target" "$mount_file")
+        local mount_type=$(yq -r ".mounts[$i].type // \"file\"" "$mount_file")
+        local permissions=$(yq -r ".mounts[$i].permissions // \"\"" "$mount_file")
         
         # Output mount specification in format needed by deployment
         cat <<EOF
@@ -63,16 +69,17 @@ generate_configmap_entries() {
         return 0
     fi
     
-    local mounts=$(yq -r '.mounts[]?' "$mount_file" 2>/dev/null)
-    if [[ -z "$mounts" ]]; then
+    # Get the number of mounts
+    local mount_count=$(yq -r '.mounts | length' "$mount_file" 2>/dev/null)
+    if [[ -z "$mount_count" ]] || [[ "$mount_count" == "null" ]] || [[ "$mount_count" == "0" ]]; then
         return 0
     fi
     
     # Generate ConfigMap data entries
-    echo "$mounts" | while IFS= read -r mount; do
-        local name=$(echo "$mount" | yq -r '.name')
-        local source=$(echo "$mount" | yq -r '.source')
-        local mount_type=$(echo "$mount" | yq -r '.type // "file"')
+    for (( i=0; i<mount_count; i++ )); do
+        local name=$(yq -r ".mounts[$i].name" "$mount_file")
+        local source=$(yq -r ".mounts[$i].source" "$mount_file")
+        local mount_type=$(yq -r ".mounts[$i].type // \"file\"" "$mount_file")
         
         if [[ "$mount_type" == "file" ]]; then
             local source_file="$config_dir/$source"

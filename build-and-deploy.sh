@@ -3500,141 +3500,113 @@ generate_repository_configs() {
     
     log "Generating repository configurations for selected components..."
     
-    # Source the component config generator and its dependencies
-    if [[ -f "lib/component-config-generator.sh" ]]; then
-        # Ensure config-reader.sh is available for the generator
-        if [[ -f "lib/config-reader.sh" ]]; then
-            source "lib/config-reader.sh"
-        fi
-        source "lib/component-config-generator.sh"
+    # Source the new template processor and its dependencies
+    if [[ -f "lib/template-processor.sh" ]]; then
+        source "lib/template-processor.sh"
     else
-        warning "component-config-generator.sh not found, skipping repository config generation"
+        warning "template-processor.sh not found, skipping repository config generation"
         return
+    fi
+    
+    # Also source volume mount manager for dynamic mount handling
+    if [[ -f "lib/volume-mount-manager.sh" ]]; then
+        source "lib/volume-mount-manager.sh"
     fi
     
     # Create temporary directory for configs
     local config_temp_dir="$TEMP_DIR/generated-configs"
     mkdir -p "$config_temp_dir"
     
-    # Track which configs were generated
+    # Track which configs were generated and all volume mounts
     local configs_generated=()
-    local config_mounts=()
+    local all_volume_mounts=()
     
-    # Generate configs for each selected component
+    # Generate configs for each selected component using new template system
     for i in "${!SELECTED_YAML_FILES[@]}"; do
         local yaml_file="${SELECTED_YAML_FILES[$i]}"
         local component_id="${SELECTED_IDS[$i]}"
         local component_name="${SELECTED_NAMES[$i]}"
         
-        # Check if component has repository configuration
-        local format=$(yq -r '.installation.repos.format // ""' "$yaml_file" 2>/dev/null)
+        # Derive component directory from yaml file path
+        # Convert path like "components/languages/python-3.11.yaml" to "components/languages/python-3.11/"
+        local component_dir="${yaml_file%.yaml}/"
         
-        if [[ -n "$format" ]] && [[ "$format" != "null" ]]; then
-            log "Checking repository config for $component_name (format: $format)..."
+        # Check if this component has the new ai-devkit configuration structure
+        if [[ -d "$component_dir/ai-devkit" ]]; then
+            log "Processing component $component_name with new template system..."
             
-            # Always generate config - either from user config or defaults
-            log "Generating $format configuration for $component_id..."
-            
-            # Generate the config file (will use defaults if no user config)
-            TEMP_DIR="$config_temp_dir" generate_component_config "$yaml_file" "$config_temp_dir"
-            
-            # Check if generation was successful
-            local generated_file=""
-            case "$format" in
-                "pypi") generated_file="$config_temp_dir/pip.conf" ;;
-                "npm") generated_file="$config_temp_dir/npmrc" ;;
-                "maven2") generated_file="$config_temp_dir/settings.xml" ;;
-                "cargo") generated_file="$config_temp_dir/cargo-config.toml" ;;
-                "go") generated_file="$config_temp_dir/go-env.sh" ;;
-            esac
-            
-            if [[ -n "$generated_file" ]] && [[ -f "$generated_file" ]]; then
+            # Generate component configuration using template processor
+            if generate_component_configuration "$component_dir" "$component_id" "$config_temp_dir"; then
+                configs_generated+=("$component_id")
+                log "Successfully generated configuration for $component_id"
                 
-                # Track what was generated based on format
-                case "$format" in
-                    "pypi")
-                        configs_generated+=("pip")
-                        config_mounts+=("pip:$config_temp_dir/pip.conf:/home/devuser/.config/pip/pip.conf")
-                        ;;
-                    "npm")
-                        configs_generated+=("npm")
-                        config_mounts+=("npm:$config_temp_dir/npmrc:/home/devuser/.npmrc")
-                        ;;
-                    "go")
-                        configs_generated+=("go")
-                        config_mounts+=("go:$config_temp_dir/go-env.sh:/home/devuser/.config/go-env.sh")
-                        ;;
-                    "maven2")
-                        configs_generated+=("maven")
-                        config_mounts+=("maven:$config_temp_dir/settings.xml:/home/devuser/.m2/settings.xml")
-                        ;;
-                    "cargo")
-                        configs_generated+=("cargo")
-                        config_mounts+=("cargo:$config_temp_dir/cargo-config.toml:/home/devuser/.cargo/config.toml")
-                        ;;
-                    "rubygems")
-                        configs_generated+=("gem")
-                        config_mounts+=("gem:$config_temp_dir/gemrc:/home/devuser/.gemrc")
-                        ;;
-                    "sbt")
-                        configs_generated+=("sbt")
-                        config_mounts+=("sbt:$config_temp_dir/repositories:/home/devuser/.sbt/repositories")
-                        ;;
-                    "gradle")
-                        configs_generated+=("gradle")
-                        config_mounts+=("gradle:$config_temp_dir/gradle.properties:/home/devuser/.gradle/gradle.properties")
-                        ;;
-                esac
+                # Collect volume mounts for this component
+                local component_mounts=$(generate_volume_mounts "$component_dir" "$component_name" "$config_temp_dir" 2>/dev/null || true)
+                if [[ -n "$component_mounts" ]]; then
+                    all_volume_mounts+=("$component_mounts")
+                fi
+            else
+                log "No template configuration generated for $component_id"
+            fi
+        else
+            # Legacy component - check if it has repository configuration in old format
+            local format=$(yq -r '.installation.repos.format // ""' "$yaml_file" 2>/dev/null)
+            
+            if [[ -n "$format" ]] && [[ "$format" != "null" ]]; then
+                warning "Component $component_name uses legacy format ($format) - consider migrating to template system"
+                # For now, keep legacy components working but log the need to migrate
+                configs_generated+=("$component_id-legacy")
             fi
         fi
     done
     
     # Generate ConfigMap if any configs were created
     if [[ ${#configs_generated[@]} -gt 0 ]]; then
-        log "Creating dynamic repository-config ConfigMap..."
+        log "Creating dynamic component-configs ConfigMap with template-based configuration..."
         
-        local configmap_file="$TEMP_DIR/repository-config-dynamic.yaml"
+        local configmap_file="$TEMP_DIR/component-configs-dynamic.yaml"
         cat > "$configmap_file" << 'EOF'
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: repository-config
+  name: component-configs
   namespace: ai-devkit
 data:
 EOF
         
-        # Add each generated config to the ConfigMap
-        for mount_info in "${config_mounts[@]}"; do
-            IFS=':' read -r config_type source_file mount_path <<< "$mount_info"
+        # Generate ConfigMap entries dynamically for each component
+        for i in "${!SELECTED_YAML_FILES[@]}"; do
+            local yaml_file="${SELECTED_YAML_FILES[$i]}"
+            local component_id="${SELECTED_IDS[$i]}"
+            local component_name="${SELECTED_NAMES[$i]}"
+            local component_dir="${yaml_file%.yaml}/"
             
-            if [[ -f "$source_file" ]]; then
-                local config_key=""
-                case "$config_type" in
-                    "pip") config_key="pip.conf" ;;
-                    "npm") config_key="npmrc" ;;
-                    "go") config_key="go-env.sh" ;;
-                    "maven") config_key="settings.xml" ;;
-                    "cargo") config_key="cargo-config.toml" ;;
-                    "gem") config_key="gemrc" ;;
-                    "sbt") config_key="repositories" ;;
-                    "gradle") config_key="gradle.properties" ;;
-                esac
-                
-                if [[ -n "$config_key" ]]; then
-                    echo "  $config_key: |" >> "$configmap_file"
-                    sed 's/^/    /' "$source_file" >> "$configmap_file"
+            # Only process components with new structure
+            if [[ -d "$component_dir/ai-devkit" ]]; then
+                local configmap_entries=$(generate_configmap_entries "$component_name" "$config_temp_dir" "$component_dir" 2>/dev/null || true)
+                if [[ -n "$configmap_entries" ]]; then
+                    echo "$configmap_entries" >> "$configmap_file"
                 fi
             fi
         done
         
-        # Store the mount info for later use in deployment generation
-        echo "${config_mounts[@]}" > "$TEMP_DIR/config-mounts.txt"
+        # Store volume mount information for deployment generation
+        if [[ ${#all_volume_mounts[@]} -gt 0 ]]; then
+            printf '%s\n' "${all_volume_mounts[@]}" > "$TEMP_DIR/volume-mounts.yaml"
+        else
+            touch "$TEMP_DIR/volume-mounts.yaml"
+        fi
         
-        success "Generated repository configurations for ${#configs_generated[@]} component(s)"
+        # Apply the ConfigMap
+        if kubectl apply -f "$configmap_file" &>/dev/null; then
+            success "Applied component-configs ConfigMap with ${#configs_generated[@]} component(s)"
+        else
+            warning "Failed to apply ConfigMap, deployment may not have all configurations"
+        fi
     else
-        log "No repository configurations needed for selected components"
-        # Create empty config-mounts.txt to signal no configs needed
-        touch "$TEMP_DIR/config-mounts.txt"
+        log "No template-based configurations needed for selected components"
+        # Create empty volume-mounts.yaml to signal no configs needed
+        touch "$TEMP_DIR/volume-mounts.yaml"
     fi
 }
 
@@ -4080,8 +4052,8 @@ generate_dynamic_deployment() {
         return
     fi
     
-    # Generate truly dynamic deployment with only necessary mounts
-    generate_dynamic_kubernetes_deployment "$TEMP_DIR/config-mounts.txt" "$deployment_file"
+    # Generate truly dynamic deployment with template-based volume mounts
+    generate_dynamic_kubernetes_deployment "$TEMP_DIR/volume-mounts.yaml" "$deployment_file"
     
     echo "Generated dynamic deployment at $deployment_file" >> "$LOG_FILE"
     
