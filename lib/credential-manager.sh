@@ -84,11 +84,34 @@ get_credential_token() {
     fi
 }
 
+# Function to check if credential exists
+credential_exists() {
+    local cred_id="$1"
+    
+    if [[ -z "$cred_id" ]]; then
+        return 0  # Empty is valid (anonymous)
+    fi
+    
+    local cred_exists=$(yq -r ".credentials[] | select(.id == \"$cred_id\") | .id // \"\"" "$CONFIG_FILE" 2>/dev/null)
+    
+    if [[ -z "$cred_exists" ]]; then
+        echo "WARNING: Credential '$cred_id' not found in config" >&2
+        return 1
+    fi
+    
+    return 0
+}
+
 # Function to check if credential has username/password auth
 has_basic_auth() {
     local cred_id="$1"
     
     if [[ -z "$cred_id" ]]; then
+        return 1
+    fi
+    
+    # Check if credential exists first
+    if ! credential_exists "$cred_id"; then
         return 1
     fi
     
@@ -107,6 +130,11 @@ has_token_auth() {
     local cred_id="$1"
     
     if [[ -z "$cred_id" ]]; then
+        return 1
+    fi
+    
+    # Check if credential exists first
+    if ! credential_exists "$cred_id"; then
         return 1
     fi
     
