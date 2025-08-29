@@ -257,28 +257,67 @@ extra-index-url =
 - **Check**: Look for "Restoring ai-devkit README" in container logs
 - **File Location**: Backup stored at `/usr/local/share/ai-devkit-README.md`
 
-## Next Steps
+## Next Steps - Repository Configuration Refactoring
 
-### Immediate (Testing & Validation)
-1. ✅ Python component with Nexus - **COMPLETE**
-2. ⏳ Test Node.js component with npm repositories
-3. ⏳ Test Go component with Go proxy
-4. ⏳ Test Maven/Gradle components
-5. ⏳ Test Rust component with Cargo registry
+### Planned Changes (Not Yet Implemented)
 
-### Near-term Improvements
-1. Create comprehensive test suite for all components
-2. Add health check endpoints for repository validation
-3. Implement repository authentication handling
-4. Document path-based vs port-based configuration approaches
-5. Create troubleshooting guide for common Nexus issues
+#### 1. Configuration Schema Changes
+**FROM:**
+```yaml
+nexus:
+  enabled: true
+  url: "http://pop-os:8081"
+  auth: {...}
+components:
+  - id: "PYTHON_3_11"
+    repositories:
+      - type: "local_readonly"
+        auth: "inherit"
+```
 
-### Long-term Enhancements
-1. Auto-discovery of Nexus repositories
-2. Support for multiple repository managers (Artifactory, etc.)
-3. Credential management system
-4. Component dependency resolution
-5. Offline mode support
+**TO:**
+```yaml
+credentials:
+  - id: "nexus-admin"
+    username: "admin"
+    password: "encrypted:..."
+components:
+  - id: "PYTHON_3_11"
+    include_default_repos: false
+    repositories:
+      - access: "read_only"
+        auth: "nexus-admin"
+```
+
+#### 2. Component Structure Changes
+**NEW:** Each component gets `ai-devkit/` subdirectory:
+- `ai-devkit/repos.yaml` - Default repository configurations
+- `ai-devkit/env_vars.yaml` - Environment variables (for Go proxy, etc.)
+
+#### 3. Repository Resolution Changes
+- Default repos ship with components
+- User can override OR merge with defaults
+- Order determines priority (no "primary" field)
+- Credentials referenced by ID
+
+### Implementation Checklist
+
+#### Files to Create
+- [ ] 9 x `components/.../ai-devkit/repos.yaml` files
+- [ ] `lib/credential-manager.sh`
+- [ ] `lib/repository-loader.sh`
+- [ ] Test plan document
+
+#### Files to Modify
+- [ ] `lib/config-reader.sh` - Support credentials section
+- [ ] `lib/component-config-generator.sh` - Complete rewrite
+- [ ] `build-and-deploy.sh` - Remove nexus.enabled
+- [ ] `config.yaml.example` - New schema
+- [ ] All component YAMLs - Remove recommended_repos
+
+#### Component ID Standardization
+- [ ] Verify/update all component IDs for consistency
+- [ ] Use concise forms (NODEJS_20 not NODEJS_20_X_LTS)
 
 ## Success Metrics Achieved
 

@@ -543,13 +543,70 @@ components:
 
 ---
 
+## 2024-01-28: Repository Configuration Refactoring Plan
+
+### Problem Identified
+1. **nexus.enabled not working**: Currently ignored - repos always applied if defined
+2. **Vendor lock-in**: "nexus" section is proprietary-specific
+3. **No default repos**: Components don't ship with default public registry configs
+4. **Inflexible overrides**: Can't merge user repos with defaults
+
+### Planned Solution
+
+#### New Configuration Schema
+```yaml
+# Vendor-agnostic credentials
+credentials:
+  - id: "nexus-admin"
+    username: "admin"
+    password: "encrypted:..."
+
+# Component overrides (no "nexus" section)
+components:
+  - id: "PYTHON_3_11"
+    include_default_repos: false  # or true to merge
+    repositories:
+      - name: "python-group"
+        url: "http://pop-os:8081/repository/python-group/simple"
+        access: "read_only"  # not "type"
+        auth: "nexus-admin"  # references credentials.id
+```
+
+#### Component Structure Enhancement
+```
+components/languages/python-3.11/
+├── ai-devkit/
+│   ├── repos.yaml      # Default repositories
+│   └── env_vars.yaml   # Environment variables (for Go, etc.)
+```
+
+#### Repository Resolution Logic
+1. Load defaults from `component/ai-devkit/repos.yaml`
+2. Check user config for component
+3. If `include_default_repos: false` → Use ONLY user repos
+4. If `include_default_repos: true` (default) → User repos first, then non-conflicting defaults
+5. Order matters (array order = priority)
+
+### Key Design Decisions
+1. **No backward compatibility needed** - Still in development
+2. **Simplified component IDs** - Use concise forms (NODEJS_20 not NODEJS_20_X_LTS)
+3. **HTTPS for public repos** - Use secure connections where available
+4. **ai-devkit subdirectory** - Clean separation of our configurations
+5. **Tool-specific best practices** - Generate appropriate config formats
+
+### Implementation Scope
+- Create `ai-devkit/repos.yaml` for 9 components
+- New libraries: credential-manager.sh, repository-loader.sh
+- Update: config-reader.sh, component-config-generator.sh, build-and-deploy.sh
+- Remove: nexus.enabled logic, recommended_repos from YAMLs
+
+---
+
 ## Future Considerations
-- Test remaining components (Node.js, Go, Maven, Rust) with path-based approach
-- Create comprehensive validation test suite
-- Document path-based vs port-based configuration approaches
-- Consider adding component health checks
-- Implement automatic Nexus repository detection/validation
-- Add support for authenticated repositories
+- Support for more auth types (tokens, certificates)
+- Repository health checks and validation
+- Offline mode with local caches
+- Support for other repository managers (Artifactory, etc.)
 
 ---
 
