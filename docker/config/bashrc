@@ -22,8 +22,3 @@ export PATH="$HOME/.local/bin:$PATH"
 if [ -f /etc/bashrc ]; then
     . /etc/bashrc
 fi
-
-# Source Go environment if it exists
-if [ -f ~/.config/go-env.sh ]; then
-    . ~/.config/go-env.sh
-fi

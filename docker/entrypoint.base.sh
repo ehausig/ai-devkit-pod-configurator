@@ -121,6 +121,17 @@ fi
 EOF
 fi
 
+# Source Go environment if it exists
+if ! grep -q "Source Go environment" "$BASHRC" 2>/dev/null; then
+    cat >> "$BASHRC" << 'EOF'
+
+# Source Go environment if it exists
+if [ -f ~/.config/go-env.sh ]; then
+    . ~/.config/go-env.sh
+fi
+EOF
+fi
+
 # Ensure proper ownership of .bashrc
 chown devuser:devuser "$BASHRC"
 
