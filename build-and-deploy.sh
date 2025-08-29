@@ -932,18 +932,16 @@ verify_image_in_runtime() {
         "k3s")
             # If using nerdctl, check directly with the configured command
             if [[ "$container_tool" == "nerdctl" ]]; then
+                # Debug: Log what we're checking
+                echo "Checking for image with nerdctl..." >> "$LOG_FILE"
+                container_exec images >> "$LOG_FILE" 2>&1
+                
                 # Use the container_exec abstraction to get the full command with socket/namespace
                 # Check if image exists (container_exec handles the full command)
-                if container_exec images 2>/dev/null | grep -q "$image_name"; then
+                # Note: Image might be listed as docker.io/library/ai-devkit:latest
+                if container_exec images 2>/dev/null | grep -E "(docker.io/library/)?${image_name}" | grep -q "${IMAGE_TAG}"; then
                     echo "Image $image_name found in K3s (via nerdctl with configured command)" >> "$LOG_FILE"
                     return 0
-                fi
-                # Also try with explicit k8s.io namespace if not already included
-                if ! [[ "$(get_build_command)" == *"k8s.io"* ]]; then
-                    if container_exec -n k8s.io images 2>/dev/null | grep -q "$image_name"; then
-                        echo "Image $image_name found in K3s k8s.io namespace" >> "$LOG_FILE"
-                        return 0
-                    fi
                 fi
             fi
             # Fallback to k3s ctr check
@@ -3500,17 +3498,22 @@ generate_repository_configs() {
     
     log "Generating repository configurations for selected components..."
     
-    # Source the new template processor and its dependencies
-    if [[ -f "lib/template-processor.sh" ]]; then
-        source "lib/template-processor.sh"
+    # Source the bash template processor and its dependencies
+    if [[ -f "lib/template-processor-bash.sh" ]]; then
+        source "lib/template-processor-bash.sh"
     else
-        warning "template-processor.sh not found, skipping repository config generation"
+        warning "template-processor-bash.sh not found, skipping repository config generation"
         return
     fi
     
     # Also source volume mount manager for dynamic mount handling
     if [[ -f "lib/volume-mount-manager.sh" ]]; then
         source "lib/volume-mount-manager.sh"
+    fi
+    
+    # Source component test manager for test staging
+    if [[ -f "lib/component-test-manager.sh" ]]; then
+        source "lib/component-test-manager.sh"
     fi
     
     # Create temporary directory for configs

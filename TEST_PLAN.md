@@ -1,591 +1,524 @@
-# Repository Configuration Refactoring - Test Plan
+# AI DevKit Pod Configurator - Comprehensive Test Plan
 
-## Test Scenarios
+## Overview
+This test plan covers the complete system after major architectural refactoring:
+- Separation of concerns with component-owned configuration
+- Pure bash template processing (no Python dependencies)
+- YAML-based configuration system using yq v4
+- Repository configuration with defaults and overrides
 
-### Test 1: Default Repositories (No User Config)
-**Setup:** 
-- No components defined in config.yaml
-- Deploy with Python 3.11 selected
+---
 
-**Expected Results:**
+## Section 1: Core System Tests
+
+### Test 1.1: Python-Free Core System
+**Objective:** Verify core system has no Python dependencies
+
+**Setup:**
 ```bash
-# In container
-cat ~/.config/pip/pip.conf
-# Should show:
-[global]
-index-url = https://pypi.org/simple
+# Fresh checkout, no components selected
+rm -rf ~/.ai-devkit
+mkdir -p ~/.ai-devkit
+cat > ~/.ai-devkit/config.yaml <<EOF
+container:
+  build_command: "docker"
+  runtime: "docker"
+  runtime_import: "direct"
+EOF
 ```
 
 **Validation:**
 ```bash
-pip install requests
-# Should download from pypi.org
+# Check no Python in core scripts
+grep -r "python3 -c\|import jinja2" lib/*.sh
+# Expected: No matches
+
+# Check Dockerfile doesn't install Python
+grep -E "^RUN.*python" docker/Dockerfile.base
+# Expected: No matches (except comments)
+
+# Verify yq is Go-based
+docker run ai-devkit-base:latest /usr/local/bin/yq --version
+# Expected: yq (https://github.com/mikefarah/yq/) version v4.x.x
+```
+
+### Test 1.2: YAML Configuration Processing
+**Objective:** Verify YAML-based template processor works
+
+**Setup:**
+```bash
+# Source the template processor
+source lib/template-processor-bash.sh
+
+# Create test YAML data
+yaml_data='repositories:
+  - name: test-repo
+    url: https://example.com/repo
+    access: read_only
+component_id: TEST_COMPONENT
+format: pypi'
+```
+
+**Validation:**
+```bash
+# Generate configuration
+process_template_bash "/dev/null" "$yaml_data" "/tmp/test.conf"
+cat /tmp/test.conf
+# Expected: Valid pip.conf with test-repo URL
 ```
 
 ---
 
-### Test 2: Complete Override (include_default_repos: false)
+## Section 2: Repository Configuration Tests
+
+### Test 2.1: Default Repositories (No User Config)
+**Objective:** Components use their default repositories when no user config exists
+
+**Setup:** 
+```yaml
+# No components section in config.yaml
+container:
+  build_command: "docker"
+  runtime: "docker"
+```
+
+**Deploy:**
+```bash
+./build-and-deploy.sh --components "PYTHON_3_11,NODEJS_20"
+```
+
+**Validation in Container:**
+```bash
+# Python default
+cat ~/.config/pip/pip.conf
+# Expected:
+# [global]
+# index-url = https://pypi.org/simple
+
+# Node.js default
+cat ~/.npmrc
+# Expected:
+# registry=https://registry.npmjs.org/
+
+# Test connectivity
+pip download --no-deps requests
+npm view express version
+```
+
+### Test 2.2: Complete Override (include_default_repos: false)
+**Objective:** User repositories completely replace defaults
+
 **Setup:**
 ```yaml
-# config.yaml
 credentials:
   - id: "nexus-admin"
-    type: "basic"
     username: "admin"
-    password: "encrypted:YWRtaW4K"
+    password: "admin123"
 
 components:
   - id: "PYTHON_3_11"
     include_default_repos: false
     repositories:
-      - name: "python-group"
-        url: "http://pop-os:8081/repository/python-group/simple"
+      - name: "nexus-pypi"
+        url: "http://nexus:8081/repository/pypi-proxy/simple"
         access: "read_only"
-      - name: "python-hosted"
-        url: "http://pop-os:8081/repository/python-hosted/simple"
-        access: "read_write"
         auth: "nexus-admin"
 ```
 
-**Expected Results:**
+**Validation in Container:**
 ```bash
-# In container
 cat ~/.config/pip/pip.conf
-# Should show:
-[global]
-index-url = http://pop-os:8081/repository/python-group/simple
-trusted-host = pop-os
-extra-index-url =
-    http://admin:admin@pop-os:8081/repository/python-hosted/simple
-# NO reference to pypi.org when include_default_repos: false
+# Expected: Only nexus URL, no pypi.org
+# [global]
+# index-url = http://nexus:8081/repository/pypi-proxy/simple
+# trusted-host = nexus
 ```
 
-**Validation:**
-```bash
-pip install requests
-# Should download from Nexus only
-# Should NOT fall back to pypi.org if package not in Nexus
-```
+### Test 2.3: Merge with Defaults (include_default_repos: true)
+**Objective:** User repos are primary, defaults are fallback
 
----
-
-### Test 3: Merge Mode (include_default_repos: true)
-**Setup:**
-```yaml
-# config.yaml
-credentials:
-  - id: "nexus-admin"
-    type: "basic"
-    username: "admin"
-    password: "encrypted:YWRtaW4K"
-
-components:
-  - id: "PYTHON_3_11"
-    include_default_repos: true  # Explicit merge
-    repositories:
-      - name: "python-group"
-        url: "http://pop-os:8081/repository/python-group/simple"
-        access: "read_only"
-      - name: "python-hosted"
-        url: "http://pop-os:8081/repository/python-hosted/simple"
-        access: "read_write"
-        auth: "nexus-admin"
-```
-
-**Expected Results:**
-```bash
-# In container
-cat ~/.config/pip/pip.conf
-# Should show:
-[global]
-index-url = http://pop-os:8081/repository/python-group/simple
-trusted-host = pop-os
-extra-index-url =
-    http://admin:admin@pop-os:8081/repository/python-hosted/simple
-    https://pypi.org/simple
-# Note: PyPI is appended when include_default_repos: true
-```
-
-**Validation:**
-```bash
-pip install requests
-# Should try Nexus first
-# Should fall back to pypi.org if not in Nexus
-```
-
----
-
-### Test 4: Name Conflict Resolution
 **Setup:**
 ```yaml
 components:
   - id: "PYTHON_3_11"
     include_default_repos: true
     repositories:
-      - name: "pypi"  # Same name as default
-        url: "http://pop-os:8081/repository/python-proxy/simple"
-        access: "read_only"
+      - name: "private-pypi"
+        url: "https://private.example.com/simple"
+        access: "read_write"
 ```
-
-**Expected Results:**
-- Build log should show: `WARNING: Skipping default repo 'pypi' - overridden by user config`
-- Deployment screen shows: `⚠ 1 warning(s) in build log • Press ENTER to return`
-- After deployment: `⚠ Build completed with 1 warning(s)`
-- Only user's "pypi" URL should be used in pip.conf
 
 **Validation:**
 ```bash
-# Check warnings in build log
-grep -i warning build-and-deploy.log
-
-# In container, verify only user's URL is used
 cat ~/.config/pip/pip.conf
-# Should only show the user's pypi URL, not the default
+# Expected:
+# [global]
+# index-url = https://private.example.com/simple
+# extra-index-url =
+#     https://pypi.org/simple
 ```
 
----
+### Test 2.4: Multi-Component Configuration
+**Objective:** Multiple components with different repository configs
 
-### Test 5: Environment Variables (Go)
-**Setup:**
-- Deploy with Go 1.22 selected
-- No user config (uses defaults)
-
-**Expected Results:**
-```bash
-# In container
-cat ~/.config/go-env.sh  # File should exist and be mounted
-# Should show:
-export GOPROXY="https://proxy.golang.org,direct"
-export GOSUMDB="sum.golang.org"
-export GO111MODULE=on
-
-# Environment should be automatically sourced in new shells
-echo $GOPROXY
-# Should show: https://proxy.golang.org,direct
-echo $GOSUMDB
-# Should show: sum.golang.org
-```
-
-**Diagnostic:**
-If GOPROXY is not set, run `./diagnose-go-config.sh` on the host to check:
-- If go-env.sh was generated
-- If ConfigMap was created
-- If file is mounted in container
-- If bashrc sourcing is working
-
----
-
-### Test 6: Multiple Components
 **Setup:**
 ```yaml
-credentials:
-  - id: "nexus-admin"
-    type: "basic"
-    username: "admin"
-    password: "encrypted:YWRtaW4K"
-
 components:
   - id: "PYTHON_3_11"
     include_default_repos: false
     repositories:
-      - name: "python-nexus"
-        url: "http://pop-os:8081/repository/python-group/simple"
-        access: "read_only"
-        
+      - name: "nexus-pypi"
+        url: "http://nexus:8081/repository/pypi/simple"
+  
   - id: "NODEJS_20"
-    include_default_repos: true  # Will use defaults
-    repositories: []
+    include_default_repos: true
+    repositories:
+      - name: "nexus-npm"
+        url: "http://nexus:8081/repository/npm/"
+  
+  - id: "GO_1_22"
+    # Uses only defaults (no user config)
 ```
 
-**Deployment:**
-- Select BOTH Python 3.11 AND Node.js 20 in the TUI
-- Deploy the container
-
-**Expected Results:**
+**Validation:**
 ```bash
-# In container - Python should only use Nexus
+# Python - nexus only
 cat ~/.config/pip/pip.conf
-# Should show:
-[global]
-index-url = http://pop-os:8081/repository/python-group/simple
-trusted-host = pop-os
-# NO pypi.org
+# No pypi.org
 
-# Node.js should use defaults
+# Node.js - nexus primary, npmjs fallback
 cat ~/.npmrc
-# Should show:
-registry=https://registry.npmjs.org/
-```
+# registry=http://nexus:8081/repository/npm/
 
-**Validation:**
-```bash
-# Test Python uses only Nexus
-pip config list | grep index-url
-# Should show only the Nexus URL
-
-# Test Node.js uses npm registry
-npm config get registry
-# Should show: https://registry.npmjs.org/
-
-# Verify both tools work
-pip download --no-deps --no-binary :all: requests  # Test without installing
-npm view express version
-```
-
----
-
-### Test 7: Missing Credential Reference
-**Setup:**
-```yaml
-components:
-  - id: "PYTHON_3_11"
-    include_default_repos: false
-    repositories:
-      - name: "python-nexus"
-        url: "http://pop-os:8081/repository/python-group/simple"
-        auth: "nonexistent-cred"  # Doesn't exist in credentials
-```
-
-**Expected Results:**
-- Build should continue (not fail) ✅
-- Warning in build log: `WARNING: Credential 'nonexistent-cred' not found in config` ✅
-- Repository configured without authentication ✅
-
-**Validation:**
-```bash
-# Check build log for warning
-grep -i "credential.*not found" build-and-deploy.log ✅
-# Should show: WARNING: Credential 'nonexistent-cred' not found in config
-
-# In container, verify config has no auth
-cat ~/.config/pip/pip.conf ✅
-# Should show URL without username:password
-
-# Test that pip still works (if repo allows anonymous)
-pip search requests 2>/dev/null || echo "Anonymous access may be denied" ✅
-```
-
----
-
-### Test 8: No Authentication (Anonymous Access)
-**Setup:**
-```yaml
-components:
-  - id: "PYTHON_3_11"
-    include_default_repos: false
-    repositories:
-      - name: "python-public"
-        url: "http://public-mirror.com/simple"
-        access: "read_only"
-        # No auth field - anonymous access
-```
-
-**Expected Results:**
-- Build completes successfully
-- No authentication in generated config
-- pip.conf contains plain URL
-
-**Validation:**
-```bash
-# In container
-cat ~/.config/pip/pip.conf
-# Should show:
-[global]
-index-url = http://public-mirror.com/simple
-trusted-host = public-mirror.com
-# No username:password in URL
-
-# Verify pip config
-pip config list | grep index-url
-# Should show clean URL without auth
-
-# Test with public PyPI (if online)
-# Temporarily change to test PyPI
-pip download --index-url https://pypi.org/simple --no-deps --no-binary :all: requests
-```
-
----
-
-### Test 9: Multiple Repository Types (Maven)
-**Setup:**
-```yaml
-credentials:
-  - id: "nexus-admin"
-    type: "basic"
-    username: "admin"
-    password: "encrypted:YWRtaW4K"
-
-components:
-  - id: "MAVEN"
-    include_default_repos: false
-    repositories:
-      - name: "maven-central-mirror"
-        url: "http://pop-os:8081/repository/maven-public"
-        access: "read_only"
-      - name: "maven-releases"
-        url: "http://pop-os:8081/repository/maven-releases"
-        access: "read_write"
-        auth: "nexus-admin"
-```
-
-**Deployment:**
-- Select Maven in the TUI
-- Deploy the container
-
-**Expected Results:**
-```xml
-<!-- ~/.m2/settings.xml should contain: -->
-<mirrors>
-    <mirror>
-        <id>maven-central-mirror</id>
-        <mirrorOf>*</mirrorOf>
-        <url>http://pop-os:8081/repository/maven-public</url>
-    </mirror>
-    <mirror>
-        <id>maven-releases</id>
-        <mirrorOf>*</mirrorOf>
-        <url>http://pop-os:8081/repository/maven-releases</url>
-    </mirror>
-</mirrors>
-<servers>
-    <server>
-        <id>maven-releases</id>
-        <username>admin</username>
-        <password>admin</password>
-    </server>
-</servers>
-```
-
-**Validation:**
-```bash
-# In container
-cat ~/.m2/settings.xml
-
-# Verify Maven can resolve dependencies
-cd /tmp
-cat > pom.xml << 'EOF'
-<project>
-  <modelVersion>4.0.0</modelVersion>
-  <groupId>test</groupId>
-  <artifactId>test</artifactId>
-  <version>1.0</version>
-  <dependencies>
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>4.13.2</version>
-    </dependency>
-  </dependencies>
-</project>
-EOF
-
-# Test dependency resolution
-mvn dependency:resolve
-# Should download from configured repositories
-
-# Check effective settings
-mvn help:effective-settings | grep -A5 "<mirror>"
-```
-
----
-
-### Test 10: Rust with Custom Registry
-**Setup:**
-```yaml
-credentials:
-  - id: "cargo-token"
-    type: "token"
-    token: "encrypted:Y2FyZ290b2tlbg=="
-
-components:
-  - id: "RUST_STABLE"
-    include_default_repos: false
-    repositories:
-      - name: "corporate-crates"
-        url: "http://crates.corp.local"
-        access: "read_write"
-        auth: "cargo-token"
-```
-
-**Deployment:**
-- Select Rust Stable in the TUI
-- Deploy the container
-
-**Expected Results:**
-```toml
-# ~/.cargo/config.toml should contain:
-[source.crates-io]
-replace-with = "custom"
-
-[source.custom]
-registry = "http://crates.corp.local"
-
-[registries.custom]
-token = "cargotooken"
-```
-
-**Validation:**
-```bash
-# In container
-cat ~/.cargo/config.toml
-
-# Test cargo configuration
-cargo --version
-
-# Create a test project
-cd /tmp
-cargo init test-project
-cd test-project
-
-# Try to add a dependency (will fail if registry is not accessible)
-cargo search serde --limit 1
-# Should search in corporate registry
-
-# If you have a working registry:
-cargo add serde --dry-run
-```
-
----
-
-## Test Execution Steps
-
-### For Each Test:
-1. Update `~/.ai-devkit/config.yaml` with test configuration
-2. Run `./build-and-deploy.sh`
-3. Select appropriate components
-4. Deploy and wait for pod to be ready
-5. Connect to container: `kubectl exec -it ai-devkit -n ai-devkit -- bash`
-6. Check generated configuration files
-7. Test package installation/download
-8. Record results
-
-## Test Results Summary
-
-### Completed Tests:
-- ✅ **Test 1**: Default repositories work (pip.conf with PyPI created)
-- ✅ **Test 2**: include_default_repos: false works correctly (no PyPI)
-- ✅ **Test 3**: include_default_repos: true merges defaults (PyPI appended)
-- ✅ **Test 4**: Name conflicts detected and warned (with UI notification)
-- ✅ **Test 5**: Go environment mounted (requires entrypoint fix for sourcing)
-- ✅ **Test 6**: Multiple components work correctly (Python uses only Nexus, Node.js uses defaults)
-- ✅ **Test 7**: Missing credential reference handled gracefully (repo configured without auth)
-- ✅ **Test 8**: Anonymous access works correctly (no auth in URL)
-
-### Known Issues Fixed:
-1. **pip.conf as directory** - Fixed ConfigMap name mismatch
-2. **include_default_repos ignored** - Fixed yq query to read boolean correctly
-3. **No warning visibility** - Added warning count to UI and post-deployment message
-4. **Go env not sourced** - Added sourcing to entrypoint.base.sh
-5. **Missing credential warning not shown** - Added credential_exists() check with warning output
-
-## Success Criteria
-
-### All Tests Must:
-- [x] Generate valid configuration files for each tool
-- [x] Respect include_default_repos flag  
-- [x] Handle credential resolution correctly
-- [x] Log appropriate messages for conflicts
-- [x] Use array order for repository priority
-- [x] Pass URLs through without modification
-- [x] Mount configs as files, not directories
-
-## Validation Commands
-
-### Python
-```bash
-cat ~/.config/pip/pip.conf
-pip config list
-pip download --no-deps --no-binary :all: requests  # Test without installing
-pip install requests  # Actually install
-python -c "import requests; print(requests.__version__)"
-```
-
-### Node.js
-```bash
-cat ~/.npmrc
-npm config list
-npm view express  # Test registry access
-npm install express  # Test actual install
-```
-
-### Go
-```bash
-cat ~/go-env.sh  # If exists
+# Go - defaults only
+source ~/.config/go/go-env.sh
 echo $GOPROXY
-go env GOPROXY
-go get -d github.com/gorilla/mux  # Test download
-```
-
-### Maven
-```bash
-cat ~/.m2/settings.xml
-mvn help:effective-settings  # If maven project exists
-```
-
-### Rust
-```bash
-cat ~/.cargo/config.toml
-cargo search serde  # Test registry access
-cargo init test-project && cd test-project
-cargo add serde  # Test adding dependency
-```
-
-## Build Log Checks
-
-Look for these messages in `.build-temp/build.log`:
-- `Generating pip configuration for PYTHON_3_11...`
-- `Resolved repositories with merging logic`
-- `Generated pip configuration with N repositories`
-- `Creating dynamic repository-config ConfigMap...`
-- `Generated repository configurations for N component(s)`
-
-## Quick Validation Script
-
-Create `/tmp/validate-repos.sh`:
-```bash
-#!/bin/bash
-echo "==================================="
-echo "Repository Configuration Validation"
-echo "==================================="
-
-# Python
-if [ -f ~/.config/pip/pip.conf ]; then
-    echo "✓ Python pip.conf found"
-    grep "index-url" ~/.config/pip/pip.conf
-else
-    echo "✗ Python pip.conf missing"
-fi
-
-# Node.js
-if [ -f ~/.npmrc ]; then
-    echo "✓ Node.js .npmrc found"
-    grep "registry" ~/.npmrc
-else
-    echo "✗ Node.js .npmrc missing"
-fi
-
-# Go
-if [ -n "$GOPROXY" ]; then
-    echo "✓ Go GOPROXY set: $GOPROXY"
-else
-    echo "✗ Go GOPROXY not set"
-fi
-
-# Maven
-if [ -f ~/.m2/settings.xml ]; then
-    echo "✓ Maven settings.xml found"
-else
-    echo "✗ Maven settings.xml missing"
-fi
-
-# Rust
-if [ -f ~/.cargo/config.toml ]; then
-    echo "✓ Rust config.toml found"
-else
-    echo "✗ Rust config.toml missing"
-fi
+# https://proxy.golang.org,direct
 ```
 
 ---
 
-*Execute tests in order and document any failures or unexpected behavior*
+## Section 3: Component Isolation Tests
+
+### Test 3.1: Component-Specific Configuration
+**Objective:** Only selected components have configurations in container
+
+**Setup:**
+```bash
+./build-and-deploy.sh --components "PYTHON_3_11"
+```
+
+**Validation in Container:**
+```bash
+# Python config exists
+ls ~/.config/pip/pip.conf
+# Expected: File exists
+
+# Node.js config doesn't exist
+ls ~/.npmrc
+# Expected: No such file
+
+# Maven config doesn't exist
+ls ~/.m2/settings.xml
+# Expected: No such file
+```
+
+### Test 3.2: Component Test Injection
+**Objective:** Component tests are executable in container
+
+**Deploy:**
+```bash
+./build-and-deploy.sh --components "PYTHON_3_11,NODEJS_20"
+```
+
+**Validation in Container:**
+```bash
+# Run all tests
+~/.ai-devkit/tests/run-all.sh
+
+# Run specific component test
+~/.ai-devkit/tests/python-3.11/verify.sh
+# Expected: SUCCESS
+
+~/.ai-devkit/tests/nodejs-20/verify.sh
+# Expected: SUCCESS
+```
+
+---
+
+## Section 4: Credential Management Tests
+
+### Test 4.1: Authenticated Repository Access
+**Objective:** Credentials are properly applied to repositories
+
+**Setup:**
+```yaml
+credentials:
+  - id: "registry-auth"
+    username: "user"
+    password: "pass123"
+
+components:
+  - id: "NODEJS_20"
+    repositories:
+      - name: "private-npm"
+        url: "https://registry.private.com"
+        auth: "registry-auth"
+```
+
+**Validation:**
+```bash
+# Check .npmrc has auth token
+cat ~/.npmrc
+# Expected: Contains auth configuration
+```
+
+### Test 4.2: Missing Credential Reference
+**Objective:** System warns about missing credentials
+
+**Setup:**
+```yaml
+components:
+  - id: "PYTHON_3_11"
+    repositories:
+      - name: "private"
+        url: "https://private.com/simple"
+        auth: "non-existent-id"
+```
+
+**Validation:**
+```bash
+./build-and-deploy.sh --components "PYTHON_3_11" 2>&1 | grep -i warning
+# Expected: Warning about missing credential 'non-existent-id'
+```
+
+---
+
+## Section 5: Build System Tests
+
+### Test 5.1: Clean Build with All Components
+**Objective:** System builds successfully with all components
+
+**Setup:**
+```bash
+./build-and-deploy.sh --components "ALL"
+```
+
+**Validation:**
+```bash
+# Check deployment completes
+kubectl get pods -n ai-devkit
+# Expected: Pod running
+
+# Verify all language tools available
+kubectl exec -n ai-devkit $POD -- python3.11 --version
+kubectl exec -n ai-devkit $POD -- node --version
+kubectl exec -n ai-devkit $POD -- go version
+kubectl exec -n ai-devkit $POD -- java -version
+kubectl exec -n ai-devkit $POD -- rustc --version
+```
+
+### Test 5.2: Incremental Build
+**Objective:** Cached builds work correctly
+
+**Setup:**
+```bash
+# First build
+./build-and-deploy.sh --components "PYTHON_3_11"
+
+# Second build with additional component
+./build-and-deploy.sh --components "PYTHON_3_11,NODEJS_20"
+```
+
+**Validation:**
+```bash
+# Check build uses cache
+# Build time should be significantly faster
+# Both components should be available
+```
+
+---
+
+## Section 6: Cross-Platform Tests
+
+### Test 6.1: Different Container Runtimes
+**Objective:** System works with docker, k3s, colima, minikube
+
+**Setups:**
+```yaml
+# Docker
+container:
+  build_command: "docker"
+  runtime: "docker"
+
+# K3s
+container:
+  build_command: "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
+  runtime: "k3s"
+
+# Colima
+container:
+  build_command: "docker"
+  runtime: "colima"
+```
+
+**Validation:**
+Each runtime should successfully:
+- Build the image
+- Deploy the pod
+- Generate correct configurations
+- Pass component tests
+
+---
+
+## Section 7: Error Handling Tests
+
+### Test 7.1: Invalid Component ID
+**Objective:** System handles invalid component gracefully
+
+**Setup:**
+```bash
+./build-and-deploy.sh --components "INVALID_COMPONENT"
+```
+
+**Validation:**
+```bash
+# Expected: Error message about invalid component
+# Build should fail gracefully
+```
+
+### Test 7.2: Malformed Configuration
+**Objective:** System detects and reports config errors
+
+**Setup:**
+```yaml
+components:
+  - id: "PYTHON_3_11"
+    repositories:
+      - name: "bad-repo"
+        # Missing URL
+```
+
+**Validation:**
+```bash
+# Expected: Warning or error about missing URL
+# System should use defaults or fail gracefully
+```
+
+---
+
+## Section 8: Migration Tests
+
+### Test 8.1: Legacy Configuration Migration
+**Objective:** Old configs are properly migrated
+
+**Setup:**
+```yaml
+# Old format with nexus section
+nexus:
+  enabled: true
+  host: "nexus.example.com"
+```
+
+**Validation:**
+```bash
+./scripts/migrate-config.sh
+# Expected: Config converted to new format
+```
+
+---
+
+## Section 9: Performance Tests
+
+### Test 9.1: Large Component Set
+**Objective:** System handles many components efficiently
+
+**Setup:**
+```bash
+# Select 10+ components
+./build-and-deploy.sh --components "PYTHON_3_11,NODEJS_20,GO_1_22,JAVA_17_OPENJDK,RUST_STABLE,RUBY_3_3,SCALA_3,KOTLIN,MAVEN,GRADLE"
+```
+
+**Validation:**
+- Build completes in reasonable time
+- All configurations generated correctly
+- Container starts successfully
+- Memory usage acceptable
+
+---
+
+## Section 10: Integration Tests
+
+### Test 10.1: End-to-End Development Workflow
+**Objective:** Complete development cycle works
+
+**Steps:**
+1. Configure repositories
+2. Build and deploy
+3. Connect to container
+4. Create Python project
+5. Install dependencies
+6. Run tests
+7. Build project
+
+**Validation:**
+All steps complete successfully with configured repositories
+
+### Test 10.2: CI/CD Integration
+**Objective:** System works in automated pipelines
+
+**Setup:**
+```bash
+# Non-interactive build
+./build-and-deploy.sh --components "PYTHON_3_11" --non-interactive
+```
+
+**Validation:**
+- No user prompts
+- Exit codes correct
+- Logs parseable
+
+---
+
+## Test Execution Checklist
+
+- [ ] Section 1: Core System Tests
+  - [ ] 1.1 Python-Free Core
+  - [ ] 1.2 YAML Processing
+- [ ] Section 2: Repository Configuration
+  - [ ] 2.1 Default Repositories
+  - [ ] 2.2 Complete Override
+  - [ ] 2.3 Merge with Defaults
+  - [ ] 2.4 Multi-Component
+- [ ] Section 3: Component Isolation
+  - [ ] 3.1 Component-Specific Config
+  - [ ] 3.2 Test Injection
+- [ ] Section 4: Credential Management
+  - [ ] 4.1 Authenticated Access
+  - [ ] 4.2 Missing Credentials
+- [ ] Section 5: Build System
+  - [ ] 5.1 Clean Build
+  - [ ] 5.2 Incremental Build
+- [ ] Section 6: Cross-Platform
+  - [ ] 6.1 Different Runtimes
+- [ ] Section 7: Error Handling
+  - [ ] 7.1 Invalid Component
+  - [ ] 7.2 Malformed Config
+- [ ] Section 8: Migration
+  - [ ] 8.1 Legacy Migration
+- [ ] Section 9: Performance
+  - [ ] 9.1 Large Component Set
+- [ ] Section 10: Integration
+  - [ ] 10.1 End-to-End Workflow
+  - [ ] 10.2 CI/CD Integration
+
+---
+
+## Notes
+
+- Run tests in order for best results
+- Some tests require external services (Nexus, etc.)
+- Document any failures with logs and configuration
+- Each test should be independently reproducible
+
+*Last Updated: 2024-11-29 - Post-refactor with YAML support*

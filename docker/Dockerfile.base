@@ -68,10 +68,10 @@ ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
 ENV LANGUAGE=en_US:en
 
-# Install yq for YAML processing
-# Note: The host build system requires kislyuk/yq (Python-based with jq syntax)
-# but we can't install that in the base image since Python is a component.
-# The yq tools are only needed on the host for building, not in the container runtime.
+# Install yq for YAML processing (mikefarah/yq - pure Go implementation)
+# This is a standalone binary with no Python dependencies
+RUN wget -q -O /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 && \
+    chmod +x /usr/local/bin/yq
 
 # Install GitHub CLI (gh) - handle both proxy and non-proxy scenarios
 RUN if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \

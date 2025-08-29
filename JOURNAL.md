@@ -124,7 +124,8 @@ components/{category}/{name}/ai-devkit/
 - **416 Lines Deleted**: Removed component-config-generator.sh completely
 - **100% Dynamic**: Core scripts contain NO package manager names
 - **Test Injection**: All tests at ~/.ai-devkit/tests/, run-all.sh orchestrator
-- **Template-Based**: Jinja2 templates for all configurations
+- **Pure Bash Templates**: Replaced Python/Jinja2 with bash-only template processor
+- **Zero Python Dependencies**: Core system has NO Python requirements
 - **Zero Backward Compatibility**: Clean architecture, no legacy code
 
 ### Expected Outcomes
@@ -132,6 +133,54 @@ components/{category}/{name}/ai-devkit/
 - **Maintainability**: Clear component boundaries and ownership
 - **Testability**: Component-isolated testing
 - **Clean Architecture**: Core becomes pure orchestration
+
+---
+
+## 2024-11-29: Python Dependency Elimination (CRITICAL FIX)
+
+### Issue Discovered
+Initial refactor introduced Python/Jinja2 dependency in template processor, violating core principle that Python is an optional component.
+
+### Resolution
+- **Removed**: `lib/template-processor.sh` with Python/Jinja2 dependencies
+- **Created**: `lib/template-processor-bash.sh` - Pure bash implementation
+- **Result**: Core system has ZERO Python dependencies
+
+### Key Implementation
+Bash-based template processing using native shell functions:
+- `generate_pip_config_bash()` - Generates pip.conf
+- `generate_npm_config_bash()` - Generates .npmrc  
+- `generate_maven_settings_bash()` - Generates settings.xml
+- Uses Go-based yq v4 for YAML processing (no Python dependency)
+
+### Verification
+- No `python3 -c` or `import jinja2` in any core scripts
+- Base Dockerfile installs Go-based yq, not Python-based
+- Python only installed when explicitly selected as component
+
+---
+
+## 2024-11-29: YAML-Based Configuration System
+
+### Migration from JSON to YAML
+Converted entire configuration system to use YAML for better readability and consistency.
+
+### Implementation
+- **Installed**: mikefarah/yq v4 (Go-based) at `/usr/local/bin/yq`
+- **Updated**: `lib/template-processor-bash.sh` to use yq v4 syntax
+- **Updated**: `docker/Dockerfile.base` to install yq v4 binary
+- **Result**: All configuration data now in YAML format
+
+### Technical Details
+- yq v4 commands: `yq eval '.path' -` for reading YAML
+- JSON to YAML conversion: `echo "$json" | yq eval -P -`
+- Array iteration: `yq eval '.repositories[].url' -`
+- Length checking: `yq eval '.repositories | length' -`
+
+### Benefits
+- More readable configuration files
+- Native YAML support without Python dependencies
+- Consistent data format throughout system
 
 ---
 
