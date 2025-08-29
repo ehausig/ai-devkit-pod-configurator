@@ -57,7 +57,7 @@ index-url = http://pop-os:8081/repository/python-group/simple
 trusted-host = pop-os
 extra-index-url =
     http://admin:admin@pop-os:8081/repository/python-hosted/simple
-# NO reference to pypi.org
+# NO reference to pypi.org when include_default_repos: false
 ```
 
 **Validation:**
@@ -83,9 +83,13 @@ components:
   - id: "PYTHON_3_11"
     include_default_repos: true  # Explicit merge
     repositories:
-      - name: "python-nexus"
+      - name: "python-group"
         url: "http://pop-os:8081/repository/python-group/simple"
         access: "read_only"
+      - name: "python-hosted"
+        url: "http://pop-os:8081/repository/python-hosted/simple"
+        access: "read_write"
+        auth: "nexus-admin"
 ```
 
 **Expected Results:**
@@ -97,7 +101,9 @@ cat ~/.config/pip/pip.conf
 index-url = http://pop-os:8081/repository/python-group/simple
 trusted-host = pop-os
 extra-index-url =
+    http://admin:admin@pop-os:8081/repository/python-hosted/simple
     https://pypi.org/simple
+# Note: PyPI is appended when include_default_repos: true
 ```
 
 **Validation:**
@@ -122,8 +128,20 @@ components:
 ```
 
 **Expected Results:**
-- Build log should show: `Skipping default repo 'pypi' - already defined by user`
-- Only user's "pypi" URL should be used
+- Build log should show: `WARNING: Skipping default repo 'pypi' - overridden by user config`
+- Deployment screen shows: `⚠ 1 warning(s) in build log • Press ENTER to return`
+- After deployment: `⚠ Build completed with 1 warning(s)`
+- Only user's "pypi" URL should be used in pip.conf
+
+**Validation:**
+```bash
+# Check warnings in build log
+grep -i warning build-and-deploy.log
+
+# In container, verify only user's URL is used
+cat ~/.config/pip/pip.conf
+# Should only show the user's pypi URL, not the default
+```
 
 ---
 
@@ -135,13 +153,25 @@ components:
 **Expected Results:**
 ```bash
 # In container
-cat ~/go-env.sh  # Check if env file was generated
-source ~/go-env.sh
+cat ~/.config/go-env.sh  # File should exist and be mounted
+# Should show:
+export GOPROXY="https://proxy.golang.org,direct"
+export GOSUMDB="sum.golang.org"
+export GO111MODULE=on
+
+# Environment should be automatically sourced in new shells
 echo $GOPROXY
 # Should show: https://proxy.golang.org,direct
 echo $GOSUMDB
 # Should show: sum.golang.org
 ```
+
+**Diagnostic:**
+If GOPROXY is not set, run `./diagnose-go-config.sh` on the host to check:
+- If go-env.sh was generated
+- If ConfigMap was created
+- If file is mounted in container
+- If bashrc sourcing is working
 
 ---
 
@@ -270,11 +300,26 @@ components:
 7. Test package installation/download
 8. Record results
 
+## Test Results Summary
+
+### Completed Tests:
+- ✅ **Test 1**: Default repositories work (pip.conf with PyPI created)
+- ✅ **Test 2**: include_default_repos: false works correctly (no PyPI)
+- ✅ **Test 3**: include_default_repos: true merges defaults (PyPI appended)
+- ✅ **Test 4**: Name conflicts detected and warned (with UI notification)
+- ✅ **Test 5**: Go environment mounted (requires entrypoint fix for sourcing)
+
+### Known Issues Fixed:
+1. **pip.conf as directory** - Fixed ConfigMap name mismatch
+2. **include_default_repos ignored** - Fixed yq query to read boolean correctly
+3. **No warning visibility** - Added warning count to UI and post-deployment message
+4. **Go env not sourced** - Added sourcing to entrypoint.base.sh
+
 ## Success Criteria
 
 ### All Tests Must:
 - [x] Generate valid configuration files for each tool
-- [x] Respect include_default_repos flag
+- [x] Respect include_default_repos flag  
 - [x] Handle credential resolution correctly
 - [x] Log appropriate messages for conflicts
 - [x] Use array order for repository priority
