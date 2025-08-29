@@ -25,14 +25,15 @@ AI DevKit Pod Configurator provides a beautiful TUI (Terminal User Interface) fo
 ### Key Features
 
 - 🎨 **Beautiful TUI** - Interactive component selection with theme support
-- 🧩 **Modular Architecture** - Add only what you need: languages, tools, AI assistants
+- 🧩 **Template-Based Architecture** - Component-owned configuration with Jinja2 templates
 - 🔧 **Language Support** - Python, Java, Go, Rust, Ruby, Scala, Kotlin, Node.js, and more
 - 🤖 **AI Integration** - Claude Code with Team Topologies-based autonomous development
-- 📦 **Build Tools** - Maven, Gradle, SBT with optional Nexus proxy support
-- 🧪 **Testing Tools** - Microsoft TUI Test for terminal application testing
+- 📦 **Build Tools** - Maven, Gradle, SBT with dynamic repository configuration
+- 🧪 **Component Testing** - Every component includes executable verification tests
 - 💾 **Persistent Storage** - Your code and configuration persist across restarts
 - 🌐 **Web File Manager** - Built-in Filebrowser for easy file management
 - 🔒 **Secure** - Runs as non-root user with proper isolation
+- ✅ **Test Injection** - Run `~/.ai-devkit/tests/run-all.sh` to verify all components
 
 ## 📸 Screenshots
 
