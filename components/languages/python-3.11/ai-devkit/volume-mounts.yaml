@@ -1,0 +1,11 @@
+# Volume mount specifications for Python 3.11
+mounts:
+  - name: "pip-config"
+    source: "pip.conf"
+    target: "/home/devuser/.config/pip/pip.conf"
+    type: "file"
+  - name: "python-tests"
+    source: "tests/"
+    target: "/home/devuser/.ai-devkit/tests/python-3.11/"
+    type: "directory"
+    permissions: "0755"

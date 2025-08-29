@@ -1,0 +1,16 @@
+[global]
+{% if repositories and repositories|length > 0 %}
+index-url = {{ repositories[0].url }}
+{% if repositories[0].url.startswith('http://') %}
+trusted-host = {{ repositories[0].url | urlparse('hostname') }}
+{% endif %}
+{% if repositories|length > 1 %}
+extra-index-url =
+{% for repo in repositories[1:] %}
+    {{ repo.url }}
+{% endfor %}
+{% endif %}
+{% else %}
+# No repositories configured
+index-url = https://pypi.org/simple
+{% endif %}
