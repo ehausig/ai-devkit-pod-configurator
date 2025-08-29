@@ -287,6 +287,8 @@ The current testing approach has several problems:
 2. **Hard-coded package manager knowledge in test scripts** - Creates maintenance burden
 3. **No component self-testing capability** - Components cannot validate their own configuration
 4. **Centralized test orchestration** - Does not scale with component additions
+5. **Manual kubectl cp required** - Users must manually copy tests into container
+6. **No runtime verification** - Cannot easily verify components work inside container
 
 ### Proposed Component Test Structure
 
@@ -298,13 +300,26 @@ components/{category}/{component}/ai-devkit/
 ├── config-templates/             # New
 │   ├── pip.conf.template
 │   └── pip.conf.schema.json
-├── volume-mounts.yaml            # New
-├── tests/                        # New
-│   ├── validate-config.sh        # Component config validation
-│   ├── validate-connectivity.sh  # Repository connectivity test
-│   ├── validate-installation.sh  # Package installation test
-│   └── test-config.bats          # Unit tests for config generation
+├── volume-mounts.yaml            # New (includes test injection)
+├── tests/                        # New (injected into container)
+│   ├── verify.sh                 # Main verification script
+│   ├── test-config.sh            # Component config validation
+│   ├── test-connectivity.sh      # Repository connectivity test
+│   ├── test-installation.sh      # Package installation test
+│   └── test-functionality.sh     # Actual tool functionality test
 └── deployment-patches.yaml       # New
+```
+
+#### Test Injection into Container
+Tests are automatically mounted into the container at:
+```
+/home/devuser/.ai-devkit/tests/{component-name}/
+```
+Users can execute tests directly without kubectl cp:
+```bash
+# Inside container
+devuser@ai-devkit:~$ ~/.ai-devkit/tests/python-3.11/verify.sh
+devuser@ai-devkit:~$ ~/.ai-devkit/tests/run-all.sh
 ```
 
 #### Component Test Categories
@@ -541,6 +556,46 @@ done
 3. **Feature Flags**: Ability to fall back to old system if issues arise
 4. **Clear Documentation**: Detailed guides for component developers
 5. **Validation Tools**: Automated checking of component configurations
+
+## Component Test Requirements
+
+### Mandatory Test Coverage
+Every component that provides tools, languages, or build systems MUST include:
+
+1. **verify.sh** - Main test orchestrator that runs all component tests
+2. **test-config.sh** - Validates configuration files are correctly generated
+3. **test-connectivity.sh** - Verifies repository/network connectivity
+4. **test-installation.sh** - Tests actual package/dependency installation
+5. **test-functionality.sh** - Verifies the tool actually works (not just installed)
+
+### Test Execution Requirements
+- Tests must be executable inside the container without manual copying
+- Tests must provide clear pass/fail status with meaningful output
+- Tests must handle both online and offline scenarios gracefully
+- Tests must complete within reasonable time limits (< 60 seconds per component)
+
+### Example Test Implementation
+```bash
+#!/bin/bash
+# components/languages/python-3.11/ai-devkit/tests/verify.sh
+set -e
+
+echo "Verifying Python 3.11 installation..."
+
+# Check version
+python3.11 --version || { echo "❌ Python 3.11 not found"; exit 1; }
+
+# Check pip works
+pip3.11 list > /dev/null || { echo "❌ pip not functional"; exit 1; }
+
+# Test package installation
+pip3.11 install --no-cache-dir six || { echo "❌ Cannot install packages"; exit 1; }
+
+# Test functionality
+python3.11 -c "import six; print(six.__version__)" || { echo "❌ Installed packages not working"; exit 1; }
+
+echo "✅ Python 3.11 verified successfully"
+```
 
 ## Migration Checklist
 
