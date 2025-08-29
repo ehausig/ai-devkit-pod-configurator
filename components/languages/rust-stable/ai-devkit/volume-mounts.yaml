@@ -1,0 +1,11 @@
+# Volume mount specifications for Rust Stable
+mounts:
+  - name: "cargo-config"
+    source: "cargo-config.toml"
+    target: "/home/devuser/.cargo/config.toml"
+    type: "file"
+  - name: "rust-tests"
+    source: "tests/"
+    target: "/home/devuser/.ai-devkit/tests/rust-stable/"
+    type: "directory"
+    permissions: "0755"

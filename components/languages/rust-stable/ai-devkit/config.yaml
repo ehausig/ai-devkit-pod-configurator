@@ -1,0 +1,6 @@
+# Configuration metadata for Rust Stable component
+configuration:
+  format: "cargo"
+  templates:
+    - source: "config-templates/cargo-config.toml.j2"
+      output: "cargo-config.toml"

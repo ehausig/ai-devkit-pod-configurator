@@ -1,0 +1,6 @@
+# Configuration metadata for SBT component
+configuration:
+  format: "sbt"
+  templates:
+    - source: "config-templates/repositories.j2"
+      output: "repositories"

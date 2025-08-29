@@ -1,0 +1,6 @@
+# Configuration metadata for Maven component
+configuration:
+  format: "maven2"
+  templates:
+    - source: "config-templates/settings.xml.j2"
+      output: "settings.xml"
