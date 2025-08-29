@@ -914,18 +914,21 @@ load_image_to_runtime() {
 
 verify_image_in_runtime() {
     # Verify that an image is available in the Kubernetes container runtime
-    # Args: $1 = image name with tag
-    local image_name="$1"
+    # Args: $1 = image name with tag (e.g., "ai-devkit:latest")
+    local image_with_tag="$1"
+    # Split the image name and tag
+    local image_name="${image_with_tag%:*}"  # Remove :tag to get just the name
+    local image_tag="${image_with_tag##*:}"  # Get everything after the last :
     local runtime=$(get_configured_runtime)
     local container_tool=$(get_container_tool)
     
-    echo "Verifying image $image_name is available in $runtime..." >> "$LOG_FILE"
+    echo "Verifying image $image_with_tag is available in $runtime..." >> "$LOG_FILE"
     
     case "$runtime" in
         "colima")
             # Check if image exists in Colima's containerd
-            if colima ssh -- sudo ctr -n k8s.io images list 2>/dev/null | grep -q "$image_name"; then
-                echo "Image $image_name found in Colima" >> "$LOG_FILE"
+            if colima ssh -- sudo ctr -n k8s.io images list 2>/dev/null | grep -q "$image_with_tag"; then
+                echo "Image $image_with_tag found in Colima" >> "$LOG_FILE"
                 return 0
             fi
             ;;
@@ -934,44 +937,44 @@ verify_image_in_runtime() {
             if [[ "$container_tool" == "nerdctl" ]]; then
                 # Debug: Log what we're checking
                 echo "Checking for image with nerdctl..." >> "$LOG_FILE"
-                echo "Looking for: ${image_name} with tag ${IMAGE_TAG}" >> "$LOG_FILE"
+                echo "Looking for: ${image_name} with tag ${image_tag}" >> "$LOG_FILE"
                 container_exec images >> "$LOG_FILE" 2>&1
                 
                 # Use the container_exec abstraction to get the full command with socket/namespace
                 # Check if image exists - nerdctl shows REPOSITORY and TAG in separate columns
                 # The image name might just be "ai-devkit" or with docker.io prefix
-                local image_check=$(container_exec images 2>/dev/null | grep "^${image_name}[[:space:]]" | grep "[[:space:]]${IMAGE_TAG}[[:space:]]")
+                local image_check=$(container_exec images 2>/dev/null | grep "^${image_name}[[:space:]]" | grep "[[:space:]]${image_tag}[[:space:]]")
                 if [[ -n "$image_check" ]]; then
-                    echo "Image $image_name:$IMAGE_TAG found in K3s (simple name match)" >> "$LOG_FILE"
+                    echo "Image $image_name:$image_tag found in K3s (simple name match)" >> "$LOG_FILE"
                     return 0
                 fi
                 
                 # Also check with docker.io/library prefix
-                image_check=$(container_exec images 2>/dev/null | grep "^docker.io/library/${image_name}[[:space:]]" | grep "[[:space:]]${IMAGE_TAG}[[:space:]]")
+                image_check=$(container_exec images 2>/dev/null | grep "^docker.io/library/${image_name}[[:space:]]" | grep "[[:space:]]${image_tag}[[:space:]]")
                 if [[ -n "$image_check" ]]; then
-                    echo "Image $image_name:$IMAGE_TAG found in K3s (with docker.io prefix)" >> "$LOG_FILE"
+                    echo "Image $image_name:$image_tag found in K3s (with docker.io prefix)" >> "$LOG_FILE"
                     return 0
                 fi
             fi
             # Fallback to k3s ctr check
-            if sudo k3s ctr -n k8s.io images list 2>/dev/null | grep -q "$image_name"; then
-                echo "Image $image_name found in K3s (via k3s ctr)" >> "$LOG_FILE"
+            if sudo k3s ctr -n k8s.io images list 2>/dev/null | grep -q "$image_with_tag"; then
+                echo "Image $image_with_tag found in K3s (via k3s ctr)" >> "$LOG_FILE"
                 return 0
             fi
             ;;
         "docker-desktop")
             # Docker Desktop shares images between Docker and Kubernetes
             if [[ "$container_tool" == "docker" ]] || [[ "$container_tool" == "nerdctl" ]]; then
-                if docker images --format "{{.Repository}}:{{.Tag}}" | grep -q "^${image_name}$"; then
-                    echo "Image $image_name found in Docker Desktop" >> "$LOG_FILE"
+                if docker images --format "{{.Repository}}:{{.Tag}}" | grep -q "^${image_with_tag}$"; then
+                    echo "Image $image_with_tag found in Docker Desktop" >> "$LOG_FILE"
                     return 0
                 fi
             fi
             ;;
         "containerd")
             # Check generic containerd
-            if sudo ctr -n k8s.io images list 2>/dev/null | grep -q "$image_name"; then
-                echo "Image $image_name found in containerd" >> "$LOG_FILE"
+            if sudo ctr -n k8s.io images list 2>/dev/null | grep -q "$image_with_tag"; then
+                echo "Image $image_with_tag found in containerd" >> "$LOG_FILE"
                 return 0
             fi
             ;;
@@ -981,7 +984,7 @@ verify_image_in_runtime() {
             ;;
     esac
     
-    echo "Error: Image $image_name not found in $runtime" >> "$LOG_FILE" 2>&1
+    echo "Error: Image $image_with_tag not found in $runtime" >> "$LOG_FILE" 2>&1
     echo "Troubleshooting: Check $LOG_FILE for import errors" >> "$LOG_FILE"
     echo "You can manually check images with:" >> "$LOG_FILE"
     case "$runtime" in
