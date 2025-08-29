@@ -97,7 +97,53 @@ repositories:
 - `lib/entrypoint-repo-setup.sh` - Obsolete runtime setup
 - `kubernetes/nexus-config.yaml` - Vendor-specific configuration
 
+## CRITICAL: Separation of Concerns Refactor Required
+
+### Architecture Violations Discovered (2024-11-29)
+**400+ lines of hard-coded component logic in core scripts violating separation of concerns principle.**
+
+### Files to be Removed/Modified
+- **DELETE**: `lib/component-config-generator.sh` (416 lines of hard-coded functions)
+- **MODIFY**: `build-and-deploy.sh` - Remove lines 3543-3587 (package manager switches)
+- **MODIFY**: `lib/generate-dynamic-deployment.sh` - Remove lines 71-320 (static mounts)
+
+### Hard-coded Components Found
+```bash
+# Current violations in core scripts:
+"pypi", "npm", "maven2", "cargo", "go", "sbt", "gradle"
+generate_pip_config(), generate_npm_config(), generate_maven_settings()
+/home/devuser/.config/pip/pip.conf, /home/devuser/.npmrc, /home/devuser/.m2/settings.xml
+```
+
+### Target Architecture: Component-Owned Configuration
+```
+components/{category}/{name}/ai-devkit/
+├── config-templates/          # Component owns templates
+│   └── {tool}.conf.j2
+├── volume-mounts.yaml         # Component declares mounts
+├── tests/                     # Component-specific tests
+│   ├── test-config.sh
+│   └── test-connectivity.sh
+└── pre-build.sh              # Component setup logic
+```
+
+### Refactor Objectives
+1. **Zero Core Changes**: Adding new components requires NO core script modifications
+2. **Template-Based**: Components provide templates, core provides data
+3. **Test Migration**: Move component tests from tests/ to component directories
+4. **Clean Boundaries**: Core becomes pure orchestration layer
+5. **Complete Cleanup**: No orphaned functions or files remain
+
+### Implementation Strategy
+**SINGLE-PHASE MIGRATION** to avoid partial implementation:
+1. Create template processing infrastructure
+2. Migrate ALL components to new structure
+3. Remove ALL hard-coded logic from core
+4. Delete orphaned files and functions
+5. Verify no component strings remain in core
+
 ---
 
-*System is production-ready with vendor-agnostic repository management.*
-*See JOURNAL.md for detailed architectural decisions and implementation history.*
+*System requires architectural refactor before adding new features.*
+*See SEPARATION_OF_CONCERNS_ANALYSIS.md for detailed violation inventory.*
+*See REFACTOR_SPEC.md for implementation plan.*

@@ -85,4 +85,45 @@ Successfully delivered vendor-agnostic repository configuration system with defa
 
 ---
 
+## 2024-11-29: Separation of Concerns Refactor (PLANNED)
+
+### Critical Architecture Issue Identified
+Discovery of 400+ lines of hard-coded component logic in core scripts violating separation of concerns.
+
+### Violations Found
+1. **Hard-coded Package Managers**: Switch statements for pypi, npm, maven, cargo, go, sbt, gradle
+2. **Component-Specific Paths**: `/home/devuser/.config/pip/pip.conf`, `/home/devuser/.npmrc` embedded in core
+3. **Dedicated Functions**: `generate_pip_config()`, `generate_npm_config()` etc. in lib scripts
+4. **Static Volume Mounts**: Package manager specific mounts in deployment generation
+
+### Files Requiring Major Changes
+- `lib/component-config-generator.sh` - TO BE DELETED (416 lines)
+- `build-and-deploy.sh` - Remove lines 3543-3587 (switch statements)
+- `lib/generate-dynamic-deployment.sh` - Remove lines 71-320 (hard-coded mounts)
+
+### Proposed Architecture: Component-Owned Configuration
+Components will fully own their configuration through:
+```
+components/{category}/{name}/ai-devkit/
+├── config-templates/      # Jinja2-style templates
+├── volume-mounts.yaml     # Mount specifications
+├── tests/                 # Component-specific tests
+└── pre-build.sh          # Complex setup logic
+```
+
+### Key Design Decisions
+1. **Single-Phase Migration**: Complete refactor in one phase to avoid partial implementation
+2. **Template-Based Generation**: Components provide templates, core provides data
+3. **Test Co-location**: Component tests move from tests/ to component directories
+4. **Zero Core Changes for New Components**: Pure plugin architecture
+5. **Tech Debt Elimination**: Remove all orphaned code and functions
+
+### Expected Outcomes
+- **Extensibility**: New package managers require zero core changes
+- **Maintainability**: Clear component boundaries and ownership
+- **Testability**: Component-isolated testing
+- **Clean Architecture**: Core becomes pure orchestration
+
+---
+
 *This journal preserves key decisions and milestones for future reference.*
