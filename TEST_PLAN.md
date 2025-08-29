@@ -248,20 +248,22 @@ components:
 
 **Expected Results:**
 - Build should continue (not fail) ✅
+- Warning in build log: `WARNING: Credential 'nonexistent-cred' not found in config` ✅
 - Repository configured without authentication ✅
-- Warning generated to stderr (but not captured in build log currently)
 
 **Validation:**
 ```bash
+# Check build log for warning
+grep -i "credential.*not found" build-and-deploy.log ✅
+# Should show: WARNING: Credential 'nonexistent-cred' not found in config
+
 # In container, verify config has no auth
-cat ~/.config/pip/pip.conf
-# Should show URL without username:password ✅
+cat ~/.config/pip/pip.conf ✅
+# Should show URL without username:password
 
 # Test that pip still works (if repo allows anonymous)
 pip search requests 2>/dev/null || echo "Anonymous access may be denied" ✅
 ```
-
-**Note:** The warning is generated to stderr when credential is not found, but it's not currently captured in the build log file. The credential system correctly handles the missing credential by configuring the repository without authentication.
 
 ---
 
@@ -473,6 +475,7 @@ cargo add serde --dry-run
 2. **include_default_repos ignored** - Fixed yq query to read boolean correctly
 3. **No warning visibility** - Added warning count to UI and post-deployment message
 4. **Go env not sourced** - Added sourcing to entrypoint.base.sh
+5. **Missing credential warning not shown** - Added credential_exists() check with warning output
 
 ## Success Criteria
 
