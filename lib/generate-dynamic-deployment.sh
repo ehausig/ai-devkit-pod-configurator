@@ -232,7 +232,7 @@ EOF
                     cat >> "$output_file" << EOF
       - name: pip-config
         configMap:
-          name: nexus-proxy-config
+          name: repository-config
           items:
           - key: pip.conf
             path: pip.conf
@@ -244,7 +244,7 @@ EOF
                     cat >> "$output_file" << EOF
       - name: npm-config
         configMap:
-          name: nexus-proxy-config
+          name: repository-config
           items:
           - key: npmrc
             path: npmrc
@@ -258,7 +258,7 @@ EOF
         emptyDir: {}
       - name: cargo-config
         configMap:
-          name: nexus-proxy-config
+          name: repository-config
           items:
           - key: cargo-config.toml
             path: cargo-config.toml
@@ -270,7 +270,7 @@ EOF
                     cat >> "$output_file" << EOF
       - name: maven-settings
         configMap:
-          name: nexus-proxy-config
+          name: repository-config
           items:
           - key: settings.xml
             path: settings.xml
@@ -282,7 +282,7 @@ EOF
                     cat >> "$output_file" << EOF
       - name: sbt-repositories
         configMap:
-          name: nexus-proxy-config
+          name: repository-config
           items:
           - key: repositories
             path: repositories
@@ -294,7 +294,7 @@ EOF
                     cat >> "$output_file" << EOF
       - name: gradle-config
         configMap:
-          name: nexus-proxy-config
+          name: repository-config
           items:
           - key: gradle.properties
             path: gradle.properties
@@ -306,7 +306,7 @@ EOF
                     cat >> "$output_file" << EOF
       - name: gem-config
         configMap:
-          name: nexus-proxy-config
+          name: repository-config
           items:
           - key: gemrc
             path: gemrc
