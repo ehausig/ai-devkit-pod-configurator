@@ -136,25 +136,68 @@ components/{category}/{name}/ai-devkit/
 
 ---
 
-## 2024-11-29: Python Dependency Elimination (CRITICAL FIX)
+## 2024-11-29: Python Dependency Elimination & YAML Migration
 
-### Issue Discovered
-Initial refactor introduced Python/Jinja2 dependency in template processor, violating core principle that Python is an optional component.
+### Critical Issues Fixed
+1. **Python Dependency Violation**: Template processor used Python/Jinja2
+2. **JSON to YAML Migration**: Converted all configuration to YAML
+3. **K3s Image Verification**: Fixed nerdctl image detection logic
+4. **Kubernetes Deployment Errors**: Corrected volume mount specifications
 
-### Resolution
+### Resolution Steps
+
+#### 1. Python Dependency Elimination
 - **Removed**: `lib/template-processor.sh` with Python/Jinja2 dependencies
 - **Created**: `lib/template-processor-bash.sh` - Pure bash implementation
 - **Result**: Core system has ZERO Python dependencies
+
+#### 2. YAML Migration
+- **Tool**: Migrated to yq v4 (Go-based) at `/usr/local/bin/yq`
+- **Eliminated**: All jq/JSON processing replaced with yq/YAML
+- **Format**: All configuration files now use YAML exclusively
+
+#### 3. Build System Fixes
+- **Image Verification**: Split image_with_tag into name and tag components
+- **Error Handling**: Redirected diagnostic echo to stderr (>&2)
+- **Volume Mounts**: Fixed YAML array processing without jq
+
+#### 4. Kubernetes Manifest Corrections
+- **defaultMode**: Moved from volumeMounts to volume definitions
+- **Permissions**: Convert octal (0644) to decimal (420) for K8s API
+- **Auto-detection**: Test directories get 0755, others get 0644
+
+### Build Status
+✅ **SUCCESSFUL BUILD** - First clean build after refactor completed with only 1 warning
 
 ### Key Implementation
 Bash-based template processing using native shell functions:
 - `generate_pip_config_bash()` - Generates pip.conf
 - `generate_npm_config_bash()` - Generates .npmrc  
 - `generate_maven_settings_bash()` - Generates settings.xml
-- Uses Go-based yq v4 for YAML processing (no Python dependency)
+- `generate_go_env_bash()` - Generates go-env.sh
+- `generate_cargo_config_bash()` - Generates cargo-config.toml
+- `generate_gradle_init_bash()` - Generates init.gradle
+- `generate_sbt_repositories_bash()` - Generates SBT repositories
 
-### Verification
-- No `python3 -c` or `import jinja2` in any core scripts
+### Files Modified
+- `build-and-deploy.sh` - Fixed image verification, sourcing, error handling
+- `lib/template-processor-bash.sh` - Created pure bash template processor
+- `lib/volume-mount-manager.sh` - Fixed YAML processing and permissions
+- `lib/generate-dynamic-deployment.sh` - Corrected echo redirection
+- `docker/Dockerfile.base` - Added yq v4 installation
+
+### Next Steps
+- Execute comprehensive test plan
+- Validate all component configurations
+- Test repository override functionality
+- Verify component isolation
+
+### Verification Completed
+- ✅ No `python3 -c` or `import jinja2` in any core scripts
+- ✅ Uses Go-based yq v4 for YAML processing (no Python dependency)
+- ✅ K3s image builds and deploys successfully
+- ✅ Kubernetes manifests apply without errors
+- ✅ Port forwarding established (SSH: 2222, Filebrowser: 8090)
 - Base Dockerfile installs Go-based yq, not Python-based
 - Python only installed when explicitly selected as component
 
