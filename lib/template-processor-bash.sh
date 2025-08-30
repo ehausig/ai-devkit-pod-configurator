@@ -14,9 +14,18 @@ YQ=/usr/local/bin/yq
 # Get the directory of this script
 if [[ -n "${BASH_SOURCE[0]}" ]]; then
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-else
+elif [[ -n "$0" ]] && [[ "$0" != "-bash" ]] && [[ "$0" != "-zsh" ]]; then
     # Fallback for other shells
-    SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+    SCRIPT_DIR="$(dirname "$(readlink -f "$0" 2>/dev/null || echo "$0")")"
+else
+    # Last resort: assume we're in the repo root and libs are in ./lib
+    if [[ -d "./lib" ]]; then
+        SCRIPT_DIR="$(pwd)/lib"
+    elif [[ -d "../lib" ]]; then
+        SCRIPT_DIR="$(cd ../lib && pwd)"
+    else
+        SCRIPT_DIR="."
+    fi
 fi
 
 # Check if required files exist before sourcing

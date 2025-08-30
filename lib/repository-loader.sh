@@ -8,16 +8,33 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     set -e
 fi
 
-# Check for required tools
-if ! command -v yq >/dev/null 2>&1; then
-    echo "Error: yq is required but not installed. Please install yq (kislyuk version)." >&2
-    echo "Install with: pip install yq" >&2
-    exit 1
+# Check for required tools (warning only when sourced)
+if ! command -v yq >/dev/null 2>&1 && ! command -v /usr/local/bin/yq >/dev/null 2>&1; then
+    echo "Warning: yq is not found in PATH. Some functions may not work." >&2
+    # Don't exit if being sourced
+    if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+        exit 1
+    fi
 fi
 
 # Source credential manager
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/credential-manager.sh"
+# Get the directory of this script
+if [[ -n "${BASH_SOURCE[0]}" ]]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+else
+    # Fallback for other shells or when sourced
+    SCRIPT_DIR="$(dirname "$(readlink -f "$0" 2>/dev/null || echo "$0")")"
+    # If still not found, try relative to current working directory
+    if [[ ! -f "$SCRIPT_DIR/credential-manager.sh" ]]; then
+        SCRIPT_DIR="$(pwd)/lib"
+    fi
+fi
+
+if [[ -f "$SCRIPT_DIR/credential-manager.sh" ]]; then
+    source "$SCRIPT_DIR/credential-manager.sh"
+else
+    echo "Warning: credential-manager.sh not found at $SCRIPT_DIR" >&2
+fi
 
 # Configuration file location
 CONFIG_FILE="${CONFIG_FILE:-$HOME/.ai-devkit/config.yaml}"
