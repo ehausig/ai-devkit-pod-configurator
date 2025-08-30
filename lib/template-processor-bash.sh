@@ -2,16 +2,35 @@
 # Pure Bash Template Processing Engine for Component Configuration
 # No Python dependencies - uses yq v4 (Go-based) for YAML processing
 
-set -euo pipefail
+# Only set strict mode if not being sourced interactively
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    set -euo pipefail
+fi
 
 # Use the Go-based yq v4
 YQ=/usr/local/bin/yq
 
-# Source required libraries
+# Source required libraries (with error handling)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/config-reader.sh"
-source "$SCRIPT_DIR/repository-loader.sh"
-source "$SCRIPT_DIR/credential-manager.sh"
+
+# Check if required files exist before sourcing
+if [[ -f "$SCRIPT_DIR/config-reader.sh" ]]; then
+    source "$SCRIPT_DIR/config-reader.sh"
+else
+    echo "Warning: config-reader.sh not found" >&2
+fi
+
+if [[ -f "$SCRIPT_DIR/repository-loader.sh" ]]; then
+    source "$SCRIPT_DIR/repository-loader.sh"
+else
+    echo "Warning: repository-loader.sh not found" >&2
+fi
+
+if [[ -f "$SCRIPT_DIR/credential-manager.sh" ]]; then
+    source "$SCRIPT_DIR/credential-manager.sh"
+else
+    echo "Warning: credential-manager.sh not found" >&2
+fi
 
 # Process a simple template with bash variable substitution
 process_template_bash() {

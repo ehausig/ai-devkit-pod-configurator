@@ -3,7 +3,10 @@
 # Credential Manager - Handle credential lookup and resolution
 # Part of the repository configuration refactoring
 
-set -e
+# Only set strict mode if not being sourced interactively
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    set -e
+fi
 
 # Configuration file location
 CONFIG_FILE="${CONFIG_FILE:-$HOME/.ai-devkit/config.yaml}"

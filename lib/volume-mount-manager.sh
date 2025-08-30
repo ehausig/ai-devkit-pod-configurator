@@ -2,7 +2,10 @@
 # Volume Mount Manager for Dynamic Component Configuration
 # Manages dynamic volume mount generation for components
 
-set -euo pipefail
+# Only set strict mode if not being sourced interactively
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    set -euo pipefail
+fi
 
 # Collect volume mounts from a component
 collect_component_mounts() {

@@ -3,7 +3,10 @@
 # Repository Loader - Load and merge repository configurations
 # Part of the repository configuration refactoring
 
-set -e
+# Only set strict mode if not being sourced interactively
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    set -e
+fi
 
 # Check for required tools
 if ! command -v yq >/dev/null 2>&1; then
