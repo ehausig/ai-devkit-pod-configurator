@@ -52,6 +52,11 @@ This test suite validates the major refactoring completed on 2024-11-29 that:
 ./05-repository-config.sh   # Test repository system
 ```
 
+### Check Environment
+```bash
+./check-yq-version.sh       # Check yq versions on host and container
+```
+
 ## Prerequisites
 - K3s cluster running
 - ai-devkit pod deployed
