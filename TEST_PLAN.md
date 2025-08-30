@@ -7,6 +7,12 @@ This test plan covers the complete system after major architectural refactoring:
 - YAML-based configuration system using yq v4
 - Repository configuration with defaults and overrides
 
+## Important Note on Component Selection
+The build script uses an interactive UI for component selection. When the test steps mention specific components, you should:
+1. Run `./build-and-deploy.sh --runtime k3s`
+2. Select the specified components from the interactive menu
+3. Component names are lowercase with dashes (e.g., python-3.11, nodejs-20, go-1.22)
+
 ---
 
 ## Section 1: Core System Tests
@@ -84,7 +90,8 @@ container:
 
 **Deploy:**
 ```bash
-./build-and-deploy.sh --components "PYTHON_3_11,NODEJS_20"
+# Select python-3.11 and nodejs-20 from the interactive UI
+./build-and-deploy.sh --runtime k3s
 ```
 
 **Validation in Container:**
@@ -205,7 +212,8 @@ echo $GOPROXY
 
 **Setup:**
 ```bash
-./build-and-deploy.sh --components "PYTHON_3_11"
+# Select python-3.11 from the interactive UI
+./build-and-deploy.sh --runtime k3s
 ```
 
 **Validation in Container:**
@@ -228,7 +236,8 @@ ls ~/.m2/settings.xml
 
 **Deploy:**
 ```bash
-./build-and-deploy.sh --components "PYTHON_3_11,NODEJS_20"
+# Select python-3.11 and nodejs-20 from the interactive UI
+./build-and-deploy.sh --runtime k3s
 ```
 
 **Validation in Container:**
@@ -288,7 +297,8 @@ components:
 
 **Validation:**
 ```bash
-./build-and-deploy.sh --components "PYTHON_3_11" 2>&1 | grep -i warning
+# Select python-3.11 from UI and check warnings
+./build-and-deploy.sh --runtime k3s 2>&1 | grep -i warning
 # Expected: Warning about missing credential 'non-existent-id'
 ```
 
@@ -301,7 +311,8 @@ components:
 
 **Setup:**
 ```bash
-./build-and-deploy.sh --components "ALL"
+# Select ALL components from the interactive UI
+./build-and-deploy.sh --runtime k3s
 ```
 
 **Validation:**
@@ -378,7 +389,8 @@ Each runtime should successfully:
 
 **Setup:**
 ```bash
-./build-and-deploy.sh --components "INVALID_COMPONENT"
+# Try to select an invalid component (manual test)
+./build-and-deploy.sh --runtime k3s
 ```
 
 **Validation:**
@@ -435,8 +447,10 @@ nexus:
 
 **Setup:**
 ```bash
-# Select 10+ components
-./build-and-deploy.sh --components "PYTHON_3_11,NODEJS_20,GO_1_22,JAVA_17_OPENJDK,RUST_STABLE,RUBY_3_3,SCALA_3,KOTLIN,MAVEN,GRADLE"
+# Select 10+ components from the interactive UI:
+# python-3.11, nodejs-20, go-1.22, java-17-openjdk, rust-stable,
+# ruby-3.3, scala-3, kotlin, maven, gradle
+./build-and-deploy.sh --runtime k3s
 ```
 
 **Validation:**
@@ -469,8 +483,9 @@ All steps complete successfully with configured repositories
 
 **Setup:**
 ```bash
-# Non-interactive build
-./build-and-deploy.sh --components "PYTHON_3_11" --non-interactive
+# Note: Non-interactive mode may need pre-selection or config file
+# This test may need adjustment based on implementation
+./build-and-deploy.sh --runtime k3s --no-select
 ```
 
 **Validation:**
