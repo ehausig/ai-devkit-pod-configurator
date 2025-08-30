@@ -38,13 +38,10 @@ else
         YQ_EVAL="$YQ -r"
     else
         # Unknown, assume mikefarah syntax
-        echo "Warning: Unknown yq version ($YQ_VERSION), assuming mikefarah/yq syntax" >&2
         YQ_TYPE="mikefarah"
         YQ_EVAL="$YQ eval"
     fi
 fi
-
-echo "Debug: YQ_TYPE=$YQ_TYPE, YQ=$YQ" >&2
 
 # Source required libraries (with error handling)
 # Get the directory of this script
@@ -134,8 +131,6 @@ process_template_bash() {
     local repositories=$(yq_query "$data_yaml" '.repositories')
     local component_id=$(yq_query "$data_yaml" '.component_id')
     local format=$(yq_query "$data_yaml" '.format')
-    
-    echo "Debug: format='$format', component_id='$component_id'" >&2
     
     # Get first repository if exists
     local first_repo_url=""
