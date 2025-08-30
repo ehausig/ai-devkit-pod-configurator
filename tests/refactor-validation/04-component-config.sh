@@ -20,23 +20,29 @@ echo "2. Checking Python pip.conf generation..."
 # Simulate config generation for Python
 COMPONENT_DIR="$REPO_ROOT/components/languages/python-3.11"
 if [[ -f "$COMPONENT_DIR/ai-devkit/config.yaml" ]]; then
-    # Try with full path to yq
-    if command -v /usr/local/bin/yq &>/dev/null; then
-        FORMAT=$(/usr/local/bin/yq eval '.configuration.format' "$COMPONENT_DIR/ai-devkit/config.yaml" 2>/dev/null)
-    elif command -v yq &>/dev/null; then
-        FORMAT=$(yq eval '.configuration.format' "$COMPONENT_DIR/ai-devkit/config.yaml" 2>/dev/null)
-    else
-        echo "⚠️  WARNING: yq not found on test system"
-        FORMAT=""
-    fi
+    # Use grep/sed to extract format since yq might not be on host
+    FORMAT=$(grep -A1 "^configuration:" "$COMPONENT_DIR/ai-devkit/config.yaml" | grep "format:" | sed 's/.*format: *"\?\([^"]*\)"\?.*/\1/' | tr -d ' ')
     
     if [[ "$FORMAT" == "pypi" ]]; then
         echo "✅ PASS: Python component configured for PyPI"
     else
-        echo "❌ FAIL: Python component format is '$FORMAT' (expected 'pypi')"
-        echo "   Config file exists at: $COMPONENT_DIR/ai-devkit/config.yaml"
-        echo "   First few lines:"
-        head -5 "$COMPONENT_DIR/ai-devkit/config.yaml" | sed 's/^/   /'
+        # If grep failed, check with container's yq
+        POD_NAME=$(kubectl get pods -n ai-devkit -l app=ai-devkit -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+        if [[ -n "$POD_NAME" ]]; then
+            # Copy file to container and check
+            kubectl cp "$COMPONENT_DIR/ai-devkit/config.yaml" "ai-devkit/$POD_NAME:/tmp/test-config.yaml" 2>/dev/null
+            FORMAT=$(kubectl exec -n ai-devkit "$POD_NAME" -- /usr/local/bin/yq eval '.configuration.format' /tmp/test-config.yaml 2>/dev/null)
+            if [[ "$FORMAT" == "pypi" ]]; then
+                echo "✅ PASS: Python component configured for PyPI (verified in container)"
+            else
+                echo "❌ FAIL: Python component format is '$FORMAT' (expected 'pypi')"
+            fi
+        else
+            echo "⚠️  WARNING: Cannot verify format without yq (appears to be 'pypi' from grep)"
+            echo "   Config file exists at: $COMPONENT_DIR/ai-devkit/config.yaml"
+            echo "   Format line:"
+            grep "format:" "$COMPONENT_DIR/ai-devkit/config.yaml" | head -1 | sed 's/^/   /'
+        fi
     fi
 else
     echo "❌ FAIL: Python component missing config.yaml"

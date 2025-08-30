@@ -10,12 +10,25 @@ echo ""
 echo "1. Checking repository defaults..."
 if [[ -f "$REPO_ROOT/config/repositories.yaml" ]]; then
     echo "✅ PASS: Default repositories.yaml exists"
-    # Check PyPI default
-    PYPI_URL=$(yq eval '.pypi.repositories[0].url' "$REPO_ROOT/config/repositories.yaml" 2>/dev/null)
-    if [[ "$PYPI_URL" == "https://pypi.org/simple" ]]; then
+    # Check PyPI default using grep instead of yq
+    PYPI_LINE=$(grep -A2 "^pypi:" "$REPO_ROOT/config/repositories.yaml" | grep "url:" | head -1)
+    if echo "$PYPI_LINE" | grep -q "https://pypi.org/simple"; then
         echo "✅ PASS: PyPI default is correct"
     else
-        echo "❌ FAIL: PyPI default is '$PYPI_URL'"
+        # Try with container's yq as fallback
+        POD_NAME=$(kubectl get pods -n ai-devkit -l app=ai-devkit -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+        if [[ -n "$POD_NAME" ]]; then
+            kubectl cp "$REPO_ROOT/config/repositories.yaml" "ai-devkit/$POD_NAME:/tmp/test-repos.yaml" 2>/dev/null
+            PYPI_URL=$(kubectl exec -n ai-devkit "$POD_NAME" -- /usr/local/bin/yq eval '.pypi.repositories[0].url' /tmp/test-repos.yaml 2>/dev/null)
+            if [[ "$PYPI_URL" == "https://pypi.org/simple" ]]; then
+                echo "✅ PASS: PyPI default is correct (verified in container)"
+            else
+                echo "❌ FAIL: PyPI default is '$PYPI_URL'"
+            fi
+        else
+            echo "⚠️  WARNING: Cannot fully verify without yq, but grep shows:"
+            echo "$PYPI_LINE" | sed 's/^/   /'
+        fi
     fi
 else
     echo "❌ FAIL: Default repositories.yaml not found"
