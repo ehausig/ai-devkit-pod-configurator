@@ -1,21 +1,24 @@
 #!/bin/bash
 # Test 3: YAML Processing Test
 
+# Get the repository root directory
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
 echo "=== Test 3: YAML Processing ==="
 echo ""
 
 echo "1. Checking for jq usage in core scripts..."
-JQ_COUNT=$(grep -r "jq\s" lib/*.sh 2>/dev/null | grep -v "# jq" | grep -v "yq" | wc -l)
+JQ_COUNT=$(grep -r "jq\s" "$REPO_ROOT"/lib/*.sh 2>/dev/null | grep -v "# jq" | grep -v "yq" | wc -l)
 if [[ $JQ_COUNT -gt 0 ]]; then
     echo "❌ FAIL: Found $JQ_COUNT jq references (should use yq for YAML)"
-    grep -r "jq\s" lib/*.sh | grep -v "# jq" | grep -v "yq" | head -5
+    grep -r "jq\s" "$REPO_ROOT"/lib/*.sh | grep -v "# jq" | grep -v "yq" | head -5
 else
     echo "✅ PASS: No jq usage found in lib scripts"
 fi
 echo ""
 
 echo "2. Checking yq usage in template processor..."
-if grep -q "YQ=/usr/local/bin/yq" lib/template-processor-bash.sh; then
+if grep -q "YQ=/usr/local/bin/yq" "$REPO_ROOT"/lib/template-processor-bash.sh 2>/dev/null; then
     echo "✅ PASS: Template processor uses yq v4"
 else
     echo "❌ FAIL: Template processor not configured for yq v4"
@@ -42,9 +45,9 @@ fi
 echo ""
 
 echo "4. Checking volume mount YAML handling..."
-if grep -q "yq -r" lib/volume-mount-manager.sh; then
+if grep -q "yq -r" "$REPO_ROOT"/lib/volume-mount-manager.sh 2>/dev/null; then
     echo "✅ PASS: Volume mount manager uses yq"
-    YQ_USAGE=$(grep "yq -r" lib/volume-mount-manager.sh | wc -l)
+    YQ_USAGE=$(grep "yq -r" "$REPO_ROOT"/lib/volume-mount-manager.sh | wc -l)
     echo "   Found $YQ_USAGE yq operations"
 else
     echo "❌ FAIL: Volume mount manager not using yq"

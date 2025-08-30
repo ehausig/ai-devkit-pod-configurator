@@ -1,13 +1,16 @@
 #!/bin/bash
 # Test 4: Component Configuration Generation
 
+# Get the repository root directory
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
 echo "=== Test 4: Component Configuration Generation ==="
 echo ""
 
 echo "1. Checking Python component structure..."
-if [[ -d "components/languages/python-3.11/ai-devkit" ]]; then
+if [[ -d "$REPO_ROOT/components/languages/python-3.11/ai-devkit" ]]; then
     echo "✅ PASS: Python component has ai-devkit directory"
-    ls -la components/languages/python-3.11/ai-devkit/
+    ls -la "$REPO_ROOT/components/languages/python-3.11/ai-devkit/"
 else
     echo "❌ FAIL: Python component missing ai-devkit directory"
 fi
@@ -15,7 +18,7 @@ echo ""
 
 echo "2. Checking Python pip.conf generation..."
 # Simulate config generation for Python
-export COMPONENT_DIR="components/languages/python-3.11"
+COMPONENT_DIR="$REPO_ROOT/components/languages/python-3.11"
 if [[ -f "$COMPONENT_DIR/ai-devkit/config.yaml" ]]; then
     FORMAT=$(yq eval '.configuration.format' "$COMPONENT_DIR/ai-devkit/config.yaml" 2>/dev/null)
     if [[ "$FORMAT" == "pypi" ]]; then
@@ -47,7 +50,7 @@ echo ""
 echo "4. Checking template processor functions..."
 FUNCTIONS=("generate_pip_config_bash" "generate_npm_config_bash" "generate_maven_settings_bash")
 for func in "${FUNCTIONS[@]}"; do
-    if grep -q "^$func()" lib/template-processor-bash.sh; then
+    if grep -q "^$func()" "$REPO_ROOT"/lib/template-processor-bash.sh 2>/dev/null; then
         echo "✅ PASS: Function $func exists"
     else
         echo "❌ FAIL: Function $func not found"

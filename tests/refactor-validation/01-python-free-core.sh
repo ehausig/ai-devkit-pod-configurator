@@ -1,11 +1,14 @@
 #!/bin/bash
 # Test that Python is not present in base system
 
+# Get the repository root directory
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
 echo "=== Test 1: Python-Free Core System ==="
 echo ""
 
 echo "1. Checking for Python dependencies in lib/*.sh..."
-if grep -r "python3 -c\|import jinja2" lib/*.sh 2>/dev/null; then
+if grep -r "python3 -c\|import jinja2" "$REPO_ROOT"/lib/*.sh 2>/dev/null; then
     echo "❌ FAIL: Found Python references in lib scripts"
 else
     echo "✅ PASS: No Python references in lib scripts"
@@ -13,7 +16,7 @@ fi
 echo ""
 
 echo "2. Checking for Python in Dockerfile.base..."
-if grep -E "^RUN.*python" docker/Dockerfile.base; then
+if grep -E "^RUN.*python" "$REPO_ROOT"/docker/Dockerfile.base 2>/dev/null; then
     echo "❌ FAIL: Found Python installation in base Dockerfile"
 else
     echo "✅ PASS: No Python installation in base Dockerfile"
@@ -21,9 +24,9 @@ fi
 echo ""
 
 echo "3. Checking yq installation in Dockerfile.base..."
-if grep -q "mikefarah/yq" docker/Dockerfile.base; then
+if grep -q "mikefarah/yq" "$REPO_ROOT"/docker/Dockerfile.base 2>/dev/null; then
     echo "✅ PASS: Go-based yq (mikefarah) is installed"
-    grep "mikefarah/yq" docker/Dockerfile.base | head -1
+    grep "mikefarah/yq" "$REPO_ROOT"/docker/Dockerfile.base | head -1
 else
     echo "❌ FAIL: Go-based yq not found in Dockerfile"
 fi
@@ -46,10 +49,10 @@ fi
 echo ""
 
 echo "5. Checking template processor..."
-if [[ -f "lib/template-processor-bash.sh" ]]; then
+if [[ -f "$REPO_ROOT/lib/template-processor-bash.sh" ]]; then
     echo "✅ PASS: Bash template processor exists"
     # Check it doesn't use Python
-    if grep -q "python" lib/template-processor-bash.sh; then
+    if grep -q "python" "$REPO_ROOT/lib/template-processor-bash.sh"; then
         echo "❌ FAIL: Bash template processor contains Python references"
     else
         echo "✅ PASS: Bash template processor is Python-free"
