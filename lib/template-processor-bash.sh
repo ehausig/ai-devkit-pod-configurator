@@ -8,7 +8,17 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 fi
 
 # Use the Go-based yq v4
-YQ=/usr/local/bin/yq
+# Try to find yq in common locations
+if command -v yq >/dev/null 2>&1; then
+    YQ=$(command -v yq)
+elif [[ -x /usr/local/bin/yq ]]; then
+    YQ=/usr/local/bin/yq
+elif [[ -x /usr/bin/yq ]]; then
+    YQ=/usr/bin/yq
+else
+    echo "Warning: yq not found, using 'yq' and hoping it's in PATH" >&2
+    YQ=yq
+fi
 
 # Source required libraries (with error handling)
 # Get the directory of this script
