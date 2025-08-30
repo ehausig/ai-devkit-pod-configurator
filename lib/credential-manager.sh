@@ -167,3 +167,26 @@ add_basic_auth_to_url() {
         echo "$url"
     fi
 }
+
+# Function to resolve credentials (compatibility function)
+resolve_credentials() {
+    local repo_url="$1"
+    local cred_id="${2:-}"
+    
+    if [[ -n "$cred_id" ]]; then
+        # Return credentials in a structured format
+        local username=$(get_credential_username "$cred_id")
+        local password=$(get_credential_password "$cred_id")
+        local token=$(get_credential_token "$cred_id")
+        
+        if [[ -n "$token" ]]; then
+            echo "token:$token"
+        elif [[ -n "$username" ]] && [[ -n "$password" ]]; then
+            echo "basic:$username:$password"
+        fi
+    fi
+    return 0
+}
+
+# Export the new function
+export -f resolve_credentials

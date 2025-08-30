@@ -20,11 +20,23 @@ echo "2. Checking Python pip.conf generation..."
 # Simulate config generation for Python
 COMPONENT_DIR="$REPO_ROOT/components/languages/python-3.11"
 if [[ -f "$COMPONENT_DIR/ai-devkit/config.yaml" ]]; then
-    FORMAT=$(yq eval '.configuration.format' "$COMPONENT_DIR/ai-devkit/config.yaml" 2>/dev/null)
+    # Try with full path to yq
+    if command -v /usr/local/bin/yq &>/dev/null; then
+        FORMAT=$(/usr/local/bin/yq eval '.configuration.format' "$COMPONENT_DIR/ai-devkit/config.yaml" 2>/dev/null)
+    elif command -v yq &>/dev/null; then
+        FORMAT=$(yq eval '.configuration.format' "$COMPONENT_DIR/ai-devkit/config.yaml" 2>/dev/null)
+    else
+        echo "⚠️  WARNING: yq not found on test system"
+        FORMAT=""
+    fi
+    
     if [[ "$FORMAT" == "pypi" ]]; then
         echo "✅ PASS: Python component configured for PyPI"
     else
         echo "❌ FAIL: Python component format is '$FORMAT' (expected 'pypi')"
+        echo "   Config file exists at: $COMPONENT_DIR/ai-devkit/config.yaml"
+        echo "   First few lines:"
+        head -5 "$COMPONENT_DIR/ai-devkit/config.yaml" | sed 's/^/   /'
     fi
 else
     echo "❌ FAIL: Python component missing config.yaml"

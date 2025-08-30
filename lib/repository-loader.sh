@@ -42,6 +42,28 @@ find_component_dir() {
     return 1
 }
 
+# Function to load default repositories from config
+load_default_repositories() {
+    local config_file="${1:-config/repositories.yaml}"
+    
+    if [[ -f "$config_file" ]]; then
+        cat "$config_file"
+    else
+        echo "{}"
+    fi
+}
+
+# Function to load override repositories
+load_override_repositories() {
+    local override_file="${1:-$HOME/.ai-devkit/repositories.yaml}"
+    
+    if [[ -f "$override_file" ]]; then
+        cat "$override_file"
+    else
+        echo "{}"
+    fi
+}
+
 # Function to load default repositories for a component
 load_default_repos() {
     local component_id="$1"
