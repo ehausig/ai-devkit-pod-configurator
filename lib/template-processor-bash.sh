@@ -7,7 +7,7 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     set -euo pipefail
 fi
 
-# Use the Go-based yq v4
+# Detect yq version and set appropriate command
 # Try to find yq in common locations
 if command -v yq >/dev/null 2>&1; then
     YQ=$(command -v yq)
@@ -18,6 +18,23 @@ elif [[ -x /usr/bin/yq ]]; then
 else
     echo "Warning: yq not found, using 'yq' and hoping it's in PATH" >&2
     YQ=yq
+fi
+
+# Detect which version of yq we have
+YQ_VERSION=$($YQ --version 2>&1 || true)
+if echo "$YQ_VERSION" | grep -q "mikefarah"; then
+    # Go-based yq (mikefarah/yq v4)
+    YQ_TYPE="mikefarah"
+    YQ_EVAL="$YQ eval"
+elif echo "$YQ_VERSION" | grep -q "kislyuk\|jq wrapper"; then
+    # Python-based yq (kislyuk/yq)
+    YQ_TYPE="kislyuk"
+    YQ_EVAL="$YQ -r"
+else
+    # Unknown, assume mikefarah syntax
+    echo "Warning: Unknown yq version, assuming mikefarah/yq syntax" >&2
+    YQ_TYPE="mikefarah"
+    YQ_EVAL="$YQ eval"
 fi
 
 # Source required libraries (with error handling)
@@ -57,6 +74,43 @@ else
     echo "Warning: credential-manager.sh not found at $SCRIPT_DIR" >&2
 fi
 
+# Helper function to query YAML with either yq version
+yq_query() {
+    local yaml_data="$1"
+    local query="$2"
+    local default="${3:-}"
+    
+    if [[ "$YQ_TYPE" == "kislyuk" ]]; then
+        # kislyuk/yq uses jq syntax
+        local result=$(echo "$yaml_data" | $YQ -r "$query" 2>/dev/null || echo "null")
+        if [[ "$result" == "null" ]] || [[ -z "$result" ]]; then
+            echo "$default"
+        else
+            echo "$result"
+        fi
+    else
+        # mikefarah/yq uses its own syntax
+        local result=$(echo "$yaml_data" | $YQ eval "$query" - 2>/dev/null || echo "null")
+        if [[ "$result" == "null" ]] || [[ -z "$result" ]]; then
+            echo "$default"
+        else
+            echo "$result"
+        fi
+    fi
+}
+
+# Helper to count array items
+yq_count() {
+    local yaml_data="$1"
+    local array_path="$2"
+    
+    if [[ "$YQ_TYPE" == "kislyuk" ]]; then
+        echo "$yaml_data" | $YQ -r "$array_path | length" 2>/dev/null || echo "0"
+    else
+        echo "$yaml_data" | $YQ eval "$array_path | length" - 2>/dev/null || echo "0"
+    fi
+}
+
 # Process a simple template with bash variable substitution
 process_template_bash() {
     local template_file="$1"  # Ignored for bash processor
@@ -67,19 +121,19 @@ process_template_bash() {
     local output_dir=$(dirname "$output_file")
     mkdir -p "$output_dir"
     
-    # Parse YAML data into bash variables using yq v4
-    local repositories=$(echo "$data_yaml" | $YQ eval '.repositories' -)
-    local component_id=$(echo "$data_yaml" | $YQ eval '.component_id' -)
-    local format=$(echo "$data_yaml" | $YQ eval '.format' -)
+    # Parse YAML data into bash variables
+    local repositories=$(yq_query "$data_yaml" '.repositories')
+    local component_id=$(yq_query "$data_yaml" '.component_id')
+    local format=$(yq_query "$data_yaml" '.format')
     
     # Get first repository if exists
     local first_repo_url=""
     local first_repo_name=""
     local first_repo_auth=""
     if [[ -n "$repositories" ]] && [[ "$repositories" != "null" ]]; then
-        first_repo_url=$(echo "$data_yaml" | $YQ eval '.repositories[0].url // ""' -)
-        first_repo_name=$(echo "$data_yaml" | $YQ eval '.repositories[0].name // ""' -)
-        first_repo_auth=$(echo "$data_yaml" | $YQ eval '.repositories[0].auth // ""' -)
+        first_repo_url=$(yq_query "$data_yaml" '.repositories[0].url // ""')
+        first_repo_name=$(yq_query "$data_yaml" '.repositories[0].name // ""')
+        first_repo_auth=$(yq_query "$data_yaml" '.repositories[0].auth // ""')
     fi
     
     # Extract hostname from URL for trusted-host
@@ -132,10 +186,10 @@ generate_pip_config_bash() {
         echo "[global]"
         
         # Check if we have repositories
-        local repo_count=$(echo "$yaml_data" | $YQ eval '.repositories | length' - 2>/dev/null || echo "0")
+        local repo_count=$(yq_count "$yaml_data" '.repositories')
         if [[ "$repo_count" -gt 0 ]]; then
             # Get first repository as index-url
-            local index_url=$(echo "$yaml_data" | $YQ eval '.repositories[0].url // ""' -)
+            local index_url=$(yq_query "$yaml_data" '.repositories[0].url' "")
             if [[ -n "$index_url" ]] && [[ "$index_url" != "null" ]]; then
                 echo "index-url = $index_url"
                 
@@ -148,7 +202,7 @@ generate_pip_config_bash() {
                 if [[ $repo_count -gt 1 ]]; then
                     echo "extra-index-url ="
                     for (( i=1; i<repo_count; i++ )); do
-                        local url=$(echo "$yaml_data" | $YQ eval ".repositories[$i].url // \"\"" -)
+                        local url=$(yq_query "$yaml_data" ".repositories[$i].url" "")
                         if [[ -n "$url" ]] && [[ "$url" != "null" ]]; then
                             echo "    $url"
                         fi
@@ -168,7 +222,7 @@ generate_npm_config_bash() {
     local output_file="$2"
     
     {
-        local registry=$(echo "$yaml_data" | $YQ eval '.repositories[0].url // ""' -)
+        local registry=$(yq_query "$yaml_data" '.repositories[0].url // ""')
         if [[ -n "$registry" ]] && [[ "$registry" != "null" ]] && [[ "$registry" != '""' ]]; then
             echo "registry=$registry"
         else
@@ -188,11 +242,11 @@ generate_go_env_bash() {
         echo "# Go environment configuration"
         
         # Build GOPROXY from all repository URLs
-        local repo_count=$(echo "$yaml_data" | $YQ eval '.repositories | length' - 2>/dev/null || echo "0")
+        local repo_count=$(yq_count "$yaml_data" '.repositories')
         if [[ "$repo_count" -gt 0 ]]; then
             local goproxy=""
             for (( i=0; i<repo_count; i++ )); do
-                local url=$(echo "$yaml_data" | $YQ eval ".repositories[$i].url // \"\"" -)
+                local url=$(yq_query "$yaml_data" ".repositories[$i].url // \"\"")
                 if [[ -n "$url" ]] && [[ "$url" != "null" ]] && [[ "$url" != '""' ]]; then
                     if [[ -n "$goproxy" ]]; then
                         goproxy="${goproxy},"
@@ -226,12 +280,12 @@ generate_maven_settings_bash() {
         echo '          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0'
         echo '                              http://maven.apache.org/xsd/settings-1.0.0.xsd">'
         
-        local repo_count=$(echo "$yaml_data" | $YQ eval '.repositories | length' - 2>/dev/null || echo "0")
+        local repo_count=$(yq_count "$yaml_data" '.repositories')
         if [[ "$repo_count" -gt 0 ]]; then
             echo "    <mirrors>"
             for (( i=0; i<repo_count; i++ )); do
-                local name=$(echo "$yaml_data" | $YQ eval ".repositories[$i].name // \"\"" -)
-                local url=$(echo "$yaml_data" | $YQ eval ".repositories[$i].url // \"\"" -)
+                local name=$(yq_query "$yaml_data" ".repositories[$i].name // \"\"")
+                local url=$(yq_query "$yaml_data" ".repositories[$i].url // \"\"")
                 if [[ -n "$url" ]] && [[ "$url" != "null" ]] && [[ "$url" != '""' ]]; then
                     echo "        <mirror>"
                     echo "            <id>${name:-repo}</id>"
@@ -264,7 +318,7 @@ generate_cargo_config_bash() {
     {
         echo "# Cargo configuration"
         
-        local registry=$(echo "$yaml_data" | $YQ eval '.repositories[0].url // ""' -)
+        local registry=$(yq_query "$yaml_data" '.repositories[0].url // ""')
         if [[ -n "$registry" ]] && [[ "$registry" != "null" ]] && [[ "$registry" != '""' ]]; then
             echo "[source.crates-io]"
             echo "replace-with = \"custom\""
@@ -289,11 +343,11 @@ generate_gradle_init_bash() {
         echo "allprojects {"
         echo "    repositories {"
         
-        local repo_count=$(echo "$yaml_data" | $YQ eval '.repositories | length' - 2>/dev/null || echo "0")
+        local repo_count=$(yq_count "$yaml_data" '.repositories')
         if [[ "$repo_count" -gt 0 ]]; then
             for (( i=0; i<repo_count; i++ )); do
-                local name=$(echo "$yaml_data" | $YQ eval ".repositories[$i].name // \"\"" -)
-                local url=$(echo "$yaml_data" | $YQ eval ".repositories[$i].url // \"\"" -)
+                local name=$(yq_query "$yaml_data" ".repositories[$i].name // \"\"")
+                local url=$(yq_query "$yaml_data" ".repositories[$i].url // \"\"")
                 if [[ -n "$url" ]] && [[ "$url" != "null" ]] && [[ "$url" != '""' ]]; then
                     echo "        maven {"
                     echo "            name = '${name:-repo}'"
@@ -320,11 +374,11 @@ generate_sbt_repositories_bash() {
     {
         echo "[repositories]"
         
-        local repo_count=$(echo "$yaml_data" | $YQ eval '.repositories | length' - 2>/dev/null || echo "0")
+        local repo_count=$(yq_count "$yaml_data" '.repositories')
         if [[ "$repo_count" -gt 0 ]]; then
             for (( i=0; i<repo_count; i++ )); do
-                local name=$(echo "$yaml_data" | $YQ eval ".repositories[$i].name // \"\"" -)
-                local url=$(echo "$yaml_data" | $YQ eval ".repositories[$i].url // \"\"" -)
+                local name=$(yq_query "$yaml_data" ".repositories[$i].name // \"\"")
+                local url=$(yq_query "$yaml_data" ".repositories[$i].url // \"\"")
                 if [[ -n "$url" ]] && [[ "$url" != "null" ]] && [[ "$url" != '""' ]]; then
                     echo "${name:-repo}: $url"
                 fi
@@ -357,8 +411,14 @@ generate_component_configuration() {
         return 0
     fi
     
-    # Get repository format using yq v4
-    local format=$($YQ eval '.configuration.format // ""' "$config_file" 2>/dev/null)
+    # Get repository format
+    local format=""
+    if [[ "$YQ_TYPE" == "kislyuk" ]]; then
+        format=$($YQ -r '.configuration.format // ""' "$config_file" 2>/dev/null || echo "")
+    else
+        format=$($YQ eval '.configuration.format // ""' "$config_file" 2>/dev/null || echo "")
+    fi
+    
     if [[ -z "$format" ]] || [[ "$format" == "null" ]] || [[ "$format" == '""' ]]; then
         echo "No repository format for $component_id, skipping" >&2
         return 0
@@ -370,7 +430,13 @@ generate_component_configuration() {
     # Convert JSON to YAML for template data
     local repos_yaml=""
     if [[ -n "$repos_json" ]] && [[ "$repos_json" != "[]" ]]; then
-        repos_yaml=$(echo "$repos_json" | $YQ eval -P -)
+        if [[ "$YQ_TYPE" == "kislyuk" ]]; then
+            # kislyuk/yq can output YAML with -y
+            repos_yaml=$(echo "$repos_json" | $YQ -y '.' 2>/dev/null || echo "[]")
+        else
+            # mikefarah/yq converts with -P
+            repos_yaml=$(echo "$repos_json" | $YQ eval -P - 2>/dev/null || echo "[]")
+        fi
     fi
     
     # Create YAML template data
