@@ -59,7 +59,7 @@ AI DevKit Pod Configurator provides a beautiful TUI (Terminal User Interface) fo
 - Kubernetes cluster (k3s, minikube, Colima, or any Kubernetes distribution)
 - kubectl configured to access your cluster
 - Container build tool: **Docker**, **nerdctl**, or **Podman**
-- `yq` and `jq` for YAML/JSON processing
+- `yq` for YAML processing (supports both [mikefarah/yq](https://github.com/mikefarah/yq) v4+ and [kislyuk/yq](https://github.com/kislyuk/yq))
 - `ssh-keygen` for generating SSH host keys
 - **Recommended setups:**
   - macOS: [Colima](https://github.com/abiosoft/colima) with Docker
