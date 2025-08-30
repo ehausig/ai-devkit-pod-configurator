@@ -26,16 +26,25 @@ if echo "$YQ_VERSION" | grep -q "mikefarah"; then
     # Go-based yq (mikefarah/yq v4)
     YQ_TYPE="mikefarah"
     YQ_EVAL="$YQ eval"
-elif echo "$YQ_VERSION" | grep -q "kislyuk\|jq wrapper"; then
-    # Python-based yq (kislyuk/yq)
+elif echo "$YQ_VERSION" | grep -q "kislyuk\|jq wrapper\|yq 0"; then
+    # Python-based yq (kislyuk/yq) - also matches "yq 0.0.0"
     YQ_TYPE="kislyuk"
     YQ_EVAL="$YQ -r"
 else
-    # Unknown, assume mikefarah syntax
-    echo "Warning: Unknown yq version, assuming mikefarah/yq syntax" >&2
-    YQ_TYPE="mikefarah"
-    YQ_EVAL="$YQ eval"
+    # Check if --help mentions jq
+    local YQ_HELP=$($YQ --help 2>&1 | head -5 || true)
+    if echo "$YQ_HELP" | grep -q "jq"; then
+        YQ_TYPE="kislyuk"
+        YQ_EVAL="$YQ -r"
+    else
+        # Unknown, assume mikefarah syntax
+        echo "Warning: Unknown yq version ($YQ_VERSION), assuming mikefarah/yq syntax" >&2
+        YQ_TYPE="mikefarah"
+        YQ_EVAL="$YQ eval"
+    fi
 fi
+
+echo "Debug: YQ_TYPE=$YQ_TYPE, YQ=$YQ" >&2
 
 # Source required libraries (with error handling)
 # Get the directory of this script
@@ -125,6 +134,8 @@ process_template_bash() {
     local repositories=$(yq_query "$data_yaml" '.repositories')
     local component_id=$(yq_query "$data_yaml" '.component_id')
     local format=$(yq_query "$data_yaml" '.format')
+    
+    echo "Debug: format='$format', component_id='$component_id'" >&2
     
     # Get first repository if exists
     local first_repo_url=""
