@@ -191,5 +191,7 @@ resolve_credentials() {
     return 0
 }
 
-# Export the new function
-export -f resolve_credentials
+# Export the new function (bash only)
+if [[ -n "$BASH_VERSION" ]]; then
+    export -f resolve_credentials 2>/dev/null || true
+fi

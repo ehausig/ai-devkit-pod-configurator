@@ -238,10 +238,12 @@ EOF
     # Permissions should be set in the volume definition, not the mount
 }
 
-# Export functions
-export -f collect_component_mounts
-export -f generate_volume_mounts
-export -f generate_configmap_entries
-export -f generate_deployment_volumes
-export -f generate_deployment_volume_mounts
-export -f process_single_mount
+# Export functions (bash only)
+if [[ -n "$BASH_VERSION" ]]; then
+    export -f collect_component_mounts 2>/dev/null || true
+    export -f generate_volume_mounts 2>/dev/null || true
+    export -f generate_configmap_entries 2>/dev/null || true
+    export -f generate_deployment_volumes 2>/dev/null || true
+    export -f generate_deployment_volume_mounts 2>/dev/null || true
+    export -f process_single_mount 2>/dev/null || true
+fi

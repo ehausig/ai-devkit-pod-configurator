@@ -11,25 +11,31 @@ fi
 YQ=/usr/local/bin/yq
 
 # Source required libraries (with error handling)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Get the directory of this script
+if [[ -n "${BASH_SOURCE[0]}" ]]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+else
+    # Fallback for other shells
+    SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+fi
 
 # Check if required files exist before sourcing
 if [[ -f "$SCRIPT_DIR/config-reader.sh" ]]; then
     source "$SCRIPT_DIR/config-reader.sh"
 else
-    echo "Warning: config-reader.sh not found" >&2
+    echo "Warning: config-reader.sh not found at $SCRIPT_DIR" >&2
 fi
 
 if [[ -f "$SCRIPT_DIR/repository-loader.sh" ]]; then
     source "$SCRIPT_DIR/repository-loader.sh"
 else
-    echo "Warning: repository-loader.sh not found" >&2
+    echo "Warning: repository-loader.sh not found at $SCRIPT_DIR" >&2
 fi
 
 if [[ -f "$SCRIPT_DIR/credential-manager.sh" ]]; then
     source "$SCRIPT_DIR/credential-manager.sh"
 else
-    echo "Warning: credential-manager.sh not found" >&2
+    echo "Warning: credential-manager.sh not found at $SCRIPT_DIR" >&2
 fi
 
 # Process a simple template with bash variable substitution
@@ -376,7 +382,10 @@ EOF
     return 0
 }
 
-# Export functions for use by other scripts
-export -f process_template
-export -f process_template_bash
-export -f generate_component_configuration
+# Export functions for use by other scripts (bash only)
+# Note: export -f is bash-specific and won't work in zsh/sh
+if [[ -n "$BASH_VERSION" ]]; then
+    export -f process_template 2>/dev/null || true
+    export -f process_template_bash 2>/dev/null || true
+    export -f generate_component_configuration 2>/dev/null || true
+fi
