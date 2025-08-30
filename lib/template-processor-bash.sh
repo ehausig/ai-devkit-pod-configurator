@@ -454,7 +454,7 @@ EOF
     )
     
     # Process template using bash version
-    local template_file="$component_dir/ai-devkit/config-templates/template.j2"
+    # Note: We ignore the actual template files since we use pure bash generation
     local output_file="$output_dir/config"
     
     # Determine output file name based on format
@@ -468,7 +468,8 @@ EOF
         "sbt") output_file="$output_dir/repositories" ;;
     esac
     
-    process_template_bash "$template_file" "$template_data" "$output_file"
+    # Pass null as template_file since bash processor ignores it
+    process_template_bash "/dev/null" "$template_data" "$output_file"
     
     return 0
 }
