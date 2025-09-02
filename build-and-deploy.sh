@@ -3580,6 +3580,12 @@ generate_repository_configs() {
         done
     fi  # End of should_generate_configs check
     
+    # Create test orchestrator if we have any tests staged
+    if [[ -d "$config_temp_dir/tests" ]] && [[ -n "$(ls -A "$config_temp_dir/tests" 2>/dev/null)" ]]; then
+        log "Creating test orchestrator..."
+        create_test_orchestrator "$config_temp_dir/tests"
+    fi
+    
     # Always create ConfigMap (even if empty) since deployment expects it
     log "Creating component-configs ConfigMap..."
     echo "DEBUG: configs_generated array has ${#configs_generated[@]} items" >> "$LOG_FILE"

@@ -28,11 +28,12 @@ generate_test_mounts() {
         return 0
     fi
     
-    # Generate mount specification for test directory
+    # Mount tests to a shared directory since all test files are now in flat structure
+    # Each component's tests are prefixed with component ID
     cat <<EOF
-- name: "${component_name}-tests"
+- name: "component-tests"
   source: "tests/"
-  target: "/home/devuser/.ai-devkit/tests/${component_name}/"
+  target: "/home/devuser/.ai-devkit/tests/"
   type: "directory"
   permissions: "0755"
   component: "$component_name"
@@ -58,30 +59,45 @@ FAILED=0
 PASSED=0
 SKIPPED=0
 
-# Find all component test directories
-for component_test_dir in /home/devuser/.ai-devkit/tests/*/; do
-    if [[ -d "$component_test_dir" ]] && [[ -f "$component_test_dir/verify.sh" ]]; then
-        component=$(basename "$component_test_dir")
+# Track which components we've tested
+declare -A tested_components
+
+# Run all verify.sh scripts (now prefixed with component ID)
+for verify_script in /home/devuser/.ai-devkit/tests/*-verify.sh; do
+    if [[ -f "$verify_script" ]]; then
+        # Extract component ID from filename (e.g., python-3-11-verify.sh -> python-3-11)
+        basename=$(basename "$verify_script")
+        component_id="${basename%-verify.sh}"
+        
         echo ""
-        echo "Testing $component..."
+        echo "Testing $component_id..."
         echo "-----------------------------------------"
         
-        if bash "$component_test_dir/verify.sh"; then
-            echo "✅ $component: PASSED"
+        if bash "$verify_script"; then
+            echo "✅ $component_id: PASSED"
             PASSED=$((PASSED + 1))
         else
-            echo "❌ $component: FAILED"
+            echo "❌ $component_id: FAILED"
             FAILED=$((FAILED + 1))
         fi
+        
+        tested_components["$component_id"]=1
     fi
 done
 
-# Check for components without tests
-for component_test_dir in /home/devuser/.ai-devkit/tests/*/; do
-    if [[ -d "$component_test_dir" ]] && [[ ! -f "$component_test_dir/verify.sh" ]]; then
-        component=$(basename "$component_test_dir")
-        echo "⚠️  $component: No verify.sh found (SKIPPED)"
-        SKIPPED=$((SKIPPED + 1))
+# Check for component test files without verify.sh
+for test_file in /home/devuser/.ai-devkit/tests/*-test-*.sh; do
+    if [[ -f "$test_file" ]]; then
+        # Extract component ID from filename
+        basename=$(basename "$test_file")
+        component_id="${basename%%-test-*}"
+        
+        # If we haven't tested this component yet, it's missing verify.sh
+        if [[ -z "${tested_components[$component_id]}" ]]; then
+            echo "⚠️  $component_id: Has test files but no verify.sh (SKIPPED)"
+            SKIPPED=$((SKIPPED + 1))
+            tested_components["$component_id"]=1
+        fi
     fi
 done
 
@@ -119,19 +135,25 @@ stage_component_tests() {
         return 0
     fi
     
-    # Create staging directory for tests using sanitized component ID
-    # Convert to lowercase and replace underscores with dashes for consistency
-    local sanitized_id=$(echo "$component_id" | tr '_' '-' | tr '[:upper:]' '[:lower:]')
-    local test_staging="$staging_dir/tests/$sanitized_id"
+    # Stage test files directly to tests/ directory (not in subdirectory)
+    # This matches where ConfigMap generation expects them
+    local test_staging="$staging_dir/tests"
     mkdir -p "$test_staging"
     
-    # Copy all test files
-    cp -r "$test_dir"/* "$test_staging/" 2>/dev/null || true
+    # Copy all test files with component prefix to avoid conflicts
+    local sanitized_id=$(echo "$component_id" | tr '_' '-' | tr '[:upper:]' '[:lower:]')
+    for file in "$test_dir"/*; do
+        if [[ -f "$file" ]]; then
+            local basename=$(basename "$file")
+            # Prefix with component ID to avoid conflicts between components
+            cp "$file" "$test_staging/${sanitized_id}-${basename}" 2>/dev/null || true
+        fi
+    done
     
     # Ensure scripts are executable
     find "$test_staging" -name "*.sh" -type f -exec chmod +x {} \;
     
-    echo "Staged tests for $component_id"
+    echo "Staged tests for $component_id to $test_staging"
     return 0
 }
 
