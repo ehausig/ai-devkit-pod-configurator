@@ -3580,6 +3580,8 @@ generate_repository_configs() {
     
     # Always create ConfigMap (even if empty) since deployment expects it
     log "Creating component-configs ConfigMap..."
+    echo "DEBUG: configs_generated array has ${#configs_generated[@]} items" >> "$LOG_FILE"
+    echo "DEBUG: SELECTED_YAML_FILES array has ${#SELECTED_YAML_FILES[@]} items" >> "$LOG_FILE"
     
     local configmap_file="$TEMP_DIR/component-configs-dynamic.yaml"
     cat > "$configmap_file" << 'EOF'
@@ -3632,16 +3634,8 @@ EOF
         echo '  placeholder: "empty"' >> "$configmap_file"
     fi
     
-    # Always apply the ConfigMap (even if empty)
-    if kubectl apply -f "$configmap_file" &>/dev/null; then
-        if [[ ${#configs_generated[@]} -gt 0 ]]; then
-            success "Applied component-configs ConfigMap with ${#configs_generated[@]} component(s)"
-        else
-            success "Applied empty component-configs ConfigMap"
-        fi
-    else
-        warning "Failed to apply ConfigMap, deployment may not have all configurations"
-    fi
+    # ConfigMap file is created and will be applied during deployment phase
+    log "Component-configs ConfigMap prepared with ${#configs_generated[@]} component(s)"
 }
 
 # Function to extract inject_files from YAML using yq
@@ -4127,6 +4121,12 @@ deploy_to_kubernetes() {
     if [[ -f "$TEMP_DIR/repository-config-dynamic.yaml" ]]; then
         log "Applying dynamic repository configuration..."
         kubectl apply -f "$TEMP_DIR/repository-config-dynamic.yaml" >> "$LOG_FILE" 2>&1
+    fi
+    
+    # Apply component-configs ConfigMap if generated
+    if [[ -f "$TEMP_DIR/component-configs-dynamic.yaml" ]]; then
+        log "Applying component-configs ConfigMap..."
+        kubectl apply -f "$TEMP_DIR/component-configs-dynamic.yaml" >> "$LOG_FILE" 2>&1
     fi
     
     # Generate and apply dynamic deployment
