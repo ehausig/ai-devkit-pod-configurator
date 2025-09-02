@@ -3229,14 +3229,16 @@ display_selection_summary() {
         [[ "${in_cart[$i]}" == true ]] && ((selection_count++))
     done
 
+    # Initialize arrays regardless of selection count
+    SELECTED_YAML_FILES=()
+    SELECTED_IDS=()
+    SELECTED_NAMES=()
+    SELECTED_GROUPS=()
+    SELECTED_CATEGORIES=()
+    SELECTED_REQUIRES=()
+    
     if [[ $selection_count -gt 0 ]]; then
         # Store selections
-        SELECTED_YAML_FILES=()
-        SELECTED_IDS=()
-        SELECTED_NAMES=()
-        SELECTED_GROUPS=()
-        SELECTED_CATEGORIES=()
-        SELECTED_REQUIRES=()
         
         # Display selected items grouped by category
         for cat_idx in "${!categories[@]}"; do
@@ -3581,7 +3583,7 @@ generate_repository_configs() {
     # Always create ConfigMap (even if empty) since deployment expects it
     log "Creating component-configs ConfigMap..."
     echo "DEBUG: configs_generated array has ${#configs_generated[@]} items" >> "$LOG_FILE"
-    echo "DEBUG: SELECTED_YAML_FILES array has ${#SELECTED_YAML_FILES[@]} items" >> "$LOG_FILE"
+    echo "DEBUG: SELECTED_YAML_FILES array has ${#SELECTED_YAML_FILES[@]:-0} items" >> "$LOG_FILE"
     
     local configmap_file="$TEMP_DIR/component-configs-dynamic.yaml"
     cat > "$configmap_file" << 'EOF'
