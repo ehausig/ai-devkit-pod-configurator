@@ -3575,12 +3575,11 @@ generate_repository_configs() {
         fi
     done
     
-    # Generate ConfigMap if any configs were created
-    if [[ ${#configs_generated[@]} -gt 0 ]]; then
-        log "Creating dynamic component-configs ConfigMap with template-based configuration..."
-        
-        local configmap_file="$TEMP_DIR/component-configs-dynamic.yaml"
-        cat > "$configmap_file" << 'EOF'
+    # Always create ConfigMap (even if empty) since deployment expects it
+    log "Creating component-configs ConfigMap..."
+    
+    local configmap_file="$TEMP_DIR/component-configs-dynamic.yaml"
+    cat > "$configmap_file" << 'EOF'
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -3588,6 +3587,10 @@ metadata:
   namespace: ai-devkit
 data:
 EOF
+    
+    # Generate ConfigMap entries if components were selected
+    if [[ ${#configs_generated[@]} -gt 0 ]]; then
+        log "Adding configurations for ${#configs_generated[@]} component(s)..."
         
         # Generate ConfigMap entries dynamically for each component
         for i in "${!SELECTED_YAML_FILES[@]}"; do
@@ -3605,28 +3608,36 @@ EOF
             fi
         done
         
-        # Store volume mount information for deployment generation as proper YAML array
-        if [[ ${#all_volume_mounts[@]} -gt 0 ]]; then
-            # Combine all mount fragments into a proper YAML array
-            {
-                for mount in "${all_volume_mounts[@]}"; do
-                    echo "$mount"
-                done
-            } > "$TEMP_DIR/volume-mounts.yaml"
-        else
-            echo "[]" > "$TEMP_DIR/volume-mounts.yaml"
-        fi
-        
-        # Apply the ConfigMap
-        if kubectl apply -f "$configmap_file" &>/dev/null; then
+    else
+        log "No component configurations to add"
+    fi
+    
+    # Always store volume mount information for deployment generation
+    if [[ ${#all_volume_mounts[@]} -gt 0 ]]; then
+        # Combine all mount fragments into a proper YAML array
+        {
+            for mount in "${all_volume_mounts[@]}"; do
+                echo "$mount"
+            done
+        } > "$TEMP_DIR/volume-mounts.yaml"
+    else
+        echo "[]" > "$TEMP_DIR/volume-mounts.yaml"
+    fi
+    
+    # Add a placeholder if ConfigMap is empty to make it valid
+    if ! grep -q "^  " "$configmap_file"; then
+        echo '  placeholder: "empty"' >> "$configmap_file"
+    fi
+    
+    # Always apply the ConfigMap (even if empty)
+    if kubectl apply -f "$configmap_file" &>/dev/null; then
+        if [[ ${#configs_generated[@]} -gt 0 ]]; then
             success "Applied component-configs ConfigMap with ${#configs_generated[@]} component(s)"
         else
-            warning "Failed to apply ConfigMap, deployment may not have all configurations"
+            success "Applied empty component-configs ConfigMap"
         fi
     else
-        log "No template-based configurations needed for selected components"
-        # Create empty volume-mounts.yaml to signal no configs needed
-        touch "$TEMP_DIR/volume-mounts.yaml"
+        warning "Failed to apply ConfigMap, deployment may not have all configurations"
     fi
 }
 
