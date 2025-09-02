@@ -9,9 +9,10 @@ This test plan covers the complete system after major architectural refactoring:
 
 ## Important Note on Component Selection
 The build script uses an interactive UI for component selection. When the test steps mention specific components, you should:
-1. Run `./build-and-deploy.sh --runtime k3s`
+1. Run `./build-and-deploy.sh`
 2. Select the specified components from the interactive menu
 3. Component names are lowercase with dashes (e.g., python-3.11, nodejs-20, go-1.22)
+4. The runtime (k3s, docker, etc.) is determined from your config.yaml file
 
 ---
 
@@ -48,7 +49,7 @@ grep "yq" docker/Dockerfile.base
 # Expected: Shows installation of mikefarah/yq v4
 
 # Note: To verify yq in the actual image, build first:
-# ./build-and-deploy.sh --runtime k3s
+# ./build-and-deploy.sh
 # Then after build completes:
 # sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io run --rm ai-devkit:latest /usr/local/bin/yq --version
 # Expected: yq (https://github.com/mikefarah/yq/) version v4.x.x
@@ -102,7 +103,7 @@ EOF
 **Deploy:**
 ```bash
 # Select python-3.11 and nodejs-20 from the interactive UI
-./build-and-deploy.sh --runtime k3s
+./build-and-deploy.sh
 ```
 
 **Validation in Container:**
@@ -185,7 +186,7 @@ EOF
 **Deploy:**
 ```bash
 # Select python-3.11 from the interactive UI
-./build-and-deploy.sh --runtime k3s
+./build-and-deploy.sh
 ```
 
 **Validation in Container:**
@@ -231,7 +232,7 @@ EOF
 **Deploy:**
 ```bash
 # Select python-3.11, nodejs-20, and go-1.22 from the interactive UI
-./build-and-deploy.sh --runtime k3s
+./build-and-deploy.sh
 ```
 
 **Validation in Container:**
@@ -260,7 +261,7 @@ echo $GOPROXY
 **Setup:**
 ```bash
 # Select python-3.11 from the interactive UI
-./build-and-deploy.sh --runtime k3s
+./build-and-deploy.sh
 ```
 
 **Validation in Container:**
@@ -284,7 +285,7 @@ ls ~/.m2/settings.xml
 **Deploy:**
 ```bash
 # Select python-3.11 and nodejs-20 from the interactive UI
-./build-and-deploy.sh --runtime k3s
+./build-and-deploy.sh
 ```
 
 **Validation in Container:**
@@ -333,7 +334,7 @@ EOF
 **Deploy:**
 ```bash
 # Select nodejs-20 from the interactive UI
-./build-and-deploy.sh --runtime k3s
+./build-and-deploy.sh
 ```
 
 **Validation in Container:**
@@ -367,7 +368,7 @@ EOF
 **Deploy & Validation:**
 ```bash
 # Select python-3.11 from UI and check warnings
-./build-and-deploy.sh --runtime k3s 2>&1 | grep -i warning
+./build-and-deploy.sh 2>&1 | grep -i warning
 # Expected: Warning about missing credential 'non-existent-id'
 ```
 
@@ -381,7 +382,7 @@ EOF
 **Setup:**
 ```bash
 # Select ALL components from the interactive UI
-./build-and-deploy.sh --runtime k3s
+./build-and-deploy.sh
 ```
 
 **Validation:**
@@ -459,7 +460,7 @@ Each runtime should successfully:
 **Setup:**
 ```bash
 # Try to select an invalid component (manual test)
-./build-and-deploy.sh --runtime k3s
+./build-and-deploy.sh
 ```
 
 **Validation:**
@@ -519,7 +520,7 @@ nexus:
 # Select 10+ components from the interactive UI:
 # python-3.11, nodejs-20, go-1.22, java-17-openjdk, rust-stable,
 # ruby-3.3, scala-3, kotlin, maven, gradle
-./build-and-deploy.sh --runtime k3s
+./build-and-deploy.sh
 ```
 
 **Validation:**
@@ -554,7 +555,7 @@ All steps complete successfully with configured repositories
 ```bash
 # Note: Non-interactive mode may need pre-selection or config file
 # This test may need adjustment based on implementation
-./build-and-deploy.sh --runtime k3s --no-select
+./build-and-deploy.sh --no-select
 ```
 
 **Validation:**
