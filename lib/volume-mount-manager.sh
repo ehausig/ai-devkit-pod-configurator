@@ -211,6 +211,7 @@ process_single_mount() {
     
     # Extract fields using simple grep/sed since we know the structure
     local name=$(echo "$mount_yaml" | grep "name:" | sed 's/.*name: *"\?\([^"]*\)"\?.*/\1/')
+    local source=$(echo "$mount_yaml" | grep "source:" | sed 's/.*source: *"\?\([^"]*\)"\?.*/\1/')
     local target=$(echo "$mount_yaml" | grep "target:" | sed 's/.*target: *"\?\([^"]*\)"\?.*/\1/')
     local mount_type=$(echo "$mount_yaml" | grep "type:" | sed 's/.*type: *"\?\([^"]*\)"\?.*/\1/')
     local permissions=$(echo "$mount_yaml" | grep "permissions:" | sed 's/.*permissions: *"\?\([^"]*\)"\?.*/\1/')
@@ -231,7 +232,9 @@ process_single_mount() {
 EOF
     
     if [[ "$mount_type" == "file" ]]; then
-        echo "          subPath: $(basename $target)"
+        # Use the source field for subPath, removing any trailing slash
+        local subpath="${source%/}"
+        echo "          subPath: $subpath"
     fi
     
     # Note: defaultMode is not valid on volumeMounts, only on volume definitions
