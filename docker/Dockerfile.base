@@ -17,6 +17,12 @@ ARG NEXUS_APT_URL=""
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TARGETARCH=${TARGETARCH}
 
+# Disable man page installation to reduce image size
+# This will cause harmless "update-alternatives" warnings during package installation
+RUN echo 'path-exclude /usr/share/man/*' > /etc/dpkg/dpkg.cfg.d/01_nodoc && \
+    echo 'path-exclude /usr/share/doc/*' >> /etc/dpkg/dpkg.cfg.d/01_nodoc && \
+    echo 'path-include /usr/share/doc/*/copyright' >> /etc/dpkg/dpkg.cfg.d/01_nodoc
+
 # Configure APT to use Nexus if enabled
 RUN if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
         echo "Configuring APT to use Nexus proxy..." && \

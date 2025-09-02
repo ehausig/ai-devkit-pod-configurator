@@ -523,6 +523,7 @@ For maintainers, see the [Maintainer Guide](docs/maintainer.md) for release proc
 3. **Build Failures**: Check `build-and-deploy.log` for detailed error messages
 4. **Disk Space**: Use `cleanup-colima.sh` to free up space in Colima
 5. **Missing Dependencies**: Install `yq` and `jq` with your package manager
+6. **Update-alternatives Warnings**: These are harmless and expected - the base image excludes man pages to reduce size
 
 See the [Troubleshooting Guide](docs/troubleshooting.md) for comprehensive solutions.
 
