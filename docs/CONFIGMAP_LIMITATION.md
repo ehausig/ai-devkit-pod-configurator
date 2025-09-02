@@ -1,7 +1,7 @@
 # ConfigMap Directory Mount Limitation - Detailed Analysis
 
 ## Overview
-When deploying multiple components, test directories exhibit cross-contamination where each component's test directory contains configuration files from ALL components, not just its own.
+When deploying multiple components, test directories exhibit cross-contamination where each component's test directory contains configuration files from ALL SELECTED components, not just its own.
 
 ## The Problem
 
@@ -37,7 +37,7 @@ When deploying multiple components, test directories exhibit cross-contamination
 
 ### How Our System Works
 
-1. **Single ConfigMap Strategy**: We create ONE ConfigMap (`component-configs`) containing ALL component configurations:
+1. **Single ConfigMap Strategy**: We create ONE ConfigMap (`component-configs`) containing configurations for ALL SELECTED components:
    ```yaml
    apiVersion: v1
    kind: ConfigMap
@@ -73,7 +73,7 @@ When deploying multiple components, test directories exhibit cross-contamination
      - name: component-configs
        mountPath: /home/devuser/.ai-devkit/tests/python-3.11/
    ```
-   **Kubernetes mounts ALL keys from the ConfigMap into that directory**, not just the ones we want.
+   **Kubernetes mounts ALL keys from the ConfigMap into that directory**, not just the Python-specific ones. Since our ConfigMap contains files for all selected components (Python, Node.js, Go), they all appear in each test directory.
 
 ### Why This Happens
 
@@ -95,6 +95,13 @@ Kubernetes offers two ConfigMap mounting modes:
        mountPath: /home/devuser/.ai-devkit/tests/python-3.11/
    ```
    ❌ This mounts ALL ConfigMap keys, causing cross-contamination
+
+## Scope Clarification
+
+**Important**: This issue only affects the SELECTED components during deployment, not all components in the system:
+- If you select 3 components (Python, Node.js, Go), each test directory will contain files from those 3 components
+- If you select 5 components, each test directory will contain files from those 5 components
+- The system has 20+ components defined, but only selected ones contribute to the ConfigMap
 
 ## Impact Assessment
 
