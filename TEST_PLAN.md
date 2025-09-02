@@ -27,8 +27,8 @@ rm -rf ~/.ai-devkit
 mkdir -p ~/.ai-devkit
 cat > ~/.ai-devkit/config.yaml <<EOF
 container:
-  build_command: "docker"
-  runtime: "docker"
+  build_command: "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
+  runtime: "k3s"
   runtime_import: "direct"
 EOF
 ```
@@ -43,8 +43,8 @@ grep -r "python3 -c\|import jinja2" lib/*.sh
 grep -E "^RUN.*python" docker/Dockerfile.base
 # Expected: No matches (except comments)
 
-# Verify yq is Go-based
-docker run ai-devkit-base:latest /usr/local/bin/yq --version
+# Verify yq is Go-based in the built image
+sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io run --rm ai-devkit:latest /usr/local/bin/yq --version
 # Expected: yq (https://github.com/mikefarah/yq/) version v4.x.x
 ```
 
@@ -84,8 +84,8 @@ cat /tmp/test.conf
 ```yaml
 # No components section in config.yaml
 container:
-  build_command: "docker"
-  runtime: "docker"
+  build_command: "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
+  runtime: "k3s"
 ```
 
 **Deploy:**
@@ -353,19 +353,19 @@ kubectl exec -n ai-devkit $POD -- rustc --version
 ## Section 6: Cross-Platform Tests
 
 ### Test 6.1: Different Container Runtimes
-**Objective:** System works with docker, k3s, colima, minikube
+**Objective:** System works with k3s, docker, colima, minikube
 
 **Setups:**
 ```yaml
+# K3s (primary test environment)
+container:
+  build_command: "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
+  runtime: "k3s"
+
 # Docker
 container:
   build_command: "docker"
   runtime: "docker"
-
-# K3s
-container:
-  build_command: "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
-  runtime: "k3s"
 
 # Colima
 container:
