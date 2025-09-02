@@ -43,8 +43,14 @@ grep -r "python3 -c\|import jinja2" lib/*.sh
 grep -E "^RUN.*python" docker/Dockerfile.base
 # Expected: No matches (except comments)
 
-# Verify yq is Go-based in the built image
-sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io run --rm ai-devkit:latest /usr/local/bin/yq --version
+# Check that Dockerfile.base installs Go-based yq
+grep "yq" docker/Dockerfile.base
+# Expected: Shows installation of mikefarah/yq v4
+
+# Note: To verify yq in the actual image, build first:
+# ./build-and-deploy.sh --runtime k3s
+# Then after build completes:
+# sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io run --rm ai-devkit:latest /usr/local/bin/yq --version
 # Expected: yq (https://github.com/mikefarah/yq/) version v4.x.x
 ```
 
