@@ -3502,13 +3502,13 @@ EOF
 
 # Function to generate dynamic repository configurations for selected components
 generate_repository_configs() {
-    # Skip if no components selected
+    # We need to create the ConfigMap even if no components are selected
+    # because the deployment references it
+    local should_generate_configs=true
     if [[ ${#SELECTED_YAML_FILES[@]} -eq 0 ]]; then
-        log "No components selected, skipping repository configuration generation"
-        return
+        log "No components selected, will create empty ConfigMap"
+        should_generate_configs=false
     fi
-    
-    log "Generating repository configurations for selected components..."
     
     # Source the bash template processor and its dependencies
     if [[ -f "lib/template-processor-bash.sh" ]]; then
@@ -3537,7 +3537,9 @@ generate_repository_configs() {
     local all_volume_mounts=()
     
     # Generate configs for each selected component using new template system
-    for i in "${!SELECTED_YAML_FILES[@]}"; do
+    if [[ "$should_generate_configs" == "true" ]]; then
+        log "Generating repository configurations for selected components..."
+        for i in "${!SELECTED_YAML_FILES[@]}"; do
         local yaml_file="${SELECTED_YAML_FILES[$i]}"
         local component_id="${SELECTED_IDS[$i]}"
         local component_name="${SELECTED_NAMES[$i]}"
@@ -3573,7 +3575,8 @@ generate_repository_configs() {
                 log "Component $component_name has repository configuration but no ai-devkit structure"
             fi
         fi
-    done
+        done
+    fi  # End of should_generate_configs check
     
     # Always create ConfigMap (even if empty) since deployment expects it
     log "Creating component-configs ConfigMap..."
