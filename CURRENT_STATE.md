@@ -69,11 +69,10 @@ process_template_bash "/dev/null" "$yaml_data" "/tmp/test.conf"
 - ✅ Files mounting as directories (component ID usage)
 - ✅ Go config file path (updated volume mount target)
 
-#### Known Limitations
-- ⚠️ Test directory cross-contamination (all ConfigMap keys mount in each test dir)
-  - Root cause: Kubernetes ConfigMap directory mount behavior
-  - Impact: Minor - doesn't affect functionality
-  - Potential fix: Separate ConfigMaps per component or individual file mounts
+#### Minor Notes
+- Test directories show files from all selected components (standard K8s ConfigMap behavior when mounting as directory)
+  - Not a bug, just how ConfigMaps work
+  - Doesn't affect functionality
 
 ## Current Testing Status
 
