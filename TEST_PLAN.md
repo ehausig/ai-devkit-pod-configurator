@@ -83,15 +83,20 @@ cat /tmp/test.conf
 
 ## Section 2: Repository Configuration Tests
 
+**Note:** Each test requires creating a new config.yaml file. The setup commands show exactly how to create the file with the required configuration.
+
 ### Test 2.1: Default Repositories (No User Config)
 **Objective:** Components use their default repositories when no user config exists
 
-**Setup:** 
-```yaml
-# No components section in config.yaml
+**Setup:**
+```bash
+# Create config with no components section
+cat > ~/.ai-devkit/config.yaml <<EOF
 container:
   build_command: "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
   runtime: "k3s"
+  runtime_import: "direct"
+EOF
 ```
 
 **Deploy:**
@@ -122,20 +127,28 @@ npm view express version
 **Objective:** User repositories completely replace defaults
 
 **Setup:**
-```yaml
+```bash
+# Create config with custom repository overriding defaults
+cat > ~/.ai-devkit/config.yaml <<EOF
+container:
+  build_command: "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
+  runtime: "k3s"
+  runtime_import: "direct"
+
 credentials:
   - id: "nexus-admin"
     username: "admin"
     password: "admin123"
 
 components:
-  - id: "PYTHON_3_11"
+  - id: "python-3.11"
     include_default_repos: false
     repositories:
       - name: "nexus-pypi"
         url: "http://nexus:8081/repository/pypi-proxy/simple"
         access: "read_only"
         auth: "nexus-admin"
+EOF
 ```
 
 **Validation in Container:**
@@ -151,17 +164,31 @@ cat ~/.config/pip/pip.conf
 **Objective:** User repos are primary, defaults are fallback
 
 **Setup:**
-```yaml
+```bash
+# Create config that merges with defaults
+cat > ~/.ai-devkit/config.yaml <<EOF
+container:
+  build_command: "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
+  runtime: "k3s"
+  runtime_import: "direct"
+
 components:
-  - id: "PYTHON_3_11"
+  - id: "python-3.11"
     include_default_repos: true
     repositories:
       - name: "private-pypi"
         url: "https://private.example.com/simple"
         access: "read_write"
+EOF
 ```
 
-**Validation:**
+**Deploy:**
+```bash
+# Select python-3.11 from the interactive UI
+./build-and-deploy.sh --runtime k3s
+```
+
+**Validation in Container:**
 ```bash
 cat ~/.config/pip/pip.conf
 # Expected:
@@ -175,25 +202,39 @@ cat ~/.config/pip/pip.conf
 **Objective:** Multiple components with different repository configs
 
 **Setup:**
-```yaml
+```bash
+# Create config with multiple components
+cat > ~/.ai-devkit/config.yaml <<EOF
+container:
+  build_command: "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
+  runtime: "k3s"
+  runtime_import: "direct"
+
 components:
-  - id: "PYTHON_3_11"
+  - id: "python-3.11"
     include_default_repos: false
     repositories:
       - name: "nexus-pypi"
         url: "http://nexus:8081/repository/pypi/simple"
   
-  - id: "NODEJS_20"
+  - id: "nodejs-20"
     include_default_repos: true
     repositories:
       - name: "nexus-npm"
         url: "http://nexus:8081/repository/npm/"
   
-  - id: "GO_1_22"
+  - id: "go-1.22"
     # Uses only defaults (no user config)
+EOF
 ```
 
-**Validation:**
+**Deploy:**
+```bash
+# Select python-3.11, nodejs-20, and go-1.22 from the interactive UI
+./build-and-deploy.sh --runtime k3s
+```
+
+**Validation in Container:**
 ```bash
 # Python - nexus only
 cat ~/.config/pip/pip.conf
@@ -267,21 +308,35 @@ ls ~/.m2/settings.xml
 **Objective:** Credentials are properly applied to repositories
 
 **Setup:**
-```yaml
+```bash
+# Create config with authenticated repository
+cat > ~/.ai-devkit/config.yaml <<EOF
+container:
+  build_command: "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
+  runtime: "k3s"
+  runtime_import: "direct"
+
 credentials:
   - id: "registry-auth"
     username: "user"
     password: "pass123"
 
 components:
-  - id: "NODEJS_20"
+  - id: "nodejs-20"
     repositories:
       - name: "private-npm"
         url: "https://registry.private.com"
         auth: "registry-auth"
+EOF
 ```
 
-**Validation:**
+**Deploy:**
+```bash
+# Select nodejs-20 from the interactive UI
+./build-and-deploy.sh --runtime k3s
+```
+
+**Validation in Container:**
 ```bash
 # Check .npmrc has auth token
 cat ~/.npmrc
@@ -292,16 +347,24 @@ cat ~/.npmrc
 **Objective:** System warns about missing credentials
 
 **Setup:**
-```yaml
+```bash
+# Create config with missing credential reference
+cat > ~/.ai-devkit/config.yaml <<EOF
+container:
+  build_command: "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
+  runtime: "k3s"
+  runtime_import: "direct"
+
 components:
-  - id: "PYTHON_3_11"
+  - id: "python-3.11"
     repositories:
       - name: "private"
         url: "https://private.com/simple"
         auth: "non-existent-id"
+EOF
 ```
 
-**Validation:**
+**Deploy & Validation:**
 ```bash
 # Select python-3.11 from UI and check warnings
 ./build-and-deploy.sh --runtime k3s 2>&1 | grep -i warning
