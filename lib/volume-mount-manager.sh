@@ -214,6 +214,7 @@ process_single_mount() {
     local source=$(echo "$mount_yaml" | grep "source:" | sed 's/.*source: *"\?\([^"]*\)"\?.*/\1/')
     local target=$(echo "$mount_yaml" | grep "target:" | sed 's/.*target: *"\?\([^"]*\)"\?.*/\1/')
     local mount_type=$(echo "$mount_yaml" | grep "type:" | sed 's/.*type: *"\?\([^"]*\)"\?.*/\1/')
+    local component=$(echo "$mount_yaml" | grep "component:" | sed 's/.*component: *"\?\([^"]*\)"\?.*/\1/')
     local permissions=$(echo "$mount_yaml" | grep "permissions:" | sed 's/.*permissions: *"\?\([^"]*\)"\?.*/\1/')
     
     # Default type to file if not specified
@@ -232,8 +233,13 @@ process_single_mount() {
 EOF
     
     if [[ "$mount_type" == "file" ]]; then
-        # Use the source field for subPath, removing any trailing slash
-        local subpath="${source%/}"
+        # For ConfigMap mounts, the subPath must match the ConfigMap key
+        # ConfigMap keys are generated as ${component_name}-${name}
+        if [[ -n "$component" ]]; then
+            local subpath="${component}-${name}"
+        else
+            local subpath="$name"
+        fi
         echo "          subPath: $subpath"
     fi
     
