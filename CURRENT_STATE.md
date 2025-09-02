@@ -70,9 +70,11 @@ process_template_bash "/dev/null" "$yaml_data" "/tmp/test.conf"
 - **Test 1.1 (Python-Free Core)**: ✅ PASSED
 - **Test 1.2 (YAML Processing)**: ✅ PASSED
 - **Test 2.1 (Default Repository Configuration)**: ✅ PASSED
-  - Build and deployment successful
-  - Configuration files properly generated and mounted
-  - Package managers working with default repositories
+  - Configuration files properly generated with defaults
+- **Test 2.2 (Complete Override)**: ✅ PASSED
+  - User repositories completely replace defaults when include_default_repos: false
+- **Test 2.3 (Merge with Defaults)**: ✅ PASSED
+  - User repos primary, defaults fallback when include_default_repos: true
 
 ### Recent Fixes Applied
 1. **ConfigMap Lifecycle**: Now applied during deployment phase (after namespace)
@@ -82,15 +84,11 @@ process_template_bash "/dev/null" "$yaml_data" "/tmp/test.conf"
 
 ## Next Steps
 
-1. Complete Test 2.1 validation:
-   - Verify pip.conf mounts as file at `/home/devuser/.config/pip/pip.conf`
-   - Verify .npmrc mounts as file at `/home/devuser/.npmrc`
-   - Check repository configurations are applied correctly
-
-2. Continue with remaining test sections:
-   - Test 2.2: User Repository Override
-   - Test 3.1: Credential Management
-   - Test 4.1: Component Isolation
+1. Continue with remaining test sections:
+   - Test 2.4: Multi-Component Configuration
+   - Test 3.1: Component-Specific Configuration
+   - Test 3.2: Component Test Injection
+   - Test 4.1: Authenticated Repository Access
 
 ## Build Information
 - Container: ai-devkit:latest
