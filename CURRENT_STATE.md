@@ -2,7 +2,7 @@
 
 ## Branch: feat/cross-platform-compatibility
 
-### Last Updated: 2024-11-30
+### Last Updated: 2025-09-02
 
 ## Refactor Status: COMPLETE ✅
 
@@ -53,16 +53,44 @@ process_template_bash "/dev/null" "$yaml_data" "/tmp/test.conf"
 5. `config/repositories.yaml` - Default repos
 6. `tests/refactor-validation/*` - Test suite
 
-## Known Issues: NONE
+## Known Issues
 
-All critical issues have been resolved.
+### Resolved Today
+1. ✅ ConfigMap not found during deployment (fixed: apply after namespace)
+2. ✅ Unbound variable when no components selected (fixed: array initialization)
+3. ✅ Files mounting as directories (fixed: use component IDs for keys)
+4. ✅ Complex K8s resource names (fixed: simple sanitization pattern)
+
+### Under Investigation
+- Verifying volume mounts work correctly with new component ID approach
+
+## Current Testing Status
+
+### Test Plan Progress
+- **Test 1.1 (Python-Free Core)**: ✅ PASSED
+- **Test 1.2 (YAML Processing)**: ✅ PASSED
+- **Test 2.1 (Repository Configuration)**: 🔧 IN PROGRESS
+  - Build succeeds with Python 3.11 + Node.js 20
+  - Deployment succeeds (pod running)
+  - Verifying pip.conf and .npmrc mount as files
+
+### Recent Fixes Applied
+1. **ConfigMap Lifecycle**: Now applied during deployment phase (after namespace)
+2. **Array Initialization**: Arrays always initialized to prevent "unbound variable"
+3. **Component ID Usage**: Refactored to use IDs instead of display names
+4. **Sanitization Pattern**: Simple lowercase + dash conversion for K8s names
 
 ## Next Steps
 
-Ready to proceed with Test Plan Section 2:
-- Component builds with selected tools
-- Repository configuration testing
-- Credential management validation
+1. Complete Test 2.1 validation:
+   - Verify pip.conf mounts as file at `/home/devuser/.config/pip/pip.conf`
+   - Verify .npmrc mounts as file at `/home/devuser/.npmrc`
+   - Check repository configurations are applied correctly
+
+2. Continue with remaining test sections:
+   - Test 2.2: User Repository Override
+   - Test 3.1: Credential Management
+   - Test 4.1: Component Isolation
 
 ## Build Information
 - Container: ai-devkit:latest
@@ -71,7 +99,18 @@ Ready to proceed with Test Plan Section 2:
 - Services: SSH (2222), Filebrowser (8090)
 
 ## Repository State
-- Clean working directory
-- All changes committed and pushed
+- Modified files staged (not yet committed):
+  - lib/config-reader.sh
+  - lib/repository-loader.sh
+  - lib/credential-manager.sh
+  - lib/component-test-manager.sh
+  - lib/volume-mount-manager.sh
+- New directories created:
+  - components/build-deploy/maven/
+  - components/build-deploy/sbt/
+  - components/languages/go-1.22/
+  - components/languages/nodejs-20/
+  - components/languages/python-3.11/
+  - components/languages/rust-stable/
 - Branch: feat/cross-platform-compatibility
-- Ready for further testing or PR creation
+- Status: Testing in progress (Test 2.1)

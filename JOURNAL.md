@@ -275,4 +275,95 @@ Converted entire configuration system to use YAML for better readability and con
 
 ---
 
+## 2025-09-02: Component ID Refactoring for K8s Resources
+
+### Critical Issues Fixed
+1. **ConfigMap Lifecycle Management**: ConfigMap was created during build but deleted during namespace cleanup
+2. **Array Initialization**: Scripts failed with "unbound variable" when no components selected
+3. **Volume Mount SubPath Mismatch**: pip.conf and .npmrc mounting as directories instead of files
+4. **Complex Resource Naming**: Using sanitized display names created messy K8s resource names
+
+### Root Causes Identified
+
+#### ConfigMap Not Found
+- **Problem**: ConfigMap applied during build phase, then deleted during namespace cleanup
+- **Solution**: Create ConfigMap during build, apply during deployment phase after namespace exists
+
+#### Unbound Variable Errors
+- **Problem**: Arrays not initialized when no components selected with `set -u` enabled
+- **Solution**: Always initialize arrays before selection check:
+```bash
+SELECTED_YAML_FILES=()
+SELECTED_IDS=()
+SELECTED_NAMES=()
+```
+
+#### Files Mounting as Directories
+- **Problem**: Volume mount subPath didn't match ConfigMap data keys
+- **Root Cause**: Using component display names ("Python 3.11 (Official)") for keys
+- **Solution**: Refactored to use component IDs with simple sanitization
+
+### Architecture Decision: Component IDs for K8s Resources
+
+**Before**: Used sanitized display names
+- Display name: "Python 3.11 (Official)"
+- Sanitized key: "Python-3.11--Official--pip-config"
+- Result: Messy, unpredictable resource names
+
+**After**: Use component IDs
+- Component ID: "PYTHON_3_11"
+- Sanitized key: "python-3-11-pip-config"
+- Result: Clean, predictable resource names
+
+### Sanitization Pattern
+```bash
+# Convert to lowercase and replace underscores with dashes
+local sanitized_id=$(echo "$component_id" | tr '_' '-' | tr '[:upper:]' '[:lower:]')
+```
+
+### Files Modified
+- `build-and-deploy.sh`:
+  - Initialize arrays even when no components selected
+  - Apply ConfigMap during deployment phase (after namespace creation)
+  - Pass component_id instead of component_name to all functions
+  
+- `lib/volume-mount-manager.sh`:
+  - Use component_id for all operations
+  - Sanitize IDs for K8s compatibility (lowercase, dashes)
+  - Ensure subPath matches ConfigMap keys exactly
+  
+- `lib/component-test-manager.sh`:
+  - Use sanitized component IDs for test directories
+  
+- `lib/template-processor-bash.sh`:
+  - Fixed to use /dev/null for template file parameter
+  
+- `TEST_PLAN.md`:
+  - Removed incorrect --runtime flag
+  - Added proper setup commands for all tests
+  - Fixed component ID format
+
+### Test Results
+- **Test 1.1 (Python-Free Core)**: ✅ PASSED
+- **Test 1.2 (YAML Processing)**: ✅ PASSED
+- **Test 2.1 (Repository Configuration)**: 🔧 IN PROGRESS
+  - Build and deployment now succeed
+  - Verifying pip.conf and .npmrc mount correctly as files
+
+### Current Build/Deploy Status
+- ✅ Build succeeds with no components selected
+- ✅ Build succeeds with Python + Node.js components
+- ✅ Deployment succeeds (pod running)
+- ✅ ConfigMap created and applied correctly
+- 🔧 Verifying config files mount as files (not directories)
+
+### Key Learnings
+1. **ConfigMap Timing**: Must be applied after namespace exists, not during build
+2. **Array Safety**: Always initialize bash arrays when using `set -u`
+3. **Resource Naming**: Use component IDs for clean, predictable K8s resources
+4. **SubPath Matching**: ConfigMap keys and volume mount subPaths must match exactly
+5. **Shell Compatibility**: Handle both bash and zsh, both yq implementations
+
+---
+
 *This journal preserves key decisions and milestones for future reference.*
