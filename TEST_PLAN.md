@@ -58,6 +58,8 @@ grep "yq" docker/Dockerfile.base
 ### Test 1.2: YAML Configuration Processing
 **Objective:** Verify YAML-based template processor works
 
+**Components to Deploy:** N/A (Unit test - no deployment)
+
 **Setup:**
 ```bash
 # Source the template processor
@@ -127,8 +129,13 @@ npm view express version
 ### Test 2.2: Complete Override (include_default_repos: false)
 **Objective:** User repositories completely replace defaults
 
+**Components to Deploy:** Python 3.11 (Official)
+
 **Setup:**
 ```bash
+# Clean up any previous deployments
+kubectl delete namespace ai-devkit --ignore-not-found=true
+
 # Create config with custom repository overriding defaults
 cat > ~/.ai-devkit/config.yaml <<EOF
 container:
@@ -142,7 +149,7 @@ credentials:
     password: "admin123"
 
 components:
-  - id: "python-3.11"
+  - id: "PYTHON_3_11"
     include_default_repos: false
     repositories:
       - name: "nexus-pypi"
@@ -150,6 +157,12 @@ components:
         access: "read_only"
         auth: "nexus-admin"
 EOF
+```
+
+**Deploy:**
+```bash
+# Select ONLY "Python 3.11 (Official)" from the interactive UI
+./build-and-deploy.sh
 ```
 
 **Validation in Container:**
@@ -164,8 +177,13 @@ cat ~/.config/pip/pip.conf
 ### Test 2.3: Merge with Defaults (include_default_repos: true)
 **Objective:** User repos are primary, defaults are fallback
 
+**Components to Deploy:** Python 3.11 (Official)
+
 **Setup:**
 ```bash
+# Clean up any previous deployments
+kubectl delete namespace ai-devkit --ignore-not-found=true
+
 # Create config that merges with defaults
 cat > ~/.ai-devkit/config.yaml <<EOF
 container:
@@ -174,7 +192,7 @@ container:
   runtime_import: "direct"
 
 components:
-  - id: "python-3.11"
+  - id: "PYTHON_3_11"
     include_default_repos: true
     repositories:
       - name: "private-pypi"
@@ -185,7 +203,7 @@ EOF
 
 **Deploy:**
 ```bash
-# Select python-3.11 from the interactive UI
+# Select ONLY "Python 3.11 (Official)" from the interactive UI
 ./build-and-deploy.sh
 ```
 
@@ -202,8 +220,16 @@ cat ~/.config/pip/pip.conf
 ### Test 2.4: Multi-Component Configuration
 **Objective:** Multiple components with different repository configs
 
+**Components to Deploy:** 
+- Python 3.11 (Official)
+- Node.js 20.x LTS
+- Go 1.22
+
 **Setup:**
 ```bash
+# Clean up any previous deployments
+kubectl delete namespace ai-devkit --ignore-not-found=true
+
 # Create config with multiple components
 cat > ~/.ai-devkit/config.yaml <<EOF
 container:
@@ -212,26 +238,29 @@ container:
   runtime_import: "direct"
 
 components:
-  - id: "python-3.11"
+  - id: "PYTHON_3_11"
     include_default_repos: false
     repositories:
       - name: "nexus-pypi"
         url: "http://nexus:8081/repository/pypi/simple"
   
-  - id: "nodejs-20"
+  - id: "NODEJS_20"
     include_default_repos: true
     repositories:
       - name: "nexus-npm"
         url: "http://nexus:8081/repository/npm/"
   
-  - id: "go-1.22"
+  - id: "GO_1_22"
     # Uses only defaults (no user config)
 EOF
 ```
 
 **Deploy:**
 ```bash
-# Select python-3.11, nodejs-20, and go-1.22 from the interactive UI
+# Select ALL THREE components from the interactive UI:
+# - "Python 3.11 (Official)"
+# - "Node.js 20.x LTS" 
+# - "Go 1.22"
 ./build-and-deploy.sh
 ```
 
@@ -258,9 +287,25 @@ echo $GOPROXY
 ### Test 3.1: Component-Specific Configuration
 **Objective:** Only selected components have configurations in container
 
+**Components to Deploy:** Python 3.11 (Official) ONLY
+
 **Setup:**
 ```bash
-# Select python-3.11 from the interactive UI
+# Clean up any previous deployments
+kubectl delete namespace ai-devkit --ignore-not-found=true
+
+# Use minimal config (no custom repositories)
+cat > ~/.ai-devkit/config.yaml <<EOF
+container:
+  build_command: "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
+  runtime: "k3s"
+  runtime_import: "direct"
+EOF
+```
+
+**Deploy:**
+```bash
+# Select ONLY "Python 3.11 (Official)" from the interactive UI
 ./build-and-deploy.sh
 ```
 
@@ -282,9 +327,29 @@ ls ~/.m2/settings.xml
 ### Test 3.2: Component Test Injection
 **Objective:** Component tests are executable in container
 
+**Components to Deploy:** 
+- Python 3.11 (Official)
+- Node.js 20.x LTS
+
+**Setup:**
+```bash
+# Clean up any previous deployments
+kubectl delete namespace ai-devkit --ignore-not-found=true
+
+# Use minimal config
+cat > ~/.ai-devkit/config.yaml <<EOF
+container:
+  build_command: "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
+  runtime: "k3s"
+  runtime_import: "direct"
+EOF
+```
+
 **Deploy:**
 ```bash
-# Select python-3.11 and nodejs-20 from the interactive UI
+# Select BOTH components from the interactive UI:
+# - "Python 3.11 (Official)"
+# - "Node.js 20.x LTS"
 ./build-and-deploy.sh
 ```
 
@@ -308,8 +373,13 @@ ls ~/.m2/settings.xml
 ### Test 4.1: Authenticated Repository Access
 **Objective:** Credentials are properly applied to repositories
 
+**Components to Deploy:** Node.js 20.x LTS
+
 **Setup:**
 ```bash
+# Clean up any previous deployments
+kubectl delete namespace ai-devkit --ignore-not-found=true
+
 # Create config with authenticated repository
 cat > ~/.ai-devkit/config.yaml <<EOF
 container:
@@ -323,7 +393,7 @@ credentials:
     password: "pass123"
 
 components:
-  - id: "nodejs-20"
+  - id: "NODEJS_20"
     repositories:
       - name: "private-npm"
         url: "https://registry.private.com"
@@ -333,7 +403,7 @@ EOF
 
 **Deploy:**
 ```bash
-# Select nodejs-20 from the interactive UI
+# Select ONLY "Node.js 20.x LTS" from the interactive UI
 ./build-and-deploy.sh
 ```
 
