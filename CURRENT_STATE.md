@@ -85,10 +85,15 @@ process_template_bash "/dev/null" "$yaml_data" "/tmp/test.conf"
   - User repositories completely replace defaults when include_default_repos: false
 - **Test 2.3 (Merge with Defaults)**: ✅ PASSED
   - User repos primary, defaults fallback when include_default_repos: true
-- **Test 2.4 (Multi-Component Configuration)**: ⚠️ PARTIALLY PASSED
+- **Test 2.4 (Multi-Component Configuration)**: ✅ PASSED
   - Each component gets correct repository configuration
-  - Go config file path issue fixed (was mounting to wrong location)
-  - Test directory cross-contamination identified (K8s ConfigMap limitation)
+  - Go config file path issue fixed in code
+- **Test 3.1 (Component-Specific Configuration)**: ✅ PASSED
+  - Only selected components receive configuration files
+- **Test 3.2 (Component Test Injection)**: ❌ FAILED
+  - Test scripts not being mounted into container
+  - Test orchestrator (run-all.sh) missing
+  - Path mismatch in test staging vs ConfigMap generation
 
 ### Recent Fixes Applied
 1. **ConfigMap Lifecycle**: Now applied during deployment phase (after namespace)
