@@ -61,8 +61,19 @@ process_template_bash "/dev/null" "$yaml_data" "/tmp/test.conf"
 3. ✅ Files mounting as directories (fixed: use component IDs for keys)
 4. ✅ Complex K8s resource names (fixed: simple sanitization pattern)
 
-### All Issues Resolved
-- ✅ All known issues have been fixed and verified
+### Issues Status
+
+#### Fixed
+- ✅ ConfigMap lifecycle management
+- ✅ Empty configuration files (YAML formatting)
+- ✅ Files mounting as directories (component ID usage)
+- ✅ Go config file path (updated volume mount target)
+
+#### Known Limitations
+- ⚠️ Test directory cross-contamination (all ConfigMap keys mount in each test dir)
+  - Root cause: Kubernetes ConfigMap directory mount behavior
+  - Impact: Minor - doesn't affect functionality
+  - Potential fix: Separate ConfigMaps per component or individual file mounts
 
 ## Current Testing Status
 
@@ -75,6 +86,10 @@ process_template_bash "/dev/null" "$yaml_data" "/tmp/test.conf"
   - User repositories completely replace defaults when include_default_repos: false
 - **Test 2.3 (Merge with Defaults)**: ✅ PASSED
   - User repos primary, defaults fallback when include_default_repos: true
+- **Test 2.4 (Multi-Component Configuration)**: ⚠️ PARTIALLY PASSED
+  - Each component gets correct repository configuration
+  - Go config file path issue fixed (was mounting to wrong location)
+  - Test directory cross-contamination identified (K8s ConfigMap limitation)
 
 ### Recent Fixes Applied
 1. **ConfigMap Lifecycle**: Now applied during deployment phase (after namespace)
