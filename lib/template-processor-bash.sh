@@ -32,7 +32,7 @@ elif echo "$YQ_VERSION" | grep -q "kislyuk\|jq wrapper\|yq 0"; then
     YQ_EVAL="$YQ -r"
 else
     # Check if --help mentions jq
-    local YQ_HELP=$($YQ --help 2>&1 | head -5 || true)
+    YQ_HELP=$($YQ --help 2>&1 | head -5 || true)
     if echo "$YQ_HELP" | grep -q "jq"; then
         YQ_TYPE="kislyuk"
         YQ_EVAL="$YQ -r"
@@ -445,13 +445,26 @@ generate_component_configuration() {
         fi
     fi
     
-    # Create YAML template data
-    local template_data=$(cat <<EOF
-repositories: ${repos_yaml:-[]}
+    # Create YAML template data properly formatted
+    # If repos_yaml is empty or just "[]", use empty array
+    if [[ -z "$repos_yaml" ]] || [[ "$repos_yaml" == "[]" ]]; then
+        local template_data=$(cat <<EOF
+repositories: []
 component_id: "$component_id"
 format: "$format"
 EOF
-    )
+        )
+    else
+        # Properly indent the YAML array under repositories
+        local indented_repos=$(echo "$repos_yaml" | sed 's/^/  /')
+        local template_data=$(cat <<EOF
+repositories:
+$indented_repos
+component_id: "$component_id"
+format: "$format"
+EOF
+        )
+    fi
     
     # Process template using bash version
     # Note: We ignore the actual template files since we use pure bash generation
