@@ -3560,13 +3560,13 @@ generate_repository_configs() {
                 log "Successfully generated configuration for $component_id"
                 
                 # Collect volume mounts for this component
-                local component_mounts=$(generate_volume_mounts "$component_dir" "$component_name" "$config_temp_dir" 2>/dev/null || true)
+                local component_mounts=$(generate_volume_mounts "$component_dir" "$component_id" "$config_temp_dir" 2>/dev/null || true)
                 if [[ -n "$component_mounts" ]]; then
                     all_volume_mounts+=("$component_mounts")
                 fi
                 
                 # Stage component tests for injection
-                stage_component_tests "$component_dir" "$component_name" "$config_temp_dir"
+                stage_component_tests "$component_dir" "$component_id" "$config_temp_dir"
             else
                 log "No template configuration generated for $component_id"
             fi
@@ -3608,7 +3608,7 @@ EOF
             
             # Only process components with new structure
             if [[ -d "$component_dir/ai-devkit" ]]; then
-                local configmap_entries=$(generate_configmap_entries "$component_name" "$config_temp_dir" "$component_dir" 2>/dev/null || true)
+                local configmap_entries=$(generate_configmap_entries "$component_id" "$config_temp_dir" "$component_dir" 2>/dev/null || true)
                 if [[ -n "$configmap_entries" ]]; then
                     echo "$configmap_entries" >> "$configmap_file"
                 fi

@@ -27,7 +27,7 @@ collect_component_mounts() {
 # Generate Kubernetes volume mount specifications
 generate_volume_mounts() {
     local component_dir="$1"
-    local component_name="$2"
+    local component_id="$2"  # Using component ID instead of display name
     local config_dir="$3"
     
     local mount_file="$component_dir/ai-devkit/volume-mounts.yaml"
@@ -55,7 +55,7 @@ generate_volume_mounts() {
   source: "$config_dir/$source"
   target: "$target"
   type: "$mount_type"
-  component: "$component_name"
+  component: "$component_id"
   permissions: "$permissions"
 EOF
     done
@@ -63,7 +63,7 @@ EOF
 
 # Generate ConfigMap entries for component files
 generate_configmap_entries() {
-    local component_name="$1"
+    local component_id="$1"  # Using component ID instead of display name
     local config_dir="$2"
     local component_dir="$3"
     
@@ -87,9 +87,10 @@ generate_configmap_entries() {
         if [[ "$mount_type" == "file" ]]; then
             local source_file="$config_dir/$source"
             if [[ -f "$source_file" ]]; then
-                # Escape the name for ConfigMap key
-                local key="${component_name}-${name}"
-                key=$(echo "$key" | sed 's/[^a-zA-Z0-9._-]/-/g')
+                # Create ConfigMap key using component ID
+                # Convert underscores to dashes for K8s compatibility
+                local sanitized_id=$(echo "$component_id" | tr '_' '-' | tr '[:upper:]' '[:lower:]')
+                local key="${sanitized_id}-${name}"
                 
                 echo "  $key: |"
                 # Indent file contents for YAML
@@ -102,8 +103,9 @@ generate_configmap_entries() {
                 for file in "$source_dir"/*; do
                     if [[ -f "$file" ]]; then
                         local basename=$(basename "$file")
-                        local key="${component_name}-${name}-${basename}"
-                        key=$(echo "$key" | sed 's/[^a-zA-Z0-9._-]/-/g')
+                        # Use sanitized component ID for key
+                        local sanitized_id=$(echo "$component_id" | tr '_' '-' | tr '[:upper:]' '[:lower:]')
+                        local key="${sanitized_id}-${name}-${basename}"
                         
                         echo "  $key: |"
                         sed 's/^/    /' "$file"
@@ -234,11 +236,10 @@ EOF
     
     if [[ "$mount_type" == "file" ]]; then
         # For ConfigMap mounts, the subPath must match the ConfigMap key
-        # ConfigMap keys are generated as ${component_name}-${name} and then sanitized
+        # ConfigMap keys use sanitized component ID (underscores to dashes, lowercase)
         if [[ -n "$component" ]]; then
-            local subpath="${component}-${name}"
-            # Apply the same sanitization as ConfigMap key generation
-            subpath=$(echo "$subpath" | sed 's/[^a-zA-Z0-9._-]/-/g')
+            local sanitized_id=$(echo "$component" | tr '_' '-' | tr '[:upper:]' '[:lower:]')
+            local subpath="${sanitized_id}-${name}"
         else
             local subpath="$name"
         fi

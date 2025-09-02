@@ -110,17 +110,19 @@ EOF
 # Copy component tests to staging directory
 stage_component_tests() {
     local component_dir="$1"
-    local component_name="$2"
+    local component_id="$2"  # Using component ID instead of display name
     local staging_dir="$3"
     
     local test_dir="$component_dir/ai-devkit/tests"
     if [[ ! -d "$test_dir" ]]; then
-        echo "No tests found for $component_name" >&2
+        echo "No tests found for $component_id" >&2
         return 0
     fi
     
-    # Create staging directory for tests
-    local test_staging="$staging_dir/tests/$component_name"
+    # Create staging directory for tests using sanitized component ID
+    # Convert to lowercase and replace underscores with dashes for consistency
+    local sanitized_id=$(echo "$component_id" | tr '_' '-' | tr '[:upper:]' '[:lower:]')
+    local test_staging="$staging_dir/tests/$sanitized_id"
     mkdir -p "$test_staging"
     
     # Copy all test files
@@ -129,7 +131,7 @@ stage_component_tests() {
     # Ensure scripts are executable
     find "$test_staging" -name "*.sh" -type f -exec chmod +x {} \;
     
-    echo "Staged tests for $component_name"
+    echo "Staged tests for $component_id"
     return 0
 }
 
