@@ -234,9 +234,11 @@ EOF
     
     if [[ "$mount_type" == "file" ]]; then
         # For ConfigMap mounts, the subPath must match the ConfigMap key
-        # ConfigMap keys are generated as ${component_name}-${name}
+        # ConfigMap keys are generated as ${component_name}-${name} and then sanitized
         if [[ -n "$component" ]]; then
             local subpath="${component}-${name}"
+            # Apply the same sanitization as ConfigMap key generation
+            subpath=$(echo "$subpath" | sed 's/[^a-zA-Z0-9._-]/-/g')
         else
             local subpath="$name"
         fi
