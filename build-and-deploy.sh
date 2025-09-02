@@ -3583,7 +3583,7 @@ generate_repository_configs() {
     # Always create ConfigMap (even if empty) since deployment expects it
     log "Creating component-configs ConfigMap..."
     echo "DEBUG: configs_generated array has ${#configs_generated[@]} items" >> "$LOG_FILE"
-    echo "DEBUG: SELECTED_YAML_FILES array has ${#SELECTED_YAML_FILES[@]:-0} items" >> "$LOG_FILE"
+    echo "DEBUG: SELECTED_YAML_FILES array has ${#SELECTED_YAML_FILES[@]} items" >> "$LOG_FILE"
     
     local configmap_file="$TEMP_DIR/component-configs-dynamic.yaml"
     cat > "$configmap_file" << 'EOF'
