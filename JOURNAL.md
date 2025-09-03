@@ -366,4 +366,59 @@ local sanitized_id=$(echo "$component_id" | tr '_' '-' | tr '[:upper:]' '[:lower
 
 ---
 
+## 2025-09-03: Test Injection System Development
+
+### Test Results Summary
+- **Test 1.1 & 1.2**: ✅ PASSED (Python-free core, YAML processing)
+- **Test 2.1**: ✅ PASSED (Default repositories)
+- **Test 2.2 & 2.3**: ✅ PASSED (Repository overrides)
+- **Test 2.4**: ✅ PASSED (Multi-component config)
+- **Test 3.1**: ✅ PASSED (Component isolation)
+- **Test 3.2**: ❌ FAILED (Test injection not working)
+
+### Critical Fixes Applied
+
+#### 1. YAML Template Formatting (FIXED)
+- **Problem**: Invalid YAML when embedding repository arrays
+- **Solution**: Properly indent arrays under 'repositories' key
+- **Result**: pip.conf and .npmrc now generate correctly
+
+#### 2. Go Config Path (FIXED)
+- **Problem**: Mounted to ~/.config/go-env.sh instead of ~/.config/go/go-env.sh
+- **Solution**: Updated volume mount path in go-1.22 component
+
+#### 3. Duplicate Volume Mounts (FIXED)
+- **Problem**: Multiple components declaring same mount path
+- **Solution**: Added deduplication logic in volume mount generation
+- **Fix**: Track seen paths and skip duplicates
+
+#### 4. Unbound Variable Error (FIXED)
+- **Problem**: Associative array access with set -u caused errors
+- **Solution**: Use parameter expansion with default: `${seen_paths[$target]:-}`
+
+### Test Injection System Issues (ONGOING)
+
+#### Current Implementation
+- Single ConfigMap for all component files
+- Test files staged to flat structure with component ID prefixes
+- Directory mounts include ALL ConfigMap keys (K8s behavior)
+
+#### Problems Identified
+1. **Double Prefixing**: Test files get prefixed twice
+   - Staged as: `python-3-11-verify.sh`
+   - ConfigMap key: `python-3-11-component-tests-python-3-11-verify.sh`
+
+2. **Missing Orchestrator**: run-all.sh not included in ConfigMap
+
+3. **Directory Contamination**: Test directories contain config files
+   - K8s mounts ALL ConfigMap keys when mounting as directory
+
+#### Potential Solutions Evaluated
+1. Individual file mounts (precise but complex)
+2. Fix key generation (minimal change but keeps contamination)
+3. Separate ConfigMaps (clean but more complex)
+4. Init container (full control but slower)
+
+---
+
 *This journal preserves key decisions and milestones for future reference.*
