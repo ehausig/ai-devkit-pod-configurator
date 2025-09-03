@@ -212,9 +212,12 @@ generate_deployment_volume_mounts() {
         # Second pass: process mounts, skipping duplicates based on mountPath
         for mount in "${mounts_array[@]}"; do
             local target=$(echo "$mount" | grep "target:" | sed 's/.*target: *"\?\([^"]*\)"\?.*/\1/')
-            if [[ -n "$target" ]] && [[ -z "${seen_paths[$target]}" ]]; then
-                seen_paths[$target]=1
-                process_single_mount "$mount"
+            if [[ -n "$target" ]]; then
+                # Use parameter expansion with default value to avoid unbound variable error
+                if [[ -z "${seen_paths[$target]:-}" ]]; then
+                    seen_paths[$target]=1
+                    process_single_mount "$mount"
+                fi
             fi
         done
     fi
