@@ -421,4 +421,50 @@ local sanitized_id=$(echo "$component_id" | tr '_' '-' | tr '[:upper:]' '[:lower
 
 ---
 
+## 2025-09-03: Init Container Architecture Refactor
+
+### Problem Identified
+Test injection system had critical issues:
+1. **Double-prefixing**: ConfigMap keys were prefixed twice
+2. **Directory contamination**: Test directories included all ConfigMap files
+3. **Missing orchestrator**: run-all.sh not included in ConfigMap
+4. **Complex volume mounting**: Difficult to manage file vs directory mounts
+
+### Solution: Init Container Architecture
+Replaced complex volume mount system with init container that copies files from ConfigMap to destinations.
+
+### Architecture Changes
+1. **Init Container**: Alpine-based container runs before main container
+2. **Manifest-Driven**: Simple text manifest (`source|dest|mode|owner`)
+3. **File Mappings**: Components define `file-mappings.yaml` instead of `volume-mounts.yaml`
+4. **Staging Directory**: Build process stages all files in structured layout
+5. **Single ConfigMap**: All files in one ConfigMap, init container distributes them
+
+### Files Created
+- `lib/init-container-copy.sh` - Script that runs in init container
+- `lib/file-mapping-manager.sh` - Replaces volume-mount-manager.sh
+- `lib/generate-init-scripts-configmap.sh` - Creates init scripts ConfigMap
+- `migrate-components.sh` - Automated migration script
+
+### Files Modified
+- `lib/generate-dynamic-deployment.sh` - Added init container specification
+- `build-and-deploy.sh` - Refactored to use staging directory approach
+- All 23 components - Migrated from `volume-mounts.yaml` to `file-mappings.yaml`
+
+### Benefits
+1. **Simpler**: No complex volume mount logic
+2. **Cleaner**: Test files properly isolated
+3. **Predictable**: Files copied exactly where specified
+4. **Debuggable**: Simple manifest format, easy to trace issues
+5. **Flexible**: Supports any destination path in container
+
+### Migration Status
+- ✅ All 23 components migrated to file-mappings.yaml
+- ✅ Build process refactored for staging directory
+- ✅ Init container integrated into deployment
+- ✅ Test orchestrator properly included
+- 🔄 Testing in progress with Test Plan
+
+---
+
 *This journal preserves key decisions and milestones for future reference.*

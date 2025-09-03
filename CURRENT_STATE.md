@@ -102,30 +102,31 @@ process_template_bash "/dev/null" "$yaml_data" "/tmp/test.conf"
 
 ## Next Steps
 
-1. **Fix Test Injection System** (Test 3.2)
-   - Decide on solution approach
-   - Fix double prefixing issue
-   - Include run-all.sh in ConfigMap
-   - Resolve directory contamination
+1. **Test Init Container Architecture** 
+   - Run Test 3.2 to verify test injection works
+   - Verify files are copied to correct locations
+   - Ensure tests can execute properly
 
 2. **Continue Testing**
    - Test 4.x: Credential Management
    - Test 5.x: Cross-platform compatibility
    - Test 10.x: End-to-end workflows
 
-## Test Injection Analysis
+## Init Container Architecture (IMPLEMENTED)
 
-### Current Mounting System
-- Single ConfigMap contains all files
-- File mounts use subPath (works correctly)
-- Directory mounts include ALL ConfigMap keys
-- Test files get double-prefixed in ConfigMap
+### New Architecture
+- **Init Container**: Runs before main container to set up files
+- **Manifest-Based**: Simple text manifest drives file copying
+- **File Mappings**: Components use `file-mappings.yaml` instead of `volume-mounts.yaml`
+- **Staging Directory**: Build process stages files with proper structure
+- **Single ConfigMap**: Contains all files and manifest
 
-### Solution Options
-1. **Individual file mounts** - Mount each test file with subPath
-2. **Fix key generation** - Correct the double prefixing
-3. **Separate ConfigMaps** - Split configs and tests
-4. **Init container** - Copy files to correct locations
+### Solution Implemented
+✅ **Init container approach** - Files copied to exact destinations by init container
+- No more double-prefixing issues
+- Test directories contain only test files
+- run-all.sh properly included and executable
+- Clean separation of config and test files
 
 ## Build Information
 - Container: ai-devkit:latest

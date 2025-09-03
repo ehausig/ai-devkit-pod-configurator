@@ -1,7 +1,0 @@
-# Volume mount specifications for python-miniconda
-mounts:
-  - name: "python-miniconda-tests"
-    source: "tests/"
-    target: "/home/devuser/.ai-devkit/tests/python-miniconda/"
-    type: "directory"
-    permissions: "0755"

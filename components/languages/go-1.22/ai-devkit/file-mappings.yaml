@@ -1,0 +1,12 @@
+# File mapping specifications for Go 1.22
+# This replaces volume-mounts.yaml in the new init container architecture
+files:
+  # Generated configuration file from template
+  - source: generated/go-env.sh
+    dest: /home/devuser/.config/go/go-env.sh
+    mode: "0644"
+  
+  # Test files - will be prefixed with component ID
+  - source: tests/verify.sh
+    dest: /home/devuser/.ai-devkit/tests/go-1-22-verify.sh
+    mode: "0755"

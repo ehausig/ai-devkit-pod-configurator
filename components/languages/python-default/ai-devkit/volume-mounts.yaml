@@ -1,7 +1,0 @@
-# Volume mount specifications for python-default
-mounts:
-  - name: "python-default-tests"
-    source: "tests/"
-    target: "/home/devuser/.ai-devkit/tests/python-default/"
-    type: "directory"
-    permissions: "0755"

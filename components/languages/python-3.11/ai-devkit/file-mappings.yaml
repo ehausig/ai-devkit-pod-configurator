@@ -1,0 +1,28 @@
+# File mapping specifications for Python 3.11
+# This replaces volume-mounts.yaml in the new init container architecture
+files:
+  # Generated configuration file from template
+  - source: generated/pip.conf
+    dest: /home/devuser/.config/pip/pip.conf
+    mode: "0644"
+  
+  # Test files - will be prefixed with component ID
+  - source: tests/verify.sh
+    dest: /home/devuser/.ai-devkit/tests/python-3-11-verify.sh
+    mode: "0755"
+  
+  - source: tests/test-version.sh
+    dest: /home/devuser/.ai-devkit/tests/python-3-11-test-version.sh
+    mode: "0755"
+  
+  - source: tests/test-pip.sh
+    dest: /home/devuser/.ai-devkit/tests/python-3-11-test-pip.sh
+    mode: "0755"
+  
+  - source: tests/test-installation.sh
+    dest: /home/devuser/.ai-devkit/tests/python-3-11-test-installation.sh
+    mode: "0755"
+  
+  - source: tests/test-functionality.sh
+    dest: /home/devuser/.ai-devkit/tests/python-3-11-test-functionality.sh
+    mode: "0755"

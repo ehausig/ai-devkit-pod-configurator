@@ -1,0 +1,28 @@
+# File mapping specifications for Node.js 20
+# This replaces volume-mounts.yaml in the new init container architecture
+files:
+  # Generated configuration file from template
+  - source: generated/npmrc
+    dest: /home/devuser/.npmrc
+    mode: "0644"
+  
+  # Test files - will be prefixed with component ID
+  - source: tests/verify.sh
+    dest: /home/devuser/.ai-devkit/tests/nodejs-20-verify.sh
+    mode: "0755"
+  
+  - source: tests/test-version.sh
+    dest: /home/devuser/.ai-devkit/tests/nodejs-20-test-version.sh
+    mode: "0755"
+  
+  - source: tests/test-npm.sh
+    dest: /home/devuser/.ai-devkit/tests/nodejs-20-test-npm.sh
+    mode: "0755"
+  
+  - source: tests/test-installation.sh
+    dest: /home/devuser/.ai-devkit/tests/nodejs-20-test-installation.sh
+    mode: "0755"
+  
+  - source: tests/test-functionality.sh
+    dest: /home/devuser/.ai-devkit/tests/nodejs-20-test-functionality.sh
+    mode: "0755"

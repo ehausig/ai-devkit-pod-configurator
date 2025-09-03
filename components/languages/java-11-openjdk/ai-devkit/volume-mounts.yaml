@@ -1,7 +1,0 @@
-# Volume mount specifications for java-11-openjdk
-mounts:
-  - name: "java-11-openjdk-tests"
-    source: "tests/"
-    target: "/home/devuser/.ai-devkit/tests/java-11-openjdk/"
-    type: "directory"
-    permissions: "0755"

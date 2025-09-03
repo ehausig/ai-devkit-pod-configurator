@@ -1,7 +1,0 @@
-# Volume mount specifications for rust-nightly
-mounts:
-  - name: "rust-nightly-tests"
-    source: "tests/"
-    target: "/home/devuser/.ai-devkit/tests/rust-nightly/"
-    type: "directory"
-    permissions: "0755"

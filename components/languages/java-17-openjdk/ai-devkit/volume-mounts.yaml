@@ -1,7 +1,0 @@
-# Volume mount specifications for java-17-openjdk
-mounts:
-  - name: "java-17-openjdk-tests"
-    source: "tests/"
-    target: "/home/devuser/.ai-devkit/tests/java-17-openjdk/"
-    type: "directory"
-    permissions: "0755"

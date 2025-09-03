@@ -1,18 +1,12 @@
 #!/bin/bash
 
 # Generate Dynamic Kubernetes Deployment
-# This script generates a deployment.yaml with dynamic volume mounts
-# based on component metadata using the new template system
-
-# Source volume mount manager for dynamic volume generation
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/volume-mount-manager.sh"
+# This script generates a deployment.yaml with init container for file setup
 
 generate_dynamic_kubernetes_deployment() {
-    local volume_mounts_file="$1"
-    local output_file="$2"
+    local output_file="$1"
     
-    # Start with the deployment header
+    # Start with the deployment header including init container
     cat > "$output_file" << 'EOF'
 apiVersion: apps/v1
 kind: Deployment
@@ -33,6 +27,25 @@ spec:
       annotations:
         kubectl.kubernetes.io/default-container: ai-devkit
     spec:
+      initContainers:
+      # Init container to set up configuration files
+      - name: setup-configs
+        image: alpine:latest
+        command: ["/bin/sh", "/scripts/init-copy.sh"]
+        volumeMounts:
+        - name: config-data
+          mountPath: /config-data
+        - name: home
+          mountPath: /home/devuser
+        - name: scripts
+          mountPath: /scripts
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "10m"
+          limits:
+            memory: "64Mi"
+            cpu: "50m"
       containers:
       # Main AI DevKit container
       - name: ai-devkit
@@ -63,18 +76,10 @@ spec:
           mountPath: /tmp/git-mounted/gh-hosts.yml
           subPath: gh-hosts
           readOnly: true
+        # Home directory mount (shared with init container)
+        - name: home
+          mountPath: /home/devuser
 EOF
-    
-    # Add component-specific volume mounts dynamically
-    if [[ -f "$volume_mounts_file" ]] && [[ -s "$volume_mounts_file" ]]; then
-        echo "        # Dynamic component volume mounts" >> "$output_file"
-        
-        # Generate volume mounts using the new system
-        local mount_specs=$(cat "$volume_mounts_file" 2>/dev/null || true)
-        if [[ -n "$mount_specs" ]]; then
-            generate_deployment_volume_mounts "$mount_specs" >> "$output_file"
-        fi
-    fi
     
     # Continue with environment variables and resources
     cat >> "$output_file" << 'EOF'
@@ -133,6 +138,19 @@ EOF
           name: filebrowser-config
       - name: filebrowser-db
         emptyDir: {}
+      # Home directory for init container to populate
+      - name: home
+        emptyDir: {}
+      # ConfigMap with all component files
+      - name: config-data
+        configMap:
+          name: component-configs
+          defaultMode: 0644
+      # Init container script
+      - name: scripts
+        configMap:
+          name: init-scripts
+          defaultMode: 0755
       # SSH host keys volume
       - name: ssh-host-keys
         secret:
@@ -165,17 +183,6 @@ EOF
           defaultMode: 0600
           optional: true
 EOF
-    
-    # Add dynamic component volume definitions
-    if [[ -f "$volume_mounts_file" ]] && [[ -s "$volume_mounts_file" ]]; then
-        echo "      # Dynamic component volumes" >> "$output_file"
-        
-        # Generate volume definitions using the new system
-        local mount_specs=$(cat "$volume_mounts_file" 2>/dev/null || true)
-        if [[ -n "$mount_specs" ]]; then
-            generate_deployment_volumes "$mount_specs" >> "$output_file"
-        fi
-    fi
     
     # Add the service definition
     cat >> "$output_file" << 'EOF'

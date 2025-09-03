@@ -1,7 +1,0 @@
-# Volume mount specifications for kotlin
-mounts:
-  - name: "kotlin-tests"
-    source: "tests/"
-    target: "/home/devuser/.ai-devkit/tests/kotlin/"
-    type: "directory"
-    permissions: "0755"

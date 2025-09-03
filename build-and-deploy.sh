@@ -3520,130 +3520,101 @@ generate_repository_configs() {
         return
     fi
     
-    # Also source volume mount manager for dynamic mount handling
-    if [[ -f "lib/volume-mount-manager.sh" ]]; then
-        source "lib/volume-mount-manager.sh"
+    # Source file mapping manager for init container architecture
+    if [[ -f "lib/file-mapping-manager.sh" ]]; then
+        source "lib/file-mapping-manager.sh"
+    else
+        warning "file-mapping-manager.sh not found, skipping file mapping"
+        return
     fi
     
-    # Source component test manager for test staging
-    if [[ -f "lib/component-test-manager.sh" ]]; then
-        source "lib/component-test-manager.sh"
+    # Source init scripts generator
+    if [[ -f "lib/generate-init-scripts-configmap.sh" ]]; then
+        source "lib/generate-init-scripts-configmap.sh"
     fi
     
-    # Create temporary directory for configs
-    local config_temp_dir="$TEMP_DIR/generated-configs"
-    mkdir -p "$config_temp_dir"
+    # Create staging directory for init container architecture
+    local staging_dir="$TEMP_DIR/staging"
+    mkdir -p "$staging_dir"
     
-    # Track which configs were generated and all volume mounts
+    # Create manifest file for init container
+    local manifest_file="$staging_dir/manifest.txt"
+    echo "# AI DevKit Init Container Manifest" > "$manifest_file"
+    echo "# Format: source|destination|mode|owner" >> "$manifest_file"
+    
+    # Track which configs were generated
     local configs_generated=()
-    local all_volume_mounts=()
     
-    # Generate configs for each selected component using new template system
+    # Process each selected component
     if [[ "$should_generate_configs" == "true" ]]; then
-        log "Generating repository configurations for selected components..."
-        for i in "${!SELECTED_YAML_FILES[@]}"; do
-        local yaml_file="${SELECTED_YAML_FILES[$i]}"
-        local component_id="${SELECTED_IDS[$i]}"
-        local component_name="${SELECTED_NAMES[$i]}"
-        
-        # Derive component directory from yaml file path
-        # Convert path like "components/languages/python-3.11.yaml" to "components/languages/python-3.11/"
-        local component_dir="${yaml_file%.yaml}/"
-        
-        # All components must use the new ai-devkit configuration structure
-        if [[ -d "$component_dir/ai-devkit" ]]; then
-            log "Processing component $component_name..."
-            
-            # Generate component configuration using template processor
-            if generate_component_configuration "$component_dir" "$component_id" "$config_temp_dir"; then
-                configs_generated+=("$component_id")
-                log "Successfully generated configuration for $component_id"
-                
-                # Collect volume mounts for this component
-                local component_mounts=$(generate_volume_mounts "$component_dir" "$component_id" "$config_temp_dir" 2>/dev/null || true)
-                if [[ -n "$component_mounts" ]]; then
-                    all_volume_mounts+=("$component_mounts")
-                fi
-                
-                # Stage component tests for injection
-                stage_component_tests "$component_dir" "$component_id" "$config_temp_dir"
-            else
-                log "No template configuration generated for $component_id"
-            fi
-        else
-            # Component doesn't have ai-devkit structure - check if it needs migration
-            local format=$(yq -r '.installation.repos.format // ""' "$yaml_file" 2>/dev/null)
-            if [[ -n "$format" ]] && [[ "$format" != "null" ]]; then
-                log "Component $component_name has repository configuration but no ai-devkit structure"
-            fi
-        fi
-        done
-    fi  # End of should_generate_configs check
-    
-    # Create test orchestrator if we have any tests staged
-    if [[ -d "$config_temp_dir/tests" ]] && [[ -n "$(ls -A "$config_temp_dir/tests" 2>/dev/null)" ]]; then
-        log "Creating test orchestrator..."
-        create_test_orchestrator "$config_temp_dir/tests"
-    fi
-    
-    # Always create ConfigMap (even if empty) since deployment expects it
-    log "Creating component-configs ConfigMap..."
-    echo "DEBUG: configs_generated array has ${#configs_generated[@]} items" >> "$LOG_FILE"
-    echo "DEBUG: SELECTED_YAML_FILES array has ${#SELECTED_YAML_FILES[@]} items" >> "$LOG_FILE"
-    
-    local configmap_file="$TEMP_DIR/component-configs-dynamic.yaml"
-    cat > "$configmap_file" << 'EOF'
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: component-configs
-  namespace: ai-devkit
-data:
-EOF
-    
-    # Generate ConfigMap entries if components were selected
-    if [[ ${#configs_generated[@]} -gt 0 ]]; then
-        log "Adding configurations for ${#configs_generated[@]} component(s)..."
-        
-        # Generate ConfigMap entries dynamically for each component
+        log "Processing selected components for init container..."
         for i in "${!SELECTED_YAML_FILES[@]}"; do
             local yaml_file="${SELECTED_YAML_FILES[$i]}"
             local component_id="${SELECTED_IDS[$i]}"
             local component_name="${SELECTED_NAMES[$i]}"
+            
+            # Derive component directory from yaml file path
             local component_dir="${yaml_file%.yaml}/"
             
-            # Only process components with new structure
+            # Check for ai-devkit structure
             if [[ -d "$component_dir/ai-devkit" ]]; then
-                local configmap_entries=$(generate_configmap_entries "$component_id" "$config_temp_dir" "$component_dir" 2>/dev/null || true)
-                if [[ -n "$configmap_entries" ]]; then
-                    echo "$configmap_entries" >> "$configmap_file"
+                log "Processing component $component_name..."
+                
+                # Generate configuration files from templates
+                # First generate to a temporary directory
+                local temp_gen_dir="$TEMP_DIR/config-gen/$component_id"
+                mkdir -p "$temp_gen_dir"
+                
+                if generate_component_configuration "$component_dir" "$component_id" "$temp_gen_dir"; then
+                    configs_generated+=("$component_id")
+                    log "Generated configuration for $component_id"
+                    
+                    # Move generated files to staging with correct structure
+                    local target_gen_dir="$staging_dir/generated/$component_id"
+                    mkdir -p "$target_gen_dir"
+                    
+                    # Copy generated files to staging
+                    if [[ -d "$temp_gen_dir" ]]; then
+                        cp -r "$temp_gen_dir"/* "$target_gen_dir/" 2>/dev/null || true
+                    fi
+                fi
+                
+                # Process file mappings (handles static, generated, and test files)
+                process_component_file_mappings "$component_dir" "$component_id" "$staging_dir" "$manifest_file"
+                
+                # Process static files if they exist
+                process_component_static_files "$component_dir" "$component_id" "$staging_dir" "$manifest_file"
+                
+                # Process test files
+                process_component_tests "$component_dir" "$component_id" "$staging_dir" "$manifest_file"
+            else
+                # Component doesn't have ai-devkit structure
+                local format=$(yq -r '.installation.repos.format // ""' "$yaml_file" 2>/dev/null)
+                if [[ -n "$format" ]] && [[ "$format" != "null" ]]; then
+                    log "WARNING: Component $component_name needs migration to ai-devkit structure"
                 fi
             fi
         done
-        
-    else
-        log "No component configurations to add"
     fi
     
-    # Always store volume mount information for deployment generation
-    if [[ ${#all_volume_mounts[@]} -gt 0 ]]; then
-        # Combine all mount fragments into a proper YAML array
-        {
-            for mount in "${all_volume_mounts[@]}"; do
-                echo "$mount"
-            done
-        } > "$TEMP_DIR/volume-mounts.yaml"
-    else
-        echo "[]" > "$TEMP_DIR/volume-mounts.yaml"
+    # Create test orchestrator if we have tests
+    if [[ -d "$staging_dir/tests" ]] && [[ -n "$(ls -A "$staging_dir/tests" 2>/dev/null)" ]]; then
+        log "Creating test orchestrator..."
+        create_test_orchestrator "$staging_dir" "$manifest_file"
     fi
     
-    # Add a placeholder if ConfigMap is empty to make it valid
-    if ! grep -q "^  " "$configmap_file"; then
-        echo '  placeholder: "empty"' >> "$configmap_file"
-    fi
+    # Generate ConfigMap from staging directory
+    log "Generating ConfigMap from staging directory..."
+    local configmap_file="$TEMP_DIR/component-configs-dynamic.yaml"
+    generate_configmap_from_staging "$staging_dir" "$configmap_file"
     
-    # ConfigMap file is created and will be applied during deployment phase
-    log "Component-configs ConfigMap prepared with ${#configs_generated[@]} component(s)"
+    # Generate init scripts ConfigMap
+    log "Generating init scripts ConfigMap..."
+    local init_scripts_file="$TEMP_DIR/init-scripts.yaml"
+    generate_init_scripts_configmap "$init_scripts_file"
+    
+    # ConfigMap files are created and will be applied during deployment phase
+    log "ConfigMaps prepared with ${#configs_generated[@]} component(s)"
 }
 
 # Function to extract inject_files from YAML using yq
@@ -4091,7 +4062,7 @@ generate_dynamic_deployment() {
     fi
     
     # Generate truly dynamic deployment with template-based volume mounts
-    generate_dynamic_kubernetes_deployment "$TEMP_DIR/volume-mounts.yaml" "$deployment_file" 2>> "$LOG_FILE"
+    generate_dynamic_kubernetes_deployment "$deployment_file" 2>> "$LOG_FILE"
     
     echo "Generated dynamic deployment at $deployment_file" >> "$LOG_FILE"
     
@@ -4129,6 +4100,12 @@ deploy_to_kubernetes() {
     if [[ -f "$TEMP_DIR/repository-config-dynamic.yaml" ]]; then
         log "Applying dynamic repository configuration..."
         kubectl apply -f "$TEMP_DIR/repository-config-dynamic.yaml" >> "$LOG_FILE" 2>&1
+    fi
+    
+    # Apply init scripts ConfigMap first
+    if [[ -f "$TEMP_DIR/init-scripts.yaml" ]]; then
+        log "Applying init-scripts ConfigMap..."
+        kubectl apply -f "$TEMP_DIR/init-scripts.yaml" >> "$LOG_FILE" 2>&1
     fi
     
     # Apply component-configs ConfigMap if generated

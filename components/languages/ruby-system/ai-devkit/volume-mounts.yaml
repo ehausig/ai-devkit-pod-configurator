@@ -1,7 +1,0 @@
-# Volume mount specifications for ruby-system
-mounts:
-  - name: "ruby-system-tests"
-    source: "tests/"
-    target: "/home/devuser/.ai-devkit/tests/ruby-system/"
-    type: "directory"
-    permissions: "0755"
