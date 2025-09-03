@@ -35,8 +35,10 @@ spec:
         volumeMounts:
         - name: config-data
           mountPath: /config-data
-        - name: home
-          mountPath: /home/devuser
+        - name: init-workspace
+          mountPath: /home/devuser/.config
+        - name: init-workspace
+          mountPath: /home/devuser/.ai-devkit
         - name: scripts
           mountPath: /scripts
         resources:
@@ -76,9 +78,11 @@ spec:
           mountPath: /tmp/git-mounted/gh-hosts.yml
           subPath: gh-hosts
           readOnly: true
-        # Home directory mount (shared with init container)
-        - name: home
-          mountPath: /home/devuser
+        # Shared directories with init container (only specific subdirs, not entire home)
+        - name: init-workspace
+          mountPath: /home/devuser/.config
+        - name: init-workspace  
+          mountPath: /home/devuser/.ai-devkit
 EOF
     
     # Continue with environment variables and resources
@@ -138,8 +142,8 @@ EOF
           name: filebrowser-config
       - name: filebrowser-db
         emptyDir: {}
-      # Home directory for init container to populate
-      - name: home
+      # Workspace for init container to populate (specific directories only)
+      - name: init-workspace
         emptyDir: {}
       # ConfigMap with all component files
       - name: config-data
