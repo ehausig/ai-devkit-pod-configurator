@@ -102,7 +102,15 @@ load_default_repos() {
     fi
     
     # Load and return repositories as JSON
-    yq -r '.repositories // []' "$defaults_file" 2>/dev/null
+    # Check which yq version we have
+    local yq_path=$(command -v yq 2>/dev/null)
+    if [[ -n "$yq_path" ]] && head -1 "$yq_path" 2>/dev/null | grep -q "python"; then
+        # kislyuk/yq - uses jq syntax
+        cat "$defaults_file" | yq -r '.repositories // []' 2>/dev/null
+    else
+        # mikefarah/yq - uses eval syntax
+        yq eval '.repositories // []' "$defaults_file" 2>/dev/null
+    fi
 }
 
 # Function to load environment variables for a component
