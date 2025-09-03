@@ -127,7 +127,7 @@ generate_deployment_volumes() {
     # Extract unique volume names and their permissions from YAML array items
     local volume_info=""
     if [[ "$all_mounts" == -* ]]; then
-        # Process each unique volume name
+        # Process each unique volume name (sort -u ensures uniqueness)
         local volume_names=$(echo "$all_mounts" | grep "name:" | sed 's/.*name: *"\?\([^"]*\)"\?.*/\1/' | sort -u)
         
         while IFS= read -r volume_name; do
@@ -143,7 +143,7 @@ generate_deployment_volumes() {
                 if [[ -z "$permissions" ]] || [[ "$permissions" == '""' ]]; then
                     # Check if this is a test directory mount
                     local target=$(echo "$mount_entry" | grep "target:" | head -1 | sed 's/.*target: *"\?\([^"]*\)"\?.*/\1/')
-                    if [[ "$target" =~ \.ai-devkit/tests/ ]]; then
+                    if [[ "$target" =~ \.ai-devkit/tests ]]; then
                         permissions="0755"
                     else
                         permissions="0644"
@@ -186,13 +186,17 @@ generate_deployment_volume_mounts() {
     
     # If it starts with -, it's YAML array items - process line by line
     if [[ "$all_mounts" == -* ]]; then
-        # Simply parse each YAML mount item
+        # Track unique mount paths to avoid duplicates
+        declare -A seen_paths
+        
+        # First pass: collect all mounts
+        local mounts_array=()
         local current_mount=""
         while IFS= read -r line; do
             if [[ "$line" == "- name:"* ]]; then
-                # Start of a new mount, process previous if exists
+                # Start of a new mount, save previous if exists
                 if [[ -n "$current_mount" ]]; then
-                    process_single_mount "$current_mount"
+                    mounts_array+=("$current_mount")
                 fi
                 current_mount="$line"
             elif [[ -n "$current_mount" ]]; then
@@ -200,10 +204,19 @@ generate_deployment_volume_mounts() {
             fi
         done <<< "$all_mounts"
         
-        # Process last mount
+        # Save last mount
         if [[ -n "$current_mount" ]]; then
-            process_single_mount "$current_mount"
+            mounts_array+=("$current_mount")
         fi
+        
+        # Second pass: process mounts, skipping duplicates based on mountPath
+        for mount in "${mounts_array[@]}"; do
+            local target=$(echo "$mount" | grep "target:" | sed 's/.*target: *"\?\([^"]*\)"\?.*/\1/')
+            if [[ -n "$target" ]] && [[ -z "${seen_paths[$target]}" ]]; then
+                seen_paths[$target]=1
+                process_single_mount "$mount"
+            fi
+        done
     fi
 }
 
