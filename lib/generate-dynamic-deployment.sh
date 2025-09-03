@@ -35,9 +35,9 @@ spec:
         volumeMounts:
         - name: config-data
           mountPath: /config-data
-        - name: init-workspace
+        - name: init-config
           mountPath: /home/devuser/.config
-        - name: init-workspace
+        - name: init-aidevkit
           mountPath: /home/devuser/.ai-devkit
         - name: scripts
           mountPath: /scripts
@@ -79,9 +79,9 @@ spec:
           subPath: gh-hosts
           readOnly: true
         # Shared directories with init container (only specific subdirs, not entire home)
-        - name: init-workspace
+        - name: init-config
           mountPath: /home/devuser/.config
-        - name: init-workspace  
+        - name: init-aidevkit
           mountPath: /home/devuser/.ai-devkit
 EOF
     
@@ -142,8 +142,10 @@ EOF
           name: filebrowser-config
       - name: filebrowser-db
         emptyDir: {}
-      # Workspace for init container to populate (specific directories only)
-      - name: init-workspace
+      # Separate volumes for different directories to avoid cross-contamination
+      - name: init-config
+        emptyDir: {}
+      - name: init-aidevkit
         emptyDir: {}
       # ConfigMap with all component files
       - name: config-data
