@@ -1,7 +1,7 @@
 # Init Container Architecture
 
 ## Overview
-The AI DevKit Pod Configurator now uses an init container architecture to manage file distribution within Kubernetes pods. This replaces the previous complex volume mount system with a simpler, more reliable approach.
+The AI DevKit Pod Configurator uses an init container architecture to manage file distribution within Kubernetes pods. This replaces the previous complex volume mount system with a simpler, more reliable approach that provides full control over file placement and permissions.
 
 ## How It Works
 
@@ -114,6 +114,21 @@ files:
 - Runs `/scripts/init-copy.sh` 
 - Minimal resource requirements (32Mi memory, 10m CPU)
 - Completes before main container starts
+- Mounts entire `/home/devuser` directory for full write access
+
+### Volume Mounting Strategy
+The init container and main container share files through an EmptyDir volume:
+
+#### Init Container
+- Mounts `init-home` volume to `/home/devuser`
+- Has full write access to create any file/directory
+
+#### Main Container
+- Mounts specific paths using subPath:
+  - `/home/devuser/.config` (subPath: .config)
+  - `/home/devuser/.ai-devkit` (subPath: .ai-devkit)
+  - `/home/devuser/.npmrc` (subPath: .npmrc)
+- Preserves base image files while adding configured files
 
 ## Debugging
 
