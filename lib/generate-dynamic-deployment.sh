@@ -35,10 +35,8 @@ spec:
         volumeMounts:
         - name: config-data
           mountPath: /config-data
-        - name: init-config
-          mountPath: /home/devuser/.config
-        - name: init-aidevkit
-          mountPath: /home/devuser/.ai-devkit
+        - name: init-home
+          mountPath: /home/devuser
         - name: scripts
           mountPath: /scripts
         resources:
@@ -78,11 +76,17 @@ spec:
           mountPath: /tmp/git-mounted/gh-hosts.yml
           subPath: gh-hosts
           readOnly: true
-        # Shared directories with init container (only specific subdirs, not entire home)
-        - name: init-config
+        # Shared volumes with init container for configuration files
+        - name: init-home
           mountPath: /home/devuser/.config
-        - name: init-aidevkit
+          subPath: .config
+        - name: init-home
           mountPath: /home/devuser/.ai-devkit
+          subPath: .ai-devkit
+        # Mount individual config files that need to be in home directory root
+        - name: init-home
+          mountPath: /home/devuser/.npmrc
+          subPath: .npmrc
 EOF
     
     # Continue with environment variables and resources
@@ -142,10 +146,8 @@ EOF
           name: filebrowser-config
       - name: filebrowser-db
         emptyDir: {}
-      # Separate volumes for different directories to avoid cross-contamination
-      - name: init-config
-        emptyDir: {}
-      - name: init-aidevkit
+      # Single volume for init container to write to home directory
+      - name: init-home
         emptyDir: {}
       # ConfigMap with all component files
       - name: config-data

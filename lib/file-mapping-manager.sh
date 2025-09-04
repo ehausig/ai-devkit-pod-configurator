@@ -87,11 +87,18 @@ process_component_file_mappings() {
         
         # Stage the file if it exists
         if [[ -f "$source_path" ]]; then
-            stage_file_for_init "$source_path" "$source" "$staging_dir" "$component_id"
+            # For generated files, include component ID in staging path
+            local staging_dest="$source"
+            if [[ "$source" == generated/* ]]; then
+                local filename="${source#generated/}"
+                staging_dest="generated/$component_id/$filename"
+            fi
+            
+            stage_file_for_init "$source_path" "$staging_dest" "$staging_dir" "$component_id"
             
             # Add entry to manifest
             # Format: source|destination|mode|owner
-            echo "${source}|${dest}|${mode}|devuser" >> "$manifest_file"
+            echo "${staging_dest}|${dest}|${mode}|devuser" >> "$manifest_file"
         elif [[ -d "$source_path" ]]; then
             stage_directory_for_init "$source_path" "$source" "$staging_dir" "$component_id"
             echo "${source}|${dest}|${mode}|devuser" >> "$manifest_file"
