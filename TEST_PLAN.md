@@ -357,12 +357,28 @@ EOF
 ```bash
 # Run all tests
 ~/.ai-devkit/tests/run-all.sh
+# Expected: All component tests pass
 
-# Run specific component test
-~/.ai-devkit/tests/python-3.11/verify.sh
+# List available test scripts
+ls ~/.ai-devkit/tests/
+# Expected output should show files like:
+# python-3-11-verify.sh
+# python-3-11-test-version.sh
+# python-3-11-test-pip.sh
+# python-3-11-test-installation.sh
+# python-3-11-test-functionality.sh
+# nodejs-20-verify.sh
+# nodejs-20-test-version.sh
+# nodejs-20-test-npm.sh
+# nodejs-20-test-installation.sh
+# nodejs-20-test-functionality.sh
+# run-all.sh
+
+# Run specific component test (example)
+~/.ai-devkit/tests/python-3-11-verify.sh
 # Expected: SUCCESS
 
-~/.ai-devkit/tests/nodejs-20/verify.sh
+~/.ai-devkit/tests/nodejs-20-verify.sh
 # Expected: SUCCESS
 ```
 

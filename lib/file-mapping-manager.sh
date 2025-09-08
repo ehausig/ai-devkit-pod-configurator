@@ -92,6 +92,11 @@ process_component_file_mappings() {
             if [[ "$source" == generated/* ]]; then
                 local filename="${source#generated/}"
                 staging_dest="generated/$component_id/$filename"
+            elif [[ "$source" == tests/* ]]; then
+                # For test files, include component ID to avoid collisions
+                local filename="${source#tests/}"
+                local sanitized_id=$(echo "$component_id" | tr '_' '-' | tr '[:upper:]' '[:lower:]')
+                staging_dest="tests/${sanitized_id}-${filename}"
             fi
             
             stage_file_for_init "$source_path" "$staging_dest" "$staging_dir" "$component_id"
@@ -229,63 +234,121 @@ create_test_orchestrator() {
     local staging_dir="$1"
     local manifest_file="$2"
     
-    local orchestrator="$staging_dir/tests/run-all.sh"
+    # Create the orchestrator in staging/generated/run-all.sh
+    local orchestrator="$staging_dir/generated/run-all.sh"
+    mkdir -p "$(dirname "$orchestrator")"
     
     cat > "$orchestrator" <<'EOF'
 #!/bin/bash
 # AI DevKit Component Test Orchestrator
-# Runs all component verification tests
+# Dynamically discovers and runs all component tests
 
-set -e
+set -euo pipefail
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
 
 echo "========================================="
-echo "AI DevKit Component Verification"
+echo "AI DevKit Component Test Suite"
 echo "========================================="
+echo ""
 
-FAILED=0
+# Test directory
+TEST_DIR="/home/devuser/.ai-devkit/tests"
+
+# Check if test directory exists
+if [[ ! -d "$TEST_DIR" ]]; then
+    echo -e "${YELLOW}No tests found in $TEST_DIR${NC}"
+    exit 0
+fi
+
+# Count available tests
+TOTAL_TESTS=$(find "$TEST_DIR" -name "*.sh" -type f 2>/dev/null | wc -l)
+
+if [[ $TOTAL_TESTS -eq 0 ]]; then
+    echo -e "${YELLOW}No test scripts found${NC}"
+    exit 0
+fi
+
+echo "Found $TOTAL_TESTS test script(s)"
+echo ""
+
+# Track results
 PASSED=0
-SKIPPED=0
+FAILED=0
+TESTS_RUN=0
 
-# Track which components we've tested
-declare -A tested_components
-
-# Run all verify.sh scripts
-for verify_script in /home/devuser/.ai-devkit/tests/*-verify.sh; do
-    if [[ -f "$verify_script" ]]; then
-        # Extract component ID from filename
-        basename=$(basename "$verify_script")
-        component_id="${basename%-verify.sh}"
-        
-        echo ""
-        echo "Testing $component_id..."
-        echo "-----------------------------------------"
-        
-        if bash "$verify_script"; then
-            echo "✅ $component_id: PASSED"
-            PASSED=$((PASSED + 1))
-        else
-            echo "❌ $component_id: FAILED"
-            FAILED=$((FAILED + 1))
+# Discover components by looking at test file prefixes
+declare -A components
+for test_file in "$TEST_DIR"/*.sh; do
+    if [[ -f "$test_file" ]]; then
+        basename=$(basename "$test_file")
+        # Extract component name (everything before last hyphen and test type)
+        if [[ "$basename" =~ ^(.+)-(verify|test-.+)\.sh$ ]]; then
+            component="${BASH_REMATCH[1]}"
+            components["$component"]=1
         fi
-        
-        tested_components["$component_id"]=1
     fi
 done
 
-echo ""
+# Run tests for each component
+for component in "${!components[@]}"; do
+    echo "========================================="
+    echo -e "${BLUE}Component: $component${NC}"
+    echo "========================================="
+    
+    COMPONENT_PASSED=0
+    COMPONENT_FAILED=0
+    
+    # Run all tests for this component
+    for test_file in "$TEST_DIR/${component}"-*.sh; do
+        if [[ -f "$test_file" ]]; then
+            test_name=$(basename "$test_file" .sh)
+            test_type="${test_name#${component}-}"
+            
+            echo -n "  Running $test_type... "
+            
+            # Run the test and capture output
+            if output=$("$test_file" 2>&1); then
+                echo -e "${GREEN}✓ PASSED${NC}"
+                PASSED=$((PASSED + 1))
+                COMPONENT_PASSED=$((COMPONENT_PASSED + 1))
+            else
+                echo -e "${RED}✗ FAILED${NC}"
+                FAILED=$((FAILED + 1))
+                COMPONENT_FAILED=$((COMPONENT_FAILED + 1))
+                # Show failure output
+                echo -e "${RED}    Error output:${NC}"
+                echo "$output" | sed 's/^/      /'
+            fi
+            TESTS_RUN=$((TESTS_RUN + 1))
+        fi
+    done
+    
+    # Component summary
+    echo ""
+    echo -e "  Component Summary: ${GREEN}$COMPONENT_PASSED passed${NC}, ${RED}$COMPONENT_FAILED failed${NC}"
+    echo ""
+done
+
+# Overall summary
 echo "========================================="
 echo "Test Summary"
 echo "========================================="
-echo "✅ Passed:  $PASSED"
-echo "❌ Failed:  $FAILED"
-echo "⚠️  Skipped: $SKIPPED"
+echo -e "${GREEN}✓ Passed:${NC}  $PASSED"
+echo -e "${RED}✗ Failed:${NC}  $FAILED"
+echo -e "${BLUE}Total:${NC}     $TESTS_RUN"
 echo ""
 
 if [[ $FAILED -eq 0 ]]; then
-    echo "All component tests passed!"
+    echo -e "${GREEN}All tests passed!${NC}"
     exit 0
 else
-    echo "$FAILED component(s) failed verification"
+    echo -e "${RED}$FAILED test(s) failed${NC}"
     exit 1
 fi
 EOF
@@ -293,7 +356,7 @@ EOF
     chmod +x "$orchestrator"
     
     # Add orchestrator to manifest
-    echo "tests/run-all.sh|/home/devuser/.ai-devkit/tests/run-all.sh|0755|devuser" >> "$manifest_file"
+    echo "generated/run-all.sh|/home/devuser/.ai-devkit/tests/run-all.sh|0755|devuser" >> "$manifest_file"
     
     echo "Created test orchestrator" >&2
 }

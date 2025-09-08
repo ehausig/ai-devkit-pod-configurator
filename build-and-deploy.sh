@@ -3582,11 +3582,11 @@ generate_repository_configs() {
                 # Process file mappings (handles static, generated, and test files)
                 process_component_file_mappings "$component_dir" "$component_id" "$staging_dir" "$manifest_file"
                 
-                # Process static files if they exist
+                # Process static files if they exist (not already in file-mappings)
                 process_component_static_files "$component_dir" "$component_id" "$staging_dir" "$manifest_file"
                 
-                # Process test files
-                process_component_tests "$component_dir" "$component_id" "$staging_dir" "$manifest_file"
+                # Note: Test files are now handled by process_component_file_mappings
+                # via the file-mappings.yaml definitions
             else
                 # Component doesn't have ai-devkit structure
                 local format=$(yq -r '.installation.repos.format // ""' "$yaml_file" 2>/dev/null)
