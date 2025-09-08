@@ -229,8 +229,27 @@ generate_npm_config_bash() {
     
     {
         local registry=$(yq_query "$yaml_data" '.repositories[0].url // ""')
+        local username=$(yq_query "$yaml_data" '.repositories[0].username // ""')
+        local password=$(yq_query "$yaml_data" '.repositories[0].password // ""')
+        
         if [[ -n "$registry" ]] && [[ "$registry" != "null" ]] && [[ "$registry" != '""' ]]; then
             echo "registry=$registry"
+            
+            # If credentials exist, add authentication
+            if [[ -n "$username" ]] && [[ "$username" != "null" ]] && [[ "$username" != '""' ]] && \
+               [[ -n "$password" ]] && [[ "$password" != "null" ]] && [[ "$password" != '""' ]]; then
+                # Extract hostname from registry URL
+                local host=$(echo "$registry" | sed 's|^https*://||; s|/.*||')
+                
+                # Create base64 auth token
+                local auth_string="${username}:${password}"
+                local auth_token=$(echo -n "$auth_string" | base64 -w 0 2>/dev/null || echo -n "$auth_string" | base64)
+                
+                # Add npm auth configuration
+                echo "//${host}/:_auth=${auth_token}"
+                echo "//${host}/:always-auth=true"
+                echo "email=${username}@example.com"
+            fi
         else
             echo "# Using default npm registry"
             echo "registry=https://registry.npmjs.org/"
