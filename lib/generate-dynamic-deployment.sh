@@ -5,6 +5,15 @@
 
 generate_dynamic_kubernetes_deployment() {
     local output_file="$1"
+    local manifest_file="${2:-}"  # Optional manifest file to detect needed mounts
+    
+    # Detect which root-level files need mounting
+    local need_npmrc=false
+    if [[ -f "$manifest_file" ]]; then
+        if grep -q '|/home/devuser/\.npmrc|' "$manifest_file" 2>/dev/null; then
+            need_npmrc=true
+        fi
+    fi
     
     # Start with the deployment header including init container
     cat > "$output_file" << 'EOF'
@@ -83,11 +92,17 @@ spec:
         - name: init-home
           mountPath: /home/devuser/.ai-devkit
           subPath: .ai-devkit
-        # Mount individual config files that need to be in home directory root
+EOF
+    
+    # Add .npmrc mount only if needed
+    if [[ "$need_npmrc" == "true" ]]; then
+        cat >> "$output_file" << 'EOF'
+        # Mount npmrc file (Node.js component selected)
         - name: init-home
           mountPath: /home/devuser/.npmrc
           subPath: .npmrc
 EOF
+    fi
     
     # Continue with environment variables and resources
     cat >> "$output_file" << 'EOF'

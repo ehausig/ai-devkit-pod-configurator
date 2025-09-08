@@ -4061,8 +4061,11 @@ generate_dynamic_deployment() {
         return
     fi
     
+    # Pass the manifest file if it exists to determine what mounts are needed
+    local manifest_file="$TEMP_DIR/staging/manifest.txt"
+    
     # Generate truly dynamic deployment with template-based volume mounts
-    generate_dynamic_kubernetes_deployment "$deployment_file" 2>> "$LOG_FILE"
+    generate_dynamic_kubernetes_deployment "$deployment_file" "$manifest_file" 2>> "$LOG_FILE"
     
     echo "Generated dynamic deployment at $deployment_file" >> "$LOG_FILE"
     
