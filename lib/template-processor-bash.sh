@@ -172,6 +172,9 @@ process_template_bash() {
         "sbt")
             generate_sbt_repositories_bash "$data_yaml" "$output_file"
             ;;
+        "gem")
+            generate_gem_config_bash "$data_yaml" "$output_file"
+            ;;
         *)
             # For unknown formats, copy template as-is
             cp "$template_file" "$output_file" 2>/dev/null || true
@@ -188,6 +191,29 @@ generate_pip_config_bash() {
     local output_file="$2"
     local trusted_host="$3"
     
+    # Check if component has its own pip.conf generator
+    local component_id=$(yq_query "$yaml_data" '.component_id // ""')
+    if [[ -n "$component_id" ]]; then
+        # Find component directory
+        local component_dir=""
+        for type in languages build-deploy; do
+            for comp in components/$type/*; do
+                if [[ -d "$comp" ]] && [[ "$(basename "$comp" | tr '-' '_' | tr '[:lower:]' '[:upper:]')" == "$component_id" ]]; then
+                    component_dir="$comp"
+                    break 2
+                fi
+            done
+        done
+        
+        # Check for component-specific generator
+        if [[ -n "$component_dir" ]] && [[ -f "$component_dir/ai-devkit/generate-pip-conf.sh" ]]; then
+            # Use component's generator
+            "$component_dir/ai-devkit/generate-pip-conf.sh" "$yaml_data" "$output_file"
+            return $?
+        fi
+    fi
+    
+    # Fallback to generic pip.conf generation
     {
         echo "[global]"
         
@@ -267,6 +293,28 @@ generate_go_env_bash() {
     local yaml_data="$1"
     local output_file="$2"
     
+    # Check if component has its own go-env generator
+    local component_id=$(yq_query "$yaml_data" '.component_id // ""')
+    if [[ -n "$component_id" ]]; then
+        # Find component directory
+        local component_dir=""
+        for type in languages build-deploy; do
+            for comp in components/$type/*; do
+                if [[ -d "$comp" ]] && [[ "$(basename "$comp" | tr '-' '_' | tr '[:lower:]' '[:upper:]')" == "$component_id" ]]; then
+                    component_dir="$comp"
+                    break 2
+                fi
+            done
+        done
+        
+        # Check for component-specific generator
+        if [[ -n "$component_dir" ]] && [[ -f "$component_dir/ai-devkit/generate-go-env.sh" ]]; then
+            # Use component's generator
+            "$component_dir/ai-devkit/generate-go-env.sh" "$yaml_data" "$output_file"
+            return $?
+        fi
+    fi
+    
     {
         echo "#!/bin/bash"
         echo "# Go environment configuration"
@@ -302,6 +350,28 @@ generate_go_env_bash() {
 generate_maven_settings_bash() {
     local yaml_data="$1"
     local output_file="$2"
+    
+    # Check if component has its own maven settings generator
+    local component_id=$(yq_query "$yaml_data" '.component_id // ""')
+    if [[ -n "$component_id" ]]; then
+        # Find component directory
+        local component_dir=""
+        for type in languages build-deploy; do
+            for comp in components/$type/*; do
+                if [[ -d "$comp" ]] && [[ "$(basename "$comp" | tr '-' '_' | tr '[:lower:]' '[:upper:]')" == "$component_id" ]]; then
+                    component_dir="$comp"
+                    break 2
+                fi
+            done
+        done
+        
+        # Check for component-specific generator
+        if [[ -n "$component_dir" ]] && [[ -f "$component_dir/ai-devkit/generate-maven-settings.sh" ]]; then
+            # Use component's generator
+            "$component_dir/ai-devkit/generate-maven-settings.sh" "$yaml_data" "$output_file"
+            return $?
+        fi
+    fi
     
     {
         echo '<?xml version="1.0" encoding="UTF-8"?>'
@@ -345,6 +415,28 @@ generate_cargo_config_bash() {
     local yaml_data="$1"
     local output_file="$2"
     
+    # Check if component has its own cargo config generator
+    local component_id=$(yq_query "$yaml_data" '.component_id // ""')
+    if [[ -n "$component_id" ]]; then
+        # Find component directory
+        local component_dir=""
+        for type in languages build-deploy; do
+            for comp in components/$type/*; do
+                if [[ -d "$comp" ]] && [[ "$(basename "$comp" | tr '-' '_' | tr '[:lower:]' '[:upper:]')" == "$component_id" ]]; then
+                    component_dir="$comp"
+                    break 2
+                fi
+            done
+        done
+        
+        # Check for component-specific generator
+        if [[ -n "$component_dir" ]] && [[ -f "$component_dir/ai-devkit/generate-cargo-config.sh" ]]; then
+            # Use component's generator
+            "$component_dir/ai-devkit/generate-cargo-config.sh" "$yaml_data" "$output_file"
+            return $?
+        fi
+    fi
+    
     {
         echo "# Cargo configuration"
         
@@ -367,6 +459,28 @@ generate_cargo_config_bash() {
 generate_gradle_init_bash() {
     local yaml_data="$1"
     local output_file="$2"
+    
+    # Check if component has its own gradle init generator
+    local component_id=$(yq_query "$yaml_data" '.component_id // ""')
+    if [[ -n "$component_id" ]]; then
+        # Find component directory
+        local component_dir=""
+        for type in languages build-deploy; do
+            for comp in components/$type/*; do
+                if [[ -d "$comp" ]] && [[ "$(basename "$comp" | tr '-' '_' | tr '[:lower:]' '[:upper:]')" == "$component_id" ]]; then
+                    component_dir="$comp"
+                    break 2
+                fi
+            done
+        done
+        
+        # Check for component-specific generator
+        if [[ -n "$component_dir" ]] && [[ -f "$component_dir/ai-devkit/generate-gradle-init.sh" ]]; then
+            # Use component's generator
+            "$component_dir/ai-devkit/generate-gradle-init.sh" "$yaml_data" "$output_file"
+            return $?
+        fi
+    fi
     
     {
         echo "// Gradle init script for repository configuration"
@@ -396,10 +510,78 @@ generate_gradle_init_bash() {
     } > "$output_file"
 }
 
+# Generate .gemrc using bash
+generate_gem_config_bash() {
+    local yaml_data="$1"
+    local output_file="$2"
+    
+    # Check if component has its own gemrc generator
+    local component_id=$(yq_query "$yaml_data" '.component_id // ""')
+    if [[ -n "$component_id" ]]; then
+        # Find component directory
+        local component_dir=""
+        for type in languages build-deploy; do
+            for comp in components/$type/*; do
+                if [[ -d "$comp" ]] && [[ "$(basename "$comp" | tr '-' '_' | tr '[:lower:]' '[:upper:]')" == "$component_id" ]]; then
+                    component_dir="$comp"
+                    break 2
+                fi
+            done
+        done
+        
+        # Check for component-specific generator
+        if [[ -n "$component_dir" ]] && [[ -f "$component_dir/ai-devkit/generate-gemrc.sh" ]]; then
+            # Use component's generator
+            "$component_dir/ai-devkit/generate-gemrc.sh" "$yaml_data" "$output_file"
+            return $?
+        fi
+    fi
+    
+    # Fallback to generic gemrc generation
+    {
+        echo "---"
+        echo ":sources:"
+        
+        local repo_count=$(yq_count "$yaml_data" '.repositories')
+        if [[ "$repo_count" -gt 0 ]]; then
+            for (( i=0; i<repo_count; i++ )); do
+                local url=$(yq_query "$yaml_data" ".repositories[$i].url // \"\"")
+                if [[ -n "$url" ]] && [[ "$url" != "null" ]] && [[ "$url" != '""' ]]; then
+                    echo "  - $url"
+                fi
+            done
+        else
+            echo "  - https://rubygems.org/"
+        fi
+    } > "$output_file"
+}
+
 # Generate SBT repositories using bash
 generate_sbt_repositories_bash() {
     local yaml_data="$1"
     local output_file="$2"
+    
+    # Check if component has its own sbt repositories generator
+    local component_id=$(yq_query "$yaml_data" '.component_id // ""')
+    if [[ -n "$component_id" ]]; then
+        # Find component directory
+        local component_dir=""
+        for type in languages build-deploy; do
+            for comp in components/$type/*; do
+                if [[ -d "$comp" ]] && [[ "$(basename "$comp" | tr '-' '_' | tr '[:lower:]' '[:upper:]')" == "$component_id" ]]; then
+                    component_dir="$comp"
+                    break 2
+                fi
+            done
+        done
+        
+        # Check for component-specific generator
+        if [[ -n "$component_dir" ]] && [[ -f "$component_dir/ai-devkit/generate-sbt-repositories.sh" ]]; then
+            # Use component's generator
+            "$component_dir/ai-devkit/generate-sbt-repositories.sh" "$yaml_data" "$output_file"
+            return $?
+        fi
+    fi
     
     {
         echo "[repositories]"
@@ -503,6 +685,7 @@ EOF
         "cargo") output_file="$output_dir/cargo-config.toml" ;;
         "gradle") output_file="$output_dir/init.gradle" ;;
         "sbt") output_file="$output_dir/repositories" ;;
+        "gem") output_file="$output_dir/gemrc" ;;
     esac
     
     # Pass null as template_file since bash processor ignores it

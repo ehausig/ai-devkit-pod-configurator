@@ -1,3 +1,3 @@
 # Configuration metadata for ruby-system component
-# This component has no repository configuration
-configuration: {}
+configuration:
+  format: "gem"
