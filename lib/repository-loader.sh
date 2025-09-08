@@ -220,55 +220,6 @@ merge_repositories() {
     rm -f "$temp_defaults" "$temp_user" "$temp_merged"
 }
 
-# Function to resolve credentials for repositories
-resolve_repository_credentials() {
-    local repos_json="$1"
-    
-    if [[ -z "$repos_json" ]] || [[ "$repos_json" == "[]" ]]; then
-        echo "[]"
-        return 0
-    fi
-    
-    # Check if config file exists
-    if [[ ! -f "$CONFIG_FILE" ]]; then
-        echo "$repos_json"
-        return 0
-    fi
-    
-    # Process each repository and resolve auth references
-    local temp_file="/tmp/repos_with_creds_$$"
-    echo "$repos_json" > "$temp_file"
-    
-    # Get repository count
-    local repo_count=$(echo "$repos_json" | yq 'length' 2>/dev/null || echo "0")
-    
-    # Process each repository
-    local result="[]"
-    for (( i=0; i<repo_count; i++ )); do
-        local repo=$(echo "$repos_json" | yq ".[$i]" 2>/dev/null)
-        local auth_ref=$(echo "$repo" | yq '.auth // ""' 2>/dev/null)
-        
-        if [[ -n "$auth_ref" ]] && [[ "$auth_ref" != "null" ]] && [[ "$auth_ref" != '""' ]]; then
-            # Look up credentials
-            local cred=$(yq ".credentials[] | select(.id == \"$auth_ref\")" "$CONFIG_FILE" 2>/dev/null)
-            
-            if [[ -n "$cred" ]] && [[ "$cred" != "null" ]]; then
-                local username=$(echo "$cred" | yq '.username // ""' 2>/dev/null)
-                local password=$(echo "$cred" | yq '.password // ""' 2>/dev/null)
-                
-                # Add credentials to repository object
-                repo=$(echo "$repo" | yq ". + {\"username\": \"$username\", \"password\": \"$password\"}" 2>/dev/null)
-            fi
-        fi
-        
-        # Add to result
-        result=$(echo "$result" | yq ". + [$repo]" 2>/dev/null)
-    done
-    
-    rm -f "$temp_file"
-    echo "$result"
-}
-
 # Function to resolve all repositories for a component
 resolve_repositories() {
     local component_id="$1"
@@ -290,9 +241,6 @@ resolve_repositories() {
         echo "Loading default repositories for $component_id" >&2
     fi
     
-    # Merge repositories
-    local merged_repos=$(merge_repositories "$component_id" "$default_repos" "$user_repos" "$include_defaults")
-    
-    # Resolve credentials for merged repositories
-    resolve_repository_credentials "$merged_repos"
+    # Merge repositories (auth references will be resolved by component-specific generators)
+    merge_repositories "$component_id" "$default_repos" "$user_repos" "$include_defaults"
 }

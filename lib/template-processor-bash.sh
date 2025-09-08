@@ -227,29 +227,34 @@ generate_npm_config_bash() {
     local yaml_data="$1"
     local output_file="$2"
     
+    # Check if component has its own npmrc generator
+    local component_id=$(yq_query "$yaml_data" '.component_id // ""')
+    if [[ -n "$component_id" ]]; then
+        # Find component directory
+        local component_dir=""
+        for type in languages build-deploy; do
+            for comp in components/$type/*; do
+                if [[ -d "$comp" ]] && [[ "$(basename "$comp" | tr '-' '_' | tr '[:lower:]' '[:upper:]')" == "$component_id" ]]; then
+                    component_dir="$comp"
+                    break 2
+                fi
+            done
+        done
+        
+        # Check for component-specific generator
+        if [[ -n "$component_dir" ]] && [[ -f "$component_dir/ai-devkit/generate-npmrc.sh" ]]; then
+            # Use component's generator
+            "$component_dir/ai-devkit/generate-npmrc.sh" "$yaml_data" "$output_file"
+            return $?
+        fi
+    fi
+    
+    # Fallback to generic npmrc generation
     {
         local registry=$(yq_query "$yaml_data" '.repositories[0].url // ""')
-        local username=$(yq_query "$yaml_data" '.repositories[0].username // ""')
-        local password=$(yq_query "$yaml_data" '.repositories[0].password // ""')
         
         if [[ -n "$registry" ]] && [[ "$registry" != "null" ]] && [[ "$registry" != '""' ]]; then
             echo "registry=$registry"
-            
-            # If credentials exist, add authentication
-            if [[ -n "$username" ]] && [[ "$username" != "null" ]] && [[ "$username" != '""' ]] && \
-               [[ -n "$password" ]] && [[ "$password" != "null" ]] && [[ "$password" != '""' ]]; then
-                # Extract hostname from registry URL
-                local host=$(echo "$registry" | sed 's|^https*://||; s|/.*||')
-                
-                # Create base64 auth token
-                local auth_string="${username}:${password}"
-                local auth_token=$(echo -n "$auth_string" | base64 -w 0 2>/dev/null || echo -n "$auth_string" | base64)
-                
-                # Add npm auth configuration
-                echo "//${host}/:_auth=${auth_token}"
-                echo "//${host}/:always-auth=true"
-                echo "email=${username}@example.com"
-            fi
         else
             echo "# Using default npm registry"
             echo "registry=https://registry.npmjs.org/"
