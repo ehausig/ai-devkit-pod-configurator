@@ -453,8 +453,13 @@ EOF
 
 **Deploy & Validation:**
 ```bash
-# Select python-3.11 from UI and check warnings
-./build-and-deploy.sh 2>&1 | grep -i warning
+# Run build-and-deploy.sh interactively
+./build-and-deploy.sh
+# Select python-3.11 from the TUI menu when prompted
+# Complete the build process
+
+# After build completes, check the log file for warnings
+grep -i warning build-and-deploy.log
 # Expected: Warning about missing credential 'non-existent-id'
 ```
 
