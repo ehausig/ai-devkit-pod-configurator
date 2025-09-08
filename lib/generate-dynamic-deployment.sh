@@ -7,14 +7,6 @@ generate_dynamic_kubernetes_deployment() {
     local output_file="$1"
     local manifest_file="${2:-}"  # Optional manifest file to detect needed mounts
     
-    # Detect which root-level files need mounting
-    local need_npmrc=false
-    if [[ -f "$manifest_file" ]]; then
-        if grep -q '|/home/devuser/\.npmrc|' "$manifest_file" 2>/dev/null; then
-            need_npmrc=true
-        fi
-    fi
-    
     # Start with the deployment header including init container
     cat > "$output_file" << 'EOF'
 apiVersion: apps/v1
@@ -94,14 +86,26 @@ spec:
           subPath: .ai-devkit
 EOF
     
-    # Add .npmrc mount only if needed
-    if [[ "$need_npmrc" == "true" ]]; then
-        cat >> "$output_file" << 'EOF'
-        # Mount npmrc file (Node.js component selected)
+    # Add component-specific root-level mounts based on manifest
+    if [[ -f "$manifest_file" ]]; then
+        # Extract unique root-level files from manifest (files directly in /home/devuser/)
+        local root_files=$(grep '|/home/devuser/\.[^/]*|' "$manifest_file" 2>/dev/null | \
+                          awk -F'|' '{print $2}' | \
+                          grep -v '\.config/' | \
+                          grep -v '\.ai-devkit/' | \
+                          sort -u)
+        
+        if [[ -n "$root_files" ]]; then
+            echo "        # Component-specific root-level file mounts" >> "$output_file"
+            for file_path in $root_files; do
+                local file_name=$(basename "$file_path")
+                cat >> "$output_file" << EOF
         - name: init-home
-          mountPath: /home/devuser/.npmrc
-          subPath: .npmrc
+          mountPath: $file_path
+          subPath: $file_name
 EOF
+            done
+        fi
     fi
     
     # Continue with environment variables and resources
