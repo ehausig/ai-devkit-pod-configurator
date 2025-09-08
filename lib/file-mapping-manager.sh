@@ -397,7 +397,11 @@ EOF
         local key=$(echo "$rel_path" | tr '/' '-')
         
         echo "  $key: |" >> "$configmap_file"
-        sed 's/^/    /' "$file" >> "$configmap_file"
+        # Use a more robust method to indent file content
+        # This handles special characters and empty lines better
+        while IFS= read -r line || [[ -n "$line" ]]; do
+            printf '    %s\n' "$line" >> "$configmap_file"
+        done < "$file"
         
     done < <(find "$staging_dir" -type f -print0 2>/dev/null | sort -z)
     
