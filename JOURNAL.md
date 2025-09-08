@@ -512,4 +512,49 @@ The init container architecture refactor is **complete and successful**. All ide
 
 ---
 
+## 2025-09-08: Component Isolation and Test System Completion
+
+### Issues Resolved
+
+#### Component Isolation (Test 3.1)
+- **Problem**: Empty `.npmrc` file appeared when only Python was selected
+- **Solution**: Made deployment generator dynamically detect root-level files from manifest
+- **Implementation**: Generic manifest analysis without component-specific hardcoding
+
+#### Test Injection System (Test 3.2)
+- **Initial Issues**:
+  - Missing run-all.sh orchestrator
+  - Test files colliding due to same names
+  - ConfigMap generation failing after 5 files
+  - Only 2 of 11 test files appearing in container
+
+- **Solutions Applied**:
+  1. Created comprehensive run-all.sh orchestrator with colored output
+  2. Added component prefixes to test files during staging
+  3. Fixed ConfigMap generation to handle special characters
+  4. Removed duplicate test processing
+
+#### ConfigMap Generation Fix
+- **Root Cause**: `sed 's/^/    /'` failing on special characters ($, %, quotes)
+- **Solution**: Replaced with robust line-by-line printf processing
+- **Result**: All 14 files now properly included in ConfigMap
+
+### Final Test Results
+- **Test 3.1**: ✅ PASSED - Proper component isolation maintained
+- **Test 3.2**: ✅ PASSED - All 11 test files deployed and functional
+
+### Architecture Improvements
+1. **Dynamic Mount Detection**: Deployment generator discovers needed mounts from manifest
+2. **Test File Organization**: Component-prefixed naming prevents collisions
+3. **Robust YAML Generation**: Handles all special characters in scripts
+4. **Test Orchestration**: Automatic discovery and execution with formatted output
+
+### Key Lessons
+- Maintain strict component isolation - no hardcoded component knowledge in libraries
+- Handle special characters carefully in YAML generation
+- Use component prefixes to avoid file collisions in shared directories
+- Always test with multiple components to catch interaction issues
+
+---
+
 *This journal preserves key decisions and milestones for future reference.*
