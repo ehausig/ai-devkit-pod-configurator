@@ -641,7 +641,10 @@ CONFIG_FILE="$HOME/.ai-devkit/config.yaml"
 # Read configuration from YAML file using yq
 read_config() {
     local key="$1"
-    if [[ ! -f "$CONFIG_FILE" ]]; then
+    # Use original config file for container settings, or CONFIG_FILE if not in build context
+    local config_to_read="${ORIGINAL_CONFIG_FILE:-$CONFIG_FILE}"
+    
+    if [[ ! -f "$config_to_read" ]]; then
         return
     fi
     
@@ -653,7 +656,7 @@ read_config() {
     
     # Use jq syntax for kislyuk/yq to read the value
     # The // operator provides a default empty string if the key doesn't exist
-    local value=$(yq -r ".${key} // \"\"" "$CONFIG_FILE" 2>/dev/null)
+    local value=$(yq -r ".${key} // \"\"" "$config_to_read" 2>/dev/null)
     
     # Return the value if it's not null or empty
     if [[ -n "$value" ]] && [[ "$value" != "null" ]]; then
