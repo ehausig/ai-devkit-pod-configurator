@@ -148,12 +148,16 @@ get_user_repos() {
     echo "DEBUG: CONFIG_FILE exists: $(test -f "$CONFIG_FILE" && echo "yes" || echo "no")" >&2
     if [[ -f "$CONFIG_FILE" ]]; then
         echo "DEBUG: Config file size: $(wc -c < "$CONFIG_FILE") bytes" >&2
-        echo "DEBUG: Config content:" >&2
-        cat "$CONFIG_FILE" >&2
+        echo "DEBUG: Config first 100 chars (od -c):" >&2
+        head -c 100 "$CONFIG_FILE" | od -c >&2
+        echo "DEBUG: Config content via echo and cat:" >&2
+        echo "$(cat "$CONFIG_FILE")" >&2
         echo "DEBUG: --- End of config ---" >&2
         echo "DEBUG: Running yq query: .components[] | select(.id == \"$component_id\") | .repositories // []" >&2
         local result=$(yq -r ".components[] | select(.id == \"$component_id\") | .repositories // []" "$CONFIG_FILE" 2>&1)
         echo "DEBUG: yq result: $result" >&2
+        echo "DEBUG: Checking with different query - all component IDs:" >&2
+        yq -r ".components[].id // \"NONE\"" "$CONFIG_FILE" >&2
     fi
     yq -r ".components[] | select(.id == \"$component_id\") | .repositories // []" "$CONFIG_FILE" 2>/dev/null
 }
