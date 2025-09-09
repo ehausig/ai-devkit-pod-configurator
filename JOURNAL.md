@@ -621,4 +621,59 @@ Created comprehensive generators for all components:
 
 ---
 
+## 2025-09-09: Multi-Component Build System
+
+### Test 5.1: Large Component Set Build
+
+#### Issues Encountered and Fixed
+
+**Issue 1: CONFIG_FILE Path Corruption**
+- **Problem**: CONFIG_FILE was modified during component processing and never restored
+- **Impact**: Container build commands failed with "No container build command configured"
+- **Multiple Failed Attempts**:
+  1. First tried using ORIGINAL_CONFIG_FILE global variable
+  2. Then tried local variable restoration in generate_component_configuration
+  3. Both failed because multiple components were processed in sequence
+- **Final Solution**: Save and restore CONFIG_FILE at the generate_repository_configs level
+
+**Issue 2: inject_files Missing from Build Context**
+- **Problem**: Microsoft TUI Test component specified files to inject but they weren't in TEMP_DIR
+- **Error**: "failed to compute cache key: /tui-test.config.ts not found"
+- **Solution**: Copy inject_files from component directory to build context before Docker build
+
+**Issue 3: Test Component Selection**
+- **Problem**: Test 5.1 said "select ALL components" but some are mutually exclusive
+- **Solution**: Specified exact list of 10 compatible components for repeatability
+
+### Architecture Insights
+
+#### Build Process Flow
+1. User selects components via TUI
+2. generate_repository_configs() processes all components
+3. Each component's configuration is generated with staging config
+4. Files are copied to build context as needed
+5. CONFIG_FILE restored for container operations
+6. Docker build executes with all components
+
+#### Critical Path Discovery
+- CONFIG_FILE must remain consistent for container operations
+- Component processing needs isolated config context
+- inject_files require explicit staging to build context
+- File operations must complete before Dockerfile generation
+
+### Test Results
+- **Test 5.1**: ✅ PASSED - Successfully built with 10 components
+  - Build time: 5m44s
+  - Components: Go, Java, Kotlin, Maven, Node.js, Python, Ruby, Rust, Scala, TUI Test
+  - All services accessible (SSH, File Manager)
+
+### Key Lessons
+1. **Config Management**: Global state like CONFIG_FILE needs careful management across phases
+2. **Build Context**: All files referenced in Dockerfile must be explicitly staged
+3. **Test Specificity**: Tests should specify exact components for repeatability
+4. **Error Messages**: "No container build command" was misleading - real issue was CONFIG_FILE path
+5. **Component Dependencies**: inject_files create implicit dependencies on file staging
+
+---
+
 *This journal preserves key decisions and milestones for future reference.*
