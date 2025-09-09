@@ -557,4 +557,68 @@ The init container architecture refactor is **complete and successful**. All ide
 
 ---
 
+## 2025-09-09: Credential Management and Cross-Platform Compatibility
+
+### Issues Resolved
+
+#### Test 4.1: Authenticated Repository Access
+- **Problem**: Missing authentication in generated .npmrc files
+- **Root Cause**: No component-specific config generators for authentication
+- **Solution**: 
+  - Created component-specific generators for all 23 language/tool components
+  - Each generator handles its own authentication format (npm base64, pip embedded, maven XML, etc.)
+  - Maintained component isolation - no hardcoded component logic in lib files
+
+#### Test 4.2: Missing Credential Warnings
+- **Initial Issues**:
+  1. Config file content appeared empty during build
+  2. Component ID resolution failed for components with dots (python-3.11)
+  3. Container build command lost when CONFIG_FILE was overridden
+  
+- **Solutions Applied**:
+  1. **Config Availability**: Copy user config to staging directory before build
+  2. **Component ID Fix**: Fixed tr command to handle dots: `tr '-' '_' | tr '.' '_'`
+  3. **Config Preservation**: Save ORIGINAL_CONFIG_FILE for container commands
+  4. **Warning Generation**: Added warnings both to stderr and as comments in generated configs
+
+### Architecture Enhancements
+
+#### Component-Specific Config Generators
+Created comprehensive generators for all components:
+- **Node.js**: Base64 auth tokens in .npmrc
+- **Python**: Embedded credentials in index-url
+- **Java/Maven**: XML settings with server credentials
+- **Go**: GOPROXY with embedded auth
+- **Ruby**: API key in .gemrc
+- **Rust**: Token-based auth in cargo config
+- **Gradle/SBT/Scala**: Repository credentials
+
+#### Credential Resolution Flow
+1. User defines credentials in `~/.ai-devkit/config.yaml`
+2. Components reference credentials by ID
+3. Config copied to staging for build-time access
+4. Generators resolve credentials during build
+5. Warnings generated for missing references
+6. Build continues with partial configuration
+
+### Test Results
+- **Test 4.1**: ✅ PASSED - Proper authentication tokens in .npmrc
+- **Test 4.2**: ✅ PASSED - Warnings generated for missing credentials
+
+### Key Improvements
+1. **Complete Language Coverage**: All 23 components now support authentication
+2. **Graceful Degradation**: Missing credentials warn but don't fail
+3. **Component Isolation**: Each component manages its own auth format
+4. **Debug Visibility**: Enhanced logging shows credential resolution process
+5. **Config Accessibility**: Staging directory ensures config available during build
+
+### Lessons Learned
+- Component names with dots need special handling in bash string manipulation
+- Config file paths must be carefully managed during build vs runtime
+- Each package manager has unique authentication requirements
+- Warning visibility is crucial - output to both stderr and config comments
+- Test with actual missing credentials, not just missing config files
+
+---
+
 *This journal preserves key decisions and milestones for future reference.*
