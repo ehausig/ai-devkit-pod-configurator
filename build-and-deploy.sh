@@ -3565,9 +3565,11 @@ generate_repository_configs() {
                 local temp_gen_dir="$TEMP_DIR/config-gen/$component_id"
                 mkdir -p "$temp_gen_dir"
                 
+                echo "DEBUG: Calling generate_component_configuration for $component_id" >> "$LOG_FILE"
                 if generate_component_configuration "$component_dir" "$component_id" "$temp_gen_dir" 2>> "$LOG_FILE"; then
                     configs_generated+=("$component_id")
                     log "Generated configuration for $component_id"
+                    echo "DEBUG: Successfully generated configuration for $component_id" >> "$LOG_FILE"
                     
                     # Move generated files to staging with correct structure
                     local target_gen_dir="$staging_dir/generated/$component_id"

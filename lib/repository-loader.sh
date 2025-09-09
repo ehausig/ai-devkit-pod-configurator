@@ -233,8 +233,12 @@ resolve_repositories() {
     local include_defaults=$(get_include_defaults "$component_id")
     
     # Log what we're doing
+    echo "DEBUG: resolve_repositories for component_id=$component_id" >&2
     if [[ -n "$user_repos" ]] && [[ "$user_repos" != "[]" ]]; then
         echo "Loading user repositories for $component_id" >&2
+        echo "DEBUG: user_repos=$user_repos" >&2
+    else
+        echo "DEBUG: No user repositories found for $component_id" >&2
     fi
     
     if [[ "$include_defaults" == "true" ]] && [[ -n "$default_repos" ]] && [[ "$default_repos" != "[]" ]]; then
