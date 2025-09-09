@@ -3505,6 +3505,9 @@ EOF
 
 # Function to generate dynamic repository configurations for selected components
 generate_repository_configs() {
+    # Save original CONFIG_FILE to restore after component processing
+    local original_config_file="$CONFIG_FILE"
+    
     # We need to create the ConfigMap even if no components are selected
     # because the deployment references it
     local should_generate_configs=true
@@ -3625,6 +3628,10 @@ generate_repository_configs() {
     
     # ConfigMap files are created and will be applied during deployment phase
     log "ConfigMaps prepared with ${#configs_generated[@]} component(s)"
+    
+    # Restore original CONFIG_FILE after all component processing
+    export CONFIG_FILE="$original_config_file"
+    echo "Restored original CONFIG_FILE: $CONFIG_FILE" >> "$LOG_FILE"
 }
 
 # Function to extract inject_files from YAML using yq
