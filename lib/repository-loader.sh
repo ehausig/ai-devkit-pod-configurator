@@ -144,6 +144,13 @@ get_user_repos() {
     fi
     
     # Get repositories for this component from user config
+    echo "DEBUG: get_user_repos checking CONFIG_FILE=$CONFIG_FILE for component_id=$component_id" >&2
+    echo "DEBUG: CONFIG_FILE exists: $(test -f "$CONFIG_FILE" && echo "yes" || echo "no")" >&2
+    if [[ -f "$CONFIG_FILE" ]]; then
+        echo "DEBUG: Config content:" >&2
+        cat "$CONFIG_FILE" | head -20 >&2
+        echo "DEBUG: Running yq query: .components[] | select(.id == \"$component_id\") | .repositories // []" >&2
+    fi
     yq -r ".components[] | select(.id == \"$component_id\") | .repositories // []" "$CONFIG_FILE" 2>/dev/null
 }
 
