@@ -3830,6 +3830,22 @@ create_custom_dockerfile() {
         # Extract inject_files directives
         local inject_cmds=$(extract_inject_files_from_yaml "$yaml_file")
         if [[ -n "$inject_cmds" ]]; then
+            # Copy required files to build context
+            local component_dir="${yaml_file%.yaml}"
+            local count=$(yq_universal '.installation.inject_files | length' "$yaml_file")
+            for ((i=0; i<count; i++)); do
+                local source=$(yq_universal ".installation.inject_files[$i].source" "$yaml_file")
+                if [[ "$source" != "null" ]] && [[ -n "$source" ]]; then
+                    # Check if file exists in component directory
+                    if [[ -f "$component_dir/$source" ]]; then
+                        cp "$component_dir/$source" "$TEMP_DIR/$source"
+                        log "Copied $source to build context for $component_name"
+                    else
+                        warning "File $source not found in $component_dir for $component_name"
+                    fi
+                fi
+            done
+            
             if [[ -n "$inject_files_content" ]]; then
                 inject_files_content+=$NL
             fi
