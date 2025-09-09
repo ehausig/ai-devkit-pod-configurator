@@ -467,8 +467,8 @@ grep -i warning build-and-deploy.log
 
 ## Section 5: Build System Tests
 
-### Test 5.1: Clean Build with All Components
-**Objective:** System builds successfully with all components
+### Test 5.1: Clean Build with Multiple Compatible Components
+**Objective:** System builds successfully with a large set of compatible components
 
 **Setup:**
 ```bash
@@ -483,7 +483,18 @@ container:
   runtime_import: "direct"
 EOF
 
-# Select ALL components from the interactive UI
+# Select these specific compatible components from the interactive UI:
+# - Go 1.22
+# - Java 21 (OpenJDK)  
+# - Kotlin
+# - Node.js 22.x
+# - Python 3.11 (Official)
+# - Ruby 3.3 (rbenv)
+# - Rust (Stable Channel)
+# - Scala 3
+# - Maven (Java build tool)
+# - Microsoft TUI Test
+
 ./build-and-deploy.sh
 ```
 

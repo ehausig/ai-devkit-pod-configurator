@@ -617,9 +617,10 @@ generate_component_configuration() {
     echo "Processing component: $component_id" >&2
     
     # If we're in a build context (TEMP_DIR is set), use the staging config
-    # But save the original CONFIG_FILE for container commands
+    # But save the original CONFIG_FILE for restoration later
+    local original_config=""
     if [[ -n "$TEMP_DIR" ]] && [[ -f "$TEMP_DIR/staging/.ai-devkit/config.yaml" ]]; then
-        export ORIGINAL_CONFIG_FILE="${CONFIG_FILE}"
+        original_config="${CONFIG_FILE}"
         export CONFIG_FILE="$TEMP_DIR/staging/.ai-devkit/config.yaml"
         echo "Using staging config file: $CONFIG_FILE" >&2
     fi
@@ -698,6 +699,12 @@ EOF
     
     # Pass null as template_file since bash processor ignores it
     process_template_bash "/dev/null" "$template_data" "$output_file"
+    
+    # Restore original CONFIG_FILE if we changed it
+    if [[ -n "$original_config" ]]; then
+        export CONFIG_FILE="$original_config"
+        echo "Restored original config file: $CONFIG_FILE" >&2
+    fi
     
     return 0
 }
