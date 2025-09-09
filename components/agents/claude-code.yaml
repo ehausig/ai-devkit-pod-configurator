@@ -152,11 +152,14 @@ entrypoint_setup: |
   mkdir -p /home/devuser/.claude/hooks
   mkdir -p /home/devuser/.claude/scripts
   mkdir -p /home/devuser/.claude/data
+  mkdir -p /home/devuser/.claude/plugins
   mkdir -p /home/devuser/workspace/.claude
   
-  # Ensure data directory has proper permissions
+  # Ensure data and plugins directories have proper permissions
   chmod 755 /home/devuser/.claude/data
+  chmod 755 /home/devuser/.claude/plugins
   chown devuser:devuser /home/devuser/.claude/data
+  chown devuser:devuser /home/devuser/.claude/plugins
 
   cp /tmp/CLAUDE.md /home/devuser/.claude/CLAUDE.md
   
@@ -202,3 +205,7 @@ entrypoint_setup: |
       cp /tmp/hooks/*.sh /home/devuser/.claude/hooks/
       chmod +x /home/devuser/.claude/hooks/*.sh
   fi
+  
+  # Ensure entire .claude directory has proper ownership
+  chown -R devuser:devuser /home/devuser/.claude
+  chown -R devuser:devuser /home/devuser/workspace/.claude
