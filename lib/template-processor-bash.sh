@@ -198,7 +198,7 @@ generate_pip_config_bash() {
         local component_dir=""
         for type in languages build-deploy; do
             for comp in components/$type/*; do
-                if [[ -d "$comp" ]] && [[ "$(basename "$comp" | tr '-' '_' | tr '[:lower:]' '[:upper:]')" == "$component_id" ]]; then
+                if [[ -d "$comp" ]] && [[ "$(basename "$comp" | tr '-' '_' | tr '.' '_' | tr '[:lower:]' '[:upper:]')" == "$component_id" ]]; then
                     component_dir="$comp"
                     break 2
                 fi
@@ -260,7 +260,7 @@ generate_npm_config_bash() {
         local component_dir=""
         for type in languages build-deploy; do
             for comp in components/$type/*; do
-                if [[ -d "$comp" ]] && [[ "$(basename "$comp" | tr '-' '_' | tr '[:lower:]' '[:upper:]')" == "$component_id" ]]; then
+                if [[ -d "$comp" ]] && [[ "$(basename "$comp" | tr '-' '_' | tr '.' '_' | tr '[:lower:]' '[:upper:]')" == "$component_id" ]]; then
                     component_dir="$comp"
                     break 2
                 fi
@@ -300,7 +300,7 @@ generate_go_env_bash() {
         local component_dir=""
         for type in languages build-deploy; do
             for comp in components/$type/*; do
-                if [[ -d "$comp" ]] && [[ "$(basename "$comp" | tr '-' '_' | tr '[:lower:]' '[:upper:]')" == "$component_id" ]]; then
+                if [[ -d "$comp" ]] && [[ "$(basename "$comp" | tr '-' '_' | tr '.' '_' | tr '[:lower:]' '[:upper:]')" == "$component_id" ]]; then
                     component_dir="$comp"
                     break 2
                 fi
@@ -358,7 +358,7 @@ generate_maven_settings_bash() {
         local component_dir=""
         for type in languages build-deploy; do
             for comp in components/$type/*; do
-                if [[ -d "$comp" ]] && [[ "$(basename "$comp" | tr '-' '_' | tr '[:lower:]' '[:upper:]')" == "$component_id" ]]; then
+                if [[ -d "$comp" ]] && [[ "$(basename "$comp" | tr '-' '_' | tr '.' '_' | tr '[:lower:]' '[:upper:]')" == "$component_id" ]]; then
                     component_dir="$comp"
                     break 2
                 fi
@@ -422,7 +422,7 @@ generate_cargo_config_bash() {
         local component_dir=""
         for type in languages build-deploy; do
             for comp in components/$type/*; do
-                if [[ -d "$comp" ]] && [[ "$(basename "$comp" | tr '-' '_' | tr '[:lower:]' '[:upper:]')" == "$component_id" ]]; then
+                if [[ -d "$comp" ]] && [[ "$(basename "$comp" | tr '-' '_' | tr '.' '_' | tr '[:lower:]' '[:upper:]')" == "$component_id" ]]; then
                     component_dir="$comp"
                     break 2
                 fi
@@ -467,7 +467,7 @@ generate_gradle_init_bash() {
         local component_dir=""
         for type in languages build-deploy; do
             for comp in components/$type/*; do
-                if [[ -d "$comp" ]] && [[ "$(basename "$comp" | tr '-' '_' | tr '[:lower:]' '[:upper:]')" == "$component_id" ]]; then
+                if [[ -d "$comp" ]] && [[ "$(basename "$comp" | tr '-' '_' | tr '.' '_' | tr '[:lower:]' '[:upper:]')" == "$component_id" ]]; then
                     component_dir="$comp"
                     break 2
                 fi
@@ -522,7 +522,7 @@ generate_gem_config_bash() {
         local component_dir=""
         for type in languages build-deploy; do
             for comp in components/$type/*; do
-                if [[ -d "$comp" ]] && [[ "$(basename "$comp" | tr '-' '_' | tr '[:lower:]' '[:upper:]')" == "$component_id" ]]; then
+                if [[ -d "$comp" ]] && [[ "$(basename "$comp" | tr '-' '_' | tr '.' '_' | tr '[:lower:]' '[:upper:]')" == "$component_id" ]]; then
                     component_dir="$comp"
                     break 2
                 fi
@@ -568,7 +568,7 @@ generate_sbt_repositories_bash() {
         local component_dir=""
         for type in languages build-deploy; do
             for comp in components/$type/*; do
-                if [[ -d "$comp" ]] && [[ "$(basename "$comp" | tr '-' '_' | tr '[:lower:]' '[:upper:]')" == "$component_id" ]]; then
+                if [[ -d "$comp" ]] && [[ "$(basename "$comp" | tr '-' '_' | tr '.' '_' | tr '[:lower:]' '[:upper:]')" == "$component_id" ]]; then
                     component_dir="$comp"
                     break 2
                 fi

@@ -112,10 +112,12 @@ fi
                     echo "index-url = $index_url"
                 else
                     echo "# WARNING: Credential reference '$auth_ref' not found in config" >&2
+                    echo "# WARNING: Credential reference '$auth_ref' not found in config"
                     echo "index-url = $registry"
                 fi
             else
                 echo "# WARNING: Config file not found, cannot resolve auth reference '$auth_ref'" >&2
+                echo "# WARNING: Config file not found, cannot resolve auth reference '$auth_ref'"
                 echo "index-url = $registry"
             fi
         else
