@@ -150,16 +150,36 @@ get_user_repos() {
         echo "DEBUG: Config file size: $(wc -c < "$CONFIG_FILE") bytes" >&2
         echo "DEBUG: Config first 100 chars (od -c):" >&2
         head -c 100 "$CONFIG_FILE" | od -c >&2
-        echo "DEBUG: Config content via echo and cat:" >&2
-        echo "$(cat "$CONFIG_FILE")" >&2
+        echo "DEBUG: Config content via direct cat:" >&2
+        cat "$CONFIG_FILE" >&2
         echo "DEBUG: --- End of config ---" >&2
-        echo "DEBUG: Running yq query: .components[] | select(.id == \"$component_id\") | .repositories // []" >&2
-        local result=$(yq -r ".components[] | select(.id == \"$component_id\") | .repositories // []" "$CONFIG_FILE" 2>&1)
-        echo "DEBUG: yq result: $result" >&2
-        echo "DEBUG: Checking with different query - all component IDs:" >&2
-        yq -r ".components[].id // \"NONE\"" "$CONFIG_FILE" >&2
+        
+        # Check which yq version we have and use appropriate syntax
+        local yq_path=$(command -v yq 2>/dev/null)
+        if [[ -n "$yq_path" ]] && head -1 "$yq_path" 2>/dev/null | grep -q "python"; then
+            echo "DEBUG: Using kislyuk/yq (Python) syntax" >&2
+            # kislyuk/yq - uses jq syntax
+            echo "DEBUG: Running query: .components[] | select(.id == \"$component_id\") | .repositories // []" >&2
+            local result=$(cat "$CONFIG_FILE" | yq -r ".components[] | select(.id == \"$component_id\") | .repositories // []" 2>&1)
+            echo "DEBUG: yq result: $result" >&2
+            echo "DEBUG: Checking with different query - all component IDs:" >&2
+            cat "$CONFIG_FILE" | yq -r ".components[].id // \"NONE\"" >&2
+            # Return the actual result
+            cat "$CONFIG_FILE" | yq -r ".components[] | select(.id == \"$component_id\") | .repositories // []" 2>/dev/null
+        else
+            echo "DEBUG: Using mikefarah/yq (Go) syntax" >&2
+            # mikefarah/yq - uses eval syntax
+            echo "DEBUG: Running query: .components[] | select(.id == \"$component_id\") | .repositories // []" >&2
+            local result=$(yq eval ".components[] | select(.id == \"$component_id\") | .repositories // []" "$CONFIG_FILE" 2>&1)
+            echo "DEBUG: yq result: $result" >&2
+            echo "DEBUG: Checking with different query - all component IDs:" >&2
+            yq eval ".components[].id // \"NONE\"" "$CONFIG_FILE" >&2
+            # Return the actual result
+            yq eval ".components[] | select(.id == \"$component_id\") | .repositories // []" "$CONFIG_FILE" 2>/dev/null
+        fi
+    else
+        echo "[]"
     fi
-    yq -r ".components[] | select(.id == \"$component_id\") | .repositories // []" "$CONFIG_FILE" 2>/dev/null
 }
 
 # Function to check if user wants to include default repos
@@ -173,7 +193,15 @@ get_include_defaults() {
     
     # Check include_default_repos flag (default: true)
     # Note: yq returns "true" or "false" as strings for boolean values
-    local include=$(yq -r ".components[] | select(.id == \"$component_id\") | .include_default_repos" "$CONFIG_FILE" 2>/dev/null)
+    local yq_path=$(command -v yq 2>/dev/null)
+    local include
+    if [[ -n "$yq_path" ]] && head -1 "$yq_path" 2>/dev/null | grep -q "python"; then
+        # kislyuk/yq
+        include=$(cat "$CONFIG_FILE" | yq -r ".components[] | select(.id == \"$component_id\") | .include_default_repos" 2>/dev/null)
+    else
+        # mikefarah/yq
+        include=$(yq eval ".components[] | select(.id == \"$component_id\") | .include_default_repos" "$CONFIG_FILE" 2>/dev/null)
+    fi
     
     if [[ -z "$include" ]] || [[ "$include" == "null" ]]; then
         echo "true"  # Default if not specified
@@ -207,25 +235,51 @@ merge_repositories() {
     
     # Add default repositories if requested
     if [[ "$include_defaults" == "true" ]]; then
-        # Get list of user repo names to check for conflicts
-        local user_repo_names=$(echo "$user_repos" | yq -r '.[].name // ""' 2>/dev/null)
+        # Check which yq version we have
+        local yq_path=$(command -v yq 2>/dev/null)
+        local user_repo_names
         
-        # Process each default repo
-        echo "$default_repos" | yq -r '.[] | @json' 2>/dev/null | while IFS= read -r repo_json; do
-            if [[ -n "$repo_json" ]] && [[ "$repo_json" != "null" ]]; then
-                local repo_name=$(echo "$repo_json" | yq -r '.name // ""')
-                
-                # Check if this name conflicts with user repos
-                if echo "$user_repo_names" | grep -q "^${repo_name}$"; then
-                    echo "WARNING: Skipping default repo '$repo_name' - overridden by user config" >&2
-                else
-                    # Add to merged list
-                    local current=$(cat "$temp_merged")
-                    echo "$current" | yq ". + [$repo_json]" > "$temp_merged.new"
-                    mv "$temp_merged.new" "$temp_merged"
+        if [[ -n "$yq_path" ]] && head -1 "$yq_path" 2>/dev/null | grep -q "python"; then
+            # kislyuk/yq
+            user_repo_names=$(echo "$user_repos" | yq -r '.[].name // ""' 2>/dev/null)
+            
+            # Process each default repo
+            echo "$default_repos" | yq -r '.[] | @json' 2>/dev/null | while IFS= read -r repo_json; do
+                if [[ -n "$repo_json" ]] && [[ "$repo_json" != "null" ]]; then
+                    local repo_name=$(echo "$repo_json" | yq -r '.name // ""')
+                    
+                    # Check if this name conflicts with user repos
+                    if echo "$user_repo_names" | grep -q "^${repo_name}$"; then
+                        echo "WARNING: Skipping default repo '$repo_name' - overridden by user config" >&2
+                    else
+                        # Add to merged list
+                        local current=$(cat "$temp_merged")
+                        echo "$current" | yq ". + [$repo_json]" > "$temp_merged.new"
+                        mv "$temp_merged.new" "$temp_merged"
+                    fi
                 fi
-            fi
-        done
+            done
+        else
+            # mikefarah/yq
+            user_repo_names=$(echo "$user_repos" | yq eval '.[].name // ""' - 2>/dev/null)
+            
+            # Process each default repo
+            echo "$default_repos" | yq eval '.[] | @json' - 2>/dev/null | while IFS= read -r repo_json; do
+                if [[ -n "$repo_json" ]] && [[ "$repo_json" != "null" ]]; then
+                    local repo_name=$(echo "$repo_json" | yq eval '.name // ""' -)
+                    
+                    # Check if this name conflicts with user repos
+                    if echo "$user_repo_names" | grep -q "^${repo_name}$"; then
+                        echo "WARNING: Skipping default repo '$repo_name' - overridden by user config" >&2
+                    else
+                        # Add to merged list
+                        local current=$(cat "$temp_merged")
+                        echo "$current" | yq eval ". + [$repo_json]" - > "$temp_merged.new"
+                        mv "$temp_merged.new" "$temp_merged"
+                    fi
+                fi
+            done
+        fi
     fi
     
     # Output final merged list

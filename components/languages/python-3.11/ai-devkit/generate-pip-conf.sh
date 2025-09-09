@@ -52,10 +52,11 @@ fi
     if [[ -n "$registry" ]] && [[ "$registry" != "null" ]] && [[ "$registry" != '""' ]]; then
         # If auth reference exists, resolve credentials from config file
         if [[ -n "$auth_ref" ]] && [[ "$auth_ref" != "null" ]] && [[ "$auth_ref" != '""' ]]; then
-            # Config file is always at ~/.ai-devkit/config.yaml in runtime
-            CONFIG_FILE="$HOME/.ai-devkit/config.yaml"
+            # Use environment CONFIG_FILE if set, otherwise default to user home
+            CONFIG_FILE="${CONFIG_FILE:-$HOME/.ai-devkit/config.yaml}"
             
             if [[ -f "$CONFIG_FILE" ]]; then
+                echo "# DEBUG: Looking for credentials with id '$auth_ref' in $CONFIG_FILE" >&2
                 # Find matching credential
                 username=""
                 password=""

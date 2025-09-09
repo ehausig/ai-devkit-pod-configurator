@@ -3537,6 +3537,13 @@ generate_repository_configs() {
     local staging_dir="$TEMP_DIR/staging"
     mkdir -p "$staging_dir"
     
+    # Copy user config file to staging directory for use during build
+    if [[ -f "$CONFIG_FILE" ]]; then
+        mkdir -p "$staging_dir/.ai-devkit"
+        cp "$CONFIG_FILE" "$staging_dir/.ai-devkit/config.yaml"
+        echo "Copied user config to staging directory" >> "$LOG_FILE"
+    fi
+    
     # Create manifest file for init container
     local manifest_file="$staging_dir/manifest.txt"
     echo "# AI DevKit Init Container Manifest" > "$manifest_file"

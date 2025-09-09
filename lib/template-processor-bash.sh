@@ -616,6 +616,12 @@ generate_component_configuration() {
     
     echo "Processing component: $component_id" >&2
     
+    # If we're in a build context (TEMP_DIR is set), use the staging config
+    if [[ -n "$TEMP_DIR" ]] && [[ -f "$TEMP_DIR/staging/.ai-devkit/config.yaml" ]]; then
+        export CONFIG_FILE="$TEMP_DIR/staging/.ai-devkit/config.yaml"
+        echo "Using staging config file: $CONFIG_FILE" >&2
+    fi
+    
     # Check for component configuration
     local config_file="$component_dir/ai-devkit/config.yaml"
     if [[ ! -f "$config_file" ]]; then
