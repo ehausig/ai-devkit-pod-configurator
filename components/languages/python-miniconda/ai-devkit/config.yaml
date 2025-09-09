@@ -1,3 +1,6 @@
 # Configuration metadata for python-miniconda component
-# This component has no repository configuration
-configuration: {}
+configuration:
+  templates:
+    - template: pip.conf
+      output_file: pip.conf
+      repository_format: pypi

@@ -1,3 +1,6 @@
 # Configuration metadata for rust-nightly component
-# This component has no repository configuration
-configuration: {}
+configuration:
+  templates:
+    - template: cargo-config.toml
+      output_file: cargo-config.toml
+      repository_format: cargo

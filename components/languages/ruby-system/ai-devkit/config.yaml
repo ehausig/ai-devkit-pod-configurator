@@ -1,3 +1,6 @@
 # Configuration metadata for ruby-system component
 configuration:
-  format: "gem"
+  templates:
+    - template: .gemrc
+      output_file: .gemrc
+      repository_format: gem
