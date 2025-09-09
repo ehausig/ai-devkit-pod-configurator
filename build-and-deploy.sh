@@ -3565,7 +3565,7 @@ generate_repository_configs() {
                 local temp_gen_dir="$TEMP_DIR/config-gen/$component_id"
                 mkdir -p "$temp_gen_dir"
                 
-                if generate_component_configuration "$component_dir" "$component_id" "$temp_gen_dir"; then
+                if generate_component_configuration "$component_dir" "$component_id" "$temp_gen_dir" 2>> "$LOG_FILE"; then
                     configs_generated+=("$component_id")
                     log "Generated configuration for $component_id"
                     
