@@ -443,7 +443,7 @@ container:
   runtime_import: "direct"
 
 components:
-  - id: "python-3.11"
+  - id: "PYTHON_3_11"
     repositories:
       - name: "private"
         url: "https://private.com/simple"
