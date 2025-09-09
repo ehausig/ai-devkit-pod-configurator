@@ -1,3 +1,6 @@
-# File mapping specifications - auto-migrated from volume-mounts.yaml
-# This replaces volume-mounts.yaml in the new init container architecture
+# File mapping specifications for Ruby component
 files:
+  # Generated gem configuration
+  - source: generated/.gemrc
+    dest: /home/devuser/.gemrc
+    mode: "0644"

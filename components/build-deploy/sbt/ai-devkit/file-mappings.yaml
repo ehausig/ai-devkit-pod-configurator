@@ -1,3 +1,6 @@
-# File mapping specifications - auto-migrated from volume-mounts.yaml
-# This replaces volume-mounts.yaml in the new init container architecture
+# File mapping specifications for SBT
 files:
+  # Generated SBT repositories
+  - source: generated/repositories
+    dest: /home/devuser/.sbt/repositories
+    mode: "0644"

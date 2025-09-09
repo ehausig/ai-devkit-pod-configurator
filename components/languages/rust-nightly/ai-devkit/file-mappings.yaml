@@ -1,3 +1,6 @@
-# File mapping specifications - auto-migrated from volume-mounts.yaml
-# This replaces volume-mounts.yaml in the new init container architecture
+# File mapping specifications for Rust component
 files:
+  # Generated cargo configuration
+  - source: generated/cargo-config.toml
+    dest: /home/devuser/.cargo/config.toml
+    mode: "0644"

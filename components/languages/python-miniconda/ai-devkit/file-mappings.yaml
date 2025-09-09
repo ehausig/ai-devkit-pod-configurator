@@ -1,3 +1,6 @@
-# File mapping specifications - auto-migrated from volume-mounts.yaml
-# This replaces volume-mounts.yaml in the new init container architecture
+# File mapping specifications for Python component
 files:
+  # Generated pip configuration
+  - source: generated/pip.conf
+    dest: /home/devuser/.config/pip/pip.conf
+    mode: "0644"
