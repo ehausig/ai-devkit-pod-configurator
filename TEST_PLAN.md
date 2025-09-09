@@ -472,6 +472,17 @@ grep -i warning build-and-deploy.log
 
 **Setup:**
 ```bash
+# Clean up any previous deployments
+kubectl delete namespace ai-devkit --ignore-not-found=true
+
+# Create config with minimal settings
+cat > ~/.ai-devkit/config.yaml <<EOF
+container:
+  build_command: "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
+  runtime: "k3s"
+  runtime_import: "direct"
+EOF
+
 # Select ALL components from the interactive UI
 ./build-and-deploy.sh
 ```
@@ -495,6 +506,17 @@ kubectl exec -n ai-devkit $POD -- rustc --version
 
 **Setup:**
 ```bash
+# Clean up any previous deployments
+kubectl delete namespace ai-devkit --ignore-not-found=true
+
+# Create config
+cat > ~/.ai-devkit/config.yaml <<EOF
+container:
+  build_command: "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
+  runtime: "k3s"
+  runtime_import: "direct"
+EOF
+
 # First build
 ./build-and-deploy.sh --components "PYTHON_3_11"
 
@@ -517,21 +539,36 @@ kubectl exec -n ai-devkit $POD -- rustc --version
 **Objective:** System works with k3s, docker, colima, minikube
 
 **Setups:**
-```yaml
-# K3s (primary test environment)
+```bash
+# Clean up any previous deployments
+kubectl delete namespace ai-devkit --ignore-not-found=true
+
+# Test with K3s (primary test environment)
+cat > ~/.ai-devkit/config.yaml <<EOF
 container:
   build_command: "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
   runtime: "k3s"
+  runtime_import: "direct"
+EOF
+./build-and-deploy.sh --components "PYTHON_3_11"
 
-# Docker
+# Test with Docker
+cat > ~/.ai-devkit/config.yaml <<EOF
 container:
   build_command: "docker"
   runtime: "docker"
+  runtime_import: "direct"
+EOF
+./build-and-deploy.sh --components "PYTHON_3_11"
 
-# Colima
+# Test with Colima
+cat > ~/.ai-devkit/config.yaml <<EOF
 container:
   build_command: "docker"
   runtime: "colima"
+  runtime_import: "kubectl"
+EOF
+./build-and-deploy.sh --components "PYTHON_3_11"
 ```
 
 **Validation:**
@@ -550,8 +587,22 @@ Each runtime should successfully:
 
 **Setup:**
 ```bash
-# Try to select an invalid component (manual test)
-./build-and-deploy.sh
+# Clean up any previous deployments
+kubectl delete namespace ai-devkit --ignore-not-found=true
+
+# Create config with invalid component
+cat > ~/.ai-devkit/config.yaml <<EOF
+container:
+  build_command: "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
+  runtime: "k3s"
+  runtime_import: "direct"
+
+components:
+  - id: "INVALID_COMPONENT"
+EOF
+
+# Try to build (should handle gracefully)
+./build-and-deploy.sh --skip-ui
 ```
 
 **Validation:**
@@ -564,12 +615,25 @@ Each runtime should successfully:
 **Objective:** System detects and reports config errors
 
 **Setup:**
-```yaml
+```bash
+# Clean up any previous deployments
+kubectl delete namespace ai-devkit --ignore-not-found=true
+
+# Create malformed config (missing URL in repository)
+cat > ~/.ai-devkit/config.yaml <<EOF
+container:
+  build_command: "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
+  runtime: "k3s"
+  runtime_import: "direct"
+
 components:
   - id: "PYTHON_3_11"
     repositories:
       - name: "bad-repo"
-        # Missing URL
+        # Missing URL - should be handled gracefully
+EOF
+
+./build-and-deploy.sh --components "PYTHON_3_11"
 ```
 
 **Validation:**
@@ -586,17 +650,30 @@ components:
 **Objective:** Old configs are properly migrated
 
 **Setup:**
-```yaml
-# Old format with nexus section
+```bash
+# Create old format config with nexus section
+cat > ~/.ai-devkit/config.yaml <<EOF
+container:
+  build_command: "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
+  runtime: "k3s"
+  runtime_import: "direct"
+
 nexus:
   enabled: true
   host: "nexus.example.com"
+  username: "user"
+  password: "pass"
+EOF
+
+# Run migration
+./scripts/migrate-config.sh
 ```
 
 **Validation:**
 ```bash
-./scripts/migrate-config.sh
-# Expected: Config converted to new format
+# Check migrated config
+cat ~/.ai-devkit/config.yaml
+# Expected: Config converted to new format with repositories section
 ```
 
 ---
@@ -608,6 +685,17 @@ nexus:
 
 **Setup:**
 ```bash
+# Clean up any previous deployments
+kubectl delete namespace ai-devkit --ignore-not-found=true
+
+# Create config with basic settings
+cat > ~/.ai-devkit/config.yaml <<EOF
+container:
+  build_command: "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
+  runtime: "k3s"
+  runtime_import: "direct"
+EOF
+
 # Select 10+ components from the interactive UI:
 # python-3.11, nodejs-20, go-1.22, java-17-openjdk, rust-stable,
 # ruby-3.3, scala-3, kotlin, maven, gradle
@@ -627,14 +715,36 @@ nexus:
 ### Test 10.1: End-to-End Development Workflow
 **Objective:** Complete development cycle works
 
+**Setup:**
+```bash
+# Clean up any previous deployments
+kubectl delete namespace ai-devkit --ignore-not-found=true
+
+# Configure with Python repository
+cat > ~/.ai-devkit/config.yaml <<EOF
+container:
+  build_command: "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
+  runtime: "k3s"
+  runtime_import: "direct"
+
+components:
+  - id: "PYTHON_3_11"
+    repositories:
+      - name: "pypi"
+        url: "https://pypi.org/simple"
+EOF
+
+# Build and deploy
+./build-and-deploy.sh --components "PYTHON_3_11"
+```
+
 **Steps:**
-1. Configure repositories
-2. Build and deploy
-3. Connect to container
-4. Create Python project
-5. Install dependencies
-6. Run tests
-7. Build project
+1. Connect to container: `ssh devuser@localhost -p 2222`
+2. Create Python project: `mkdir myproject && cd myproject`
+3. Create virtual env: `python3.11 -m venv venv && source venv/bin/activate`
+4. Install dependencies: `pip install requests pytest`
+5. Run tests: `pytest`
+6. Build project: `python setup.py build`
 
 **Validation:**
 All steps complete successfully with configured repositories
@@ -644,9 +754,23 @@ All steps complete successfully with configured repositories
 
 **Setup:**
 ```bash
-# Note: Non-interactive mode may need pre-selection or config file
-# This test may need adjustment based on implementation
-./build-and-deploy.sh --no-select
+# Clean up any previous deployments
+kubectl delete namespace ai-devkit --ignore-not-found=true
+
+# Create config with component selection for non-interactive mode
+cat > ~/.ai-devkit/config.yaml <<EOF
+container:
+  build_command: "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
+  runtime: "k3s"
+  runtime_import: "direct"
+
+components:
+  - id: "PYTHON_3_11"
+  - id: "NODEJS_20"
+EOF
+
+# Run in non-interactive mode (skip UI)
+./build-and-deploy.sh --skip-ui
 ```
 
 **Validation:**
