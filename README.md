@@ -325,17 +325,17 @@ The AI DevKit includes a smart cleanup script that automatically detects your co
 - Build failures
 - Slow performance
 
-**The Solution**: The `cleanup-runtime.sh` script provides cross-platform cleanup:
+**The Solution**: The `scripts/cleanup-runtime.sh` script provides cross-platform cleanup:
 
 ```bash
 # Check what can be cleaned (dry run) - works on any runtime
-./cleanup-runtime.sh --check
+./scripts/cleanup-runtime.sh --check
 
 # Clean up disk space with runtime detection
-./cleanup-runtime.sh
+./scripts/cleanup-runtime.sh
 
 # Force cleanup without prompts
-./cleanup-runtime.sh --force
+./scripts/cleanup-runtime.sh --force
 ```
 
 **Runtime-Specific Features**:
@@ -347,10 +347,10 @@ The AI DevKit includes a smart cleanup script that automatically detects your co
 **Advanced Options**:
 ```bash
 # Colima-specific overlay2 cleanup (use with caution)
-./cleanup-runtime.sh --overlay2
+./scripts/cleanup-runtime.sh --overlay2
 
 # Safe mode (skip risky operations)
-./cleanup-runtime.sh --safe
+./scripts/cleanup-runtime.sh --safe
 ```
 
 **⚠️ CRITICAL WARNINGS**:
@@ -524,7 +524,7 @@ For maintainers, see the [Maintainer Guide](docs/maintainer.md) for release proc
 1. **Permission Denied**: Make scripts executable with `chmod +x *.sh`
 2. **Kubernetes Connection**: Ensure your cluster is running and `kubectl` is configured
 3. **Build Failures**: Check `build-and-deploy.log` for detailed error messages
-4. **Disk Space**: Use `cleanup-runtime.sh` to free up container runtime space
+4. **Disk Space**: Use `scripts/cleanup-runtime.sh` to free up container runtime space
 5. **Missing Dependencies**: Install `yq` and `jq` with your package manager
 6. **Update-alternatives Warnings**: These are harmless and expected - the base image excludes man pages to reduce size
 

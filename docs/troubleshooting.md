@@ -227,7 +227,7 @@ find . -name "*.sh" -type f -exec chmod +x {} \;
    podman system prune -a
    
    # For Colima
-   ./cleanup-runtime.sh
+   ./scripts/cleanup-runtime.sh
    ```
 
 3. **Network issues during build**:
@@ -647,8 +647,8 @@ sudo systemctl start buildkit
 **Problem**: The `--overlay2` option can be risky if Docker is not healthy.
 
 **Solution**: 
-- Use with caution: `./cleanup-runtime.sh --overlay2`
-- For standard cleanup: `./cleanup-runtime.sh`
+- Use with caution: `./scripts/cleanup-runtime.sh --overlay2`
+- For standard cleanup: `./scripts/cleanup-runtime.sh`
 - For complete reset:
   ```bash
   colima delete
