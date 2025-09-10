@@ -11,14 +11,9 @@ A powerful, modular system for creating containerized development environments i
 - **[Architecture Overview](docs/architecture.md)** - System design and component structure
 - **[Creating Components](docs/components.md)** - Build your own custom components
 - **[Theme Customization](docs/themes.md)** - Customize the TUI appearance
-- **[Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions
-- **[Roadmap](docs/roadmap.md)** - Future plans and enhancements
-
-### For Contributors
-- **[Developer Guide](docs/developer.md)** - Contributing code and creating pull requests
 
 ### For LLM/AI Assistants
-- **[LLM Context Documentation](llm/)** - Project state, development journal, and META documentation for AI assistants working with this codebase
+- **[LLM Context Documentation](llm/)** - Project state and development journal for AI assistants working with this codebase
 
 ## 🎯 Overview
 
@@ -509,7 +504,7 @@ The build system includes:
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Developer Guide](docs/developer.md) for information on:
+We welcome contributions! The project includes information on:
 - Setting up your development environment
 - Creating feature branches
 - Writing tests
@@ -528,7 +523,6 @@ For maintainers, see the [Maintainer Guide](docs/maintainer.md) for release proc
 5. **Missing Dependencies**: Install `yq` and `jq` with your package manager
 6. **Update-alternatives Warnings**: These are harmless and expected - the base image excludes man pages to reduce size
 
-See the [Troubleshooting Guide](docs/troubleshooting.md) for comprehensive solutions.
 
 ## 📋 System Requirements
 

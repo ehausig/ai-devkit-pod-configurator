@@ -53,7 +53,7 @@ Enhancement suggestions are welcome! Please:
 
 1. **Find an issue** - Look for issues tagged `good first issue` or `help wanted`
 2. **Comment on the issue** - Let others know you're working on it
-3. **Follow the development workflow** - See [Developer Guide](docs/developer.md)
+3. **Follow the development workflow** - Create feature branches and test your changes
 4. **Write tests** - Include tests for new functionality
 5. **Update documentation** - Keep docs in sync with code changes
 
