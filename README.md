@@ -18,6 +18,9 @@ A powerful, modular system for creating containerized development environments i
 - **[Developer Guide](docs/developer.md)** - Contributing code and creating pull requests
 - **[Maintainer Guide](docs/maintainer.md)** - Release management and repository maintenance
 
+### For LLM/AI Assistants
+- **[LLM Context Documentation](llm/)** - Project state, development journal, and META documentation for AI assistants working with this codebase
+
 ## 🎯 Overview
 
 AI DevKit Pod Configurator provides a beautiful TUI (Terminal User Interface) for selecting and deploying customized development environments in Kubernetes. Each environment is built from a minimal Ubuntu base with only the components you need.
