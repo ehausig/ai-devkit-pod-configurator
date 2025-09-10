@@ -17,10 +17,16 @@
   - Moved cleanup scripts to `scripts/` directory
   - Moved component docs to `components/README.md`
   - Moved test docs to `docs/testing.md`
-  - Created new LLM context structure (PRINCIPLES.md, CURRENT_STATE.md, BOOTSTRAP_SESSION.md)
 - Renamed for clarity:
   - `configure-git-host.sh` → `setup-container-git-credentials.sh`
   - `TEST_PLAN.md` → `docs/testing.md`
+
+### LLM Context Restructuring ✅
+- Replaced JOURNAL.md with focused documentation:
+  - `BOOTSTRAP_SESSION.md` - Session initialization instructions
+  - `PRINCIPLES.md` - Distilled architectural decisions and anti-patterns
+  - `CURRENT_STATE.md` - This file, tracking current state
+- Updated `llm/README.md` with usage instructions
 
 ## System Architecture
 
