@@ -338,7 +338,7 @@ local sanitized_id=$(echo "$component_id" | tr '_' '-' | tr '[:upper:]' '[:lower
 - `lib/template-processor-bash.sh`:
   - Fixed to use /dev/null for template file parameter
   
-- `TEST_PLAN.md`:
+- `TESTING.md`:
   - Removed incorrect --runtime flag
   - Added proper setup commands for all tests
   - Fixed component ID format
