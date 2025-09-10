@@ -25,7 +25,7 @@ AI DevKit Pod Configurator provides a beautiful TUI (Terminal User Interface) fo
 ### Key Features
 
 - 🎨 **Beautiful TUI** - Interactive component selection with theme support
-- 🧩 **Template-Based Architecture** - Component-owned configuration with Jinja2 templates
+- 🧩 **Pure Bash Architecture** - Component-owned configuration with zero Python dependencies
 - 🔧 **Language Support** - Python, Java, Go, Rust, Ruby, Scala, Kotlin, Node.js, and more
 - 🤖 **AI Integration** - Claude Code with Team Topologies-based autonomous development
 - 📦 **Build Tools** - Maven, Gradle, SBT with dynamic repository configuration
@@ -156,7 +156,7 @@ chmod +x *.sh
 # This will:
 #   - Detect available container tools (docker, nerdctl, podman)
 #   - Identify your Kubernetes runtime (k3s, colima, etc.)
-#   - Configure artifact repositories (Nexus, PyPI, NPM, etc.)
+#   - Configure artifact repositories (PyPI, NPM, Maven, etc.)
 #   - Save your preferences
 
 # Step 2: (Optional) Configure git credentials for automatic injection
@@ -192,13 +192,14 @@ The selector shows:
 AI DevKit supports custom artifact repository configuration for all your package managers:
 
 ### Supported Repository Types
-- **Nexus Repository Manager** - Proxy, hosted, and group repositories
 - **PyPI** - Python Package Index and custom registries
 - **NPM** - Node.js package registries
 - **Maven** - Java/Scala artifact repositories
 - **Go Proxy** - Go module proxies
 - **Cargo** - Rust crate registries
 - **RubyGems** - Ruby gem sources
+- **Gradle** - Gradle plugin and dependency repositories
+- **SBT** - Scala Build Tool repositories
 
 ### Configuration Features
 - Component-specific repository settings

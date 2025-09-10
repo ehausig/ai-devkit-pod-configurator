@@ -137,8 +137,6 @@ pre_build_script: relative/path/script.sh
 installation:
   dockerfile: |
     # Docker commands
-  nexus_config: |
-    # Optional Nexus-specific config
   inject_files:
     - source: file.txt
       destination: /path/to/file
@@ -179,7 +177,50 @@ The build engine has been significantly refactored to use modern tools:
 - Processes command permissions
 - Prepares build context
 
-### 4. Key Components
+### 4. Init Container Architecture
+
+The system uses an init container pattern for file distribution:
+
+**Build Phase:**
+- Components stage files in structured directory
+- File mappings defined in `file-mappings.yaml`
+- Manifest generated with source/dest/permissions
+
+**Deployment Phase:**
+- Init container mounts entire home directory
+- Copies files according to manifest
+- Sets proper permissions and ownership
+
+**Benefits:**
+- Clean separation of concerns
+- No complex volume mount logic
+- Predictable file placement
+- Easy debugging via manifest
+
+### 5. Pure Bash Template System
+
+Configuration generation uses pure bash functions:
+
+**No External Dependencies:**
+- No Python or Jinja2 required
+- No template files needed
+- All logic in bash functions
+
+**Template Functions:**
+- `generate_pip_config_bash()` - Python pip.conf
+- `generate_npm_config_bash()` - Node.js .npmrc
+- `generate_cargo_config_bash()` - Rust cargo config
+- `generate_maven_settings_bash()` - Maven settings.xml
+- `generate_gradle_init_bash()` - Gradle init script
+- `generate_sbt_repositories_bash()` - SBT repositories
+
+**Benefits:**
+- Zero external dependencies
+- Faster execution
+- Easier debugging
+- Consistent behavior
+
+### 6. Key Components
 
 #### Claude Code Integration
 
@@ -212,8 +253,8 @@ Claude Code is a sophisticated AI assistant component that includes:
 
 #### Build Tools
 - Maven, Gradle, SBT
-- Automatic Nexus proxy detection
-- Repository configuration
+- Custom repository configuration
+- Authentication support
 - Dependency caching
 
 ### 5. Container Image
@@ -285,8 +326,8 @@ spec:
 #### Secrets and ConfigMaps
 - **ssh-host-keys**: Persistent SSH identity
 - **git-config**: Optional git credentials
-- **nexus-proxy-config**: Package manager configurations
-- **nexus-env-config**: Environment variables
+- **init-scripts**: Init container file copy manifest
+- **generated-configs**: Component configuration files
 
 ## Data Flow
 
@@ -315,7 +356,7 @@ Container Deploy ← Docker Build ← Dockerfile Generation ← Permission Aggre
    - Generate customized Dockerfile
    - Process inject_files directives
    - Build container with selected components
-   - Handle Nexus proxy if available
+   - Apply repository configurations
 
 4. **Deployment Phase**
    - Deploy to Kubernetes
@@ -388,11 +429,11 @@ Components can include sophisticated pre-build scripts:
 - Package manager configs
 - Component-specific settings
 
-### Nexus Proxy Support
-- Auto-detection on port 8081
-- Configures all package managers
-- Transparent to components
-- Falls back gracefully
+### Repository Configuration
+- Component-specific repository settings
+- Support for custom registries
+- Authentication via credentials
+- Fallback to public repositories
 
 ## Performance Considerations
 

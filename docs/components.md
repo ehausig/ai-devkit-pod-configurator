@@ -92,23 +92,20 @@ installation:
     RUN echo "config" > /etc/example.conf
 ```
 
-### Nexus Proxy Support
+### Repository Configuration
 
-For components that download packages, add Nexus configuration:
+Components can define custom repository configurations:
 
 ```yaml
-installation:
-  dockerfile: |
-    # Main installation commands
-    RUN curl -o example.tar.gz https://example.com/download
-  
-  nexus_config: |
-    # Commands that only run when Nexus is available
-    if [ -n "$USE_NEXUS_APT" ]; then
-        echo "Using Nexus proxy for downloads"
-        # Configure package manager for Nexus
-    fi
+# components/languages/example/ai-devkit/config.yaml
+configuration:
+  templates:
+    - template: config-file
+      output_file: config-file
+      repository_format: pypi  # or npm, maven, cargo, etc.
 ```
+
+Repository settings are defined in `~/.ai-devkit/config.yaml` and applied during build.
 
 ### File Injection
 
@@ -221,6 +218,58 @@ example install -r requirements.txt
 2. Referenced in Claude Code's component imports
 3. Available via `@import` syntax in CLAUDE.md
 4. Provides context for AI assistance
+
+## Component File Structure
+
+Modern components use the following structure:
+
+```
+components/
+└── languages/
+    └── python-3.11/
+        ├── ai-devkit/
+        │   ├── config.yaml          # Repository configuration
+        │   ├── file-mappings.yaml    # File placement definitions
+        │   └── tests/                # Component tests
+        │       ├── verify.sh
+        │       ├── test-version.sh
+        │       ├── test-installation.sh
+        │       └── test-functionality.sh
+        └── other-files/              # Supporting files
+
+```
+
+### File Mappings
+
+The `file-mappings.yaml` defines where generated files should be placed:
+
+```yaml
+# components/languages/python-3.11/ai-devkit/file-mappings.yaml
+files:
+  # Generated configuration file
+  - source: generated/pip.conf
+    dest: /home/devuser/.config/pip/pip.conf
+    mode: "0644"
+  
+  # Test files (will be prefixed with component ID)
+  - source: tests/verify.sh
+    dest: /home/devuser/.ai-devkit/tests/python-3-11-verify.sh
+    mode: "0755"
+```
+
+### Component Tests
+
+Every component should include tests:
+
+```bash
+#!/bin/bash
+# components/languages/python-3.11/ai-devkit/tests/test-version.sh
+set -e
+
+echo "Testing Python 3.11 version..."
+python3.11 --version | grep "Python 3.11"
+echo "✅ Version check passed"
+```
 
 ## Pre-build Scripts
 
