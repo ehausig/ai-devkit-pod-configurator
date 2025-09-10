@@ -1,7 +1,7 @@
 #!/bin/bash
 # Multi-platform container runtime cleanup script
-# Supports Colima, K3s, containerd, and other Kubernetes environments
-# Based on the original cleanup-colima.sh but with cross-platform support
+# Supports Colima, K3s, containerd, Docker Desktop, and other Kubernetes environments
+# Replaces the original cleanup-colima.sh with cross-platform support
 
 set -e
 

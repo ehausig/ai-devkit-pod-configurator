@@ -642,13 +642,13 @@ sudo systemctl start buildkit
 
 ### Critical Issues
 
-#### Docker Corruption with cleanup-colima.sh
+#### Docker Overlay2 Cleanup (Colima)
 
-**Problem**: The `--overlay2` option corrupts Docker.
+**Problem**: The `--overlay2` option can be risky if Docker is not healthy.
 
 **Solution**: 
-- **NEVER USE** `./cleanup-colima.sh --overlay2`
-- Use standard cleanup: `./cleanup-colima.sh`
+- Use with caution: `./cleanup-runtime.sh --overlay2`
+- For standard cleanup: `./cleanup-runtime.sh`
 - For complete reset:
   ```bash
   colima delete
