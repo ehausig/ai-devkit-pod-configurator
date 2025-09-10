@@ -11,9 +11,6 @@ This directory contains documentation specifically designed to provide context a
 ### META Documentation
 - **META-build-and-deploy.md** - High-level description of build-and-deploy.sh without implementation details
 
-### Prompts
-- **prompts/** - Directory containing prompt templates for generating META documentation
-
 ## Purpose
 
 These files serve several purposes:
@@ -29,7 +26,8 @@ When working with an LLM on this project:
 1. The LLM should read CURRENT_STATE.md to understand the current project status
 2. Reference JOURNAL.md for historical context on architectural decisions
 3. Use META files to understand script interfaces without needing full source code
-4. Apply prompts from prompts/ directory to generate new META documentation
+
+Note: User-facing prompt templates are in the `/prompts` directory at the root level
 
 ## Maintenance
 
