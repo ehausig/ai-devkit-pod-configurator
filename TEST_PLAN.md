@@ -676,15 +676,14 @@ nexus:
   password: "pass"
 EOF
 
-# Run migration
-./scripts/migrate-config.sh
+# Note: Migration script has been removed as the old config format is obsolete
 ```
 
 **Validation:**
 ```bash
-# Check migrated config
+# Check config
 cat ~/.ai-devkit/config.yaml
-# Expected: Config converted to new format with repositories section
+# Expected: Config uses current format
 ```
 
 ---
