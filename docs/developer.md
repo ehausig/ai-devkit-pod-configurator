@@ -349,4 +349,4 @@ When testing different container runtimes:
 
 ## Next Steps
 
-Once you're comfortable with development, consider reviewing the [Maintainer Guide](maintainer.md) to understand the full project lifecycle.
+Continue exploring the codebase and contributing improvements. The project is actively developed and welcomes contributions.
