@@ -163,7 +163,7 @@ chmod +x *.sh
 #   - Save your preferences
 
 # Step 2: (Optional) Configure git credentials for automatic injection
-./configure-git-host.sh
+./setup-container-git-credentials.sh
 
 # Step 3: Build and deploy with interactive component selection
 ./build-and-deploy.sh
@@ -217,7 +217,7 @@ Repository configuration is integrated into the main setup script (`./configure-
 Configure git credentials once on your host machine:
 
 ```bash
-./configure-git-host.sh
+./setup-container-git-credentials.sh
 ```
 
 This creates an isolated git configuration that's automatically injected into your containers, including:

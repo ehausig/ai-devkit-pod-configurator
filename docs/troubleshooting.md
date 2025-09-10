@@ -738,7 +738,7 @@ Before diving deep into troubleshooting:
 - [ ] Sufficient memory allocated to VM (min 8GB)
 - [ ] No conflicting port forwards (`lsof -i :2222`)
 - [ ] Component YAML files are valid (`yq` parses them)
-- [ ] Git configured if using git features (`./configure-git-host.sh`)
+- [ ] Git configured if using git features (`./setup-container-git-credentials.sh`)
 - [ ] Using a supported terminal emulator
 - [ ] No spaces in project path
 

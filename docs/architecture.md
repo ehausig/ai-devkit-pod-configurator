@@ -64,7 +64,7 @@ container:
 
 Configuration is managed through:
 - `configure-container-runtime.sh` - Detects and configures container tools
-- `configure-git-host.sh` - Sets up git credentials for injection
+- `setup-container-git-credentials.sh` - Sets up git credentials for injection
 
 ## Core Components
 
