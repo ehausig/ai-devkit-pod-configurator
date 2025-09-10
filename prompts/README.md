@@ -4,10 +4,11 @@ This directory contains prompt templates that users can submit to Large Language
 
 ## Available Templates
 
-### meta-file-generator.md
-A template for generating META documentation files that describe scripts without including full implementation details. This is useful for:
+### update-session-bootstrap.md
+A template for updating the SESSION_BOOTSTRAP.md documentation that helps LLMs understand the project's key scripts and interfaces. This is useful for:
+- Documenting new scripts for LLM context
+- Updating existing session bootstrap documentation
 - Reducing context size in LLM conversations
-- Documenting script interfaces and responsibilities
 - Creating high-level overviews of complex files
 
 ## Usage
@@ -21,23 +22,23 @@ A template for generating META documentation files that describe scripts without
 
 ## Example Workflow
 
-To generate META documentation for a script:
+To update session bootstrap documentation for a script:
 
 ```bash
 # 1. View the template
-cat prompts/meta-file-generator.md
+cat prompts/update-session-bootstrap.md
 
 # 2. Copy the template content to your LLM conversation
 
-# 3. Replace the placeholder with your script name
-#    e.g., change "build-and-deploy.sh" to "your-script.sh"
+# 3. Replace [SCRIPT_NAME] with your script name
+#    e.g., change "[SCRIPT_NAME]" to "build-and-deploy.sh"
 
 # 4. Submit to the LLM along with your script content
 ```
 
-## Purpose of META Files
+## Purpose of Session Bootstrap Documentation
 
-META files serve to:
+Session bootstrap documentation serves to:
 - **Reduce token usage** - Describe interfaces without implementation
 - **Maintain context** - Keep awareness of file purposes across sessions
 - **Document architecture** - Capture high-level design without code details
