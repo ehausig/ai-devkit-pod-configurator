@@ -1,9 +1,0 @@
-#!/bin/bash
-# Go environment configuration
-{% if repositories and repositories|length > 0 %}
-export GOPROXY="{{ repositories[0].url }}{% if repositories|length > 1 %}{% for repo in repositories[1:] %},{{ repo.url }}{% endfor %}{% endif %},direct"
-{% else %}
-export GOPROXY="https://proxy.golang.org,direct"
-{% endif %}
-export GOSUMDB="sum.golang.org"
-export GO111MODULE=on

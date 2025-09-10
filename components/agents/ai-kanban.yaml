@@ -3,7 +3,7 @@ name: AI Kanban Dashboard
 group: monitoring
 requires: nodejs
 description: Real-time web-based Kanban board visualization for the autonomous development system
-pre_build_script: ai-kanban/ai-kanban-setup.sh
+pre_build_script: ai-kanban-setup.sh
 command_permissions:
   allow:
     - "Read(/home/devuser/workspace/JOURNAL.md)"

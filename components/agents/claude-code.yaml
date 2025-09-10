@@ -3,7 +3,7 @@ name: Claude Code
 group: ai-agents
 requires: nodejs
 description: AI coding assistant with autonomous development system. Agent personas are now provided by the ai-kanban component
-pre_build_script: claude-code/claude-code-setup.sh
+pre_build_script: claude-code-setup.sh
 command_permissions:
   allow:
     # Journal write operations (JSON format)
