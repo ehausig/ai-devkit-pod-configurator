@@ -8,6 +8,7 @@ IMAGE_TAG="latest"
 NAMESPACE="ai-devkit"
 TEMP_DIR=".build-temp"
 COMPONENTS_DIR="components"
+DEVUSER_HOME="/home/devuser"  # Standard home directory for devuser in container
 SSH_KEYS_DIR="$HOME/.ai-devkit/ssh-keys"
 LOG_FILE="build-and-deploy.log"
 
@@ -4206,6 +4207,13 @@ main() {
     # Initialize log file
     echo "Build started at $(date)" > "$LOG_FILE"
     echo "=================================================================================" >> "$LOG_FILE"
+    
+    # Clean up any previous build artifacts
+    if [[ -d "$TEMP_DIR" ]]; then
+        echo "Cleaning up previous build artifacts..." >> "$LOG_FILE"
+        rm -rf "$TEMP_DIR"
+    fi
+    mkdir -p "$TEMP_DIR"
     
     # Set up global cleanup trap
     trap 'tput cnorm 2>/dev/null; stty echo 2>/dev/null; rm -f /tmp/ai-devkit-anim-* 2>/dev/null; exit' INT TERM EXIT

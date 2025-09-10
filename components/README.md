@@ -133,25 +133,79 @@ mkdir -p components/languages/ruby-3.2/ai-devkit
 vi components/languages/ruby-3.2/ai-devkit/config.yaml
 ```
 
-### 5. Add Tests (Recommended)
+### 5. Add Tests (Optional but Encouraged)
 
+Tests are optional but highly encouraged to verify component functionality.
+
+#### Test Directory Structure
 ```bash
-# Create test directory
-mkdir -p components/languages/ruby-3.2/ai-devkit/tests
-
-# Add verification script
-vi components/languages/ruby-3.2/ai-devkit/tests/verify.sh
+components/languages/ruby-3.2/ai-devkit/tests/
+├── verify.sh              # Main verification script (recommended)
+├── test-version.sh        # Version verification
+├── test-installation.sh  # Installation verification
+└── test-functionality.sh # Functional tests
 ```
 
-Example test script:
+#### Test Naming Conventions
+- **Main test**: `verify.sh` - Primary verification script
+- **Specific tests**: `test-*.sh` - Focused test scripts
+- All test files must be executable (`chmod +x`)
+- Test files are automatically prefixed with component ID during deployment
+
+#### Test Script Template
 ```bash
 #!/bin/bash
-echo "Testing Ruby installation..."
-ruby --version || exit 1
-gem --version || exit 1
-bundler --version || exit 1
-echo "✓ Ruby 3.2 verified"
+# Test: Ruby 3.2 Installation
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+NC='\033[0m'
+
+echo "Testing Ruby 3.2 installation..."
+
+# Version check
+if ruby --version | grep -q "3.2"; then
+    echo -e "${GREEN}✓${NC} Ruby version correct"
+else
+    echo -e "${RED}✗${NC} Ruby version incorrect"
+    exit 1
+fi
+
+# Package manager check
+if gem --version > /dev/null 2>&1; then
+    echo -e "${GREEN}✓${NC} Gem available"
+else
+    echo -e "${RED}✗${NC} Gem not found"
+    exit 1
+fi
+
+# Bundler check
+if bundler --version > /dev/null 2>&1; then
+    echo -e "${GREEN}✓${NC} Bundler installed"
+else
+    echo -e "${RED}✗${NC} Bundler not found"
+    exit 1
+fi
+
+echo -e "${GREEN}Ruby 3.2 verification complete!${NC}"
 ```
+
+#### Test Execution
+Tests are automatically:
+1. Staged to `.build-temp/staging/tests/` during build
+2. Prefixed with component ID (e.g., `ruby-3-2-verify.sh`)
+3. Deployed to `${DEVUSER_HOME}/.ai-devkit/tests/` in container
+4. Executable via the generated `run-all.sh` orchestrator
+
+#### Test Best Practices
+- Keep tests focused and fast
+- Use clear pass/fail indicators
+- Exit with non-zero on failure
+- Include helpful error messages
+- Test core functionality, not edge cases
+- Avoid external dependencies in tests
 
 ### 6. Test Your Component
 

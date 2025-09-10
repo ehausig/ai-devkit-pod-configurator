@@ -528,11 +528,12 @@ container:
   runtime_import: "direct"
 EOF
 
-# First build
-./build-and-deploy.sh --components "PYTHON_3_11"
+# Note: Incremental builds currently require manual component selection via TUI
+# First build - select Python 3.11 in TUI
+./build-and-deploy.sh
 
-# Second build with additional component
-./build-and-deploy.sh --components "PYTHON_3_11,NODEJS_20"
+# Second build - select both Python 3.11 and Node.js 20 in TUI
+./build-and-deploy.sh
 ```
 
 **Validation:**
@@ -561,7 +562,8 @@ container:
   runtime: "k3s"
   runtime_import: "direct"
 EOF
-./build-and-deploy.sh --components "PYTHON_3_11"
+./build-and-deploy.sh
+# Select Python 3.11 in the interactive TUI
 
 # Test with Docker
 cat > ~/.ai-devkit/config.yaml <<EOF
@@ -570,7 +572,8 @@ container:
   runtime: "docker"
   runtime_import: "direct"
 EOF
-./build-and-deploy.sh --components "PYTHON_3_11"
+./build-and-deploy.sh
+# Select Python 3.11 in the interactive TUI
 
 # Test with Colima
 cat > ~/.ai-devkit/config.yaml <<EOF
@@ -579,7 +582,8 @@ container:
   runtime: "colima"
   runtime_import: "kubectl"
 EOF
-./build-and-deploy.sh --components "PYTHON_3_11"
+./build-and-deploy.sh
+# Select Python 3.11 in the interactive TUI
 ```
 
 **Validation:**
@@ -613,7 +617,9 @@ components:
 EOF
 
 # Try to build (should handle gracefully)
-./build-and-deploy.sh --skip-ui
+# Note: Non-interactive mode not yet implemented
+# TODO: Implement config-driven component selection for CI/CD
+./build-and-deploy.sh
 ```
 
 **Validation:**
@@ -644,7 +650,8 @@ components:
         # Missing URL - should be handled gracefully
 EOF
 
-./build-and-deploy.sh --components "PYTHON_3_11"
+./build-and-deploy.sh
+# Select Python 3.11 in the interactive TUI
 ```
 
 **Validation:**
@@ -745,7 +752,8 @@ components:
 EOF
 
 # Build and deploy
-./build-and-deploy.sh --components "PYTHON_3_11"
+./build-and-deploy.sh
+# Select Python 3.11 in the interactive TUI
 ```
 
 **Steps:**
@@ -780,13 +788,91 @@ components:
 EOF
 
 # Run in non-interactive mode (skip UI)
-./build-and-deploy.sh --skip-ui
+# Note: Non-interactive mode not yet implemented
+# TODO: Implement config-driven component selection for CI/CD
+./build-and-deploy.sh
 ```
 
 **Validation:**
 - No user prompts
 - Exit codes correct
 - Logs parseable
+
+---
+
+## Section 11: Init Container Architecture Tests
+
+### Test 11.1: File Mapping Validation
+**Objective:** Verify init container correctly processes file mappings
+
+**Setup:**
+```bash
+cat > ~/.ai-devkit/config.yaml <<EOF
+container:
+  build_command: "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
+  runtime: "k3s"
+  runtime_import: "direct"
+EOF
+```
+
+**Deploy:**
+```bash
+./build-and-deploy.sh
+# Select Python 3.11 and Node.js 20
+```
+
+**Validation in Container:**
+```bash
+# Check that files were correctly placed
+ls -la ~/.config/pip/pip.conf
+ls -la ~/.npmrc
+ls -la ~/.ai-devkit/tests/
+
+# Verify file permissions
+stat -c "%a %U" ~/.config/pip/pip.conf
+# Expected: 644 devuser
+```
+
+### Test 11.2: Init Container Failure Handling
+**Objective:** Verify graceful failure when init container can't write files
+
+**Setup:**
+```bash
+# Intentionally create read-only volume mount
+# Modify deployment to test failure scenarios
+```
+
+**Expected:** Pod should fail to start with clear error message in init container logs
+
+---
+
+## Section 12: Component Dependency Tests
+
+### Test 12.1: Component Dependencies Resolution
+**Objective:** Verify components with dependencies work correctly
+
+**Deploy:**
+```bash
+./build-and-deploy.sh
+# Select Maven (should auto-select Java as dependency)
+```
+
+**Validation:**
+```bash
+# Both Java and Maven should be installed
+java -version
+mvn -version
+```
+
+### Test 12.2: Conflicting Components
+**Objective:** Verify mutually exclusive components are handled
+
+**Deploy:**
+```bash
+./build-and-deploy.sh
+# Try to select both Python 3.10 and Python 3.11
+# UI should prevent this selection
+```
 
 ---
 
@@ -814,13 +900,17 @@ EOF
 - [ ] Section 7: Error Handling
   - [ ] 7.1 Invalid Component
   - [ ] 7.2 Malformed Config
-- [ ] Section 8: Migration
-  - [ ] 8.1 Legacy Migration
 - [ ] Section 9: Performance
   - [ ] 9.1 Large Component Set
 - [ ] Section 10: Integration
   - [ ] 10.1 End-to-End Workflow
   - [ ] 10.2 CI/CD Integration
+- [ ] Section 11: Init Container Architecture
+  - [ ] 11.1 File Mapping Validation
+  - [ ] 11.2 Init Container Failure Handling
+- [ ] Section 12: Component Dependencies
+  - [ ] 12.1 Component Dependencies Resolution
+  - [ ] 12.2 Conflicting Components
 
 ---
 
@@ -831,4 +921,4 @@ EOF
 - Document any failures with logs and configuration
 - Each test should be independently reproducible
 
-*Last Updated: 2024-11-29 - Post-refactor with YAML support*
+*Last Updated: 2025-01-10 - Updated for init container architecture and TUI-based selection*

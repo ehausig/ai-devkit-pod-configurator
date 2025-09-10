@@ -1,6 +1,9 @@
 #!/bin/bash
 # Generate ConfigMap for init container scripts
 
+# Use standard devuser home from environment or default
+DEVUSER_HOME="${DEVUSER_HOME:-/home/devuser}"
+
 generate_init_scripts_configmap() {
     local output_file="$1"
     
@@ -76,8 +79,8 @@ data:
     
     # List what was set up for debugging
     echo "Files configured:"
-    find /home/devuser/.config -type f 2>/dev/null | head -20 || true
-    find /home/devuser/.ai-devkit -type f 2>/dev/null | head -20 || true
+    find ${DEVUSER_HOME}/.config -type f 2>/dev/null | head -20 || true
+    find ${DEVUSER_HOME}/.ai-devkit -type f 2>/dev/null | head -20 || true
     
     exit 0
 EOF

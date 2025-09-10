@@ -7,6 +7,9 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     set -euo pipefail
 fi
 
+# Use standard devuser home from environment or default
+DEVUSER_HOME="${DEVUSER_HOME:-/home/devuser}"
+
 # Process file mappings for a component
 process_component_file_mappings() {
     local component_dir="$1"
@@ -222,7 +225,7 @@ process_component_tests() {
             chmod +x "$test_staging/$staged_name"
             
             # Add to manifest
-            echo "tests/$component_id/${staged_name}|/home/devuser/.ai-devkit/tests/${staged_name}|0755|devuser" >> "$manifest_file"
+            echo "tests/$component_id/${staged_name}|${DEVUSER_HOME}/.ai-devkit/tests/${staged_name}|0755|devuser" >> "$manifest_file"
             
             echo "  Staged test: $staged_name" >&2
         fi
@@ -258,7 +261,7 @@ echo "========================================="
 echo ""
 
 # Test directory
-TEST_DIR="/home/devuser/.ai-devkit/tests"
+TEST_DIR="${DEVUSER_HOME}/.ai-devkit/tests"
 
 # Check if test directory exists
 if [[ ! -d "$TEST_DIR" ]]; then
@@ -356,7 +359,7 @@ EOF
     chmod +x "$orchestrator"
     
     # Add orchestrator to manifest
-    echo "generated/run-all.sh|/home/devuser/.ai-devkit/tests/run-all.sh|0755|devuser" >> "$manifest_file"
+    echo "generated/run-all.sh|${DEVUSER_HOME}/.ai-devkit/tests/run-all.sh|0755|devuser" >> "$manifest_file"
     
     echo "Created test orchestrator" >&2
 }

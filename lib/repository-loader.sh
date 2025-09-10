@@ -123,36 +123,16 @@ get_user_repos() {
     fi
     
     # Get repositories for this component from user config
-    echo "DEBUG: get_user_repos checking CONFIG_FILE=$CONFIG_FILE for component_id=$component_id" >&2
-    echo "DEBUG: CONFIG_FILE exists: $(test -f "$CONFIG_FILE" && echo "yes" || echo "no")" >&2
     if [[ -f "$CONFIG_FILE" ]]; then
-        echo "DEBUG: Config file size: $(wc -c < "$CONFIG_FILE") bytes" >&2
-        echo "DEBUG: Config first 100 chars (od -c):" >&2
-        head -c 100 "$CONFIG_FILE" | od -c >&2
-        echo "DEBUG: Config content via direct cat:" >&2
-        cat "$CONFIG_FILE" >&2
-        echo "DEBUG: --- End of config ---" >&2
         
         # Check which yq version we have and use appropriate syntax
         local yq_path=$(command -v yq 2>/dev/null)
         if [[ -n "$yq_path" ]] && head -1 "$yq_path" 2>/dev/null | grep -q "python"; then
-            echo "DEBUG: Using kislyuk/yq (Python) syntax" >&2
             # kislyuk/yq - uses jq syntax
-            echo "DEBUG: Running query: .components[] | select(.id == \"$component_id\") | .repositories // []" >&2
-            local result=$(cat "$CONFIG_FILE" | yq -r ".components[] | select(.id == \"$component_id\") | .repositories // []" 2>&1)
-            echo "DEBUG: yq result: $result" >&2
-            echo "DEBUG: Checking with different query - all component IDs:" >&2
-            cat "$CONFIG_FILE" | yq -r ".components[].id // \"NONE\"" >&2
             # Return the actual result
             cat "$CONFIG_FILE" | yq -r ".components[] | select(.id == \"$component_id\") | .repositories // []" 2>/dev/null
         else
-            echo "DEBUG: Using mikefarah/yq (Go) syntax" >&2
             # mikefarah/yq - uses eval syntax
-            echo "DEBUG: Running query: .components[] | select(.id == \"$component_id\") | .repositories // []" >&2
-            local result=$(yq eval ".components[] | select(.id == \"$component_id\") | .repositories // []" "$CONFIG_FILE" 2>&1)
-            echo "DEBUG: yq result: $result" >&2
-            echo "DEBUG: Checking with different query - all component IDs:" >&2
-            yq eval ".components[].id // \"NONE\"" "$CONFIG_FILE" >&2
             # Return the actual result
             yq eval ".components[] | select(.id == \"$component_id\") | .repositories // []" "$CONFIG_FILE" 2>/dev/null
         fi
@@ -281,12 +261,9 @@ resolve_repositories() {
     local include_defaults=$(get_include_defaults "$component_id")
     
     # Log what we're doing
-    echo "DEBUG: resolve_repositories for component_id=$component_id" >&2
     if [[ -n "$user_repos" ]] && [[ "$user_repos" != "[]" ]]; then
         echo "Loading user repositories for $component_id" >&2
-        echo "DEBUG: user_repos=$user_repos" >&2
     else
-        echo "DEBUG: No user repositories found for $component_id" >&2
     fi
     
     if [[ "$include_defaults" == "true" ]] && [[ -n "$default_repos" ]] && [[ "$default_repos" != "[]" ]]; then

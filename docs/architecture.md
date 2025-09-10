@@ -63,7 +63,7 @@ container:
 ```
 
 Configuration is managed through:
-- `configure-container-runtime.sh` - Detects and configures container tools
+- `~/.ai-devkit/config.yaml` - User configuration for runtime and components
 - `setup-container-git-credentials.sh` - Sets up git credentials for injection
 
 ## Core Components

@@ -3,6 +3,9 @@
 # Generate Dynamic Kubernetes Deployment
 # This script generates a deployment.yaml with init container for file setup
 
+# Use standard devuser home from environment or default
+DEVUSER_HOME="${DEVUSER_HOME:-/home/devuser}"
+
 generate_dynamic_kubernetes_deployment() {
     local output_file="$1"
     local manifest_file="${2:-}"  # Optional manifest file to detect needed mounts
@@ -37,7 +40,7 @@ spec:
         - name: config-data
           mountPath: /config-data
         - name: init-home
-          mountPath: /home/devuser
+          mountPath: ${DEVUSER_HOME}
         - name: scripts
           mountPath: /scripts
         resources:
@@ -57,9 +60,9 @@ spec:
           name: ssh
         volumeMounts:
         - name: config-volume
-          mountPath: /home/devuser/.config/ai-devkit
+          mountPath: ${DEVUSER_HOME}/.config/ai-devkit
         - name: workspace-volume
-          mountPath: /home/devuser/workspace
+          mountPath: ${DEVUSER_HOME}/workspace
         # SSH host keys mount
         - name: ssh-host-keys
           mountPath: /etc/ssh/mounted_keys
@@ -79,10 +82,10 @@ spec:
           readOnly: true
         # Shared volumes with init container for configuration files
         - name: init-home
-          mountPath: /home/devuser/.config
+          mountPath: ${DEVUSER_HOME}/.config
           subPath: .config
         - name: init-home
-          mountPath: /home/devuser/.ai-devkit
+          mountPath: ${DEVUSER_HOME}/.ai-devkit
           subPath: .ai-devkit
 EOF
     
