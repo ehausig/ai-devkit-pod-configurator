@@ -9,7 +9,7 @@ A powerful, modular system for creating containerized development environments i
 ## 📖 Documentation
 
 - **[Architecture Overview](docs/architecture.md)** - System design and component structure
-- **[Creating Components](docs/components.md)** - Build your own custom components
+- **[Component System](components/)** - How to add, modify, and manage components
 - **[Theme Customization](docs/themes.md)** - Customize the TUI appearance
 
 ### For LLM/AI Assistants
