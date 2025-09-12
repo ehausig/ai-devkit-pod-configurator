@@ -9,9 +9,10 @@ This test plan provides comprehensive coverage across 17 sections with 35+ test 
 - Performance baselines and compatibility matrices
 
 ### Test Coverage Summary
-- **Sections**: 17 (Core, Repos, Components, Credentials, Build, Platform, Errors, Performance, Integration, Init Container, Dependencies, Security, Network, Resources, Compatibility, Operations)
-- **Test Cases**: 35+ individual tests
-- **Coverage Areas**: Functional, Security, Performance, Resilience, Operations
+- **Functional Test Sections**: 17 (Core, Repos, Components, Credentials, Build, Platform, Errors, Performance, Integration, Init Container, Dependencies, Security, Network, Resources, Compatibility, Operations)
+- **Code Standards Section**: 1 (Optional static analysis checks)
+- **Test Cases**: 35+ functional tests + 3 code standard validations
+- **Coverage Areas**: Functional, Security, Performance, Resilience, Operations, Code Quality
 
 ### Key Testing Principles
 - Pure bash template processing (no Python dependencies)
@@ -31,44 +32,7 @@ The build script uses an interactive UI for component selection. When the test s
 
 ## Section 1: Core System Tests
 
-### Test 1.1: Python-Free Core System
-**Objective:** Verify core system has no Python dependencies
-
-**Setup:**
-```bash
-# Fresh checkout, no components selected
-rm -rf ~/.ai-devkit
-mkdir -p ~/.ai-devkit
-cat > ~/.ai-devkit/config.yaml <<EOF
-container:
-  build_command: "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
-  runtime: "k3s"
-  runtime_import: "direct"
-EOF
-```
-
-**Validation:**
-```bash
-# Check no Python in core scripts
-grep -r "python3 -c\|import jinja2" lib/*.sh
-# Expected: No matches
-
-# Check Dockerfile doesn't install Python
-grep -E "^RUN.*python" docker/Dockerfile.base
-# Expected: No matches (except comments)
-
-# Check that Dockerfile.base installs Go-based yq
-grep "yq" docker/Dockerfile.base
-# Expected: Shows installation of mikefarah/yq v4
-
-# Note: To verify yq in the actual image, build first:
-# ./build-and-deploy.sh
-# Then after build completes:
-# sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io run --rm ai-devkit:latest /usr/local/bin/yq --version
-# Expected: yq (https://github.com/mikefarah/yq/) version v4.x.x
-```
-
-### Test 1.2: YAML Configuration Processing
+### Test 1.1: YAML Configuration Processing
 **Objective:** Verify YAML-based template processor works
 
 **Components to Deploy:** N/A (Unit test - no deployment)
@@ -1207,11 +1171,70 @@ ssh -p 2222 devuser@localhost "python3 --version && node --version"
 
 ---
 
+## Section 18: Code Standards Validation
+
+*Note: These are code quality checks rather than functional tests. They validate architectural principles and coding standards. Consider implementing these as pre-commit hooks or CI/CD pipeline checks instead of manual tests.*
+
+### Test 18.1: Python-Free Core System
+**Objective:** Verify core system maintains zero Python dependencies per architectural principles
+
+**Type:** Static Code Analysis
+
+**Validation:**
+```bash
+# Check no Python in core scripts
+grep -r "python3 -c\|import jinja2" lib/*.sh build-and-deploy.sh
+# Expected: No matches
+
+# Check no Python imports or execution
+grep -r "^import \|from .* import" lib/*.sh
+# Expected: No matches
+
+# Check Dockerfile doesn't install Python in base image
+grep -E "^RUN.*python" docker/Dockerfile.base
+# Expected: No matches (except comments)
+
+# Verify bash-only template processing
+grep -r "jinja2\|django\|mako" lib/
+# Expected: No template engine references
+
+# Check that Dockerfile.base installs Go-based yq
+grep "yq" docker/Dockerfile.base
+# Expected: Shows installation of mikefarah/yq v4
+```
+
+**Rationale:** This validates Principle #3 from PRINCIPLES.md - "Pure Bash, Zero Python Dependencies"
+
+### Test 18.2: Hardcoded Paths Validation
+**Objective:** Verify no hardcoded /home/devuser paths (should use DEVUSER_HOME variable)
+
+**Validation:**
+```bash
+# Check for hardcoded paths
+grep -r "/home/devuser" lib/*.sh build-and-deploy.sh | grep -v "DEVUSER_HOME"
+# Expected: No matches (all should use $DEVUSER_HOME or ${DEVUSER_HOME})
+```
+
+### Test 18.3: Component Isolation Validation
+**Objective:** Verify core scripts contain no component-specific code
+
+**Validation:**
+```bash
+# Check for package manager names in core
+grep -E "pip|npm|maven|gradle|cargo|gem|go get" build-and-deploy.sh
+# Expected: No matches in core script
+
+# Check for language-specific commands
+grep -E "python|node|java|ruby|rust" build-and-deploy.sh | grep -v "#"
+# Expected: No direct language references
+```
+
+---
+
 ## Test Execution Checklist
 
 - [ ] Section 1: Core System Tests
-  - [ ] 1.1 Python-Free Core
-  - [ ] 1.2 YAML Processing
+  - [ ] 1.1 YAML Processing
 - [ ] Section 2: Repository Configuration
   - [ ] 2.1 Default Repositories
   - [ ] 2.2 Complete Override
@@ -1262,6 +1285,10 @@ ssh -p 2222 devuser@localhost "python3 --version && node --version"
   - [ ] 17.1 Container Restart Persistence
   - [ ] 17.2 Log Aggregation
   - [ ] 17.3 Health Checks
+- [ ] Section 18: Code Standards Validation (Optional)
+  - [ ] 18.1 Python-Free Core System
+  - [ ] 18.2 Hardcoded Paths Validation
+  - [ ] 18.3 Component Isolation Validation
 
 ---
 
@@ -1271,5 +1298,25 @@ ssh -p 2222 devuser@localhost "python3 --version && node --version"
 - Some tests require external services (Nexus, etc.)
 - Document any failures with logs and configuration
 - Each test should be independently reproducible
+- Section 18 (Code Standards) should ideally be automated as pre-commit hooks or CI/CD checks
 
-*Last Updated: 2025-01-10 - Expanded to 17 sections with comprehensive security, network, resource, and operational testing*
+## Automation Recommendations
+
+### Code Standards Checks (Section 18)
+Consider implementing these as:
+1. **Pre-commit hooks** using tools like:
+   - `pre-commit` framework with custom scripts
+   - Shell script checks in `.git/hooks/pre-commit`
+2. **CI/CD Pipeline checks** in GitHub Actions:
+   ```yaml
+   - name: Validate No Python Dependencies
+     run: |
+       ! grep -r "python3 -c\|import jinja2" lib/*.sh
+       ! grep -E "^RUN.*python" docker/Dockerfile.base
+   ```
+3. **Makefile targets** for local validation:
+   ```bash
+   make validate-standards
+   ```
+
+*Last Updated: 2025-01-10 - Reorganized with code standards as separate section, expanded to 18 sections total*
