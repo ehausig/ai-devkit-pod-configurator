@@ -1,11 +1,24 @@
 # AI DevKit Pod Configurator - Comprehensive Test Plan
 
 ## Overview
-This test plan covers the complete system after major architectural refactoring:
-- Separation of concerns with component-owned configuration
+This test plan provides comprehensive coverage across 17 sections with 35+ test cases covering:
+- Core system architecture and principles
+- Component management and isolation
+- Security, network resilience, and resource constraints
+- Build system, deployment, and operational scenarios
+- Performance baselines and compatibility matrices
+
+### Test Coverage Summary
+- **Sections**: 17 (Core, Repos, Components, Credentials, Build, Platform, Errors, Performance, Integration, Init Container, Dependencies, Security, Network, Resources, Compatibility, Operations)
+- **Test Cases**: 35+ individual tests
+- **Coverage Areas**: Functional, Security, Performance, Resilience, Operations
+
+### Key Testing Principles
 - Pure bash template processing (no Python dependencies)
 - YAML-based configuration system using yq v4
 - Repository configuration with defaults and overrides
+- Init container file distribution architecture
+- Component isolation and dependency management
 
 ## Important Note on Component Selection
 The build script uses an interactive UI for component selection. When the test steps mention specific components, you should:
@@ -876,6 +889,324 @@ mvn -version
 
 ---
 
+## Section 13: Security Tests
+
+### Test 13.1: Repository URL Input Validation
+**Objective:** Verify malicious repository URLs are handled safely
+
+**Setup:**
+```bash
+cat > ~/.ai-devkit/config.yaml <<EOF
+container:
+  build_command: "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
+  runtime: "k3s"
+  runtime_import: "direct"
+
+components:
+  - id: "PYTHON_3_11"
+    repositories:
+      - name: "malicious-repo"
+        url: "https://example.com/repo;rm -rf /"
+      - name: "injection-test"
+        url: "https://example.com/\$(whoami)"
+EOF
+```
+
+**Deploy:**
+```bash
+./build-and-deploy.sh
+# Select Python 3.11
+```
+
+**Expected:** URLs should be escaped/sanitized, no command execution
+
+### Test 13.2: Credential File Permissions
+**Objective:** Verify credential files have secure permissions
+
+**Validation in Container:**
+```bash
+# Check all credential file permissions
+find ~/.config -name "*.conf" -o -name "*.rc" | while read f; do
+  stat -c "%a %n" "$f"
+done
+# Expected: 600 or 644, never 777 or world-writable
+
+# Check git credentials
+stat -c "%a" ~/.git-credentials 2>/dev/null
+# Expected: 600 if exists
+```
+
+### Test 13.3: No Secrets in Logs
+**Objective:** Verify sensitive data isn't logged
+
+**Setup:**
+```bash
+# Set up with auth tokens
+cat > ~/.ai-devkit/auth-tokens.yaml <<EOF
+tokens:
+  nexus_read:
+    username: "testuser"
+    password: "secret-password-12345"
+EOF
+```
+
+**Deploy and Check:**
+```bash
+./build-and-deploy.sh > build.log 2>&1
+# Select Python 3.11
+
+# Check logs don't contain secrets
+grep -i "secret-password-12345" build.log build-and-deploy.log
+# Expected: No matches
+
+grep -i "password" build.log build-and-deploy.log | grep -v "password:"
+# Expected: No actual password values shown
+```
+
+---
+
+## Section 14: Network Resilience Tests
+
+### Test 14.1: DNS Resolution Failure
+**Objective:** Handle DNS failures gracefully
+
+**Setup:**
+```bash
+# Use non-resolvable hostname
+cat > ~/.ai-devkit/config.yaml <<EOF
+container:
+  build_command: "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
+  runtime: "k3s"
+  runtime_import: "direct"
+
+components:
+  - id: "PYTHON_3_11"
+    repositories:
+      - name: "unreachable"
+        url: "https://non-existent-domain-12345.invalid/simple"
+EOF
+```
+
+**Expected:** Build completes with warning, uses PyPI defaults
+
+### Test 14.2: Network Timeout Handling
+**Objective:** Verify timeout behavior for slow networks
+
+**Setup:**
+```bash
+# Use a black hole IP that will timeout
+cat > ~/.ai-devkit/config.yaml <<EOF
+container:
+  build_command: "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
+  runtime: "k3s"
+  runtime_import: "direct"
+
+components:
+  - id: "NODEJS_20"
+    repositories:
+      - name: "slow-repo"
+        url: "https://10.255.255.1/registry"
+EOF
+```
+
+**Expected:** Reasonable timeout, clear error message
+
+### Test 14.3: Certificate Validation
+**Objective:** Handle self-signed certificates appropriately
+
+**Setup:**
+```bash
+# Repository with self-signed cert
+cat > ~/.ai-devkit/config.yaml <<EOF
+container:
+  build_command: "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
+  runtime: "k3s"
+  runtime_import: "direct"
+
+components:
+  - id: "PYTHON_3_11"
+    repositories:
+      - name: "self-signed"
+        url: "https://localhost:8443/simple"
+        insecure: true  # If supported
+EOF
+```
+
+**Expected:** Warning about insecure connection, but allows if configured
+
+---
+
+## Section 15: Resource Constraint Tests
+
+### Test 15.1: Low Disk Space
+**Objective:** Handle disk space exhaustion gracefully
+
+**Pre-test:**
+```bash
+# Check available space
+df -h /var/lib/docker or /var/lib/containerd
+# Note: This is a destructive test - only run in test environment
+```
+
+**Setup:**
+```bash
+# Fill up disk to leave only 100MB free (TEST ENVIRONMENT ONLY)
+# dd if=/dev/zero of=/tmp/largefile bs=1M count=$(($(df /tmp | tail -1 | awk '{print $4}')/1024 - 100))
+```
+
+**Expected:** Clear error message about insufficient disk space
+
+### Test 15.2: Memory Pressure
+**Objective:** Verify behavior under memory constraints
+
+**Deploy with limits:**
+```bash
+# Modify deployment to add resource limits
+# After deployment, check container limits:
+kubectl describe pod -n ai-devkit | grep -A5 "Limits:"
+```
+
+**Validation:**
+```bash
+# Inside container, check memory
+free -h
+# Try memory-intensive operation
+python3 -c "x = [0] * (10**9)"  # If Python installed
+# Expected: OOM killer or graceful failure
+```
+
+### Test 15.3: Build Performance Baseline
+**Objective:** Establish performance baselines
+
+**Measurement:**
+```bash
+# Clean build timing
+time ./build-and-deploy.sh
+# Select: Python 3.11, Node.js 20, Go 1.22
+
+# Record:
+# - Total build time
+# - Image size
+# - Container startup time
+# - Memory usage during build
+```
+
+**Baseline Expectations:**
+- Build time: < 10 minutes for 3 components
+- Image size: < 3GB for 3 languages
+- Startup time: < 60 seconds
+- Memory usage: < 2GB during build
+
+---
+
+## Section 16: Component Compatibility Matrix
+
+### Test 16.1: Language Version Conflicts
+**Objective:** Verify mutually exclusive components are handled
+
+**Test Matrix:**
+```bash
+# These combinations should be prevented:
+# - Python 3.10 + Python 3.11
+# - Java 11 + Java 17 + Java 21
+# - Node.js 20 + Node.js 22
+# - Ruby System + Ruby 3.3
+```
+
+**Validation:** TUI should prevent selecting conflicting versions
+
+### Test 16.2: Build Tool Dependencies
+**Objective:** Verify build tools auto-select dependencies
+
+**Test Cases:**
+```bash
+# Maven → Should auto-select Java
+# Gradle → Should auto-select Java  
+# SBT → Should auto-select Scala and Java
+```
+
+**Validation:** Dependencies automatically selected in TUI
+
+### Test 16.3: Maximum Component Load
+**Objective:** Test with all non-conflicting components
+
+**Deploy:**
+```bash
+./build-and-deploy.sh
+# Select one from each language group plus all tools
+# Expected selection: ~15-20 components
+```
+
+**Validation:**
+```bash
+# All components functional
+~/.ai-devkit/tests/run-all.sh
+# Expected: All tests pass
+```
+
+---
+
+## Section 17: Operational Tests
+
+### Test 17.1: Container Restart Persistence
+**Objective:** Verify configurations persist across restarts
+
+**Setup:**
+```bash
+# Deploy with components
+./build-and-deploy.sh
+# Select Python 3.11, Node.js 20
+
+# In container, create test files
+echo "test" > ~/workspace/test.txt
+echo "config" > ~/.config/test.conf
+```
+
+**Test:**
+```bash
+# Restart pod
+kubectl delete pod -n ai-devkit ai-devkit-0
+# Wait for restart
+kubectl wait --for=condition=ready pod -n ai-devkit ai-devkit-0
+
+# Verify files persist
+kubectl exec -n ai-devkit ai-devkit-0 -- cat ~/workspace/test.txt
+kubectl exec -n ai-devkit ai-devkit-0 -- cat ~/.config/test.conf
+```
+
+### Test 17.2: Log Aggregation
+**Objective:** Verify all logs are accessible
+
+**Validation:**
+```bash
+# Check init container logs
+kubectl logs -n ai-devkit ai-devkit-0 -c init-copy-files
+
+# Check main container logs  
+kubectl logs -n ai-devkit ai-devkit-0 -c ai-devkit
+
+# Check build logs
+cat build-and-deploy.log | wc -l
+# Expected: Comprehensive logging of all operations
+```
+
+### Test 17.3: Health Checks
+**Objective:** Verify container health monitoring
+
+**Validation:**
+```bash
+# Check pod status
+kubectl get pod -n ai-devkit ai-devkit-0 -o json | jq .status.conditions
+
+# SSH connectivity test
+ssh -p 2222 devuser@localhost "echo 'SSH OK'"
+
+# Component functionality
+ssh -p 2222 devuser@localhost "python3 --version && node --version"
+```
+
+---
+
 ## Test Execution Checklist
 
 - [ ] Section 1: Core System Tests
@@ -911,6 +1242,26 @@ mvn -version
 - [ ] Section 12: Component Dependencies
   - [ ] 12.1 Component Dependencies Resolution
   - [ ] 12.2 Conflicting Components
+- [ ] Section 13: Security Tests
+  - [ ] 13.1 Repository URL Input Validation
+  - [ ] 13.2 Credential File Permissions
+  - [ ] 13.3 No Secrets in Logs
+- [ ] Section 14: Network Resilience
+  - [ ] 14.1 DNS Resolution Failure
+  - [ ] 14.2 Network Timeout Handling
+  - [ ] 14.3 Certificate Validation
+- [ ] Section 15: Resource Constraints
+  - [ ] 15.1 Low Disk Space
+  - [ ] 15.2 Memory Pressure
+  - [ ] 15.3 Build Performance Baseline
+- [ ] Section 16: Component Compatibility Matrix
+  - [ ] 16.1 Language Version Conflicts
+  - [ ] 16.2 Build Tool Dependencies
+  - [ ] 16.3 Maximum Component Load
+- [ ] Section 17: Operational Tests
+  - [ ] 17.1 Container Restart Persistence
+  - [ ] 17.2 Log Aggregation
+  - [ ] 17.3 Health Checks
 
 ---
 
@@ -921,4 +1272,4 @@ mvn -version
 - Document any failures with logs and configuration
 - Each test should be independently reproducible
 
-*Last Updated: 2025-01-10 - Updated for init container architecture and TUI-based selection*
+*Last Updated: 2025-01-10 - Expanded to 17 sections with comprehensive security, network, resource, and operational testing*

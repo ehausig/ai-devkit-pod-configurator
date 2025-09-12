@@ -21,6 +21,11 @@ This document distills key principles, lessons learned, and architectural decisi
 - **Rationale**: Python dependency for templating violated "zero dependency" goal
 - **Implementation**: Created bash-based template processor using native shell functions
 - **Never**: Introduce Python, Ruby, or other language dependencies in core
+- **Validation**: Test 1.1 verifies no Python in:
+  - Core scripts (lib/*.sh, build-and-deploy.sh)
+  - Base Docker image (docker/Dockerfile.base)
+  - Template processing (must use bash functions)
+  - YAML processing (must use Go-based yq, not Python-based)
 
 ### 4. YAML Over JSON
 **Decision**: All configuration uses YAML format
