@@ -212,11 +212,6 @@ RUN mkdir -p /tmp/work-scripts && \
     mkdir -p /var/run/work-queue && \
     chmod 755 /var/run/work-queue
 
-# Copy Claude commands and hooks (these should always exist after pre-build)
-# The claude-code-setup.sh script should ensure these directories exist
-COPY claude-commands /tmp/claude-commands/
-COPY claude-hooks /tmp/claude-hooks/
-
 # Set environment variables for runtime if proxies are configured
 ENV PIP_INDEX_URL=${PIP_INDEX_URL}
 ENV PIP_TRUSTED_HOST=${PIP_TRUSTED_HOST}

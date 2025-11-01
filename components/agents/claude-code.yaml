@@ -47,6 +47,21 @@ installation:
     - source: claude-code/settings.local.json.template
       destination: /tmp/claude-settings.local.json.template
       permissions: "644"
+    - source: commands/
+      destination: /tmp/claude-commands/
+      permissions: "755"
+    - source: agents/
+      destination: /tmp/claude-agents/
+      permissions: "755"
+    - source: hooks/
+      destination: /tmp/claude-hooks/
+      permissions: "755"
+    - source: scripts/
+      destination: /tmp/scripts/
+      permissions: "755"
+    - source: docs/
+      destination: /tmp/claude-docs/
+      permissions: "755"
 entrypoint_setup: |
   # Create Claude Code directories
   echo "Setting up Claude Code..."
