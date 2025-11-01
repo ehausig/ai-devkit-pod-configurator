@@ -23,13 +23,13 @@ error() { echo -e "${RED}✗ $1${NC}"; exit 1; }
 info() { echo -e "${BLUE}ℹ $1${NC}"; }
 
 # Verify required files exist
-CLAUDE_TEMPLATE="$SCRIPT_DIR/claude-code/CLAUDE.md.template"
-SETTINGS_TEMPLATE="$SCRIPT_DIR/claude-code/settings.json.template"
-USER_LOCAL_SETTINGS="$SCRIPT_DIR/claude-code/settings.local.json.template"
+CLAUDE_TEMPLATE="$SCRIPT_DIR/CLAUDE.md.template"
+SETTINGS_TEMPLATE="$SCRIPT_DIR/settings.json.template"
+USER_LOCAL_SETTINGS="$SCRIPT_DIR/settings.local.json.template"
 
-[[ ! -f "$CLAUDE_TEMPLATE" ]] && error "$CLAUDE_TEMPLATE not found in $SCRIPT_DIR/claude-code"
-[[ ! -f "$SETTINGS_TEMPLATE" ]] && error "$SETTINGS_TEMPLATE not found in $SCRIPT_DIR/claude-code"
-[[ ! -f "$USER_LOCAL_SETTINGS" ]] && error "$USER_LOCAL_SETTINGS not found in $SCRIPT_DIR/claude-code"
+[[ ! -f "$CLAUDE_TEMPLATE" ]] && error "$CLAUDE_TEMPLATE not found in $SCRIPT_DIR"
+[[ ! -f "$SETTINGS_TEMPLATE" ]] && error "$SETTINGS_TEMPLATE not found in $SCRIPT_DIR"
+[[ ! -f "$USER_LOCAL_SETTINGS" ]] && error "$USER_LOCAL_SETTINGS not found in $SCRIPT_DIR"
 
 log "Setting up Claude Code autonomous development system..."
 
@@ -50,10 +50,10 @@ cp "$SETTINGS_TEMPLATE" "$TEMP_DIR/settings.json"
 cp "$USER_LOCAL_SETTINGS" "$TEMP_DIR/settings.local.json"
 
 # Copy commands (all .md files)
-if [[ -d "$SCRIPT_DIR/claude-code/commands" ]]; then
+if [[ -d "$SCRIPT_DIR/commands" ]]; then
     log "Copying autonomous development commands..."
-    if ls "$SCRIPT_DIR/claude-code/commands/"*.md >/dev/null 2>&1; then
-        cp "$SCRIPT_DIR/claude-code/commands/"*.md "$TEMP_DIR/commands/"
+    if ls "$SCRIPT_DIR/commands/"*.md >/dev/null 2>&1; then
+        cp "$SCRIPT_DIR/commands/"*.md "$TEMP_DIR/commands/"
         success "Copied $(ls -1 "$TEMP_DIR/commands/"*.md 2>/dev/null | wc -l) commands"
     else
         log "No command files found"
@@ -75,9 +75,9 @@ if [[ "$ai_kanban_selected" == "true" ]]; then
 else
     log "AI Kanban component not selected - creating stub agent references for compatibility"
     # Create stub agent files for backward compatibility
-    if [[ -d "$SCRIPT_DIR/claude-code/agents" ]]; then
-        if ls "$SCRIPT_DIR/claude-code/agents/"*.md >/dev/null 2>&1; then
-            for agent_file in "$SCRIPT_DIR/claude-code/agents/"*.md; do
+    if [[ -d "$SCRIPT_DIR/agents" ]]; then
+        if ls "$SCRIPT_DIR/agents/"*.md >/dev/null 2>&1; then
+            for agent_file in "$SCRIPT_DIR/agents/"*.md; do
                 agent_name=$(basename "$agent_file")
                 # Create a stub file that indicates agents are in ai-kanban
                 cat > "$TEMP_DIR/agents/$agent_name" << EOF
@@ -105,10 +105,10 @@ EOF
 fi
 
 # Copy hooks (all .sh files if directory exists)
-if [[ -d "$SCRIPT_DIR/claude-code/hooks" ]]; then
+if [[ -d "$SCRIPT_DIR/hooks" ]]; then
     log "Copying hook scripts..."
-    if ls "$SCRIPT_DIR/claude-code/hooks/"*.sh >/dev/null 2>&1; then
-        cp "$SCRIPT_DIR/claude-code/hooks/"*.sh "$TEMP_DIR/hooks/"
+    if ls "$SCRIPT_DIR/hooks/"*.sh >/dev/null 2>&1; then
+        cp "$SCRIPT_DIR/hooks/"*.sh "$TEMP_DIR/hooks/"
         chmod +x "$TEMP_DIR/hooks/"*.sh
         success "Copied $(ls -1 "$TEMP_DIR/hooks/"*.sh 2>/dev/null | wc -l) hooks"
     else
@@ -117,10 +117,10 @@ if [[ -d "$SCRIPT_DIR/claude-code/hooks" ]]; then
 fi
 
 # Copy utility scripts
-if [[ -d "$SCRIPT_DIR/claude-code/scripts" ]]; then
+if [[ -d "$SCRIPT_DIR/scripts" ]]; then
     log "Copying utility scripts..."
-    if ls "$SCRIPT_DIR/claude-code/scripts/"*.sh >/dev/null 2>&1; then
-        cp "$SCRIPT_DIR/claude-code/scripts/"*.sh "$TEMP_DIR/scripts/"
+    if ls "$SCRIPT_DIR/scripts/"*.sh >/dev/null 2>&1; then
+        cp "$SCRIPT_DIR/scripts/"*.sh "$TEMP_DIR/scripts/"
         chmod +x "$TEMP_DIR/scripts/"*.sh
         success "Copied $(ls -1 "$TEMP_DIR/scripts/"*.sh 2>/dev/null | wc -l) scripts"
     else
