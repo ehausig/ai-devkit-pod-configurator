@@ -149,12 +149,22 @@ cd ai-devkit-pod-configurator
 chmod +x *.sh
 
 # Step 1: Configure AI DevKit (REQUIRED on first run)
-./configure-ai-devkit.sh
-# This will:
-#   - Detect available container tools (docker, nerdctl, podman)
-#   - Identify your Kubernetes runtime (k3s, colima, etc.)
-#   - Configure artifact repositories (PyPI, NPM, Maven, etc.)
-#   - Save your preferences
+# Create ~/.ai-devkit/config.yaml with your container runtime preferences
+mkdir -p ~/.ai-devkit
+cat > ~/.ai-devkit/config.yaml << 'EOF'
+container:
+  # Container build tool: docker, nerdctl, or podman
+  build_tool: docker  # Change to nerdctl or podman if preferred
+
+  # Kubernetes runtime: k3s, colima, docker-desktop, minikube, kind, or containerd
+  runtime: colima  # Change to match your setup (k3s for Linux, colima for macOS)
+
+  # Import method:
+  #   - direct: nerdctl builds directly into K3s containerd (fastest, K3s only)
+  #   - save-load: Export/import image tar (for Docker/Podman with K3s)
+  #   - none: No import needed (Docker Desktop, minikube with Docker)
+  runtime_import: none  # Use 'direct' for nerdctl+k3s, 'save-load' for docker+k3s
+EOF
 
 # Step 2: (Optional) Configure git credentials for automatic injection
 ./setup-container-git-credentials.sh
@@ -408,25 +418,31 @@ my-tool --help
 
 ### Container Runtime Configuration
 
-The AI DevKit uses a configuration-first approach to manage container tools and runtimes:
+The AI DevKit uses a configuration-first approach to manage container tools and runtimes through `~/.ai-devkit/config.yaml`:
 
-```bash
-# Configure your runtime (required on first run)
-./configure-ai-devkit.sh
+**Example Configuration:**
+```yaml
+container:
+  build_tool: docker       # or nerdctl, podman
+  runtime: colima          # or k3s, docker-desktop, minikube, kind
+  runtime_import: none     # or direct, save-load
 ```
 
-This creates `~/.ai-devkit/config.yaml` with your preferences:
-- **Container build tool**: docker, nerdctl, or podman
-- **Kubernetes runtime**: k3s, colima, docker-desktop, etc.
-- **Import method**: direct (nerdctl+k3s), none (docker-desktop), or save-load
+**Configuration Options:**
+- **build_tool**: The container build command (docker, nerdctl, or podman)
+- **runtime**: Your Kubernetes distribution (k3s, colima, docker-desktop, minikube, kind, or containerd)
+- **runtime_import**: How images are loaded into Kubernetes:
+  - `direct`: Build directly into K3s containerd (nerdctl+k3s only, fastest)
+  - `save-load`: Export/import image tar (docker or podman with K3s)
+  - `none`: No import needed (Docker Desktop, minikube with Docker)
 
-Benefits:
+**Benefits:**
 - **Explicit control**: Choose which tool to use when multiple are available
-- **Optimal pairing**: Get recommendations for best tool/runtime combinations
-- **Faster builds**: No repeated detection on every run
+- **Optimal pairing**: Configure the best tool/runtime combination for your setup
+- **Faster builds**: No repeated runtime detection on every run
 - **Clear configuration**: See exactly what will be used
 
-To reconfigure, simply run the configuration script again.
+To reconfigure, simply edit `~/.ai-devkit/config.yaml` with your preferred settings.
 
 ### Container Tool and K3s Image Management
 

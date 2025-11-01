@@ -97,8 +97,14 @@ git checkout -b feature/your-feature-name
 # Make scripts executable
 chmod +x *.sh
 
-# Configure container runtime
-./configure-ai-devkit.sh
+# Configure container runtime (create ~/.ai-devkit/config.yaml)
+mkdir -p ~/.ai-devkit
+cat > ~/.ai-devkit/config.yaml << 'EOF'
+container:
+  build_tool: docker  # or nerdctl, podman
+  runtime: colima     # or k3s, docker-desktop, minikube, kind
+  runtime_import: none  # or direct (nerdctl+k3s), save-load (docker+k3s)
+EOF
 
 # Start development
 ./build-and-deploy.sh
