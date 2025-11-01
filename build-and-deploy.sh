@@ -3882,8 +3882,18 @@ create_custom_dockerfile() {
                     if [[ -f "$component_dir/$source" ]]; then
                         cp "$component_dir/$source" "$TEMP_DIR/$source"
                         log "Copied $source to build context for $component_name"
+                    elif [[ -f "$TEMP_DIR/$source" ]]; then
+                        # File already exists in TEMP_DIR (created by pre-build script)
+                        log "File $source already exists in build context (from pre-build script)"
+                    elif [[ -d "$component_dir/$source" ]]; then
+                        # It's a directory - copy it recursively
+                        cp -r "$component_dir/$source" "$TEMP_DIR/$source"
+                        log "Copied directory $source to build context for $component_name"
+                    elif [[ -d "$TEMP_DIR/$source" ]]; then
+                        # Directory already exists in TEMP_DIR
+                        log "Directory $source already exists in build context (from pre-build script)"
                     else
-                        warning "File $source not found in $component_dir for $component_name"
+                        warning "File $source not found in $component_dir or $TEMP_DIR for $component_name"
                     fi
                 fi
             done
