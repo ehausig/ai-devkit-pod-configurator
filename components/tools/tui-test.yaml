@@ -1,0 +1,45 @@
+id: TUI_TEST
+name: Microsoft TUI Test
+group: testing-tools
+requires: nodejs
+description: End-to-end terminal testing framework from Microsoft
+installation:
+  dockerfile: |
+    # Install Microsoft TUI Test globally
+    RUN npm install -g @microsoft/tui-test && \
+        # Verify installation
+        tui-test --version || echo "TUI Test installed successfully"
+  inject_files:
+    - source: tui-test.config.ts
+      destination: /tmp/tui-test.config.ts
+      permissions: 644
+    - source: example.test.ts
+      destination: /tmp/example.test.ts
+      permissions: 644
+entrypoint_setup: |
+  # TUI Test setup
+  echo "Setting up Microsoft TUI Test..."
+  
+  # Create TUI Test template directory
+  mkdir -p /home/devuser/.tui-test-templates
+  
+  # Copy templates
+  if [ -f /tmp/tui-test.config.ts ]; then
+      cp /tmp/tui-test.config.ts /home/devuser/.tui-test-templates/
+  fi
+  
+  if [ -f /tmp/example.test.ts ]; then
+      cp /tmp/example.test.ts /home/devuser/.tui-test-templates/
+  fi
+  
+  # Set proper ownership
+  chown -R devuser:devuser /home/devuser/.tui-test-templates
+  
+  # Add TUI Test aliases to bashrc if not already present
+  if ! grep -q "tui-test-init" "$BASHRC" 2>/dev/null; then
+      echo '' >> "$BASHRC"
+      echo '# TUI Test aliases' >> "$BASHRC"
+      echo 'alias tui-test-init="cp ~/.tui-test-templates/tui-test.config.ts . && echo \"Created tui-test.config.ts\""' >> "$BASHRC"
+      echo 'alias tui-test-example="cp ~/.tui-test-templates/example.test.ts . && echo \"Created example.test.ts\""' >> "$BASHRC"
+      echo 'alias tui-test-trace="npx @microsoft/tui-test show-trace"' >> "$BASHRC"
+  fi

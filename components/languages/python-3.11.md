@@ -60,6 +60,39 @@ mypy>=1.7.0
 pip install -r requirements.txt
 ```
 
+**Installing Missing Modules**
+```bash
+# If you encounter ModuleNotFoundError, install the missing module:
+# Example: ModuleNotFoundError: No module named 'fastapi'
+pip install fastapi
+
+# For async web development:
+pip install fastapi uvicorn[standard] httpx
+pip install aiohttp aiofiles asyncpg
+
+# For TUI applications:
+pip install textual rich typer
+pip install prompt-toolkit blessed
+
+# For data processing (Python 3.11 optimized):
+pip install numpy pandas polars
+pip install pyarrow duckdb
+
+# For testing:
+pip install pytest pytest-asyncio pytest-cov
+pip install pytest-mock pytest-timeout
+
+# For development:
+pip install black ruff mypy
+pip install ipython devtools
+
+# Python 3.11 specific features support:
+pip install typing-extensions pydantic>=2.0
+
+# Always update requirements.txt after installing:
+pip freeze > requirements.txt
+```
+
 **Format & Lint**
 ```bash
 # Black for formatting
@@ -112,6 +145,56 @@ python -m src.main
 
 # With optimizations
 python -O -m src.main
+```
+
+**Python 3.11 Specific Features**
+```python
+# Exception groups (install exceptiongroup for backcompat)
+pip install exceptiongroup
+
+# Improved error messages - built-in, no install needed
+
+# For task groups in asyncio
+import asyncio
+# Built-in, no extra install needed
+
+# For tomllib (reading TOML files)
+import tomllib  # Built-in since 3.11
+# No need to install tomli anymore
+```
+
+**Common Package Installation Examples**
+```bash
+# Modern async frameworks
+pip install fastapi uvicorn httpx
+pip install starlette pydantic
+pip install python-multipart python-jose[cryptography]
+
+# Data validation and serialization
+pip install pydantic pydantic-settings
+pip install marshmallow cattrs
+
+# Modern CLI tools
+pip install typer[all] rich click
+pip install textual textual-dev
+
+# Database with async support
+pip install sqlalchemy[asyncio] asyncpg
+pip install databases aiosqlite
+pip install motor  # Async MongoDB
+
+# ML/Data Science (3.11 optimized)
+pip install numpy pandas scikit-learn
+pip install polars pyarrow
+pip install torch tensorflow
+
+# Testing async code
+pip install pytest-asyncio anyio
+pip install httpx-mock aioresponses
+
+# Performance profiling
+pip install scalene memray
+pip install py-spy line-profiler
 ```
 
 **TUI Testing Notes**

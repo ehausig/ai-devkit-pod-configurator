@@ -17,7 +17,6 @@ fi
 CONFIG_DIR="/home/devuser/.config/ai-devkit"
 mkdir -p "$CONFIG_DIR"
 mkdir -p /home/devuser/workspace
-mkdir -p /home/devuser/.claude
 mkdir -p /home/devuser/.local/bin
 
 # Start SSH daemon if host keys are mounted
@@ -68,34 +67,6 @@ if [ -f /tmp/git-mounted/gh-hosts.yml ]; then
     chmod 600 /home/devuser/.config/gh/hosts.yml
 fi
 
-# Copy user-CLAUDE.md to ~/.claude/CLAUDE.md if it exists
-# TODO: incorporate Claude Code specific configuration in components/agents files
-if [ -f /tmp/user-CLAUDE.md ]; then
-    echo "Found user CLAUDE.md, copying to ~/.claude..."
-    cp /tmp/user-CLAUDE.md /home/devuser/.claude/CLAUDE.md
-    echo "User CLAUDE.md copied successfully"
-    
-    # Append component imports to the CLAUDE.md file
-    if [ -f /tmp/component-imports.txt ]; then
-        echo "Appending component imports to CLAUDE.md..."
-        cat /tmp/component-imports.txt >> /home/devuser/.claude/CLAUDE.md
-        echo "Component imports appended successfully"
-    fi
-fi
-
-# Copy all component markdown files to ~/.claude
-# TODO: maybe put in generic ~/.prompts directory, then use symlink for .claude?
-echo "Copying component documentation files..."
-for md_file in /tmp/*.md; do
-    if [ -f "$md_file" ] && [ "$md_file" != "/tmp/user-CLAUDE.md" ]; then
-        basename_file=$(basename "$md_file")
-        if [ ! -f "/home/devuser/.claude/$basename_file" ]; then
-            cp "$md_file" "/home/devuser/.claude/$basename_file"
-            echo "Copied $basename_file to ~/.claude"
-        fi
-    fi
-done
-
 # Function to add line to file if not already present
 add_if_not_exists() {
     local line="$1"
@@ -110,10 +81,16 @@ BASHRC="/home/devuser/.bashrc"
 
 # Ensure proper ownership of essential directories
 chown -R devuser:devuser /home/devuser/workspace 2>/dev/null || true
-chown -R devuser:devuser /home/devuser/.claude 2>/dev/null || true
 chown -R devuser:devuser /home/devuser/.config/ai-devkit 2>/dev/null || true
 chown -R devuser:devuser /home/devuser/.local 2>/dev/null || true
 chown -R devuser:devuser /home/devuser/.tui-test-templates 2>/dev/null || true
+
+# Copy README to ai-devkit config directory (in case PVC mount overwrote it)
+if [ -f /usr/local/share/ai-devkit-README.md ] && [ ! -f /home/devuser/.config/ai-devkit/README.md ]; then
+    echo "Restoring ai-devkit README to config directory..."
+    cp /usr/local/share/ai-devkit-README.md /home/devuser/.config/ai-devkit/README.md
+    chown devuser:devuser /home/devuser/.config/ai-devkit/README.md
+fi
 
 # Add user's local bin to PATH
 add_if_not_exists 'export PATH="$HOME/.local/bin:$PATH"' "$BASHRC"
@@ -144,11 +121,19 @@ fi
 EOF
 fi
 
+# Source Go environment if it exists
+if ! grep -q "Source Go environment" "$BASHRC" 2>/dev/null; then
+    cat >> "$BASHRC" << 'EOF'
+
+# Source Go environment if it exists
+if [ -f ~/.config/go-env.sh ]; then
+    . ~/.config/go-env.sh
+fi
+EOF
+fi
+
 # Ensure proper ownership of .bashrc
 chown devuser:devuser "$BASHRC"
-
-# Remove the old welcome message from .bashrc since we now use MOTD
-# (No need to add welcome message to .bashrc anymore)
 
 # Create shadow backup for password change detection
 if [ ! -f /etc/shadow.backup ]; then
@@ -164,20 +149,17 @@ if [ "$(id -u)" = "0" ]; then
         exec sleep infinity
     else
         echo "Switching to devuser to run: $*"
-        # Build environment preservation string dynamically
+        # Build environment preservation string - only essential environment variables
         ENV_PRESERVE="export TERM='$TERM' && export FORCE_COLOR='$FORCE_COLOR' && export CI='$CI'"
         
-        # Add component-specific environment variables if they exist
-        [ -n "$PIP_INDEX_URL" ] && ENV_PRESERVE="$ENV_PRESERVE && export PIP_INDEX_URL='$PIP_INDEX_URL'"
-        [ -n "$PIP_TRUSTED_HOST" ] && ENV_PRESERVE="$ENV_PRESERVE && export PIP_TRUSTED_HOST='$PIP_TRUSTED_HOST'"
-        [ -n "$NPM_CONFIG_REGISTRY" ] && ENV_PRESERVE="$ENV_PRESERVE && export NPM_CONFIG_REGISTRY='$NPM_CONFIG_REGISTRY'"
-        [ -n "$GOPROXY" ] && ENV_PRESERVE="$ENV_PRESERVE && export GOPROXY='$GOPROXY'"
-        [ -n "$CARGO_REGISTRIES_CRATES_IO_PROTOCOL" ] && ENV_PRESERVE="$ENV_PRESERVE && export CARGO_REGISTRIES_CRATES_IO_PROTOCOL='$CARGO_REGISTRIES_CRATES_IO_PROTOCOL'"
-        [ -n "$CARGO_HTTP_CHECK_REVOKE" ] && ENV_PRESERVE="$ENV_PRESERVE && export CARGO_HTTP_CHECK_REVOKE='$CARGO_HTTP_CHECK_REVOKE'"
-        [ -n "$CARGO_NET_GIT_FETCH_WITH_CLI" ] && ENV_PRESERVE="$ENV_PRESERVE && export CARGO_NET_GIT_FETCH_WITH_CLI='$CARGO_NET_GIT_FETCH_WITH_CLI'"
+        # Preserve proxy settings if they exist (generic, not language-specific)
+        [ -n "$HTTP_PROXY" ] && ENV_PRESERVE="$ENV_PRESERVE && export HTTP_PROXY='$HTTP_PROXY'"
+        [ -n "$HTTPS_PROXY" ] && ENV_PRESERVE="$ENV_PRESERVE && export HTTPS_PROXY='$HTTPS_PROXY'"
         [ -n "$NO_PROXY" ] && ENV_PRESERVE="$ENV_PRESERVE && export NO_PROXY='$NO_PROXY'"
         [ -n "$no_proxy" ] && ENV_PRESERVE="$ENV_PRESERVE && export no_proxy='$no_proxy'"
-        [ -n "$SBT_OPTS" ] && ENV_PRESERVE="$ENV_PRESERVE && export SBT_OPTS='$SBT_OPTS'"
+        
+        # Component-specific environment variables are now handled via mounted config files
+        # Repository configurations are mounted directly to the appropriate locations
         
         exec su - devuser -c "$ENV_PRESERVE && $*"
     fi

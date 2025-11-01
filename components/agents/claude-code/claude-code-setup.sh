@@ -1,6 +1,6 @@
 #!/bin/bash
-# Claude Code pre-build script
-# Generates component imports, handles file copying, and processes hooks
+# Claude Code pre-build script - Sets up autonomous development system with Team Topologies
+# Generates component imports and prepares files for Docker build
 
 # Standard arguments
 TEMP_DIR="$1"
@@ -21,18 +21,127 @@ log() { echo -e "${YELLOW}$1${NC}"; }
 success() { echo -e "${GREEN}✓ $1${NC}"; }
 error() { echo -e "${RED}✗ $1${NC}"; exit 1; }
 info() { echo -e "${BLUE}ℹ $1${NC}"; }
-warning() { echo -e "${YELLOW}⚠ $1${NC}"; }
 
-# Verify files exist
-USER_CLAUDE="$SCRIPT_DIR/claude-code/user-CLAUDE.md"
-SETTINGS_TEMPLATE="$SCRIPT_DIR/claude-code/claude-settings.json.template"
+# Verify required files exist
+CLAUDE_TEMPLATE="$SCRIPT_DIR/CLAUDE.md.template"
+SETTINGS_TEMPLATE="$SCRIPT_DIR/settings.json.template"
+USER_LOCAL_SETTINGS="$SCRIPT_DIR/settings.local.json.template"
 
-[[ ! -f "$USER_CLAUDE" ]] && error "user-CLAUDE.md not found in $SCRIPT_DIR/claude-code"
-[[ ! -f "$SETTINGS_TEMPLATE" ]] && error "claude-settings.json.template not found in $SCRIPT_DIR/claude-code"
+[[ ! -f "$CLAUDE_TEMPLATE" ]] && error "$CLAUDE_TEMPLATE not found in $SCRIPT_DIR"
+[[ ! -f "$SETTINGS_TEMPLATE" ]] && error "$SETTINGS_TEMPLATE not found in $SCRIPT_DIR"
+[[ ! -f "$USER_LOCAL_SETTINGS" ]] && error "$USER_LOCAL_SETTINGS not found in $SCRIPT_DIR"
 
-log "Generating component imports for user CLAUDE.md..."
+log "Setting up Claude Code autonomous development system..."
 
-# Create component imports file
+# Create necessary directories
+mkdir -p "$TEMP_DIR/commands"
+mkdir -p "$TEMP_DIR/agents"
+mkdir -p "$TEMP_DIR/scripts"
+mkdir -p "$TEMP_DIR/docs"
+mkdir -p "$TEMP_DIR/hooks"
+
+# Copy CLAUDE template
+cp "$CLAUDE_TEMPLATE" "$TEMP_DIR/CLAUDE.md"
+
+# Copy settings template with FINAL name (not template name)
+cp "$SETTINGS_TEMPLATE" "$TEMP_DIR/settings.json"
+
+# Copy workspace settings template
+cp "$USER_LOCAL_SETTINGS" "$TEMP_DIR/settings.local.json"
+
+# Copy commands (all .md files)
+if [[ -d "$SCRIPT_DIR/commands" ]]; then
+    log "Copying autonomous development commands..."
+    if ls "$SCRIPT_DIR/commands/"*.md >/dev/null 2>&1; then
+        cp "$SCRIPT_DIR/commands/"*.md "$TEMP_DIR/commands/"
+        success "Copied $(ls -1 "$TEMP_DIR/commands/"*.md 2>/dev/null | wc -l) commands"
+    else
+        log "No command files found"
+    fi
+fi
+
+# Handle agents conditionally - check if AI_KANBAN is selected
+ai_kanban_selected=false
+for yaml_file in $SELECTED_YAML_FILES; do
+    if [[ "$(basename "$yaml_file")" == "ai-kanban.yaml" ]]; then
+        ai_kanban_selected=true
+        break
+    fi
+done
+
+if [[ "$ai_kanban_selected" == "true" ]]; then
+    log "AI Kanban component detected - agent personas will be provided by ai-kanban"
+    info "Agent definitions will be available at: /home/devuser/.claude/agents/ (symlinked from ai-kanban)"
+else
+    log "AI Kanban component not selected - creating stub agent references for compatibility"
+    # Create stub agent files for backward compatibility
+    if [[ -d "$SCRIPT_DIR/agents" ]]; then
+        if ls "$SCRIPT_DIR/agents/"*.md >/dev/null 2>&1; then
+            for agent_file in "$SCRIPT_DIR/agents/"*.md; do
+                agent_name=$(basename "$agent_file")
+                # Create a stub file that indicates agents are in ai-kanban
+                cat > "$TEMP_DIR/agents/$agent_name" << EOF
+# $agent_name (Stub Reference)
+
+**Note**: Full agent persona definitions have been moved to the AI Kanban component.
+
+To access the complete agent definitions and personas:
+1. Select both 'claude-code' and 'ai-kanban' components during build
+2. Agent definitions will be available at: \`/home/devuser/.ai-kanban/agents/\`
+3. Compatibility symlinks will be created at: \`/home/devuser/.claude/agents/\`
+
+## Migration Information
+Agent personas are now part of the AI Kanban Dashboard component to provide:
+- Real-time visualization of agent activities
+- Kanban board integration
+- Better separation of concerns
+
+For the full agent definition, select the 'ai-kanban' component.
+EOF
+            done
+            success "Created $(ls -1 "$TEMP_DIR/agents/"*.md 2>/dev/null | wc -l) stub agent references"
+        fi
+    fi
+fi
+
+# Copy hooks (all .sh files if directory exists)
+if [[ -d "$SCRIPT_DIR/hooks" ]]; then
+    log "Copying hook scripts..."
+    if ls "$SCRIPT_DIR/hooks/"*.sh >/dev/null 2>&1; then
+        cp "$SCRIPT_DIR/hooks/"*.sh "$TEMP_DIR/hooks/"
+        chmod +x "$TEMP_DIR/hooks/"*.sh
+        success "Copied $(ls -1 "$TEMP_DIR/hooks/"*.sh 2>/dev/null | wc -l) hooks"
+    else
+        log "No hook files found"
+    fi
+fi
+
+# Copy utility scripts
+if [[ -d "$SCRIPT_DIR/scripts" ]]; then
+    log "Copying utility scripts..."
+    if ls "$SCRIPT_DIR/scripts/"*.sh >/dev/null 2>&1; then
+        cp "$SCRIPT_DIR/scripts/"*.sh "$TEMP_DIR/scripts/"
+        chmod +x "$TEMP_DIR/scripts/"*.sh
+        success "Copied $(ls -1 "$TEMP_DIR/scripts/"*.sh 2>/dev/null | wc -l) scripts"
+    else
+        log "No script files found"
+    fi
+fi
+
+# Note: Component documentation files are already copied to $TEMP_DIR/docs/ by build-and-deploy.sh
+# This script only needs to generate the import references
+
+# Count component docs for logging
+docs_count=$(ls -1 "$TEMP_DIR/docs/"*.md 2>/dev/null | wc -l)
+if [[ $docs_count -gt 0 ]]; then
+    log "Found $docs_count component documentation files in docs folder"
+else
+    log "No component documentation files found in docs folder"
+fi
+
+# Generate component imports file with import syntax
+log "Generating component imports with @import syntax..."
+
 IMPORTS_OUTPUT="$TEMP_DIR/component-imports.txt"
 cat > "$IMPORTS_OUTPUT" << 'EOF'
 
@@ -44,377 +153,208 @@ This environment includes the following components:
 
 EOF
 
-# Get category display name from .category.yaml
-get_category_display_name() {
-    local category_dir=$1
-    local display_name=$(basename "$category_dir")
-    
-    if [[ -f "$category_dir/.category.yaml" ]]; then
-        # Extract display_name from .category.yaml
-        local line
-        while IFS= read -r line; do
-            if [[ "$line" =~ ^display_name:[[:space:]]*(.+)$ ]]; then
-                display_name="${BASH_REMATCH[1]}"
-                # Remove quotes if present
-                display_name="${display_name#\"}"
-                display_name="${display_name%\"}"
-                display_name="${display_name#\'}"
-                display_name="${display_name%\'}"
-                break
-            fi
-        done < "$category_dir/.category.yaml"
-    fi
-    
-    echo "$display_name"
-}
-
-# Create temporary files to store category data
+# Process selected components
 TEMP_CATEGORIES="$TEMP_DIR/.categories.tmp"
 TEMP_COMPONENTS="$TEMP_DIR/.components.tmp"
-TEMP_ALL_COMPONENTS="$TEMP_DIR/.all_components.tmp"
-
-# Clear temp files
 > "$TEMP_CATEGORIES"
 > "$TEMP_COMPONENTS"
-> "$TEMP_ALL_COMPONENTS"
 
 # Process each YAML file
 for yaml_file in $SELECTED_YAML_FILES; do
-    info "Processing: $yaml_file"
-    
-    # Extract component fields from YAML file
-    comp_name=""
-    comp_version=""
-    comp_description=""
-    
-    while IFS= read -r line; do
-        if [[ "$line" =~ ^name:[[:space:]]*(.+)$ ]]; then
-            comp_name="${BASH_REMATCH[1]}"
-            # Remove quotes if present
-            comp_name="${comp_name#\"}"
-            comp_name="${comp_name%\"}"
-            comp_name="${comp_name#\'}"
-            comp_name="${comp_name%\'}"
-        elif [[ "$line" =~ ^version:[[:space:]]*(.+)$ ]]; then
-            comp_version="${BASH_REMATCH[1]}"
-            # Remove quotes if present
-            comp_version="${comp_version#\"}"
-            comp_version="${comp_version%\"}"
-            comp_version="${comp_version#\'}"
-            comp_version="${comp_version%\'}"
-        elif [[ "$line" =~ ^description:[[:space:]]*(.+)$ ]]; then
-            comp_description="${BASH_REMATCH[1]}"
-            # Remove quotes if present
-            comp_description="${comp_description#\"}"
-            comp_description="${comp_description%\"}"
-            comp_description="${comp_description#\'}"
-            comp_description="${comp_description%\'}"
-        fi
-    done < "$yaml_file"
-    
-    # Extract category from path
-    # The path should be like "components/CATEGORY/file.yaml"
-    category=""
-    if [[ "$yaml_file" =~ components/([^/]+)/[^/]+\.yaml$ ]]; then
-        category="${BASH_REMATCH[1]}"
-    else
-        # Last resort: parent directory
+    if [ -f "$yaml_file" ]; then
+        # Extract component info using yq (compatible with both versions)
+        comp_name=$(yq '.name // ""' "$yaml_file" 2>/dev/null || echo "")
+        comp_version=$(yq '.version // ""' "$yaml_file" 2>/dev/null || echo "")
+        comp_description=$(yq '.description // ""' "$yaml_file" 2>/dev/null || echo "")
+        
+        # Extract category
         category=$(basename "$(dirname "$yaml_file")")
-    fi
-    
-    info "  Component: $comp_name"
-    info "  Category: $category"
-    [[ -n "$comp_version" ]] && info "  Version: $comp_version"
-    [[ -n "$comp_description" ]] && info "  Description: $comp_description"
-    
-    # Get markdown filename
-    yaml_basename=$(basename "$yaml_file" .yaml)
-    md_filename="${yaml_basename}.md"
-    
-    # Check if this category is already recorded
-    if ! grep -q "^${category}|" "$TEMP_CATEGORIES"; then
-        # Find the category directory to get display name
-        category_dir=""
-        if [[ "$yaml_file" =~ ^(.*/components/$category)/ ]]; then
-            category_dir="${BASH_REMATCH[1]}"
-        elif [[ -d "components/$category" ]]; then
-            category_dir="components/$category"
-        else
-            category_dir=$(dirname "$yaml_file")
+        
+        # Get the yaml basename for checking if md file exists
+        yaml_basename=$(basename "$yaml_file" .yaml)
+        
+        # Record component
+        echo "${category}|${comp_name}|${comp_version}|${comp_description}|${yaml_basename}" >> "$TEMP_COMPONENTS"
+        
+        # Record category if new
+        if ! grep -q "^${category}$" "$TEMP_CATEGORIES"; then
+            echo "$category" >> "$TEMP_CATEGORIES"
         fi
-        
-        display_name=$(get_category_display_name "$category_dir")
-        info "  Category display name: $display_name"
-        
-        # Record category and display name
-        echo "${category}|${display_name}" >> "$TEMP_CATEGORIES"
-    fi
-    
-    # Record ALL components for the installed list (with version and description)
-    echo "${category}|${comp_name}|${comp_version}|${comp_description}" >> "$TEMP_ALL_COMPONENTS"
-    
-    # Check if markdown file exists before recording component for documentation
-    md_source="$(dirname "$yaml_file")/${md_filename}"
-    if [[ -f "$md_source" ]]; then
-        # Only record component if markdown file exists
-        echo "${category}|${comp_name}|${md_filename}" >> "$TEMP_COMPONENTS"
-        
-        # Copy the markdown file
-        cp "$md_source" "$TEMP_DIR/${md_filename}"
-        success "  Copied ${md_filename}"
-    else
-        info "  No ${md_filename} found - skipping component documentation"
     fi
 done
 
-# Debug: Show collected data
-info "Categories collected:"
-cat "$TEMP_CATEGORIES"
-info "Components collected:"
-cat "$TEMP_COMPONENTS"
-
-# Write installed components section organized by category
-while IFS='|' read -r category display_name; do
-    [[ -z "$category" ]] && continue
+# Write components by category
+while IFS= read -r category; do
+    [ -z "$category" ] && continue
     
-    # Check if this category has any components
-    category_has_components=false
-    while IFS='|' read -r comp_category comp_name comp_version comp_description; do
-        if [[ "$comp_category" == "$category" ]]; then
-            category_has_components=true
-            break
-        fi
-    done < "$TEMP_ALL_COMPONENTS"
+    # Category header - properly format the display name
+    case "$category" in
+        "languages")
+            cat_display="Languages"
+            ;;
+        "agents")
+            cat_display="AI Agents"
+            ;;
+        "databases")
+            cat_display="Databases"
+            ;;
+        "tools")
+            cat_display="Development Tools"
+            ;;
+        "frameworks")
+            cat_display="Frameworks"
+            ;;
+        *)
+            # Default: capitalize first letter using awk (more portable)
+            cat_display=$(echo "$category" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')
+            ;;
+    esac
     
-    # Write category if it has components
-    if [[ "$category_has_components" == "true" ]]; then
-        echo "## $display_name" >> "$IMPORTS_OUTPUT"
-        echo "" >> "$IMPORTS_OUTPUT"
-        
-        # List all components for this category
-        while IFS='|' read -r comp_category comp_name comp_version comp_description; do
-            if [[ "$comp_category" == "$category" ]]; then
-                # Format component entry on single line
-                echo -n "- **$comp_name**" >> "$IMPORTS_OUTPUT"
-                
-                # Add version if available
-                if [[ -n "$comp_version" ]]; then
-                    echo -n " [version: $comp_version]" >> "$IMPORTS_OUTPUT"
-                fi
-                
-                # Add description if available
-                if [[ -n "$comp_description" ]]; then
-                    echo -n ": $comp_description" >> "$IMPORTS_OUTPUT"
-                fi
-                
-                # End the line
-                echo "" >> "$IMPORTS_OUTPUT"
+    echo "## $cat_display" >> "$IMPORTS_OUTPUT"
+    echo "" >> "$IMPORTS_OUTPUT"
+    
+    # List components in category
+    while IFS='|' read -r cat name ver desc basename; do
+        if [ "$cat" = "$category" ]; then
+            echo -n "- **$name**" >> "$IMPORTS_OUTPUT"
+            [ -n "$ver" ] && echo -n " v$ver" >> "$IMPORTS_OUTPUT"
+            [ -n "$desc" ] && echo -n " - $desc" >> "$IMPORTS_OUTPUT"
+            
+            # Add import reference if md file exists
+            if [[ -f "$TEMP_DIR/docs/${basename}.md" ]]; then
+                echo -n " @/home/devuser/.claude/docs/${basename}.md" >> "$IMPORTS_OUTPUT"
             fi
-        done < "$TEMP_ALL_COMPONENTS"
-        
-        echo "" >> "$IMPORTS_OUTPUT"
-    fi
-done < "$TEMP_CATEGORIES"
-
-# Add separator between sections
-echo "---" >> "$IMPORTS_OUTPUT"
-echo "" >> "$IMPORTS_OUTPUT"
-
-# Add Additional Instructions section header
-echo "# Additional Instructions" >> "$IMPORTS_OUTPUT"
-echo "" >> "$IMPORTS_OUTPUT"
-echo "This workspace includes the following development tools:" >> "$IMPORTS_OUTPUT"
-echo "" >> "$IMPORTS_OUTPUT"
-
-# Write categories and components to imports file (only those with markdown files)
-while IFS='|' read -r category display_name; do
-    [[ -z "$category" ]] && continue
-    
-    # Check if this category has any components with markdown files
-    category_has_components=false
-    while IFS='|' read -r comp_category comp_name md_filename; do
-        if [[ "$comp_category" == "$category" ]]; then
-            category_has_components=true
-            break
+            
+            echo "" >> "$IMPORTS_OUTPUT"
         fi
     done < "$TEMP_COMPONENTS"
-    
-    # Only write category header if it has components
-    if [[ "$category_has_components" == "true" ]]; then
-        echo "## $display_name" >> "$IMPORTS_OUTPUT"
-        
-        # Find all components for this category
-        while IFS='|' read -r comp_category comp_name md_filename; do
-            if [[ "$comp_category" == "$category" ]]; then
-                echo "- $comp_name @~/.claude/${md_filename}" >> "$IMPORTS_OUTPUT"
-            fi
-        done < "$TEMP_COMPONENTS"
-        
-        echo "" >> "$IMPORTS_OUTPUT"
-    fi
+    echo "" >> "$IMPORTS_OUTPUT"
 done < "$TEMP_CATEGORIES"
 
-# Clean up temp files
-rm -f "$TEMP_CATEGORIES" "$TEMP_COMPONENTS" "$TEMP_ALL_COMPONENTS"
+# Cleanup temp files
+rm -f "$TEMP_CATEGORIES" "$TEMP_COMPONENTS"
 
-success "Generated component imports for user CLAUDE.md"
+success "Component imports generated with @import syntax"
 
-# Always create claude-commands and claude-hooks directories to prevent Docker COPY failures
-mkdir -p "$TEMP_DIR/claude-commands"
-mkdir -p "$TEMP_DIR/claude-hooks"
+# Process command permissions from all selected components
+log "Processing command permissions from selected components..."
 
-# Copy user-CLAUDE.md
-log "Copying user-CLAUDE.md..."
-cp "$USER_CLAUDE" "$TEMP_DIR/"
-success "Copied user-CLAUDE.md"
+# Initialize arrays for permissions
+declare -a all_allow_perms=()
+declare -a all_deny_perms=()
 
-# Copy settings template
-log "Copying claude-settings.json.template..."
-cp "$SETTINGS_TEMPLATE" "$TEMP_DIR/"
-success "Copied claude-settings.json.template"
-
-# Copy claude-code.md if it exists
-if [[ -f "$SCRIPT_DIR/claude-code/claude-code.md" ]]; then
-    cp "$SCRIPT_DIR/claude-code/claude-code.md" "$TEMP_DIR/"
-    success "Copied claude-code.md"
-fi
-
-# Copy slash commands if they exist
-COMMANDS_DIR="$SCRIPT_DIR/claude-code/commands"
-if [[ -d "$COMMANDS_DIR" ]]; then
-    log "Copying Claude Code slash commands..."
-    
-    # Create commands directory in temp
-    mkdir -p "$TEMP_DIR/claude-commands"
-    
-    # Copy all .md files from commands directory
-    for cmd_file in "$COMMANDS_DIR"/*.md; do
-        if [[ -f "$cmd_file" ]]; then
-            cmd_basename=$(basename "$cmd_file")
-            cp "$cmd_file" "$TEMP_DIR/claude-commands/"
-            success "Copied command: $cmd_basename"
-        fi
-    done
-    
-    # Check for subdirectories (for namespaced commands)
-    for subdir in "$COMMANDS_DIR"/*; do
-        if [[ -d "$subdir" ]]; then
-            subdir_name=$(basename "$subdir")
-            mkdir -p "$TEMP_DIR/claude-commands/$subdir_name"
-            
-            for cmd_file in "$subdir"/*.md; do
-                if [[ -f "$cmd_file" ]]; then
-                    cmd_basename=$(basename "$cmd_file")
-                    cp "$cmd_file" "$TEMP_DIR/claude-commands/$subdir_name/"
-                    success "Copied namespaced command: $subdir_name/$cmd_basename"
-                fi
-            done
-        fi
-    done
-    
-    success "All Claude Code slash commands copied"
-else
-    info "No slash commands directory found"
-    # Create a placeholder to ensure directory exists for Docker COPY
-    echo "# Claude Code Slash Commands" > "$TEMP_DIR/claude-commands/.placeholder"
-    echo "No custom slash commands configured" >> "$TEMP_DIR/claude-commands/.placeholder"
-fi
-
-# Process hooks if they exist
-HOOKS_DIR="$SCRIPT_DIR/claude-code/hooks"
-if [[ -d "$HOOKS_DIR" ]]; then
-    log "Processing Claude Code hooks..."
-    
-    # Create hooks directory in temp for scripts
-    mkdir -p "$TEMP_DIR/claude-hooks"
-    
-    # Function to extract script from YAML using awk
-    extract_script_from_yaml() {
-        local yaml_file="$1"
-        local output_file="$2"
+# Process each selected YAML file for permissions using yq
+for yaml_file in $SELECTED_YAML_FILES; do
+    if [ -f "$yaml_file" ]; then
+        log "Checking $(basename "$yaml_file") for command permissions..."
         
-        # Use awk to extract the script block more reliably
-        awk '
-            /^script: \|/ { 
-                in_script = 1
-                next
-            }
-            # Stop when we hit a non-indented line (new top-level key)
-            in_script && /^[a-zA-Z_]+:/ && !/^  / { 
-                exit
-            }
-            # Process script lines
-            in_script {
-                # Handle lines that start with exactly 2 spaces
-                if (/^  /) {
-                    # Remove first 2 spaces
-                    sub(/^  /, "")
-                    print
-                } else if (/^$/) {
-                    # Keep empty lines
-                    print
-                }
-            }
-        ' "$yaml_file" > "$output_file"
-    }
-    
-    # For each hook YAML file, extract the script content and create the .sh file
-    for hook_file in "$HOOKS_DIR"/*.yaml; do
-        if [[ -f "$hook_file" ]]; then
-            hook_basename=$(basename "$hook_file" .yaml)
-            info "Processing hook: $hook_basename"
-            
-            script_file="$TEMP_DIR/claude-hooks/${hook_basename}.sh"
-            
-            # Extract script using awk
-            extract_script_from_yaml "$hook_file" "$script_file"
-            
-            # Check if we got any content
-            if [[ -s "$script_file" ]]; then
-                chmod +x "$script_file"
-                success "Created hook script: ${hook_basename}.sh"
-                
-                # Debug: Show first few lines
-                info "  First 3 lines of ${hook_basename}.sh:"
-                head -3 "$script_file" | sed 's/^/    /'
-            else
-                warning "No script content found in ${hook_basename}.yaml"
-                rm -f "$script_file"
+        # Extract allow permissions using yq
+        while IFS= read -r perm; do
+            if [ -n "$perm" ]; then
+                all_allow_perms+=("$perm")
             fi
-        fi
-    done
-    
-    # Count processed hooks
-    hook_count=$(find "$TEMP_DIR/claude-hooks" -name "*.sh" -type f 2>/dev/null | wc -l)
-    success "Created $hook_count hook scripts"
-    
-    # Verify hook scripts are complete by checking for key patterns
-    info "Verifying hook scripts..."
-    for hook_script in "$TEMP_DIR/claude-hooks"/*.sh; do
-        if [[ -f "$hook_script" ]]; then
-            basename_script=$(basename "$hook_script")
-            # Check if script has proper structure
-            if grep -q "#!/bin/bash" "$hook_script" && grep -q "exit 0" "$hook_script"; then
-                success "  $basename_script appears complete"
-            else
-                warning "  $basename_script may be incomplete"
-                # Show what we have
-                info "  Content preview:"
-                head -10 "$hook_script" | sed 's/^/    /'
+        done < <(yq '.command_permissions.allow[]' "$yaml_file" 2>/dev/null || true)
+        
+        # Extract deny permissions using yq
+        while IFS= read -r perm; do
+            if [ -n "$perm" ]; then
+                all_deny_perms+=("$perm")
             fi
-        fi
-    done
-    
-    # Also process hooks configuration for settings.json
-    # For now, we're using a settings.json.template that already includes all hooks
-    # In the future, we could dynamically generate this from the YAML files
-    info "Hooks configuration is included in claude-settings.json.template"
-else
-    warning "No hooks directory found at $HOOKS_DIR"
-    # Create placeholder files to ensure directory exists for Docker COPY
-    echo '#!/bin/bash' > "$TEMP_DIR/claude-hooks/.placeholder.sh"
-    echo '# No hooks configured' >> "$TEMP_DIR/claude-hooks/.placeholder.sh"
-    chmod +x "$TEMP_DIR/claude-hooks/.placeholder.sh"
+        done < <(yq '.command_permissions.deny[]' "$yaml_file" 2>/dev/null || true)
+    fi
+done
+
+# Deduplicate permissions while preserving array elements with spaces
+if [ ${#all_allow_perms[@]} -gt 0 ]; then
+    # Use a temporary file to preserve spaces during deduplication
+    temp_allow="$TEMP_DIR/temp_allow_perms.txt"
+    printf '%s\n' "${all_allow_perms[@]}" | sort -u > "$temp_allow"
+    all_allow_perms=()
+    while IFS= read -r perm; do
+        all_allow_perms+=("$perm")
+    done < "$temp_allow"
+    rm -f "$temp_allow"
 fi
 
-log "Claude Code pre-build completed successfully"
+if [ ${#all_deny_perms[@]} -gt 0 ]; then
+    # Use a temporary file to preserve spaces during deduplication
+    temp_deny="$TEMP_DIR/temp_deny_perms.txt"
+    printf '%s\n' "${all_deny_perms[@]}" | sort -u > "$temp_deny"
+    all_deny_perms=()
+    while IFS= read -r perm; do
+        all_deny_perms+=("$perm")
+    done < "$temp_deny"
+    rm -f "$temp_deny"
+fi
+
+log "Found ${#all_allow_perms[@]} unique allow permissions and ${#all_deny_perms[@]} unique deny permissions from components"
+
+log "Copying settings.json template..."
+cp "$SETTINGS_TEMPLATE" "$TEMP_DIR/settings.json"
+
+# Generate the workspace settings
+log "Generating settings.local.json with dynamic permissions..."
+
+# Create the JSON structure using jq
+jq -n \
+  --argjson allow "$(printf '%s\n' "${all_allow_perms[@]}" | jq -R . | jq -s .)" \
+  --argjson deny "$(printf '%s\n' "${all_deny_perms[@]}" | jq -R . | jq -s .)" \
+  '{permissions: {allow: $allow, deny: $deny}}' > "$TEMP_DIR/settings.local.json"
+
+success "Generated settings.local.json with permissions"
+
+# Verify the JSON is valid
+if jq . "$TEMP_DIR/settings.local.json" >/dev/null 2>&1; then
+    success "JSON validation passed"
+else
+    error "Generated JSON is invalid!"
+fi
+
+# Create a manifest of included files
+cat > "$TEMP_DIR/MANIFEST.txt" << EOF
+# Claude Code Autonomous Development System Manifest
+
+## Core Files
+- CLAUDE.md: Product Manager orchestration guide with dynamic refs
+- settings.json: Global settings
+- settings.local.json: Workspace settings with dynamic permissions
+
+## Commands ($(ls -1 "$TEMP_DIR/commands/"*.md 2>/dev/null | wc -l))
+$(ls -1 "$TEMP_DIR/commands/"*.md 2>/dev/null | sed 's|.*/|  - |' | sort)
+
+## Agents ($(ls -1 "$TEMP_DIR/agents/"*.md 2>/dev/null | wc -l))
+$(ls -1 "$TEMP_DIR/agents/"*.md 2>/dev/null | sed 's|.*/|  - |' | sort)
+
+## Utility Scripts ($(ls -1 "$TEMP_DIR/scripts/"*.sh 2>/dev/null | wc -l))
+$(ls -1 "$TEMP_DIR/scripts/"*.sh 2>/dev/null | sed 's|.*/|  - |' | sort)
+
+## Hooks ($(ls -1 "$TEMP_DIR/hooks/"*.sh 2>/dev/null | wc -l))
+$(ls -1 "$TEMP_DIR/hooks/"*.sh 2>/dev/null | sed 's|.*/|  - |' | sort)
+
+## Component Documentation ($(ls -1 "$TEMP_DIR/docs/"*.md 2>/dev/null | wc -l))
+$(ls -1 "$TEMP_DIR/docs/"*.md 2>/dev/null | sed 's|.*/|  - |' | sort)
+
+## System Overview
+The autonomous development system uses:
+1. Product Manager (main thread) as orchestrator
+2. Team Topologies-based organization
+3. Kanban card system for work tracking
+4. JOURNAL.md for state persistence
+5. Deterministic handoffs between teams
+6. No reliance on hooks for orchestration (hooks are optional)
+
+To start: Use "/init-autonomous" command after describing your project.
+EOF
+
+success "Created manifest file"
+
+# Debug: Show some extracted permissions
+if [ ${#all_allow_perms[@]} -gt 0 ]; then
+    log "Sample of extracted permissions:"
+    for i in {0..4}; do
+        [ $i -lt ${#all_allow_perms[@]} ] && echo "  - ${all_allow_perms[$i]}"
+    done
+    [ ${#all_allow_perms[@]} -gt 5 ] && echo "  ... and $((${#all_allow_perms[@]} - 5)) more"
+fi
+
+log "Claude Code autonomous development system setup completed successfully!"

@@ -1,0 +1,68 @@
+id: NODEJS_20
+name: Node.js 20.x LTS
+version: "20.18.0"
+group: nodejs
+requires: []
+description: Node.js 20.x LTS - JavaScript runtime built on Chrome's V8
+command_permissions:
+  allow:
+    - "Bash(node:*)"
+    - "Bash(npm:*)"
+    - "Bash(npx:*)"
+    - "Bash(yarn:*)"
+    - "Bash(pnpm:*)"
+    - "Bash(bun:*)"
+installation:
+  repos:
+    enabled: true
+    format: "npm"
+    config_type: "file"
+    config_file: ".npmrc"
+    config_path: "~/"
+    recommended:
+      - name: "NPM Registry"
+        url: "https://registry.npmjs.org"
+        type: "remote"
+        reason: "Official NPM registry - required for most packages"
+      - name: "Yarn Registry"
+        url: "https://registry.yarnpkg.com"
+        type: "remote"
+        reason: "Alternative registry with better performance in some regions"
+  dockerfile: |
+    RUN export DEBIAN_FRONTEND=noninteractive && \
+        ARCH=$(dpkg --print-architecture) && \
+        NODE_ARCH=${ARCH} && \
+        if [ "${ARCH}" = "arm64" ]; then NODE_ARCH="arm64"; elif [ "${ARCH}" = "amd64" ]; then NODE_ARCH="x64"; fi && \
+        NODE_VERSION="v20.18.0" && \
+        wget -q https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz && \
+        tar -xJf node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz -C /usr/local --strip-components=1 && \
+        rm node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz && \
+        npm install -g npm@latest
+  nexus_config: |
+    if [ -n "$NPM_REGISTRY" ]; then \
+        npm config set registry ${NPM_REGISTRY} && \
+        echo "✓ Configured npm to use proxy" ; \
+    fi
+  test_command: node --version && npm --version
+entrypoint_setup: |
+  # Node.js 20 specific setup
+  echo "Setting up Node.js 20 environment..."
+  
+  # Set up user's npm configuration
+  mkdir -p /home/devuser/.npm-global
+  
+  # Configure npm for the devuser if proxy URL is provided
+  if [ -n "$NPM_REGISTRY" ]; then
+      npm config set --location=global registry ${NPM_REGISTRY}
+      # Also set it for the devuser
+      su - devuser -c "npm config set registry ${NPM_REGISTRY}"
+      echo "✓ Configured npm registry for devuser"
+  fi
+  
+  # Add npm global bin to PATH if not already present
+  if ! grep -q ".npm-global/bin" "$BASHRC" 2>/dev/null; then
+      echo '' >> "$BASHRC"
+      echo '# npm global packages' >> "$BASHRC"
+      echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$BASHRC"
+      echo 'export NPM_CONFIG_PREFIX="$HOME/.npm-global"' >> "$BASHRC"
+  fi

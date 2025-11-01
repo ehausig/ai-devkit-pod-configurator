@@ -8,6 +8,7 @@ IMAGE_TAG="latest"
 NAMESPACE="ai-devkit"
 TEMP_DIR=".build-temp"
 COMPONENTS_DIR="components"
+DEVUSER_HOME="/home/devuser"  # Standard home directory for devuser in container
 SSH_KEYS_DIR="$HOME/.ai-devkit/ssh-keys"
 LOG_FILE="build-and-deploy.log"
 
@@ -508,7 +509,7 @@ style_line() {
 # ============================================================================
 
 # Logging functions with themed output
-log() { 
+log() {
     local message="$1"
     local style="${2:-$LOG_DEFAULT_STYLE}"
     echo -e "${style}${message}${STYLE_RESET}"
@@ -531,14 +532,774 @@ warning() {
     log "$1" "$LOG_WARNING_STYLE"
 }
 
+# Runtime Detection and Abstraction Functions
+detect_container_runtime() {
+    # Detect the container runtime environment
+    # Returns: "colima", "k3s", "containerd", "docker-desktop", "podman", or "unknown"
+    
+    # Check for Colima first
+    if command -v colima &> /dev/null && colima status &> /dev/null; then
+        echo "colima"
+        return 0
+    fi
+    
+    # Check for K3s
+    if command -v k3s &> /dev/null && sudo systemctl is-active --quiet k3s 2>/dev/null; then
+        echo "k3s"
+        return 0
+    fi
+    
+    # Check for Podman with Kubernetes (podman-kube or similar)
+    local container_tool=$(detect_container_tool)
+    if [[ "$container_tool" == "podman" ]]; then
+        # Check if running with Podman and Kubernetes is available
+        if kubectl get nodes &> /dev/null; then
+            # Check if this is a podman-based Kubernetes setup
+            local runtime=$(kubectl get nodes -o jsonpath='{.items[0].status.nodeInfo.containerRuntimeVersion}' 2>/dev/null)
+            if [[ "$runtime" == *"cri-o"* ]] || [[ "$runtime" == *"podman"* ]]; then
+                echo "podman"
+                return 0
+            fi
+        fi
+    fi
+    
+    # Check for Docker Desktop (macOS/Windows)
+    if is_docker_desktop; then
+        echo "docker-desktop"
+        return 0
+    fi
+    
+    # Check for standalone containerd
+    if command -v ctr &> /dev/null && sudo ctr version &> /dev/null 2>&1; then
+        echo "containerd"
+        return 0
+    fi
+    
+    # Check if we can access Kubernetes cluster directly
+    if kubectl get nodes &> /dev/null; then
+        # Determine runtime by checking node container runtime
+        local runtime=$(kubectl get nodes -o jsonpath='{.items[0].status.nodeInfo.containerRuntimeVersion}' 2>/dev/null)
+        case "$runtime" in
+            containerd*)
+                echo "containerd"
+                return 0
+                ;;
+            docker*)
+                echo "docker"
+                return 0
+                ;;
+            cri-o*)
+                echo "cri-o"
+                return 0
+                ;;
+        esac
+    fi
+    
+    # Default fallback
+    echo "unknown"
+    return 1
+}
+
+check_runtime_status() {
+    # Check if the configured runtime is healthy
+    local runtime=$(get_configured_runtime)
+    local container_tool=$(get_container_tool)
+    
+    case "$runtime" in
+        "colima")
+            colima status &> /dev/null || error "Colima is not running. Please start it with: colima start --kubernetes"
+            ;;
+        "k3s")
+            # Check if K3s is running (multiple methods)
+            if command -v systemctl &> /dev/null; then
+                sudo systemctl is-active --quiet k3s 2>/dev/null || {
+                    # Try without systemctl (some K3s installations)
+                    pgrep k3s &> /dev/null || error "K3s is not running. Please start K3s."
+                }
+            else
+                pgrep k3s &> /dev/null || error "K3s is not running. Please start K3s."
+            fi
+            ;;
+        "containerd")
+            sudo ctr version &> /dev/null || error "Containerd is not accessible. Please check containerd service."
+            ;;
+        "docker-desktop")
+            docker version &> /dev/null || error "Docker Desktop is not running. Please start Docker Desktop."
+            ;;
+        *)
+            # Don't fail on unknown runtime, just warn
+            echo "Warning: Unable to verify runtime status for: $runtime" >> "$LOG_FILE" 2>&1
+            ;;
+    esac
+    
+    # Always check if Kubernetes is accessible
+    kubectl get nodes &> /dev/null || error "Kubernetes is not accessible. Please check your kubectl configuration and cluster status."
+}
+
+# Container Tool Configuration System
+CONFIG_FILE="$HOME/.ai-devkit/config.yaml"
+
+# Read configuration from YAML file using yq
+read_config() {
+    local key="$1"
+    
+    if [[ ! -f "$CONFIG_FILE" ]]; then
+        return
+    fi
+    
+    # Use yq (kislyuk/yq with jq syntax) for YAML parsing
+    if ! command -v yq &>/dev/null; then
+        error "yq is required but not installed. Please install: apt-get install yq"
+        exit 1
+    fi
+    
+    # Use jq syntax for kislyuk/yq to read the value
+    # The // operator provides a default empty string if the key doesn't exist
+    local value=$(yq -r ".${key} // \"\"" "$CONFIG_FILE" 2>/dev/null)
+    
+    # Return the value if it's not null or empty
+    if [[ -n "$value" ]] && [[ "$value" != "null" ]]; then
+        echo "$value"
+    fi
+}
+
+# Get configured container build tool
+get_container_tool() {
+    # First check if we have a build_command (new format)
+    local build_cmd=$(read_config "container.build_command")
+    if [[ -n "$build_cmd" ]]; then
+        # Extract tool name from command (for compatibility)
+        # Handle "sudo nerdctl ..." -> "nerdctl"
+        if [[ "$build_cmd" == sudo\ * ]]; then
+            echo "$build_cmd" | awk '{print $2}'
+        else
+            echo "$build_cmd" | awk '{print $1}'
+        fi
+        return 0
+    fi
+    
+    # Fall back to old format
+    if [[ -f "$CONFIG_FILE" ]]; then
+        local tool=$(read_config "container.build_tool")
+        if [[ -n "$tool" ]]; then
+            # Verify tool is still available
+            if command -v "$tool" &> /dev/null; then
+                echo "$tool"
+                return 0
+            else
+                error "Configured tool '$tool' is not available. Please check your ~/.ai-devkit/config.yaml"
+            fi
+        fi
+    fi
+    
+    # No configuration found - prompt user to configure
+    echo ""
+    echo "${YELLOW}Container runtime not configured.${NC}"
+    echo ""
+    echo "Please create: ${BOLD}~/.ai-devkit/config.yaml${NC}"
+    echo ""
+    echo "Required configuration:"
+    echo "  container:"
+    echo "    build_command: \"<docker|nerdctl|podman or full command>\""
+    echo "    runtime: \"<k3s|minikube|kind|docker-desktop|colima>\""
+    echo "    runtime_import: \"<direct|save-load|none>\""
+    echo ""
+    exit 1
+}
+
+# Get the full build command from config
+get_build_command() {
+    read_config "container.build_command"
+}
+
+# Get configured runtime
+get_configured_runtime() {
+    read_config "container.runtime"
+}
+
+# Get configured import method
+get_import_method() {
+    local method=$(read_config "container.runtime_import")
+    if [[ -n "$method" ]]; then
+        echo "$method"
+    else
+        # Default based on tool and runtime combination
+        local tool=$(get_container_tool)
+        local runtime=$(get_configured_runtime)
+        
+        if [[ "$tool" == "nerdctl" ]] && [[ "$runtime" == "k3s" ]]; then
+            echo "direct"
+        elif [[ "$runtime" == "docker-desktop" ]]; then
+            echo "none"
+        else
+            echo "save-load"
+        fi
+    fi
+}
+
+# Container tool abstraction functions
+
+# Execute a container command with the configured build command
+container_exec() {
+    local build_cmd=$(read_config "container.build_command")
+    if [[ -z "$build_cmd" ]]; then
+        error "No container build command configured in ~/.ai-devkit/config.yaml"
+        return 1
+    fi
+    
+    # Execute the command with all arguments
+    $build_cmd "$@"
+}
+
+# Build container image
+container_build() {
+    container_exec build "$@"
+}
+
+container_save() {
+    container_exec save "$@"
+}
+
+container_rmi() {
+    container_exec rmi "$@" 2>/dev/null || true
+}
+
+
+
+load_image_to_runtime() {
+    # Load container image into the Kubernetes container runtime
+    # Args: $1 = image name with tag
+    local image_name="$1"
+    local runtime=$(get_configured_runtime)
+    local container_tool=$(get_container_tool)
+    local import_method=$(get_import_method)
+    
+    echo "[LOG] Loading image $image_name into $runtime runtime using $container_tool (method: $import_method)..." >> "$LOG_FILE"
+    
+    # Handle based on import method from configuration
+    case "$import_method" in
+        "direct")
+            # Direct method - image is already in the right place (e.g., nerdctl with K3s)
+            echo "Using direct method - image built directly into runtime storage" >> "$LOG_FILE"
+            # Just verify the image is available
+            if verify_image_in_runtime "$image_name"; then
+                echo "Image $image_name confirmed available (direct method)" >> "$LOG_FILE"
+                return 0
+            else
+                error "Image $image_name not found despite direct build method"
+                return 1
+            fi
+            ;;
+            
+        "none")
+            # No import needed (e.g., Docker Desktop)
+            echo "No import needed - runtime shares storage with build tool" >> "$LOG_FILE"
+            return 0
+            ;;
+            
+        "save-load")
+            # Traditional save and load method
+            echo "Using save-load method to transfer image" >> "$LOG_FILE"
+            ;; # Continue with runtime-specific logic below
+        *)
+            echo "Warning: Unknown import method: $import_method, falling back to runtime detection" >> "$LOG_FILE" 2>&1
+            ;;
+    esac
+    
+    # If we're using save-load or unknown method, continue with runtime-specific logic
+    case "$runtime" in
+        "colima")
+            echo "Using Colima image import method" >> "$LOG_FILE"
+            container_save "$image_name" | colima ssh -- sudo ctr -n k8s.io images import - >> "$LOG_FILE" 2>&1
+            ;;
+        "k3s")
+            # Check if using nerdctl - if so, image is already in the right place!
+            if [[ "$container_tool" == "nerdctl" ]]; then
+                echo "Using nerdctl with K3s - checking if image is in containerd" >> "$LOG_FILE"
+
+                # First check if image is in the k8s.io namespace (ideal case)
+                if sudo k3s ctr -n k8s.io images list 2>/dev/null | grep -q "$image_name"; then
+                    echo "Image $image_name available in K3s containerd namespace k8s.io" >> "$LOG_FILE"
+                    return 0
+                fi
+
+                # If using save-load method, we need to import the image
+                if [[ "$import_method" == "save-load" ]]; then
+                    echo "Image not in k8s.io namespace, performing save-load import..." >> "$LOG_FILE"
+
+                    # Extract the base command without --namespace flag for save operation
+                    local build_cmd=$(read_config "container.build_command")
+                    local save_cmd="${build_cmd// --namespace k8s.io/}"
+                    local save_cmd="${save_cmd// -n k8s.io/}"
+
+                    echo "Saving image from nerdctl (checking all namespaces)..." >> "$LOG_FILE"
+                    echo "Save command: $save_cmd save $image_name" >> "$LOG_FILE"
+
+                    # Save the image to a tar file (without namespace restriction)
+                    $save_cmd save "$image_name" > /tmp/ai-devkit-image.tar 2>> "$LOG_FILE"
+
+                    if [[ ! -f /tmp/ai-devkit-image.tar || ! -s /tmp/ai-devkit-image.tar ]]; then
+                        error "Failed to export image from nerdctl"
+                        rm -f /tmp/ai-devkit-image.tar
+                        return 1
+                    fi
+
+                    echo "Importing image into K3s containerd namespace k8s.io (this may take a moment)..." >> "$LOG_FILE"
+                    sudo k3s ctr -n k8s.io images import /tmp/ai-devkit-image.tar >> "$LOG_FILE" 2>&1
+                    local import_result=$?
+                    rm -f /tmp/ai-devkit-image.tar
+
+                    if [[ $import_result -eq 0 ]]; then
+                        echo "Verifying image availability in K3s..." >> "$LOG_FILE"
+                        if sudo k3s ctr -n k8s.io images list | grep -q "$image_name"; then
+                            echo "Image $image_name successfully imported into K3s" >> "$LOG_FILE"
+                            echo "Image confirmed in K3s containerd namespace k8s.io" >> "$LOG_FILE"
+                            return 0
+                        else
+                            echo "Warning: Image import reported success but image not found in K3s" >> "$LOG_FILE" 2>&1
+                            return 1
+                        fi
+                    else
+                        error "Failed to import image into K3s containerd"
+                        return 1
+                    fi
+                else
+                    # Not using save-load, so image should already be available
+                    echo "Warning: Image not found in k8s.io namespace and import method is not save-load" >> "$LOG_FILE" 2>&1
+                    return 1
+                fi
+            else
+                # Using docker or podman - need to import
+                echo "Using K3s image import method from $container_tool" >> "$LOG_FILE"
+                # K3s uses containerd with k8s.io namespace
+                echo "Exporting image from $container_tool..." >> "$LOG_FILE"
+                container_save "$image_name" > /tmp/ai-devkit-image.tar 2>> "$LOG_FILE"
+                
+                if [[ ! -f /tmp/ai-devkit-image.tar || ! -s /tmp/ai-devkit-image.tar ]]; then
+                    error "Failed to export image from $container_tool"
+                    rm -f /tmp/ai-devkit-image.tar
+                    return 1
+                fi
+                
+                echo "Importing image into K3s containerd (this may take a moment)..." >> "$LOG_FILE"
+                sudo k3s ctr -n k8s.io images import /tmp/ai-devkit-image.tar >> "$LOG_FILE" 2>&1
+                local import_result=$?
+                rm -f /tmp/ai-devkit-image.tar
+                
+                if [[ $import_result -eq 0 ]]; then
+                    # Verify the image is actually available
+                    echo "Verifying image availability in K3s..." >> "$LOG_FILE"
+                    if sudo k3s ctr -n k8s.io images list | grep -q "$image_name"; then
+                        echo "Image $image_name successfully imported into K3s" >> "$LOG_FILE"
+                        echo "Image confirmed in K3s containerd namespace k8s.io" >> "$LOG_FILE"
+                    else
+                        echo "Warning: Image import reported success but image not found in K3s" >> "$LOG_FILE" 2>&1
+                        echo "Checking all namespaces..." >> "$LOG_FILE"
+                        sudo k3s ctr namespaces list >> "$LOG_FILE" 2>&1
+                        sudo k3s ctr -n k8s.io images list >> "$LOG_FILE" 2>&1
+                        return 1
+                    fi
+                else
+                    error "Failed to import image into K3s containerd"
+                    return 1
+                fi
+            fi
+            ;;
+        "podman")
+            echo "Using Podman with Kubernetes image import method" >> "$LOG_FILE"
+            # For Podman with Kubernetes, we may need to use different approaches
+            if command -v skopeo &> /dev/null; then
+                container_save "$image_name" | skopeo copy docker-archive:/dev/stdin containers-storage:"$image_name" >> "$LOG_FILE" 2>&1
+            else
+                # Try with containerd if available
+                container_save "$image_name" | sudo ctr -n k8s.io images import - >> "$LOG_FILE" 2>&1
+            fi
+            ;;
+        "containerd")
+            echo "Using containerd image import method" >> "$LOG_FILE"
+            container_save "$image_name" | sudo ctr -n k8s.io images import - >> "$LOG_FILE" 2>&1
+            ;;
+        "docker-desktop")
+            echo "$container_tool Desktop detected - image should be available directly" >> "$LOG_FILE"
+            # Docker Desktop shares images between Docker and Kubernetes
+            # No explicit import needed for Docker Desktop
+            # For Podman Desktop (if it exists), we might need to import
+            if [[ "$container_tool" == "podman" ]]; then
+                container_save "$image_name" | sudo ctr -n k8s.io images import - >> "$LOG_FILE" 2>&1
+            fi
+            ;;
+        "cri-o")
+            echo "Using CRI-O image import method" >> "$LOG_FILE"
+            # CRI-O typically uses podman or skopeo for image operations
+            if command -v skopeo &> /dev/null; then
+                container_save "$image_name" | skopeo copy docker-archive:/dev/stdin containers-storage:"$image_name" >> "$LOG_FILE" 2>&1
+            else
+                echo "Warning: CRI-O detected but skopeo not available. Image import may fail." >> "$LOG_FILE" 2>&1
+                container_save "$image_name" | sudo ctr -n k8s.io images import - >> "$LOG_FILE" 2>&1
+            fi
+            ;;
+        *)
+            echo "Warning: Unknown container runtime: $runtime" >> "$LOG_FILE" 2>&1
+            echo "Attempting generic containerd import method with $container_tool" >> "$LOG_FILE"
+            container_save "$image_name" | sudo ctr -n k8s.io images import - >> "$LOG_FILE" 2>&1
+            ;;
+    esac
+    
+    local exit_code=$?
+    if [[ $exit_code -eq 0 ]]; then
+        echo "Image loaded successfully into $runtime using $container_tool" >> "$LOG_FILE"
+    else
+        error "Failed to load image into $runtime using $container_tool (exit code: $exit_code)"
+    fi
+    
+    return $exit_code
+}
+
+verify_image_in_runtime() {
+    # Verify that an image is available in the Kubernetes container runtime
+    # Args: $1 = image name with tag (e.g., "ai-devkit:latest")
+    local image_with_tag="$1"
+    # Split the image name and tag
+    local image_name="${image_with_tag%:*}"  # Remove :tag to get just the name
+    local image_tag="${image_with_tag##*:}"  # Get everything after the last :
+    local runtime=$(get_configured_runtime)
+    local container_tool=$(get_container_tool)
+    
+    echo "Verifying image $image_with_tag is available in $runtime..." >> "$LOG_FILE"
+    
+    case "$runtime" in
+        "colima")
+            # Check if image exists in Colima's containerd
+            if colima ssh -- sudo ctr -n k8s.io images list 2>/dev/null | grep -q "$image_with_tag"; then
+                echo "Image $image_with_tag found in Colima" >> "$LOG_FILE"
+                return 0
+            fi
+            ;;
+        "k3s")
+            # If using nerdctl, check directly with the configured command
+            if [[ "$container_tool" == "nerdctl" ]]; then
+                # Debug: Log what we're checking
+                echo "Checking for image with nerdctl..." >> "$LOG_FILE"
+                echo "Looking for: ${image_name} with tag ${image_tag}" >> "$LOG_FILE"
+                container_exec images >> "$LOG_FILE" 2>&1
+                
+                # Use the container_exec abstraction to get the full command with socket/namespace
+                # Check if image exists - nerdctl shows REPOSITORY and TAG in separate columns
+                # The image name might just be "ai-devkit" or with docker.io prefix
+                local image_check=$(container_exec images 2>/dev/null | grep "^${image_name}[[:space:]]" | grep "[[:space:]]${image_tag}[[:space:]]")
+                if [[ -n "$image_check" ]]; then
+                    echo "Image $image_name:$image_tag found in K3s (simple name match)" >> "$LOG_FILE"
+                    return 0
+                fi
+                
+                # Also check with docker.io/library prefix
+                image_check=$(container_exec images 2>/dev/null | grep "^docker.io/library/${image_name}[[:space:]]" | grep "[[:space:]]${image_tag}[[:space:]]")
+                if [[ -n "$image_check" ]]; then
+                    echo "Image $image_name:$image_tag found in K3s (with docker.io prefix)" >> "$LOG_FILE"
+                    return 0
+                fi
+            fi
+            # Fallback to k3s ctr check
+            if sudo k3s ctr -n k8s.io images list 2>/dev/null | grep -q "$image_with_tag"; then
+                echo "Image $image_with_tag found in K3s (via k3s ctr)" >> "$LOG_FILE"
+                return 0
+            fi
+            ;;
+        "docker-desktop")
+            # Docker Desktop shares images between Docker and Kubernetes
+            if [[ "$container_tool" == "docker" ]] || [[ "$container_tool" == "nerdctl" ]]; then
+                if docker images --format "{{.Repository}}:{{.Tag}}" | grep -q "^${image_with_tag}$"; then
+                    echo "Image $image_with_tag found in Docker Desktop" >> "$LOG_FILE"
+                    return 0
+                fi
+            fi
+            ;;
+        "containerd")
+            # Check generic containerd
+            if sudo ctr -n k8s.io images list 2>/dev/null | grep -q "$image_with_tag"; then
+                echo "Image $image_with_tag found in containerd" >> "$LOG_FILE"
+                return 0
+            fi
+            ;;
+        *)
+            echo "Warning: Cannot verify image for runtime: $runtime" >> "$LOG_FILE" 2>&1
+            return 1
+            ;;
+    esac
+    
+    echo "Error: Image $image_with_tag not found in $runtime" >> "$LOG_FILE" 2>&1
+    echo "Troubleshooting: Check $LOG_FILE for import errors" >> "$LOG_FILE"
+    echo "You can manually check images with:" >> "$LOG_FILE"
+    case "$runtime" in
+        "k3s")
+            if [[ "$container_tool" == "nerdctl" ]]; then
+                echo "  nerdctl -n k8s.io images" >> "$LOG_FILE"
+                echo "  nerdctl images" >> "$LOG_FILE"
+            fi
+            echo "  sudo k3s ctr -n k8s.io images list" >> "$LOG_FILE"
+            ;;
+        "colima")
+            echo "  colima ssh -- sudo ctr -n k8s.io images list" >> "$LOG_FILE"
+            ;;
+        *)
+            echo "  sudo ctr -n k8s.io images list" >> "$LOG_FILE"
+            ;;
+    esac
+    return 1
+}
+
+# Function to provide installation guidance for missing tools
+provide_installation_guidance() {
+    local tool="$1"
+    
+    echo ""
+    error "Required tool '$tool' is not installed or not in PATH."
+    echo ""
+    echo "Installation instructions:"
+    
+    case "$tool" in
+        "yq")
+            echo "  Install any compatible yq YAML processor:"
+            echo ""
+            echo "  Option 1 - mikefarah/yq (Go version, recommended):"
+            echo "    macOS:    brew install yq"
+            echo "    Ubuntu:   curl -L https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -o yq && sudo install yq /usr/local/bin/ && rm yq"
+            echo "    Alpine:   apk add yq"
+            echo "    Snap:     sudo snap install yq"
+            echo ""
+            echo "  Option 2 - kislyuk/yq (Python wrapper, also supported):"
+            echo "    Ubuntu:   sudo apt-get install yq"
+            echo "    Python:   pip install yq"
+            echo ""
+            echo "  This script supports both versions and will auto-detect which you have."
+            ;;
+        "jq")
+            echo "  macOS:    brew install jq"
+            echo "  Ubuntu:   sudo apt-get install jq"
+            echo "  RHEL/CentOS: sudo yum install jq"
+            echo "  Alpine:   apk add jq"
+            ;;
+        "kubectl")
+            echo "  macOS:    brew install kubectl"
+            echo "  Ubuntu:   curl -LO \"https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl\" && sudo install kubectl /usr/local/bin/"
+            echo "  RHEL/CentOS: curl -LO \"https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl\" && sudo install kubectl /usr/local/bin/"
+            echo "  Manual:   https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/"
+            ;;
+        "ssh-keygen")
+            echo "  macOS:    Included with macOS (part of OpenSSH)"
+            echo "  Ubuntu:   sudo apt-get install openssh-client"
+            echo "  RHEL/CentOS: sudo yum install openssh-clients"
+            echo "  Alpine:   apk add openssh-client"
+            ;;
+        "colima")
+            echo "  macOS:    brew install colima"
+            echo "  Linux:    Not available - use K3s, Docker Desktop, or other Kubernetes distribution"
+            ;;
+        "k3s")
+            echo "  Linux:    curl -sfL https://get.k3s.io | sh -"
+            echo "  macOS:    Not recommended - use Colima or Docker Desktop instead"
+            ;;
+        "docker")
+            echo "  macOS:    brew install --cask docker  # or Docker Desktop"
+            echo "  Ubuntu:   sudo apt-get install docker.io"
+            echo "  RHEL/CentOS: sudo yum install docker"
+            echo "  Manual:   https://docs.docker.com/get-docker/"
+            ;;
+        "podman")
+            echo "  macOS:    brew install podman"
+            echo "  Ubuntu:   sudo apt-get install podman"
+            echo "  RHEL/CentOS: sudo yum install podman"
+            echo "  Fedora:   sudo dnf install podman"
+            ;;
+        *)
+            echo "  Please install '$tool' using your system's package manager or from its official website."
+            ;;
+    esac
+    echo ""
+    exit 1
+}
+
 # Check prerequisites
 check_deps() {
-    local deps=("docker" "kubectl" "colima")
-    for dep in "${deps[@]}"; do
-        printf "."
-        command -v "$dep" &> /dev/null || error "$dep is not installed or not in PATH"
+    # Check for configuration file
+    if [[ ! -f "$CONFIG_FILE" ]]; then
+        echo ""
+        echo "${YELLOW}Container runtime not configured.${NC}"
+        echo ""
+        echo "Please create: ${BOLD}~/.ai-devkit/config.yaml${NC}"
+        echo ""
+        echo "Example configuration:"
+        echo "  container:"
+        echo "    build_command: \"sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io\""
+        echo "    runtime: \"k3s\""
+        echo "    runtime_import: \"direct\""
+        exit 1
+    fi
+    
+    # Read configuration
+    local configured_tool=$(read_config "container.build_command")
+    if [[ -z "$configured_tool" ]]; then
+        # Fall back to old config format
+        configured_tool=$(read_config "container.build_tool")
+    fi
+    local configured_runtime=$(read_config "container.runtime")
+    
+    if [[ -z "$configured_tool" ]] || [[ -z "$configured_runtime" ]]; then
+        echo ""
+        echo "${YELLOW}Configuration incomplete.${NC}"
+        echo "Please check your ~/.ai-devkit/config.yaml file."
+        echo "Required fields: container.build_command and container.runtime"
+        exit 1
+    fi
+    
+    echo "Checking prerequisites:"
+    
+    # Check configured container tool exists
+    printf "  • Build tool: "
+    
+    # Check if it's a full command or just a tool name
+    if [[ "$configured_tool" == *" "* ]]; then
+        # Full command - test it directly
+        # Try different test commands since not all tools support 'version'
+        if $configured_tool version &> /dev/null 2>&1; then
+            echo "✓"
+            echo "    Using: $configured_tool"
+        elif $configured_tool --version &> /dev/null 2>&1; then
+            echo "✓"
+            echo "    Using: $configured_tool"
+        elif $configured_tool info &> /dev/null 2>&1; then
+            echo "✓"
+            echo "    Using: $configured_tool"
+        else
+            # For nerdctl with k3s, the command might work even if version doesn't
+            # Try a simple images list command
+            if $configured_tool images &> /dev/null 2>&1; then
+                echo "✓"
+                echo "    Using: $configured_tool"
+            else
+                echo "✗ (command failed)"
+                error "Configured command '$configured_tool' is not working properly."
+            fi
+        fi
+    else
+        # Simple tool name - use existing logic
+        if command -v "$configured_tool" &> /dev/null; then
+            # Verify it actually works (try with sudo if docker/nerdctl fails)
+            if "$configured_tool" version &> /dev/null 2>&1; then
+                echo "✓"
+            elif [[ "$configured_tool" == "docker" ]] && sudo docker version &> /dev/null 2>&1; then
+                echo "✓ (requires sudo)"
+                # Set a flag to use sudo with docker
+                DOCKER_NEEDS_SUDO=true
+            elif [[ "$configured_tool" == "nerdctl" ]] && sudo nerdctl version &> /dev/null 2>&1; then
+                echo "✓ (requires sudo for K3s)"
+                # Set a flag to use sudo with nerdctl
+                NERDCTL_NEEDS_SUDO=true
+            else
+                echo "✗ (not working)"
+                error "Configured tool '$configured_tool' is not working properly."
+            fi
+        else
+            echo "✗ (not found)"
+            echo ""
+            error "Configured tool '$configured_tool' is not installed.\nPlease install it or update ~/.ai-devkit/config.yaml"
+        fi
+    fi
+    
+    # Check configured runtime
+    printf "  • Runtime ($configured_runtime): "
+    case "$configured_runtime" in
+        "k3s")
+            if command -v k3s &> /dev/null || pgrep k3s &> /dev/null; then
+                echo "✓"
+            else
+                echo "✗"
+                error "K3s not found. Please install K3s or reconfigure."
+            fi
+            ;;
+        "colima")
+            if command -v colima &> /dev/null; then
+                echo "✓"
+            else
+                echo "✗"
+                error "Colima not found. Please install Colima or reconfigure."
+            fi
+            ;;
+        "docker-desktop")
+            echo "✓"  # Assume it's available if configured
+            ;;
+        *)
+            echo "✓"  # Unknown runtime, continue
+            ;;
+    esac
+    
+    # Core tools required for all operations
+    local core_tools=("yq" "jq" "kubectl" "ssh-keygen")
+    
+    # Check core tools with detailed feedback
+    for tool in "${core_tools[@]}"; do
+        printf "  • $tool: "
+        if command -v "$tool" &> /dev/null; then
+            # Verify the tool actually works
+            case "$tool" in
+                "yq")
+                    # Test yq functionality with a simple test regardless of version
+                    if echo "test: value" > /tmp/yq_test_$$ 2>/dev/null; then
+                        # Test with mikefarah/yq syntax first  
+                        if yq eval '.test // ""' /tmp/yq_test_$$ &> /dev/null; then
+                            rm -f /tmp/yq_test_$$
+                            echo "✓"
+                        # Test with kislyuk/yq (Python wrapper) syntax  
+                        elif yq -r '.test // ""' /tmp/yq_test_$$ &> /dev/null; then
+                            rm -f /tmp/yq_test_$$
+                            echo "✓"
+                        else
+                            rm -f /tmp/yq_test_$$
+                            echo "✗ (installed but not working)"
+                            provide_installation_guidance "$tool"
+                        fi
+                    else
+                        echo "✗ (cannot create test file)"
+                        provide_installation_guidance "$tool"
+                    fi
+                    ;;
+                "jq")
+                    if echo '{"test": "value"}' | jq -r '.test' &> /dev/null; then
+                        echo "✓"
+                    else
+                        echo "✗ (installed but not working)"
+                        provide_installation_guidance "$tool"
+                    fi
+                    ;;
+                "kubectl")
+                    if kubectl version --client &> /dev/null; then
+                        echo "✓"
+                    else
+                        echo "✗ (installed but not working)"
+                        provide_installation_guidance "$tool"
+                    fi
+                    ;;
+                "ssh-keygen")
+                    if ssh-keygen -t rsa -b 2048 -f /tmp/test_key_$$ -N "" &> /dev/null; then
+                        rm -f /tmp/test_key_$$ /tmp/test_key_$$.pub 2>/dev/null
+                        echo "✓"
+                    else
+                        echo "✗ (installed but not working)"
+                        provide_installation_guidance "$tool"
+                    fi
+                    ;;
+                *)
+                    echo "✓"
+                    ;;
+            esac
+        else
+            echo "✗"
+            provide_installation_guidance "$tool"
+        fi
     done
-    echo " ✓"
+    
+    # Check runtime-specific status
+    check_runtime_status
 }
 
 # Generate SSH host keys if they don't exist
@@ -547,15 +1308,9 @@ generate_ssh_host_keys() {
     
     # Generate keys if they don't exist
     if [ ! -f "$SSH_KEYS_DIR/ssh_host_rsa_key" ]; then
-        printf "."
         ssh-keygen -q -t rsa -b 4096 -f "$SSH_KEYS_DIR/ssh_host_rsa_key" -N "" -C "ai-devkit-rsa" >/dev/null 2>&1
-        printf "."
         ssh-keygen -q -t ecdsa -b 521 -f "$SSH_KEYS_DIR/ssh_host_ecdsa_key" -N "" -C "ai-devkit-ecdsa" >/dev/null 2>&1
-        printf "."
         ssh-keygen -q -t ed25519 -f "$SSH_KEYS_DIR/ssh_host_ed25519_key" -N "" -C "ai-devkit-ed25519" >/dev/null 2>&1
-        echo " ✓"
-    else
-        echo "... ✓"
     fi
 }
 
@@ -574,38 +1329,151 @@ create_ssh_host_keys_secret() {
         --from-file=ssh_host_ed25519_key.pub="$SSH_KEYS_DIR/ssh_host_ed25519_key.pub" >/dev/null 2>&1
 }
 
-# Parse YAML file (simple parser using sed/awk)
-# This is a basic parser - in production you might want to use yq or python
+# Global variable to track which yq version we have
+YQ_TYPE=""
+
+# Detect and set yq type on first use
+detect_yq_type() {
+    if [[ -n "$YQ_TYPE" ]]; then
+        return 0  # Already detected
+    fi
+    
+    # Test with a simple file
+    if echo "test: value" > /tmp/yq_detect_$$ 2>/dev/null; then
+        if yq eval '.test // ""' /tmp/yq_detect_$$ &> /dev/null; then
+            YQ_TYPE="mikefarah"
+        elif yq -r '.test // ""' /tmp/yq_detect_$$ &> /dev/null; then
+            YQ_TYPE="kislyuk"
+        else
+            YQ_TYPE="unknown"
+        fi
+        rm -f /tmp/yq_detect_$$
+    else
+        YQ_TYPE="unknown"
+    fi
+}
+
+# Universal yq wrapper that works with both versions
+yq_universal() {
+    local expression="$1"
+    local file="$2"
+    
+    # Detect yq type if not already done
+    detect_yq_type
+    
+    case "$YQ_TYPE" in
+        "mikefarah")
+            yq eval "$expression" "$file" 2>/dev/null || echo ""
+            ;;
+        "kislyuk") 
+            # For kislyuk/yq, simplify the approach
+            # Just extract the field without the default operator
+            local field=$(echo "$expression" | sed 's/ *\/\/ *".*"$//' | sed 's/^\.//')
+            
+            # Use yq to get the value directly
+            local result=$(yq -r ".$field" "$file" 2>/dev/null)
+            
+            # Handle null or missing fields
+            if [[ "$result" == "null" ]] || [[ -z "$result" ]]; then
+                # Extract default value from expression if present
+                if [[ "$expression" =~ //\ *\"(.*)\" ]]; then
+                    echo "${BASH_REMATCH[1]}"
+                else
+                    echo ""
+                fi
+            else
+                echo "$result"
+            fi
+            ;;
+        *)
+            # Fallback - try mikefarah syntax first
+            if yq eval "$expression" "$file" 2>/dev/null; then
+                return 0
+            else
+                # Try kislyuk syntax
+                local field=$(echo "$expression" | sed 's/ *\/\/ *".*"$//' | sed 's/^\.//')
+                yq -r ".$field" "$file" 2>/dev/null || echo ""
+            fi
+            ;;
+    esac
+    return 0
+}
+
+# Parse YAML file using yq - optimized for performance
 parse_yaml() {
     local file=$1
     local prefix=$2
     
-    # Read the file and convert YAML to shell variables
-    local s='[[:space:]]*' w='[a-zA-Z0-9_]*' fs=$(echo @|tr @ '\034')
-    sed -ne "s|^\($s\):|\1|" \
-        -e "s|^\($s\)\($w\)$s:$s[\"']\(.*\)[\"']$s\$|\1$fs\2$fs\3|p" \
-        -e "s|^\($s\)\($w\)$s:$s\(.*\)$s\$|\1$fs\2$fs\3|p" $file |
-    awk -F$fs '{
-        indent = length($1)/2;
-        vname[indent] = $2;
-        for (i in vname) {if (i > indent) {delete vname[i]}}
-        if (length($3) > 0) {
-            vn=""; for (i=0; i<indent; i++) {vn=(vn)(vname[i])("_")}
-            printf("%s%s%s=\"%s\"\n", "'$prefix'", vn, $2, $3);
-        }
-    }'
+    # Detect yq type if not already done
+    detect_yq_type
+    
+    # For kislyuk/yq, batch all field extractions in one call
+    if [[ "$YQ_TYPE" == "kislyuk" ]]; then
+        # Convert YAML to JSON once and extract all fields
+        local json_data=$(yq . "$file" 2>/dev/null)
+        
+        if [[ -n "$json_data" ]]; then
+            # Extract each field separately but from the same JSON data
+            # This avoids issues with special characters in tab-separated values
+            id=$(echo "$json_data" | jq -r '.id // ""' 2>/dev/null || echo "")
+            name=$(echo "$json_data" | jq -r '.name // ""' 2>/dev/null || echo "")
+            group=$(echo "$json_data" | jq -r '.group // ""' 2>/dev/null || echo "")
+            # Handle requires field which might be an array or string
+            requires=$(echo "$json_data" | jq -r '
+                if .requires == null then
+                    ""
+                elif .requires | type == "array" then
+                    .requires | tostring
+                else
+                    .requires
+                end' 2>/dev/null || echo "")
+            version=$(echo "$json_data" | jq -r '.version // ""' 2>/dev/null || echo "")
+            description=$(echo "$json_data" | jq -r '.description // ""' 2>/dev/null || echo "")
+        else
+            local id="" name="" group="" requires="" version="" description=""
+        fi
+    else
+        # For mikefarah/yq, use the universal wrapper (already optimized)
+        local id=$(yq_universal '.id // ""' "$file")
+        local name=$(yq_universal '.name // ""' "$file")
+        local group=$(yq_universal '.group // ""' "$file")
+        local requires=$(yq_universal '.requires // ""' "$file")
+        local version=$(yq_universal '.version // ""' "$file")
+        local description=$(yq_universal '.description // ""' "$file")
+    fi
+    
+    # Output in the format expected by the rest of the script
+    [[ -n "$id" ]] && echo "${prefix}id=\"$id\""
+    [[ -n "$name" ]] && echo "${prefix}name=\"$name\""
+    [[ -n "$group" ]] && echo "${prefix}group=\"$group\""
+    [[ -n "$requires" ]] && echo "${prefix}requires=\"$requires\""
+    [[ -n "$version" ]] && echo "${prefix}version=\"$version\""
+    [[ -n "$description" ]] && echo "${prefix}description=\"$description\""
 }
 
 # Load component data from YAML files
 load_components() {
+    # Temporarily disable exit on error for this function
+    local old_e=${-//[^e]/}
+    set +e
+    
     local components=()
     local categories=()
     local category_names=()
     local category_descriptions=()
     local category_orders=()
     
+    # Debug: Enable trace if DEBUG is set
+    if [[ -n "${DEBUG}" ]]; then
+        set -x
+    fi
+    
     # Check if components directory exists
-    [[ ! -d "$COMPONENTS_DIR" ]] && error "Components directory '$COMPONENTS_DIR' not found"
+    if [[ ! -d "$COMPONENTS_DIR" ]]; then
+        error "Components directory '$COMPONENTS_DIR' not found"
+        [[ -n "$old_e" ]] && set -e
+        return 1
+    fi
     
     # Discover categories (subdirectories)
     for category_dir in "$COMPONENTS_DIR"/*; do
@@ -618,7 +1486,11 @@ load_components() {
         
         # Load category metadata if exists
         if [[ -f "$category_dir/.category.yaml" ]]; then
-            eval $(parse_yaml "$category_dir/.category.yaml" "cat_")
+            # Parse category metadata safely
+            local parsed_output=$(parse_yaml "$category_dir/.category.yaml" "cat_" 2>/dev/null)
+            if [[ -n "$parsed_output" ]]; then
+                eval "$parsed_output" 2>/dev/null || true
+            fi
             
             [[ -n "$cat_display_name" ]] && display_name="$cat_display_name"
             [[ -n "$cat_description" ]] && description="$cat_description"
@@ -660,6 +1532,14 @@ load_components() {
         done
     done
     
+    # Debug: Check if we have categories
+    if [[ ${#categories[@]} -eq 0 ]]; then
+        echo "DEBUG: No categories found in $COMPONENTS_DIR" >&2
+        ls -la "$COMPONENTS_DIR" 2>&1 >&2 || echo "ERROR: Cannot list $COMPONENTS_DIR" >&2
+        [[ -n "$old_e" ]] && set -e
+        return 1
+    fi
+    
     # Output categories and their display names properly
     echo "${categories[@]}"
     echo "---SEPARATOR---"
@@ -677,18 +1557,35 @@ load_components() {
             [[ ! -f "$yaml_file" ]] && continue
             [[ "$yaml_file" == *"/.category.yaml" ]] && continue
 
-            # Parse the YAML file
-            eval $(parse_yaml "$yaml_file" "comp_")
+            # Parse the YAML file safely
+            local parsed_output=$(parse_yaml "$yaml_file" "comp_" 2>/dev/null)
             
-            # Output component data
-            echo "${comp_id}|${comp_name}|${comp_group}|${comp_requires}|${category}|${yaml_file}"
+            # Debug: Log what we're about to eval if DEBUG is set
+            if [[ -n "${DEBUG}" ]]; then
+                echo "DEBUG: Parsing $yaml_file" >&2
+                echo "DEBUG: Output: $parsed_output" >&2
+            fi
+            
+            if [[ -n "$parsed_output" ]]; then
+                eval "$parsed_output" 2>/dev/null || true
+            fi
+            
+            # Output component data only if we have an ID
+            if [[ -n "$comp_id" ]]; then
+                echo "${comp_id}|${comp_name}|${comp_group}|${comp_requires}|${category}|${yaml_file}"
+            elif [[ -n "${DEBUG}" ]]; then
+                echo "DEBUG: No comp_id found for $yaml_file" >&2
+            fi
             
             # Clear component variables for next iteration
-            unset comp_id comp_name comp_group comp_requires
+            unset comp_id comp_name comp_group comp_requires comp_version comp_description
         done
     done
 
     printf "\n" >&2
+    
+    # Restore original set -e state
+    [[ -n "$old_e" ]] && set -e
 }
 
 # ============================================================================
@@ -1391,8 +2288,6 @@ render_cart() {
         "Filebrowser (port 8090)"
         "Git"
         "GitHub CLI (gh)"
-        "Microsoft TUI Test"
-        "Node.js 20.18.0"
         "SSH Server (port 2222)"
     )
     
@@ -1494,6 +2389,12 @@ run_component_selection_ui() {
     
     # Load components data
     local component_data=$(load_components)
+    
+    # Check if we got any data
+    if [[ -z "$component_data" ]]; then
+        error "Failed to load components. No component data was returned."
+        exit 1
+    fi
     
     # Split the data
     local categories_line=$(echo "$component_data" | sed -n '1p')
@@ -2354,8 +3255,6 @@ display_selection_summary() {
         "Filebrowser (port 8090)"
         "Git"
         "GitHub CLI (gh)"
-        "Microsoft TUI Test"
-        "Node.js 20.18.0"
         "SSH Server (port 2222)"
     )
 
@@ -2373,14 +3272,16 @@ display_selection_summary() {
         [[ "${in_cart[$i]}" == true ]] && ((selection_count++))
     done
 
+    # Initialize arrays regardless of selection count
+    SELECTED_YAML_FILES=()
+    SELECTED_IDS=()
+    SELECTED_NAMES=()
+    SELECTED_GROUPS=()
+    SELECTED_CATEGORIES=()
+    SELECTED_REQUIRES=()
+    
     if [[ $selection_count -gt 0 ]]; then
         # Store selections
-        SELECTED_YAML_FILES=()
-        SELECTED_IDS=()
-        SELECTED_NAMES=()
-        SELECTED_GROUPS=()
-        SELECTED_CATEGORIES=()
-        SELECTED_REQUIRES=()
         
         # Display selected items grouped by category
         for cat_idx in "${!categories[@]}"; do
@@ -2521,7 +3422,8 @@ execute_pre_build_scripts() {
     local selected_names="${SELECTED_NAMES[*]}"
     local selected_yaml_files="${SELECTED_YAML_FILES[*]}"
     
-    # First, copy ALL component markdown files to the build directory
+    # First, create docs directory and copy ALL component markdown files to it
+    mkdir -p "$TEMP_DIR/docs"
     log "Copying component documentation files..."
     for i in "${!SELECTED_YAML_FILES[@]}"; do
         local yaml_file="${SELECTED_YAML_FILES[$i]}"
@@ -2530,7 +3432,7 @@ execute_pre_build_scripts() {
         local md_source="$(dirname "$yaml_file")/${yaml_basename}.md"
         
         if [[ -f "$md_source" ]]; then
-            cp "$md_source" "$TEMP_DIR/"
+            cp "$md_source" "$TEMP_DIR/docs/"
             success "Copied ${yaml_basename}.md for ${component_name}"
         else
             log "No documentation file ${yaml_basename}.md found for ${component_name}"
@@ -2544,19 +3446,20 @@ execute_pre_build_scripts() {
         
         # Extract pre_build_script
         local script_name=$(extract_pre_build_script "$yaml_file")
-        
+
         if [[ -n "$script_name" ]]; then
-            local script_dir=$(dirname "$yaml_file")
-            local script_path="$script_dir/$script_name"
-            
+            # Component directory is the yaml filename without .yaml extension
+            local component_dir="${yaml_file%.yaml}"
+            local script_path="$component_dir/$script_name"
+
             if [[ -f "$script_path" ]]; then
                 log "Running pre-build script for $component_name..."
-                
+
                 # Make script executable
                 chmod +x "$script_path"
-                
-                # Execute with standard arguments
-                if "$script_path" "$TEMP_DIR" "$selected_ids" "$selected_names" "$selected_yaml_files" "$script_dir"; then
+
+                # Execute with standard arguments (pass component_dir as last arg)
+                if "$script_path" "$TEMP_DIR" "$selected_ids" "$selected_names" "$selected_yaml_files" "$component_dir"; then
                     success "Pre-build script completed for $component_name"
                 else
                     error "Pre-build script failed for $component_name"
@@ -2643,162 +3546,198 @@ EOF
     fi
 }
 
-# Function to extract inject_files from YAML
-extract_inject_files_from_yaml() {
-    local yaml_file=$1
-    local in_inject_files=false
-    local current_item=false
-    local source="" destination="" permissions=""
-    local inject_commands=""
+# Function to generate dynamic repository configurations for selected components
+generate_repository_configs() {
+    # Save original CONFIG_FILE to restore after component processing
+    local original_config_file="$CONFIG_FILE"
     
-    while IFS= read -r line; do
-        # Check if entering inject_files section
-        if [[ "$line" =~ ^[[:space:]]*inject_files:[[:space:]]*$ ]]; then
-            in_inject_files=true
-            continue
-        fi
-        
-        # Check if exiting inject_files section
-        if [[ $in_inject_files == true ]] && [[ "$line" =~ ^[a-zA-Z_]+: ]] && [[ ! "$line" =~ ^[[:space:]] ]]; then
-            in_inject_files=false
-            break
-        fi
-        
-        if [[ $in_inject_files == true ]]; then
-            # New item starts with - source:
-            if [[ "$line" =~ ^[[:space:]]*-[[:space:]]+source:[[:space:]]*(.+)$ ]]; then
-                # Process previous item if exists
-                if [[ -n "$source" ]] && [[ -n "$destination" ]]; then
-                    inject_commands+="COPY $source $destination"$NL
-                    if [[ -n "$permissions" ]]; then
-                        inject_commands+="RUN chmod $permissions $destination"$NL
+    # We need to create the ConfigMap even if no components are selected
+    # because the deployment references it
+    local should_generate_configs=true
+    if [[ ${#SELECTED_YAML_FILES[@]} -eq 0 ]]; then
+        log "No components selected, will create empty ConfigMap"
+        should_generate_configs=false
+    fi
+    
+    # Source the bash template processor and its dependencies
+    if [[ -f "lib/template-processor-bash.sh" ]]; then
+        source "lib/template-processor-bash.sh"
+    else
+        warning "template-processor-bash.sh not found, skipping repository config generation"
+        return
+    fi
+    
+    # Source file mapping manager for init container architecture
+    if [[ -f "lib/file-mapping-manager.sh" ]]; then
+        source "lib/file-mapping-manager.sh"
+    else
+        warning "file-mapping-manager.sh not found, skipping file mapping"
+        return
+    fi
+    
+    # Source init scripts generator
+    if [[ -f "lib/generate-init-scripts-configmap.sh" ]]; then
+        source "lib/generate-init-scripts-configmap.sh"
+    fi
+    
+    # Create staging directory for init container architecture
+    local staging_dir="$TEMP_DIR/staging"
+    mkdir -p "$staging_dir"
+    
+    # Copy user config file to staging directory for use during build
+    if [[ -f "$CONFIG_FILE" ]]; then
+        mkdir -p "$staging_dir/.ai-devkit"
+        cp "$CONFIG_FILE" "$staging_dir/.ai-devkit/config.yaml"
+        echo "Copied user config to staging directory" >> "$LOG_FILE"
+    fi
+    
+    # Create manifest file for init container
+    local manifest_file="$staging_dir/manifest.txt"
+    echo "# AI DevKit Init Container Manifest" > "$manifest_file"
+    echo "# Format: source|destination|mode|owner" >> "$manifest_file"
+    
+    # Track which configs were generated
+    local configs_generated=()
+    
+    # Process each selected component
+    if [[ "$should_generate_configs" == "true" ]]; then
+        log "Processing selected components for init container..."
+        for i in "${!SELECTED_YAML_FILES[@]}"; do
+            local yaml_file="${SELECTED_YAML_FILES[$i]}"
+            local component_id="${SELECTED_IDS[$i]}"
+            local component_name="${SELECTED_NAMES[$i]}"
+            
+            # Derive component directory from yaml file path
+            local component_dir="${yaml_file%.yaml}/"
+            
+            # Check for ai-devkit structure
+            if [[ -d "$component_dir/ai-devkit" ]]; then
+                log "Processing component $component_name..."
+                
+                # Generate configuration files from templates
+                # First generate to a temporary directory
+                local temp_gen_dir="$TEMP_DIR/config-gen/$component_id"
+                mkdir -p "$temp_gen_dir"
+                
+                echo "DEBUG: Calling generate_component_configuration for $component_id" >> "$LOG_FILE"
+                if generate_component_configuration "$component_dir" "$component_id" "$temp_gen_dir" 2>> "$LOG_FILE"; then
+                    configs_generated+=("$component_id")
+                    log "Generated configuration for $component_id"
+                    echo "DEBUG: Successfully generated configuration for $component_id" >> "$LOG_FILE"
+                    
+                    # Move generated files to staging with correct structure
+                    local target_gen_dir="$staging_dir/generated/$component_id"
+                    mkdir -p "$target_gen_dir"
+                    
+                    # Copy generated files to staging
+                    if [[ -d "$temp_gen_dir" ]]; then
+                        cp -r "$temp_gen_dir"/* "$target_gen_dir/" 2>/dev/null || true
                     fi
                 fi
                 
-                # Start new item
-                source="${BASH_REMATCH[1]}"
-                destination=""
-                permissions=""
-                current_item=true
-            elif [[ $current_item == true ]]; then
-                if [[ "$line" =~ ^[[:space:]]+destination:[[:space:]]*(.+)$ ]]; then
-                    destination="${BASH_REMATCH[1]}"
-                elif [[ "$line" =~ ^[[:space:]]+permissions:[[:space:]]*(.+)$ ]]; then
-                    permissions="${BASH_REMATCH[1]}"
+                # Process file mappings (handles static, generated, and test files)
+                process_component_file_mappings "$component_dir" "$component_id" "$staging_dir" "$manifest_file"
+                
+                # Process static files if they exist (not already in file-mappings)
+                process_component_static_files "$component_dir" "$component_id" "$staging_dir" "$manifest_file"
+                
+                # Note: Test files are now handled by process_component_file_mappings
+                # via the file-mappings.yaml definitions
+            else
+                # Component doesn't have ai-devkit structure
+                local format=$(yq -r '.installation.repos.format // ""' "$yaml_file" 2>/dev/null)
+                if [[ -n "$format" ]] && [[ "$format" != "null" ]]; then
+                    log "WARNING: Component $component_name needs migration to ai-devkit structure"
                 fi
             fi
-        fi
-    done < "$yaml_file"
+        done
+    fi
     
-    # Process last item
-    if [[ -n "$source" ]] && [[ -n "$destination" ]]; then
+    # Create test orchestrator if we have tests
+    if [[ -d "$staging_dir/tests" ]] && [[ -n "$(ls -A "$staging_dir/tests" 2>/dev/null)" ]]; then
+        log "Creating test orchestrator..."
+        create_test_orchestrator "$staging_dir" "$manifest_file"
+    fi
+    
+    # Generate ConfigMap from staging directory
+    log "Generating ConfigMap from staging directory..."
+    local configmap_file="$TEMP_DIR/component-configs-dynamic.yaml"
+    generate_configmap_from_staging "$staging_dir" "$configmap_file"
+    
+    # Generate init scripts ConfigMap
+    log "Generating init scripts ConfigMap..."
+    local init_scripts_file="$TEMP_DIR/init-scripts.yaml"
+    generate_init_scripts_configmap "$init_scripts_file"
+    
+    # ConfigMap files are created and will be applied during deployment phase
+    log "ConfigMaps prepared with ${#configs_generated[@]} component(s)"
+    
+    # Restore original CONFIG_FILE after all component processing
+    export CONFIG_FILE="$original_config_file"
+    echo "Restored original CONFIG_FILE: $CONFIG_FILE" >> "$LOG_FILE"
+}
+
+# Function to extract inject_files from YAML using yq
+extract_inject_files_from_yaml() {
+    local yaml_file=$1
+    local inject_commands=""
+    
+    # Check if inject_files exists in the YAML (under installation)
+    if ! yq_universal '.installation.inject_files' "$yaml_file" | grep -q -v "^null$"; then
+        return 0
+    fi
+    
+    # Get the number of inject_files entries
+    local count=$(yq_universal '.installation.inject_files | length' "$yaml_file")
+    
+    # Process each inject_files entry
+    for ((i=0; i<count; i++)); do
+        local source=$(yq_universal ".installation.inject_files[$i].source" "$yaml_file")
+        local destination=$(yq_universal ".installation.inject_files[$i].destination" "$yaml_file")
+        local permissions=$(yq_universal ".installation.inject_files[$i].permissions" "$yaml_file")
+        
+        # Skip if source or destination is null
+        if [[ "$source" == "null" ]] || [[ "$destination" == "null" ]]; then
+            continue
+        fi
+        
+        # Add COPY command
         inject_commands+="COPY $source $destination"$NL
-        if [[ -n "$permissions" ]]; then
+        
+        # Add chmod command if permissions are specified
+        if [[ "$permissions" != "null" ]]; then
             inject_commands+="RUN chmod $permissions $destination"$NL
         fi
-    fi
+    done
     
     echo -n "$inject_commands"
 }
 
-# Function to extract entrypoint_setup from YAML file
+# Function to extract entrypoint_setup from YAML file using yq
 extract_entrypoint_setup() {
     local yaml_file=$1
-    local in_entrypoint_setup=false
-    local entrypoint_content=""
+    local entrypoint_content=$(yq_universal '.entrypoint_setup // ""' "$yaml_file")
     
-    while IFS= read -r line; do
-        # Check if we're entering entrypoint_setup section
-        if [[ "$line" =~ ^entrypoint_setup:[[:space:]]*\|[[:space:]]*$ ]]; then
-            in_entrypoint_setup=true
-            continue
-        fi
-        
-        # Check if we're exiting entrypoint_setup section (new top-level key)
-        if [[ $in_entrypoint_setup == true ]] && [[ "$line" =~ ^[a-zA-Z_]+: ]] && [[ ! "$line" =~ ^[[:space:]] ]]; then
-            in_entrypoint_setup=false
-            break
-        fi
-        
-        # Collect entrypoint_setup lines
-        if [[ $in_entrypoint_setup == true ]]; then
-            # Remove the first 2 spaces of YAML indentation
-            if [[ "$line" =~ ^"  " ]]; then
-                entrypoint_content+="${line:2}"$NL
-            elif [[ -z "$line" ]]; then
-                # Preserve empty lines
-                entrypoint_content+=$NL
-            fi
-        fi
-    done < "$yaml_file"
-    
-    # Trim trailing newlines but keep the content intact
-    # Don't use complex sed operations that might corrupt the content
-    while [[ "$entrypoint_content" =~ ${NL}$ ]]; do
-        entrypoint_content="${entrypoint_content%$NL}"
-    done
+    # Return empty if null or empty
+    if [[ "$entrypoint_content" == "null" ]] || [[ -z "$entrypoint_content" ]]; then
+        echo ""
+        return
+    fi
     
     echo "$entrypoint_content"
 }
 
-# Function to extract installation commands from YAML files
+# Function to extract installation commands from YAML files using yq
 extract_installation_from_yaml() {
     local yaml_file=$1
-    local in_dockerfile=false
-    local in_nexus=false
-    local dockerfile_content=""
-    local nexus_content=""
+    local full_content=""
     
-    while IFS= read -r line; do
-        # Check for dockerfile section
-        if [[ "$line" =~ ^[[:space:]]*dockerfile:[[:space:]]*\|[[:space:]]*$ ]]; then
-            in_dockerfile=true
-            in_nexus=false
-            continue
-        fi
-        
-        # Check for nexus_config section
-        if [[ "$line" =~ ^[[:space:]]*nexus_config:[[:space:]]*\|[[:space:]]*$ ]]; then
-            in_nexus=true
-            in_dockerfile=false
-            continue
-        fi
-        
-        # Check if we're exiting a section
-        if [[ "$line" =~ ^[[:space:]]*[a-zA-Z_]+: ]] && [[ ! "$line" =~ ^[[:space:]]{4,} ]]; then
-            in_dockerfile=false
-            in_nexus=false
-        fi
-        
-        # Collect content
-        if [[ $in_dockerfile == true ]]; then
-            # For dockerfile content, we need to preserve the exact formatting
-            # Only remove the first 4 spaces that are YAML indentation
-            if [[ "$line" =~ ^"    " ]]; then
-                dockerfile_content+="${line:4}"$NL
-            else
-                # Handle empty lines or lines with different indentation
-                dockerfile_content+="$line"$NL
-            fi
-        elif [[ $in_nexus == true ]]; then
-            # For nexus content, preserve it as-is after removing YAML indent
-            if [[ "$line" =~ ^"    " ]]; then
-                nexus_content+="${line:4}"$NL
-            fi
-        fi
-    done < "$yaml_file"
-    
-    # Combine dockerfile and nexus content if applicable
-    local full_content="$dockerfile_content"
-    if [[ -n "$nexus_content" ]]; then
-        # The nexus_config should already be properly formatted in the YAML
-        # Just wrap it in RUN - but be careful with the newline
-        if [[ -n "$full_content" ]]; then
-            full_content+=$NL
-        fi
-        full_content+="# Nexus configuration"$NL
-        full_content+="RUN ${nexus_content}"
+    # Extract dockerfile content if it exists
+    local dockerfile_content=$(yq_universal '.installation.dockerfile // ""' "$yaml_file")
+    if [[ -n "$dockerfile_content" ]] && [[ "$dockerfile_content" != "null" ]]; then
+        full_content="$dockerfile_content"
     fi
+    
     
     printf "%s" "$full_content"
 }
@@ -2867,19 +3806,11 @@ sort_components_by_dependencies() {
 create_custom_dockerfile() {
     mkdir -p "$TEMP_DIR"
     
-    # Always create these directories to prevent Docker COPY failures
-    mkdir -p "$TEMP_DIR/claude-commands"
-    mkdir -p "$TEMP_DIR/claude-hooks"
-    
-    # Create placeholder files if directories would be empty
-    if [[ ! -f "$TEMP_DIR/claude-commands/.placeholder" ]]; then
-        echo "# No Claude commands configured" > "$TEMP_DIR/claude-commands/.placeholder"
-    fi
-    if [[ ! -f "$TEMP_DIR/claude-hooks/.placeholder.sh" ]]; then
-        echo "#!/bin/bash" > "$TEMP_DIR/claude-hooks/.placeholder.sh"
-        echo "# No hooks configured" >> "$TEMP_DIR/claude-hooks/.placeholder.sh"
-        chmod +x "$TEMP_DIR/claude-hooks/.placeholder.sh"
-    fi
+    # Ensure work directories exist and have proper permissions
+    mkdir -p "$TEMP_DIR/work-scripts"
+    echo "#!/bin/bash" > "$TEMP_DIR/work-scripts/.placeholder"
+    echo "# Placeholder for work scripts" >> "$TEMP_DIR/work-scripts/.placeholder"
+    chmod 755 "$TEMP_DIR/work-scripts/.placeholder"
     
     # First, generate the base entrypoint.sh in TEMP_DIR
     log "Generating custom entrypoint.sh..."
@@ -2908,8 +3839,10 @@ create_custom_dockerfile() {
     # Generate component imports if not already done by a pre-build script
     generate_component_imports
     
+    # Generate repository configurations for selected components
+    generate_repository_configs
+    
     # Create placeholder files if they don't exist (for when no components are selected)
-    touch "$TEMP_DIR/user-CLAUDE.md" 2>/dev/null || true
     touch "$TEMP_DIR/component-imports.txt" 2>/dev/null || true
     
     # Sort components by dependencies
@@ -2940,6 +3873,32 @@ create_custom_dockerfile() {
         # Extract inject_files directives
         local inject_cmds=$(extract_inject_files_from_yaml "$yaml_file")
         if [[ -n "$inject_cmds" ]]; then
+            # Copy required files to build context
+            local component_dir="${yaml_file%.yaml}"
+            local count=$(yq_universal '.installation.inject_files | length' "$yaml_file")
+            for ((i=0; i<count; i++)); do
+                local source=$(yq_universal ".installation.inject_files[$i].source" "$yaml_file")
+                if [[ "$source" != "null" ]] && [[ -n "$source" ]]; then
+                    # Check if file exists in component directory
+                    if [[ -f "$component_dir/$source" ]]; then
+                        cp "$component_dir/$source" "$TEMP_DIR/$source"
+                        log "Copied $source to build context for $component_name"
+                    elif [[ -f "$TEMP_DIR/$source" ]]; then
+                        # File already exists in TEMP_DIR (created by pre-build script)
+                        log "File $source already exists in build context (from pre-build script)"
+                    elif [[ -d "$component_dir/$source" ]]; then
+                        # It's a directory - copy it recursively
+                        cp -r "$component_dir/$source" "$TEMP_DIR/$source"
+                        log "Copied directory $source to build context for $component_name"
+                    elif [[ -d "$TEMP_DIR/$source" ]]; then
+                        # Directory already exists in TEMP_DIR
+                        log "Directory $source already exists in build context (from pre-build script)"
+                    else
+                        warning "File $source not found in $component_dir or $TEMP_DIR for $component_name"
+                    fi
+                fi
+            done
+            
             if [[ -n "$inject_files_content" ]]; then
                 inject_files_content+=$NL
             fi
@@ -2971,16 +3930,19 @@ create_custom_dockerfile() {
         rm -f "$TEMP_DIR/Dockerfile.bak"
     fi
     
-    # Insert file injections before volume declarations
+    # Insert file injections using the placeholder
     if [[ -n "$inject_files_content" ]]; then
         # Remove any trailing newlines
         inject_files_content=$(echo -n "$inject_files_content")
         echo "$inject_files_content" > "$TEMP_DIR/inject_files.txt"
-        # Insert before the VOLUME declaration - add a blank line first
-        sed -i.bak '/^# Set up volume mount points/i\
-' "$TEMP_DIR/Dockerfile"
-        sed -i.bak "/^# Set up volume mount points/r $TEMP_DIR/inject_files.txt" "$TEMP_DIR/Dockerfile"
+        # Use the placeholder pattern
+        sed -i.bak "/# INJECT_FILES_PLACEHOLDER/r $TEMP_DIR/inject_files.txt" "$TEMP_DIR/Dockerfile"
+        sed -i.bak "/# INJECT_FILES_PLACEHOLDER/d" "$TEMP_DIR/Dockerfile"
         rm -f "$TEMP_DIR/Dockerfile.bak" "$TEMP_DIR/inject_files.txt"
+    else
+        # Remove the placeholder if no inject content
+        sed -i.bak "/# INJECT_FILES_PLACEHOLDER/d" "$TEMP_DIR/Dockerfile"
+        rm -f "$TEMP_DIR/Dockerfile.bak"
     fi
     
     # Now modify the generated entrypoint.sh with component setup
@@ -3048,33 +4010,24 @@ validate_environment() {
     
     [[ ! -d "$COMPONENTS_DIR" ]] && error "Components directory '$COMPONENTS_DIR' not found"
     
-    # Check if MOTD file exists
-    printf "."
-    if [[ ! -f "scripts/motd-ai-devkit.sh" ]]; then
-        error "motd-ai-devkit.sh not found in scripts directory. Please create this file first."
-    fi
-    
-    # Check Colima status
-    printf "."
-    colima status &> /dev/null || error "Colima is not running. Please start Colima with: colima start --kubernetes"
-    printf "."
-    kubectl get nodes &> /dev/null || error "Kubernetes is not accessible. Please make sure Colima started with --kubernetes flag"
-    
-    echo " ✓"
+    echo "✓ All prerequisites verified"
 }
 
-# Check if Nexus is available
-check_nexus() {
-    if curl -s http://localhost:8081 > /dev/null 2>&1; then
-        return 0
-    fi
-    return 1
-}
 
 # Function to initialize component system
 initialize_components() {
     # Load categories for use in generate_claude_md
     local component_data=$(load_components)
+    
+    # Debug: Check if component_data is empty
+    if [[ -z "$component_data" ]]; then
+        echo ""
+        error "Failed to load components - no data returned from load_components"
+        echo "DEBUG: Checking components directory..."
+        ls -la "$COMPONENTS_DIR" 2>/dev/null || echo "Components directory not found: $COMPONENTS_DIR"
+        exit 1
+    fi
+    
     local categories_line=$(echo "$component_data" | sed -n '1p')
     
     # Convert to global arrays
@@ -3101,14 +4054,8 @@ initialize_components() {
 
 # Function to setup configuration options
 setup_configuration() {
-    # Check Nexus first
-    NEXUS_AVAILABLE=false
-    if check_nexus; then
-        echo "  • Nexus proxy detected"
-        NEXUS_AVAILABLE=true
-        export DOCKER_BUILDKIT=0
-        export NEXUS_BUILD_ARGS="--build-arg PIP_INDEX_URL=http://host.lima.internal:8081/repository/pypi-proxy/simple --build-arg PIP_TRUSTED_HOST=host.lima.internal --build-arg NPM_REGISTRY=http://host.lima.internal:8081/repository/npm-proxy/ --build-arg GOPROXY=http://host.lima.internal:8081/repository/go-proxy/ --build-arg USE_NEXUS_APT=true --build-arg NEXUS_APT_URL=http://host.lima.internal:8081"
-    fi
+    # Repository configuration is now handled at runtime via config mounts
+    # No build-time arguments needed for repositories
     
     # Check for host git configuration
     USE_HOST_GIT_CONFIG=false
@@ -3134,7 +4081,7 @@ cleanup_previous_build() {
     
     # Delete the deployment to ensure fresh container
     kubectl delete deployment ai-devkit -n ${NAMESPACE} --ignore-not-found=true >> "$LOG_FILE" 2>&1
-    docker rmi ${IMAGE_NAME}:${IMAGE_TAG} >> "$LOG_FILE" 2>&1 || true
+    container_rmi ${IMAGE_NAME}:${IMAGE_TAG} >> "$LOG_FILE" 2>&1
 }
 
 # Function to build Docker image
@@ -3147,13 +4094,25 @@ build_docker_image() {
     # Always build from TEMP_DIR since we now generate entrypoint.sh
     mkdir -p "$TEMP_DIR/scripts"
     mkdir -p "$TEMP_DIR/docker"
-    cp scripts/setup-git.sh "$TEMP_DIR/scripts/" 2>/dev/null
-    cp scripts/motd-ai-devkit.sh "$TEMP_DIR/scripts/" 2>/dev/null
-    cp docker/nodejs-base.md "$TEMP_DIR/docker/" 2>/dev/null
-    cp -r config "$TEMP_DIR/" 2>/dev/null
+    mkdir -p "$TEMP_DIR/docker/scripts"
+    mkdir -p "$TEMP_DIR/docker/config"
+    
+    # Copy docker directory structure
+    # REMOVED: cp docker/Dockerfile.base "$TEMP_DIR/Dockerfile"  # This was overwriting the customized Dockerfile!
+    # The Dockerfile has already been created and customized by create_custom_dockerfile()
+    
+    cp docker/scripts/setup-git.sh "$TEMP_DIR/docker/scripts/" 2>/dev/null
+    cp docker/scripts/motd-ai-devkit.sh "$TEMP_DIR/docker/scripts/" 2>/dev/null
+    
+    # Copy config files
+    cp docker/config/bashrc "$TEMP_DIR/docker/config/" 2>/dev/null
+    cp docker/config/profile "$TEMP_DIR/docker/config/" 2>/dev/null
+    cp docker/config/ai-devkit-README.md "$TEMP_DIR/docker/config/" 2>/dev/null
+    
+    # Copy other needed directories
     cp -r templates "$TEMP_DIR/" 2>/dev/null
 
-     # Ensure VERSION file exists in TEMP_DIR
+    # Ensure VERSION file exists in TEMP_DIR
     if [[ -f "VERSION" ]]; then
         cp VERSION "$TEMP_DIR/VERSION"
         echo "Copied VERSION file: $(cat $TEMP_DIR/VERSION)" >> "$LOG_FILE"
@@ -3165,21 +4124,55 @@ build_docker_image() {
     cd "$TEMP_DIR"
     echo "Docker build output:" >> "../$LOG_FILE"
     echo "=================================================================================" >> "../$LOG_FILE"
-    if [[ -n "$NEXUS_BUILD_ARGS" ]]; then
-        docker build $NEXUS_BUILD_ARGS -t ${IMAGE_NAME}:${IMAGE_TAG} . >> "../$LOG_FILE" 2>&1 || \
-            (cd .. && error "Docker build failed - check $LOG_FILE for details")
-    else
-        docker build -t ${IMAGE_NAME}:${IMAGE_TAG} . >> "../$LOG_FILE" 2>&1 || \
-            (cd .. && error "Docker build failed - check $LOG_FILE for details")
-    fi
+    container_build -t ${IMAGE_NAME}:${IMAGE_TAG} . >> "../$LOG_FILE" 2>&1 || \
+        (cd .. && error "Container build failed - check $LOG_FILE for details")
     cd ..
+}
+
+# Function to generate dynamic deployment YAML with only selected component mounts
+generate_dynamic_deployment() {
+    echo "Generating dynamic deployment YAML..." >> "$LOG_FILE"
+    # Send status to stderr so it doesn't interfere with function return value
+    echo "Generating dynamic deployment YAML..." >&2
+    
+    local deployment_file="$TEMP_DIR/deployment-dynamic.yaml"
+    
+    # Source the dynamic deployment generator
+    if [[ -f "lib/generate-dynamic-deployment.sh" ]]; then
+        source "lib/generate-dynamic-deployment.sh"
+    else
+        echo "Warning: generate-dynamic-deployment.sh not found, using static deployment" >> "$LOG_FILE"
+        cp kubernetes/deployment.yaml "$deployment_file"
+        echo "$deployment_file"
+        return
+    fi
+    
+    # Pass the manifest file if it exists to determine what mounts are needed
+    local manifest_file="$TEMP_DIR/staging/manifest.txt"
+    
+    # Generate truly dynamic deployment with template-based volume mounts
+    generate_dynamic_kubernetes_deployment "$deployment_file" "$manifest_file" 2>> "$LOG_FILE"
+    
+    echo "Generated dynamic deployment at $deployment_file" >> "$LOG_FILE"
+    
+    # Only output the deployment file path to stdout (for command substitution)
+    echo "$deployment_file"
 }
 
 # Function to deploy to Kubernetes
 deploy_to_kubernetes() {
     echo -e "\nKubernetes deployment output:" >> "$LOG_FILE"
     echo "=================================================================================" >> "$LOG_FILE"
-    docker save ${IMAGE_NAME}:${IMAGE_TAG} | colima ssh -- sudo ctr -n k8s.io images import - >> "$LOG_FILE" 2>&1
+    
+    # Use runtime abstraction instead of hardcoded colima command
+    load_image_to_runtime "${IMAGE_NAME}:${IMAGE_TAG}"
+    
+    # Verify the image is available before deploying
+    if ! verify_image_in_runtime "${IMAGE_NAME}:${IMAGE_TAG}"; then
+        error "Image verification failed. Cannot proceed with deployment."
+        log "Please check the build log at: $LOG_FILE"
+        return 1
+    fi
     
     kubectl apply -f kubernetes/namespace.yaml >> "$LOG_FILE" 2>&1
     kubectl apply -f kubernetes/pvc.yaml >> "$LOG_FILE" 2>&1
@@ -3192,13 +4185,27 @@ deploy_to_kubernetes() {
     # Create SSH host keys secret
     create_ssh_host_keys_secret
     
-    # Apply Nexus configuration if available
-    if [[ "$NEXUS_AVAILABLE" = true ]]; then
-        kubectl apply -f kubernetes/nexus-config.yaml >> "$LOG_FILE" 2>&1
+    # Apply dynamic repository configuration if generated
+    if [[ -f "$TEMP_DIR/repository-config-dynamic.yaml" ]]; then
+        log "Applying dynamic repository configuration..."
+        kubectl apply -f "$TEMP_DIR/repository-config-dynamic.yaml" >> "$LOG_FILE" 2>&1
     fi
     
-    # Apply deployment
-    kubectl apply -f kubernetes/deployment.yaml >> "$LOG_FILE" 2>&1
+    # Apply init scripts ConfigMap first
+    if [[ -f "$TEMP_DIR/init-scripts.yaml" ]]; then
+        log "Applying init-scripts ConfigMap..."
+        kubectl apply -f "$TEMP_DIR/init-scripts.yaml" >> "$LOG_FILE" 2>&1
+    fi
+    
+    # Apply component-configs ConfigMap if generated
+    if [[ -f "$TEMP_DIR/component-configs-dynamic.yaml" ]]; then
+        log "Applying component-configs ConfigMap..."
+        kubectl apply -f "$TEMP_DIR/component-configs-dynamic.yaml" >> "$LOG_FILE" 2>&1
+    fi
+    
+    # Generate and apply dynamic deployment
+    local deployment_yaml=$(generate_dynamic_deployment)
+    kubectl apply -f "$deployment_yaml" >> "$LOG_FILE" 2>&1
     
     # Wait for deployment
     kubectl wait --for=condition=available --timeout=120s deployment/ai-devkit -n ${NAMESPACE} >> "$LOG_FILE" 2>&1
@@ -3208,17 +4215,42 @@ deploy_to_kubernetes() {
 
 # Function to setup port forwarding
 setup_port_forwarding() {
+    # Kill any existing port forwards for our ports
+    echo "Cleaning up existing port forwards..." >> "$LOG_FILE"
+    
+    # Method 1: Kill by process pattern
     pkill -f 'kubectl.*port-forward.*ai-devkit' 2>/dev/null || true
-    sleep 1
+    
+    # Method 2: Find and kill processes using our specific ports
+    for port in 2222 8090; do
+        # Find process using the port
+        local pid=$(lsof -ti:$port 2>/dev/null)
+        if [[ -n "$pid" ]]; then
+            echo "Killing process $pid using port $port" >> "$LOG_FILE"
+            kill -9 $pid 2>/dev/null || true
+        fi
+    done
+    
+    # Wait a moment for ports to be released
+    sleep 2
+    
+    # Start new port forwarding
+    echo "Starting port forwarding..." >> "$LOG_FILE"
     kubectl port-forward -n ${NAMESPACE} service/ai-devkit 2222:22 8090:8090 >> "$LOG_FILE" 2>&1 &
     PORT_FORWARD_PID=$!
     sleep 2
     
     # Check if port forwarding is running
     if ! ps -p $PORT_FORWARD_PID > /dev/null 2>&1; then
-        # Update status in TUI context
+        echo "Port forwarding failed to start (PID $PORT_FORWARD_PID not running)" >> "$LOG_FILE"
+        # Try to see what's using the ports
+        echo "Checking what's using the ports:" >> "$LOG_FILE"
+        lsof -i:2222 >> "$LOG_FILE" 2>&1 || true
+        lsof -i:8090 >> "$LOG_FILE" 2>&1 || true
         return 1
     fi
+    
+    echo "Port forwarding started successfully (PID $PORT_FORWARD_PID)" >> "$LOG_FILE"
     return 0
 }
 
@@ -3228,6 +4260,13 @@ main() {
     echo "Build started at $(date)" > "$LOG_FILE"
     echo "=================================================================================" >> "$LOG_FILE"
     
+    # Clean up any previous build artifacts
+    if [[ -d "$TEMP_DIR" ]]; then
+        echo "Cleaning up previous build artifacts..." >> "$LOG_FILE"
+        rm -rf "$TEMP_DIR"
+    fi
+    mkdir -p "$TEMP_DIR"
+    
     # Set up global cleanup trap
     trap 'tput cnorm 2>/dev/null; stty echo 2>/dev/null; rm -f /tmp/ai-devkit-anim-* 2>/dev/null; exit' INT TERM EXIT
     
@@ -3236,16 +4275,17 @@ main() {
     echo ""
     
     # Validate environment
-    echo -n "Checking environment"
     validate_environment
     
     # Generate SSH host keys
-    echo -n "Preparing SSH keys"
     generate_ssh_host_keys
     
     # Initialize component system
-    echo -n "Loading components"
-    initialize_components
+    initialize_components || {
+        echo ""
+        error "Failed to initialize components"
+        exit 1
+    }
     echo " ✓"  # Add completion checkmark after components are loaded
     
     # Setup configuration options
@@ -3424,16 +4464,29 @@ main() {
         tput el
     done
     
+    # Check for warnings in the log
+    local warning_count=$(grep -ci "warning:" "$LOG_FILE" 2>/dev/null || echo "0")
+    
     # Center the final prompt
     local final_prompt_text="Press ENTER to return to terminal"
+    if [[ $warning_count -gt 0 ]]; then
+        final_prompt_text="⚠ $warning_count warning(s) in build log • Press ENTER to return"
+    fi
     local final_prompt_len=${#final_prompt_text}
     local final_prompt_pos=$(( (term_width - final_prompt_len) / 2 ))
     
     tput cup $prompt_row $final_prompt_pos
-    printf "%bPress %b%bENTER%b%b to return to terminal%b" \
-        "$INSTRUCTION_TEXT_STYLE" \
-        "$STYLE_RESET" "$INSTRUCTION_KEY_STYLE" "$STYLE_RESET" "$INSTRUCTION_TEXT_STYLE" \
-        "$STYLE_RESET"
+    if [[ $warning_count -gt 0 ]]; then
+        printf "%b⚠ %b warning(s) in build log • Press %b%bENTER%b%b to return%b" \
+            "$COLOR_YELLOW" "$warning_count" \
+            "$STYLE_RESET" "$INSTRUCTION_KEY_STYLE" "$STYLE_RESET" "$INSTRUCTION_TEXT_STYLE" \
+            "$STYLE_RESET"
+    else
+        printf "%bPress %b%bENTER%b%b to return to terminal%b" \
+            "$INSTRUCTION_TEXT_STYLE" \
+            "$STYLE_RESET" "$INSTRUCTION_KEY_STYLE" "$STYLE_RESET" "$INSTRUCTION_TEXT_STYLE" \
+            "$STYLE_RESET"
+    fi
     read -r
 
     # Clean up and return to prompt
@@ -3443,6 +4496,13 @@ main() {
 
     # Display simplified connection instructions at terminal
     if [[ $all_success == true ]]; then
+        # Check for warnings again
+        local warning_count=$(grep -ci "warning:" "$LOG_FILE" 2>/dev/null || echo "0")
+        if [[ $warning_count -gt 0 ]]; then
+            echo ""
+            style_line "$COLOR_YELLOW" "⚠ Build completed with $warning_count warning(s)"
+            style_line "$COLOR_GRAY" "View warnings: grep -i warning $LOG_FILE"
+        fi
         echo ""
         style_line "$COLOR_GRAY" "Connection Info:"
         echo ""

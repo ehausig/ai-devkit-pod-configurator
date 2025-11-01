@@ -1,0 +1,6 @@
+# Configuration metadata for python-default component
+configuration:
+  templates:
+    - template: pip.conf
+      output_file: pip.conf
+      repository_format: pypi

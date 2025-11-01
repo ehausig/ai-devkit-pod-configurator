@@ -1,0 +1,6 @@
+# Configuration metadata for Node.js 20 component
+configuration:
+  format: "npm"
+  templates:
+    - source: "config-templates/npmrc.j2"
+      output: "npmrc"

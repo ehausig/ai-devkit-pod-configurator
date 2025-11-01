@@ -4,6 +4,24 @@ version: "latest"
 group: python-version
 requires: []
 description: Python distribution with conda package manager
+command_permissions:
+  allow:
+    - "Bash(python:*)"
+    - "Bash(python3:*)"
+    - "Bash(pip:*)"
+    - "Bash(pip install:*)"
+    - "Bash(pip freeze:*)"
+    - "Bash(conda:*)"
+    - "Bash(conda create:*)"
+    - "Bash(conda activate:*)"
+    - "Bash(conda install:*)"
+    - "Bash(conda env:*)"
+    - "Bash(pytest:*)"
+    - "Bash(black:*)"
+    - "Bash(ruff:*)"
+    - "Bash(mypy:*)"
+    - "Bash(textual run:*)"
+    - "Bash(python -m:*)"
 installation:
   dockerfile: |
     RUN ARCH=$(uname -m) && \

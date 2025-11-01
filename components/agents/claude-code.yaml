@@ -1,373 +1,170 @@
-# components/agents/claude-code.yaml
 id: CLAUDE_CODE
-name: Claude Code (AI Assistant)
+name: Claude Code
 group: ai-agents
-requires: []
-description: Anthropic's AI coding assistant for development
+requires: nodejs
+description: AI coding assistant with autonomous development system. Agent personas are now provided by the ai-kanban component
 pre_build_script: claude-code/claude-code-setup.sh
+command_permissions:
+allow:
+# Journal write operations (JSON format)
+- "Bash(journal-log-json.sh:*)"
+
+# Journal query operations (read-only)
+- "Bash(journal-query.sh:*)"
+
+# Kanban card operations
+- "Bash(kanban-create-card-id.sh:*)"
+- "Bash(kanban-try-assign-card.sh:*)"
+- "Bash(kanban-get-available-cards.sh:*)"
+- "Bash(kanban-check-dependencies.sh:*)"
+- "Bash(kanban-state.sh:*)"
+- "Bash(kanban-count-cards.sh:*)"
+
+# Agent context operations
+- "Bash(set-agent-name.sh:*)"
+- "Bash(get-agent-name.sh:*)"
+
+# Read access to journal and workspace
+- "Read(/home/devuser/workspace/JOURNAL.md)"
+- "Read(/home/devuser/workspace/PROMPT.md)"
+- "Read(/home/devuser/workspace/**/*)"
+
+# Workspace operations
+- "Write(/home/devuser/workspace/**/*)"
+- "Edit(/home/devuser/workspace/**/*)"
+
+deny: []
 installation:
-  dockerfile: |
-    # Claude Code requires Node.js to be installed first
-    # The build system should ensure nodejs-version components are installed before this
-    
-    # Install Claude Code globally as root first
-    RUN export NPM_CONFIG_PREFIX=/home/devuser/.npm-global && \
-        export PATH="/home/devuser/.npm-global/bin:/usr/local/bin:${PATH}" && \
-        mkdir -p /home/devuser/.npm-global && \
-        chown -R devuser:devuser /home/devuser/.npm-global && \
-        /usr/local/bin/npm install -g @anthropic-ai/claude-code && \
-        ls -la /home/devuser/.npm-global/bin/ && \
-        /home/devuser/.npm-global/bin/claude --version || (echo "Claude Code installation failed" && exit 1) && \
-        chown -R devuser:devuser /home/devuser/.npm-global
-  inject_files:
-    - source: user-CLAUDE.md
-      destination: /tmp/user-CLAUDE.md
-      permissions: 644
-    - source: claude-settings.json.template
-      destination: /tmp/claude-settings.json.template
-      permissions: 644
-    - source: claude-hooks/
-      destination: /tmp/claude-hooks/
-      permissions: 755
+dockerfile: |
+# Claude Code CLI will be installed via container initialization
+# No installation needed in Dockerfile - it's handled at runtime
+inject_files:
+- source: claude-code/CLAUDE.md.template
+  destination: /tmp/CLAUDE.md.template
+  permissions: "644"
+- source: claude-code/settings.json.template
+  destination: /tmp/claude-settings.json.template
+  permissions: "644"
+- source: claude-code/settings.local.json.template
+  destination: /tmp/claude-settings.local.json.template
+  permissions: "644"
 entrypoint_setup: |
-  # Claude Code specific setup
-  echo "Setting up Claude Code environment..."
-  
-  # Create .claude directory for global Claude configuration
-  if command -v claude &> /dev/null 2>&1 || [ -f /tmp/user-CLAUDE.md ]; then
-      mkdir -p /home/devuser/.claude
-  fi
-  
-  # Copy slash commands if they exist
-  if [ -d /tmp/claude-commands ]; then
-      echo "Installing Claude Code slash commands..."
-      mkdir -p /home/devuser/.claude/commands
-      
-      # Copy all files and maintain directory structure
-      cp -r /tmp/claude-commands/* /home/devuser/.claude/commands/ 2>/dev/null || true
-      
-      # Set proper permissions
-      find /home/devuser/.claude/commands -type f -name "*.md" -exec chmod 644 {} \;
-      find /home/devuser/.claude/commands -type d -exec chmod 755 {} \;
-      
-      # List installed commands for verification
-      echo "Installed slash commands:"
-      find /home/devuser/.claude/commands -name "*.md" -type f | while read cmd; do
-          echo "  - $(basename "$cmd" .md)"
-      done
-      
-      echo "Claude Code slash commands installed successfully"
-  fi
-  
-  # Install hooks if they exist
-  if [ -d /tmp/claude-hooks ]; then
-      echo "Installing Claude Code hooks..."
-      mkdir -p /home/devuser/.claude/hooks
-      
-      # Copy all hook scripts
-      cp -r /tmp/claude-hooks/* /home/devuser/.claude/hooks/ 2>/dev/null || true
-      
-      # Set proper permissions (scripts need to be executable)
-      find /home/devuser/.claude/hooks -type f -name "*.sh" -exec chmod 755 {} \;
-      find /home/devuser/.claude/hooks -type d -exec chmod 755 {} \;
-      
-      # List installed hooks for verification
-      echo "Installed hook scripts:"
-      find /home/devuser/.claude/hooks -name "*.sh" -type f | while read hook; do
-          echo "  - $(basename "$hook" .sh)"
-      done
-      
-      echo "Claude Code hooks installed successfully"
+# Create Claude Code directories
+echo "Setting up Claude Code..."
+mkdir -p /home/devuser/.claude/{commands,docs,hooks,scripts,agents}
+
+# Copy CLAUDE.md from template if it exists
+if [ -f /tmp/CLAUDE.md.template ]; then
+  if [ ! -f /home/devuser/.claude/CLAUDE.md ]; then
+      echo "Copying CLAUDE.md to .claude folder..."
+      cp /tmp/CLAUDE.md.template /home/devuser/.claude/CLAUDE.md
+      echo "CLAUDE.md copied successfully to /home/devuser/.claude/"
   else
-      echo "No /tmp/claude-hooks directory found, creating hooks manually..."
-      mkdir -p /home/devuser/.claude/hooks
-      
-      # Create journal.sh hook
-      cat > /home/devuser/.claude/hooks/journal.sh << 'JOURNAL_HOOK'
-  #!/bin/bash
-  # Journal hook script - logs entries to ~/workspace/JOURNAL.md
-  
-  # Read JSON input from stdin
-  json_input=$(cat)
-  
-  # Parse arguments from the transcript or use default values
-  # For Stop event, we'll log that the session completed
-  type="INFO"
-  message="Claude Code session completed"
-  
-  # Extract session_id if available
-  session_id=$(echo "$json_input" | jq -r '.session_id // "unknown"')
-  
-  # Check if this is a stop hook that's already active to prevent loops
-  stop_hook_active=$(echo "$json_input" | jq -r '.stop_hook_active // false')
-  
-  if [ "$stop_hook_active" = "true" ]; then
-    # Don't create recursive journal entries
-    exit 0
+      echo "CLAUDE.md already exists in .claude folder"
   fi
-  
-  # Create the journal entry
-  echo "$(date -Iseconds) [$type] Session $session_id completed - $message" >> ~/workspace/JOURNAL.md
-  
-  # Return success
-  exit 0
-  JOURNAL_HOOK
-      
-      # Create session-tracker.sh hook  
-      cat > /home/devuser/.claude/hooks/session-tracker.sh << 'SESSION_TRACKER_HOOK'
-  #!/bin/bash
-  # Session tracking hook - logs session initialization and directory changes
-  # Fixed to work with Claude Code's actual JSON structure
-  
-  # Read JSON input from stdin
-  json_input=$(cat)
-  
-  # Extract command and description
-  command=$(echo "$json_input" | jq -r '.tool_input.command // ""')
-  description=$(echo "$json_input" | jq -r '.tool_input.description // "No description"')
-  session_id=$(echo "$json_input" | jq -r '.session_id // "unknown"')
-  
-  # Check if this is a cd command to track working directory
-  if [[ "$command" =~ ^cd[[:space:]] ]]; then
-    target_dir=$(echo "$command" | sed 's/^cd[[:space:]]*//')
-    # Handle complex cd commands (like cd ~/workspace && pwd)
-    # Using grep instead of bash regex to avoid syntax issues
-    if echo "$target_dir" | grep -q '[[:space:]]&&'; then
-      target_dir=$(echo "$target_dir" | sed 's/[[:space:]]&&.*//')
-    fi
-    # Resolve the full path
-    if [[ "$target_dir" =~ ^~ ]]; then
-      # Replace ~ with $HOME, not concatenate
-      target_dir="${target_dir/#\~/$HOME}"
-    fi
-    echo "$(date -Iseconds) [INFO] Working directory: $target_dir" >> ~/workspace/JOURNAL.md
-  fi
-  
-  # Track workspace initialization
-  if [[ "$command" =~ mkdir.*workspace ]]; then
-    echo "$(date -Iseconds) [INFO] Initializing workspace structure" >> ~/workspace/JOURNAL.md
-  fi
-  
-  # Always allow execution
-  exit 0
-  SESSION_TRACKER_HOOK
-      
-      # Create bash-logger.sh hook
-      cat > /home/devuser/.claude/hooks/bash-logger.sh << 'BASH_LOGGER_HOOK'
-  #!/bin/bash
-  # Enhanced bash command logging hook with intelligent categorization
-  # Fixed to work with Claude Code's actual JSON structure
-  
-  # Read JSON input from stdin
-  json_input=$(cat)
-  
-  # Extract relevant fields
-  tool_name=$(echo "$json_input" | jq -r '.tool_name // ""')
-  session_id=$(echo "$json_input" | jq -r '.session_id // "unknown"')
-  
-  # Determine if this is pre or post execution based on presence of tool_response
-  if echo "$json_input" | jq -e '.tool_response' > /dev/null 2>&1; then
-    # PostToolUse - command was executed
-    command=$(echo "$json_input" | jq -r '.tool_input.command // ""')
-    description=$(echo "$json_input" | jq -r '.tool_input.description // "No description"')
-    
-    # Determine success from Claude Code's response structure
-    interrupted=$(echo "$json_input" | jq -r '.tool_response.interrupted // false')
-    stderr=$(echo "$json_input" | jq -r '.tool_response.stderr // ""')
-    
-    # Consider it successful if not interrupted and no stderr
-    if [ "$interrupted" = "false" ] && [ -z "$stderr" ]; then
-      success="true"
-    else
-      success="false"
-    fi
-    
-    # Intelligent categorization based on command
-    type="INFO"
-    
-    # File operations
-    [[ "$command" =~ ^(touch|mkdir|cp|mv|rm) ]] && type="STRUCTURE"
-    
-    # Git operations
-    [[ "$command" =~ ^git[[:space:]] ]] && type="GIT"
-    [[ "$command" =~ ^gh[[:space:]] ]] && type="GITHUB"
-    
-    # Package management
-    [[ "$command" =~ ^(npm|yarn|pnpm)[[:space:]] ]] && type="NPM"
-    [[ "$command" =~ ^(pip|pipenv|poetry)[[:space:]] ]] && type="PIP"
-    [[ "$command" =~ ^cargo[[:space:]] ]] && type="CARGO"
-    [[ "$command" =~ ^go[[:space:]] ]] && type="GO"
-    [[ "$command" =~ ^(bundle|gem)[[:space:]] ]] && type="RUBY"
-    [[ "$command" =~ ^(mvn|gradle)[[:space:]] ]] && type="JAVA"
-    
-    # Testing
-    [[ "$command" =~ test ]] && type="TEST"
-    [[ "$command" =~ coverage ]] && type="COVERAGE"
-    
-    # Docker
-    [[ "$command" =~ ^docker[[:space:]] ]] && type="DOCKER"
-    [[ "$command" =~ ^docker-compose[[:space:]] ]] && type="COMPOSE"
-    
-    # Environment
-    [[ "$command" =~ ^(export|source|eval) ]] && type="ENV"
-    
-    # Build tools
-    [[ "$command" =~ ^make[[:space:]] ]] && type="BUILD"
-    
-    if [ "$success" = "true" ]; then
-      echo "$(date -Iseconds) [$type] $command" >> ~/workspace/JOURNAL.md
-    else
-      echo "$(date -Iseconds) [ERROR] Failed: $command - $description" >> ~/workspace/JOURNAL.md
-      # Log stderr if present
-      if [ -n "$stderr" ]; then
-        echo "$(date -Iseconds) [ERROR] stderr: $stderr" >> ~/workspace/JOURNAL.md
+fi
+
+# Copy commands
+if [ -d /tmp/claude-commands ]; then
+  echo "Installing Claude Code commands..."
+  for cmd_file in /tmp/claude-commands/*.md; do
+      if [ -f "$cmd_file" ]; then
+          basename_file=$(basename "$cmd_file")
+          cp "$cmd_file" "/home/devuser/.claude/commands/$basename_file"
       fi
-    fi
-  else
-    # PreToolUse - only log significant operations we want to track before execution
-    command=$(echo "$json_input" | jq -r '.tool_input.command // ""')
-    description=$(echo "$json_input" | jq -r '.tool_input.description // "No description"')
-    
-    # Only log certain pre-execution events
-    case "$command" in
-      "rm -rf"*|"sudo"*)
-        echo "$(date -Iseconds) [WARNING] Preparing dangerous command: $command" >> ~/workspace/JOURNAL.md
-        ;;
-      *"production"*|*"deploy"*)
-        echo "$(date -Iseconds) [WARNING] Production operation pending: $command" >> ~/workspace/JOURNAL.md
-        ;;
-    esac
-  fi
-  
-  # Always allow execution
-  exit 0
-  BASH_LOGGER_HOOK
-      
-      # Create format-code.sh hook
-      cat > /home/devuser/.claude/hooks/format-code.sh << 'FORMAT_CODE_HOOK'
-  #!/bin/bash
-  # Auto-formatting hook - formats code based on file extension
-  # Fixed to work with Claude Code's actual JSON structure
-  
-  # Read JSON input from stdin
-  json_input=$(cat)
-  
-  # Check if this is PostToolUse (has tool_response)
-  if echo "$json_input" | jq -e '.tool_response' > /dev/null 2>&1; then
-    # Extract file path from tool input
-    file_path=$(echo "$json_input" | jq -r '.tool_input.file_path // .tool_input.path // ""')
-    
-    if [ -z "$file_path" ] || [ ! -f "$file_path" ]; then
-      # No valid file path found or file doesn't exist
-      exit 0
-    fi
-    
-    # Log formatting attempt
-    echo "$(date -Iseconds) [INFO] Auto-formatting: $file_path" >> ~/workspace/JOURNAL.md
-    
-    # Get file extension
-    extension="${file_path##*.}"
-    
-    # Format based on extension
-    case "$extension" in
-      py)
-        # Python - use black if available
-        if command -v black >/dev/null 2>&1; then
-          black "$file_path" 2>/dev/null || true
-        fi
-        ;;
-      js|jsx|ts|tsx)
-        # JavaScript/TypeScript - use prettier if available
-        if command -v prettier >/dev/null 2>&1; then
-          prettier --write "$file_path" 2>/dev/null || true
-        fi
-        ;;
-      go)
-        # Go - use gofmt
-        if command -v gofmt >/dev/null 2>&1; then
-          gofmt -w "$file_path" 2>/dev/null || true
-        fi
-        ;;
-      rs)
-        # Rust - use rustfmt if available
-        if command -v rustfmt >/dev/null 2>&1; then
-          rustfmt "$file_path" 2>/dev/null || true
-        fi
-        ;;
-      java)
-        # Java - use google-java-format if available
-        if command -v google-java-format >/dev/null 2>&1; then
-          google-java-format -i "$file_path" 2>/dev/null || true
-        fi
-        ;;
-    esac
-  fi
-  
-  exit 0
-  FORMAT_CODE_HOOK
-      
-      # Create notification.sh hook
-      cat > /home/devuser/.claude/hooks/notification.sh << 'NOTIFICATION_HOOK'
-  #!/bin/bash
-  # Custom notification hook
-  
-  # Read JSON input from stdin
-  json_input=$(cat)
-  
-  # Extract notification details
-  message=$(echo "$json_input" | jq -r '.message // "Claude Code notification"')
-  title=$(echo "$json_input" | jq -r '.title // "Claude Code"')
-  
-  # Log to journal
-  echo "$(date -Iseconds) [NOTIFICATION] $title: $message" >> ~/workspace/JOURNAL.md
-  
-  # Try different notification methods
-  # 1. Try notify-send (if available in container)
-  if command -v notify-send >/dev/null 2>&1; then
-    notify-send "$title" "$message" 2>/dev/null || true
-  fi
-  
-  # 2. Write to a notification file that could be monitored
-  echo "$(date -Iseconds) | $title | $message" >> ~/workspace/.notifications.log
-  
-  # 3. If running in a terminal, use terminal bell
-  if [ -t 1 ]; then
-    echo -e "\a"  # Terminal bell
-    echo "🔔 $title: $message"
-  fi
-  
-  # Always exit successfully
-  exit 0
-  NOTIFICATION_HOOK
-      
-      # Make all hooks executable
-      chmod 755 /home/devuser/.claude/hooks/*.sh
-      
-      echo "Created default hook scripts"
-  fi
-  
-  # Copy settings.json from template if it exists
-  echo "Checking for settings.json..."
-  if [ -f /tmp/claude-settings.json.template ]; then
-      echo "Found /tmp/claude-settings.json.template"
-      if [ ! -f /home/devuser/.claude/settings.json ]; then
-          echo "Copying settings.json to .claude folder..."
-          cp /tmp/claude-settings.json.template /home/devuser/.claude/settings.json
-          echo "settings.json copied successfully to /home/devuser/.claude/"
-      else
-          echo "settings.json already exists in .claude folder"
+  done
+fi
+
+# Copy agent definitions
+if [ -d /tmp/claude-agents ]; then
+  echo "Installing Claude Code agents..."
+  for agent_file in /tmp/claude-agents/*.md; do
+      if [ -f "$agent_file" ]; then
+          basename_file=$(basename "$agent_file")
+          cp "$agent_file" "/home/devuser/.claude/agents/$basename_file"
       fi
+  done
+fi
+
+# Copy hooks
+if [ -d /tmp/claude-hooks ]; then
+  echo "Installing Claude Code hooks..."
+  for hook_file in /tmp/claude-hooks/*.sh; do
+      if [ -f "$hook_file" ]; then
+          basename_file=$(basename "$hook_file")
+          cp "$hook_file" "/home/devuser/.claude/hooks/$basename_file"
+      fi
+  done
+fi
+
+# Copy documentation
+if [ -d /tmp/claude-docs ]; then
+  echo "Installing Claude Code documentation..."
+  for md_file in /tmp/claude-docs/*.md; do
+      if [ -f "$md_file" ]; then
+          basename_file=$(basename "$md_file")
+          cp "$md_file" "/home/devuser/.claude/docs/$basename_file"
+      fi
+  done
+fi
+
+# Copy slash commands if they exist
+if [ -d /tmp/claude-commands ]; then
+  echo "Installing Claude Code slash commands..."
+  mkdir -p /home/devuser/.claude/commands
+
+  # Copy all files and maintain directory structure
+  cp -r /tmp/claude-commands/* /home/devuser/.claude/commands/ 2>/dev/null || true
+
+  # Set proper permissions
+  find /home/devuser/.claude/commands -type f -name "*.md" -exec chmod 644 {} \;
+fi
+
+# Copy hooks if they exist
+if [ -d /tmp/claude-hooks ]; then
+  echo "Installing Claude Code hooks..."
+  mkdir -p /home/devuser/.claude/hooks
+
+  # Copy all hook scripts
+  cp -r /tmp/claude-hooks/* /home/devuser/.claude/hooks/ 2>/dev/null || true
+
+  # Make hooks executable
+  find /home/devuser/.claude/hooks -type f -name "*.sh" -exec chmod 755 {} \;
+
+  chmod 755 /home/devuser/.claude/hooks/*.sh
+
+  echo "Created default hook scripts"
+fi
+
+# Copy settings.json from template if it exists
+echo "Checking for settings.json..."
+if [ -f /tmp/claude-settings.json.template ]; then
+  echo "Found /tmp/claude-settings.json.template"
+  if [ ! -f /home/devuser/.claude/settings.json ]; then
+      echo "Copying settings.json to .claude folder..."
+      cp /tmp/claude-settings.json.template /home/devuser/.claude/settings.json
+      echo "settings.json copied successfully to /home/devuser/.claude/"
   else
-      echo "No /tmp/claude-settings.json.template found in image"
+      echo "settings.json already exists in .claude folder"
   fi
-  
-  # Note: user-CLAUDE.md is handled in the main entrypoint.sh script
-  # along with appending component imports
-  
-  # Ensure proper ownership
-  chown -R devuser:devuser /home/devuser/.claude 2>/dev/null || true
-  
-  # Verify installed components (only if expected)
-  if command -v claude &> /dev/null 2>&1; then
-      echo "Claude Code is available at: $(which claude)"
-  fi
+else
+  echo "No /tmp/claude-settings.json.template found in image"
+fi
+
+# Copy and setup scripts (from feature branch)
+if [ -d /tmp/scripts ]; then
+  cp /tmp/scripts/*.sh /home/devuser/.claude/scripts/
+  chmod +x /home/devuser/.claude/scripts/*.sh
+
+  for sh_file in /home/devuser/.claude/scripts/*.sh; do
+      if [ -f "$sh_file" ]; then
+          basename_file=$(basename "$sh_file")
+          ln -sf "$sh_file" "/usr/local/bin/$basename_file" 2>/dev/null || true
+      fi
+  done
+fi
+
+# Set ownership
+chown -R devuser:devuser /home/devuser/.claude
+
+echo "Claude Code setup complete"

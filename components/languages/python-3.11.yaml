@@ -4,7 +4,37 @@ version: "3.11"
 group: python-version
 requires: []
 description: Official Python 3.11 release
+command_permissions:
+  allow:
+    - "Bash(python:*)"
+    - "Bash(python3:*)"
+    - "Bash(python3.11:*)"
+    - "Bash(pip:*)"
+    - "Bash(pip install:*)"
+    - "Bash(pip freeze:*)"
+    - "Bash(pytest:*)"
+    - "Bash(black:*)"
+    - "Bash(ruff:*)"
+    - "Bash(mypy:*)"
+    - "Bash(python -m:*)"
+    - "Bash(textual run:*)"
+    - "Bash(uvicorn:*)"
 installation:
+  repos:
+    enabled: true
+    format: "pypi"
+    config_type: "both"
+    config_file: "pip.conf"
+    config_path: "~/.config/pip/"
+    recommended:
+      - name: "PyPI"
+        url: "https://pypi.org"
+        type: "remote"
+        reason: "Official Python Package Index - required for most packages"
+      - name: "PyPI Test"
+        url: "https://test.pypi.org"
+        type: "remote"
+        reason: "Test repository for package development"
   dockerfile: |
     RUN export DEBIAN_FRONTEND=noninteractive && \
         apt-get update && \

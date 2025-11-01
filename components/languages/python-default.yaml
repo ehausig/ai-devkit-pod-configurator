@@ -4,6 +4,18 @@ version: "3.10"
 group: python-version
 requires: ""
 description: Ubuntu's default Python 3 installation
+command_permissions:
+  allow:
+    - "Bash(python:*)"
+    - "Bash(python3:*)"
+    - "Bash(pip:*)"
+    - "Bash(pip install:*)"
+    - "Bash(pip freeze:*)"
+    - "Bash(pytest:*)"
+    - "Bash(black:*)"
+    - "Bash(ruff:*)"
+    - "Bash(mypy:*)"
+    - "Bash(python -m:*)"
 installation:
   dockerfile: |
     RUN export DEBIAN_FRONTEND=noninteractive && \

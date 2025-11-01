@@ -4,6 +4,14 @@ version: "8.5"
 group: build-tools
 requires: java
 description: Build automation tool for Java, Kotlin, and Groovy projects
+command_permissions:
+  allow:
+    - "Bash(gradle:*)"
+    - "Bash(./gradlew:*)"
+    - "Bash(gradle build:*)"
+    - "Bash(gradle test:*)"
+    - "Bash(gradle run:*)"
+    - "Bash(gradle clean:*)"
 installation:
   dockerfile: |
     RUN export DEBIAN_FRONTEND=noninteractive && \

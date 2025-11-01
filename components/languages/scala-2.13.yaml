@@ -4,6 +4,11 @@ version: "2.13.12"
 group: scala-version
 requires: java
 description: Scala 2.13 - Object-oriented and functional programming language
+command_permissions:
+  allow:
+    - "Bash(scala:*)"
+    - "Bash(scalac:*)"
+    - "Bash(sbt:*)"
 installation:
   dockerfile: |
     RUN export DEBIAN_FRONTEND=noninteractive && \

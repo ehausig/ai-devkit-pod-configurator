@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Kanban Dashboard</title>
+    <link rel="stylesheet" href="/css/dashboard.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AI DevKit Kanban Dashboard</h1>
+            <div class="status">
+                <span id="connection-status" class="status-indicator disconnected"></span>
+                <span id="connection-text">Connecting...</span>
+            </div>
+        </header>
+
+        <div class="metrics-bar">
+            <div class="metric">
+                <span class="metric-label">Total Cards</span>
+                <span class="metric-value" id="metric-total">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Completed</span>
+                <span class="metric-value" id="metric-completed">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Blocked</span>
+                <span class="metric-value" id="metric-blocked">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Progress</span>
+                <span class="metric-value" id="metric-progress">0%</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Active Agents</span>
+                <span class="metric-value" id="metric-agents">0</span>
+            </div>
+        </div>
+
+        <div class="kanban-board" id="kanban-board">
+            <div class="kanban-column" data-state="backlog">
+                <div class="column-header">
+                    <h3>Backlog</h3>
+                    <span class="card-count">0</span>
+                </div>
+                <div class="column-cards"></div>
+            </div>
+            
+            <div class="kanban-column" data-state="breakdown_started">
+                <div class="column-header">
+                    <h3>Breakdown</h3>
+                    <span class="card-count">0</span>
+                </div>
+                <div class="column-cards"></div>
+            </div>
+            
+            <div class="kanban-column" data-state="breakdown_ended">
+                <div class="column-header">
+                    <h3>Ready</h3>
+                    <span class="card-count">0</span>
+                </div>
+                <div class="column-cards"></div>
+            </div>
+            
+            <div class="kanban-column" data-state="work_started">
+                <div class="column-header">
+                    <h3>In Progress</h3>
+                    <span class="card-count">0</span>
+                </div>
+                <div class="column-cards"></div>
+            </div>
+            
+            <div class="kanban-column" data-state="work_ended">
+                <div class="column-header">
+                    <h3>Review</h3>
+                    <span class="card-count">0</span>
+                </div>
+                <div class="column-cards"></div>
+            </div>
+            
+            <div class="kanban-column" data-state="validation_started">
+                <div class="column-header">
+                    <h3>Testing</h3>
+                    <span class="card-count">0</span>
+                </div>
+                <div class="column-cards"></div>
+            </div>
+            
+            <div class="kanban-column" data-state="done">
+                <div class="column-header">
+                    <h3>Done</h3>
+                    <span class="card-count">0</span>
+                </div>
+                <div class="column-cards"></div>
+            </div>
+        </div>
+
+        <div class="bottom-panels">
+            <div class="panel event-log">
+                <h3>Recent Events</h3>
+                <div id="event-list" class="event-list"></div>
+            </div>
+            
+            <div class="panel agent-status">
+                <h3>Agent Activity</h3>
+                <div id="agent-list" class="agent-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Card Detail Modal -->
+    <div id="card-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="modal-card-id"></h2>
+            <h3 id="modal-card-title"></h3>
+            <p id="modal-card-description"></p>
+            <div class="modal-details">
+                <div><strong>State:</strong> <span id="modal-card-state"></span></div>
+                <div><strong>Assigned To:</strong> <span id="modal-card-assigned"></span></div>
+                <div><strong>Dependencies:</strong> <span id="modal-card-dependencies"></span></div>
+                <div><strong>Notes:</strong> <span id="modal-card-notes"></span></div>
+            </div>
+            <div class="state-history">
+                <h4>State History</h4>
+                <div id="modal-state-history"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/dashboard.js"></script>
+</body>
+</html>

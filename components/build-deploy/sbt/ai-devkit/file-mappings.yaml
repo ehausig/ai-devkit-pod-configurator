@@ -1,0 +1,6 @@
+# File mapping specifications for SBT
+files:
+  # Generated SBT repositories
+  - source: generated/repositories
+    dest: /home/devuser/.sbt/repositories
+    mode: "0644"

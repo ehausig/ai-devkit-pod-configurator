@@ -4,7 +4,31 @@ version: "latest"
 group: build-tools
 requires: java
 description: Interactive build tool for Scala and Java projects
+command_permissions:
+  allow:
+    - "Bash(sbt:*)"
+    - "Bash(sbt run:*)"
+    - "Bash(sbt test:*)"
+    - "Bash(sbt compile:*)"
+    - "Bash(sbt package:*)"
+    - "Bash(sbt assembly:*)"
+    - "Bash(sbt console:*)"
 installation:
+  repos:
+    enabled: true
+    format: "maven2"
+    config_type: "file"
+    config_file: "repositories"
+    config_path: "~/.sbt/"
+    recommended:
+      - name: "Maven Central"
+        url: "https://repo1.maven.org/maven2"
+        type: "remote"
+        reason: "Primary repository for Scala/Java artifacts"
+      - name: "Typesafe Repository"
+        url: "https://repo.typesafe.com/typesafe/releases"
+        type: "remote"
+        reason: "Typesafe/Lightbend releases"
   dockerfile: |
     # Pass Nexus configuration to this build stage
     ARG USE_NEXUS_APT

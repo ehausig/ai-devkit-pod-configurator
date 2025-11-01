@@ -1,5 +1,7 @@
 FROM ubuntu:22.04
 
+ARG CACHEBUST=1
+
 # Set architecture (defaults to arm64 for Apple Silicon)
 ARG TARGETARCH=arm64
 
@@ -15,6 +17,12 @@ ARG NEXUS_APT_URL=""
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TARGETARCH=${TARGETARCH}
 
+# Disable man page installation to reduce image size
+# This will cause harmless "update-alternatives" warnings during package installation
+RUN echo 'path-exclude /usr/share/man/*' > /etc/dpkg/dpkg.cfg.d/01_nodoc && \
+    echo 'path-exclude /usr/share/doc/*' >> /etc/dpkg/dpkg.cfg.d/01_nodoc && \
+    echo 'path-include /usr/share/doc/*/copyright' >> /etc/dpkg/dpkg.cfg.d/01_nodoc
+
 # Configure APT to use Nexus if enabled
 RUN if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
         echo "Configuring APT to use Nexus proxy..." && \
@@ -28,31 +36,37 @@ RUN if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
     fi
 
 # Install base dependencies (minimal set) including OpenSSH server and locales
-RUN apt-get update && apt-get install -y \
-    curl \
-    ca-certificates \
-    gnupg \
-    lsb-release \
-    git \
-    vim \
-    jq \
-    wget \
-    bash-completion \
-    build-essential \
-    pkg-config \
-    libssl-dev \
-    unzip \
-    xz-utils \
-    tree \
-    less \
-    expect \
-    tmux \
-    openssh-server \
-    sudo \
-    locales \
-    --no-install-recommends \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+# We accept update-alternatives warnings about man pages as they're expected
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y \
+        curl \
+        ca-certificates \
+        gnupg \
+        lsb-release \
+        git \
+        vim \
+        jq \
+        lsof \
+        bc \
+        wget \
+        bash-completion \
+        build-essential \
+        pkg-config \
+        libssl-dev \
+        unzip \
+        xz-utils \
+        tree \
+        less \
+        expect \
+        tmux \
+        openssh-server \
+        sudo \
+        locales \
+        netcat-openbsd \
+        --no-install-recommends 2>&1 | \
+    { grep -v "update-alternatives: warning: skip creation of .* because associated file .* doesn't exist" || true; } && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Generate locales to fix the locale warning
 RUN locale-gen en_US.UTF-8 && \
@@ -63,10 +77,16 @@ ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
 ENV LANGUAGE=en_US:en
 
+# Install yq for YAML processing (mikefarah/yq - pure Go implementation)
+# This is a standalone binary with no Python dependencies
+RUN wget -q -O /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 && \
+    chmod +x /usr/local/bin/yq
+
 # Install GitHub CLI (gh) - handle both proxy and non-proxy scenarios
 RUN if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
         # When using Nexus, try to install from Ubuntu universe repo instead \
-        apt-get update && apt-get install -y gh || \
+        apt-get update && apt-get install -y gh 2>&1 | \
+        { grep -v "update-alternatives: warning: skip creation of .* because associated file .* doesn't exist" || true; } || \
         # If that fails, download the binary directly \
         (ARCH=$(dpkg --print-architecture) && \
          GH_VERSION="2.40.1" && \
@@ -80,39 +100,11 @@ RUN if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
         chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg && \
         echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null && \
         apt-get update && \
-        apt-get install -y gh; \
+        apt-get install -y gh 2>&1 | \
+        { grep -v "update-alternatives: warning: skip creation of .* because associated file .* doesn't exist" || true; }; \
     fi && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
-
-# Install Node.js 20.x (required for Microsoft TUI Test and Claude Code)
-# Direct binary installation to avoid repository issues with proxy
-RUN export DEBIAN_FRONTEND=noninteractive && \
-    ARCH=$(dpkg --print-architecture) && \
-    NODE_ARCH=${ARCH} && \
-    if [ "${ARCH}" = "arm64" ]; then NODE_ARCH="arm64"; elif [ "${ARCH}" = "amd64" ]; then NODE_ARCH="x64"; fi && \
-    NODE_VERSION="v20.18.0" && \
-    wget -q https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz && \
-    tar -xJf node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz -C /usr/local --strip-components=1 && \
-    rm node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz && \
-    npm install -g npm@latest
-
-# Configure npm if proxy URL is provided
-RUN if [ -n "$NPM_REGISTRY" ]; then \
-        npm config set registry ${NPM_REGISTRY} && \
-        echo "✓ Configured npm to use proxy" ; \
-    fi
-
-# Set up user's npm configuration
-RUN mkdir -p /home/devuser/.npm-global && \
-    echo 'export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"' >> /etc/skel/.bashrc && \
-    echo 'export NPM_CONFIG_PREFIX="$HOME/.npm-global"' >> /etc/skel/.bashrc
-
-# Install Microsoft TUI Test globally
-RUN export NPM_CONFIG_PREFIX=/usr/local && \
-    npm install -g @microsoft/tui-test && \
-    # Verify installation
-    tui-test --version || echo "TUI Test installed successfully"
 
 # Create a non-root user to run development tools
 RUN useradd -ms /bin/bash devuser && \
@@ -121,10 +113,17 @@ RUN useradd -ms /bin/bash devuser && \
     echo 'devuser ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
 # Create directories for the devuser AFTER user creation
-RUN mkdir -p /home/devuser/.config/claude-code && \
-    mkdir -p /home/devuser/workspace && \
-    mkdir -p /home/devuser/.claude && \
+RUN mkdir -p /home/devuser/workspace && \
+    mkdir -p /home/devuser/.config/ai-devkit && \
+    mkdir -p /home/devuser/.local/bin && \
     chown -R devuser:devuser /home/devuser/
+
+# Add README to explain the ai-devkit directory
+# Copy to both the target location AND a backup location (since PVC mount will override)
+COPY docker/config/ai-devkit-README.md /home/devuser/.config/ai-devkit/README.md
+COPY docker/config/ai-devkit-README.md /usr/local/share/ai-devkit-README.md
+RUN chown devuser:devuser /home/devuser/.config/ai-devkit/README.md && \
+    chmod 644 /usr/local/share/ai-devkit-README.md
 
 # Configure SSH
 RUN mkdir /var/run/sshd && \
@@ -141,8 +140,8 @@ RUN mkdir /var/run/sshd && \
     echo "PrintMotd no" >> /etc/ssh/sshd_config && \
     echo "PrintLastLog no" >> /etc/ssh/sshd_config
 
-# Copy MOTD script
-COPY scripts/motd-ai-devkit.sh /tmp/motd-ai-devkit.sh
+# Copy MOTD script WITH .sh extension
+COPY docker/scripts/motd-ai-devkit.sh /tmp/motd-ai-devkit.sh
 
 # Configure MOTD and remove default Ubuntu components
 RUN cp /tmp/motd-ai-devkit.sh /etc/update-motd.d/00-ai-devkit && \
@@ -163,18 +162,9 @@ RUN cp /tmp/motd-ai-devkit.sh /etc/update-motd.d/00-ai-devkit && \
     echo "Testing MOTD execution:" && \
     /etc/update-motd.d/00-ai-devkit || echo "MOTD script failed to execute"
 
-# Copy configuration files and templates
-COPY config/bashrc /home/devuser/.bashrc
-COPY config/profile /home/devuser/.profile
-COPY config/npmrc.template /tmp/npmrc.template
-
-# Create TUI Test template directory
-RUN mkdir -p /home/devuser/.tui-test-templates && \
-    chown -R devuser:devuser /home/devuser/.tui-test-templates
-
-# Copy TUI Test templates
-COPY templates/tui-test.config.ts /home/devuser/.tui-test-templates/
-COPY templates/example.test.ts /home/devuser/.tui-test-templates/
+# Copy configuration files
+COPY docker/config/bashrc /home/devuser/.bashrc
+COPY docker/config/profile /home/devuser/.profile
 
 # Set proper ownership for config files
 RUN chown devuser:devuser /home/devuser/.bashrc /home/devuser/.profile
@@ -187,22 +177,6 @@ RUN sed -i '/To run a command as administrator/d' /etc/bash.bashrc 2>/dev/null |
     find /etc/profile.d -type f -name "*.sh" -exec sed -i '/To run a command as administrator/d' {} \; 2>/dev/null || true && \
     find /etc/profile.d -type f -name "*.sh" -exec sed -i '/use "sudo <command>"/d' {} \; 2>/dev/null || true && \
     find /etc/profile.d -type f -name "*.sh" -exec sed -i '/See "man sudo_root" for details/d' {} \; 2>/dev/null || true
-
-# Configure npm for the devuser if proxy URL is provided
-RUN if [ -n "$NPM_REGISTRY" ]; then \
-        sed "s|{{NPM_REGISTRY}}|${NPM_REGISTRY}|g" /tmp/npmrc.template > /home/devuser/.npmrc; \
-    else \
-        echo "prefix=/home/devuser/.npm-global" > /home/devuser/.npmrc; \
-    fi && \
-    chown devuser:devuser /home/devuser/.npmrc && \
-    rm -f /tmp/npmrc.template
-
-# Ensure npm global directory exists and has correct permissions
-RUN mkdir -p /home/devuser/.npm-global && \
-    chown -R devuser:devuser /home/devuser/.npm-global
-
-# Ensure proper ownership of TUI Test templates
-RUN chown -R devuser:devuser /home/devuser/.tui-test-templates
 
 # LANGUAGE_INSTALLATIONS_PLACEHOLDER
 
@@ -228,22 +202,15 @@ RUN if [ -f /tmp/VERSION ]; then \
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Copy git setup script for user convenience
-COPY scripts/setup-git.sh /usr/local/bin/setup-git.sh
+# Copy git setup script WITH .sh extension
+COPY docker/scripts/setup-git.sh /usr/local/bin/setup-git.sh
 RUN chmod +x /usr/local/bin/setup-git.sh
 
-# Copy base documentation files
-COPY docker/nodejs-base.md /tmp/
-
-# Copy user-CLAUDE.md if it exists (generated by pre-build)
-COPY user-CLAUDE.md* /tmp/
-
-# Copy component imports if it exists (generated by pre-build)
-COPY component-imports.txt* /tmp/
-
-# Copy all component markdown files (generated by pre-build)
-# Use a more specific pattern to avoid copying project-CLAUDE.md
-COPY *.md /tmp/
+# Create work directories that will be used by the work queue system
+RUN mkdir -p /tmp/work-scripts && \
+    chmod 1777 /tmp/work-scripts && \
+    mkdir -p /var/run/work-queue && \
+    chmod 755 /var/run/work-queue
 
 # Copy Claude commands and hooks (these should always exist after pre-build)
 # The claude-code-setup.sh script should ensure these directories exist
@@ -264,5 +231,7 @@ WORKDIR /home/devuser
 USER root
 ENTRYPOINT ["/entrypoint.sh"]
 
+# INJECT_FILES_PLACEHOLDER
+
 # Set up volume mount points for persistence - MUST be last!
-VOLUME ["/home/devuser/.config/claude-code", "/home/devuser/workspace"]
+VOLUME ["/home/devuser/workspace"]

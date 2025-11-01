@@ -1,0 +1,6 @@
+# Configuration metadata for nodejs-22 component
+configuration:
+  templates:
+    - template: .npmrc
+      output_file: .npmrc
+      repository_format: npm

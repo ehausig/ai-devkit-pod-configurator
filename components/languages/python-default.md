@@ -49,6 +49,25 @@ pip install pytest black ruff mypy
 pip install -e .
 ```
 
+**Installing Missing Modules**
+```bash
+# If you encounter ModuleNotFoundError, install the missing module:
+# Example: ModuleNotFoundError: No module named 'requests'
+pip install requests
+
+# For common development tools:
+pip install pytest black ruff mypy
+
+# For data science packages:
+pip install numpy pandas matplotlib jupyter
+
+# For web frameworks:
+pip install flask django fastapi uvicorn
+
+# Always update requirements.txt after installing:
+pip freeze > requirements.txt
+```
+
 **Format & Lint**
 ```bash
 # Format with black
@@ -101,6 +120,47 @@ python -m pdb src/app.py
 
 # Quick HTTP server
 python -m http.server 8000
+```
+
+**Common Package Installation Examples**
+```bash
+# Web development
+pip install requests httpx aiohttp
+pip install beautifulsoup4 lxml
+pip install selenium playwright
+
+# API frameworks
+pip install flask flask-restful
+pip install fastapi uvicorn[standard]
+pip install django djangorestframework
+
+# Data science
+pip install numpy pandas scipy
+pip install matplotlib seaborn plotly
+pip install scikit-learn tensorflow torch
+
+# Testing
+pip install pytest pytest-cov pytest-asyncio
+pip install unittest-xml-reporting
+pip install hypothesis faker
+
+# Development tools
+pip install black ruff mypy
+pip install ipython ipdb
+pip install pre-commit bandit safety
+
+# Database
+pip install sqlalchemy psycopg2-binary
+pip install pymongo redis
+pip install alembic
+
+# Async
+pip install asyncio aiofiles
+pip install celery[redis]
+
+# CLI tools
+pip install click typer rich
+pip install python-dotenv pyyaml
 ```
 
 **TUI Testing Notes**

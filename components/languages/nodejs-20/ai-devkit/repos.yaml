@@ -1,0 +1,5 @@
+# Default repository configuration for Node.js 20
+repositories:
+  - name: "npm"
+    url: "https://registry.npmjs.org/"
+    access: "read_only"

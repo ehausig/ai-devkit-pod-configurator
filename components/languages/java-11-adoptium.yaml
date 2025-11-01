@@ -4,6 +4,11 @@ version: "11"
 group: java
 requires: []
 description: Eclipse Adoptium Temurin 11 JDK
+command_permissions:
+  allow:
+    - "Bash(java:*)"
+    - "Bash(javac:*)"
+    - "Bash(jar:*)"
 installation:
   dockerfile: |
     # Pass Nexus configuration to this build stage

@@ -4,7 +4,32 @@ version: "1.22.0"
 group: go-version
 requires: []
 description: Go programming language version 1.22
+command_permissions:
+  allow:
+    - "Bash(go:*)"
+    - "Bash(go run:*)"
+    - "Bash(go build:*)"
+    - "Bash(go test:*)"
+    - "Bash(go mod:*)"
+    - "Bash(go get:*)"
+    - "Bash(go install:*)"
+    - "Bash(go fmt:*)"
+    - "Bash(go vet:*)"
+    - "Bash(golangci-lint:*)"
 installation:
+  repos:
+    enabled: true
+    format: "go"
+    config_type: "env"
+    recommended:
+      - name: "Go Proxy"
+        url: "https://proxy.golang.org"
+        type: "remote"
+        reason: "Official Go module proxy - caches and serves Go modules"
+      - name: "Go Sum Database"
+        url: "https://sum.golang.org"
+        type: "remote"
+        reason: "Official checksum database for Go modules"
   dockerfile: |
     RUN ARCH=$(dpkg --print-architecture) && \
         GO_ARCH=${ARCH} && \
@@ -20,12 +45,6 @@ installation:
   env:
     - GOPATH=/home/claude/go
     - PATH=/usr/local/go/bin:$PATH
-  nexus_config: |
-    if [ -n "$GOPROXY" ]; then \
-        echo "export GOPROXY=$GOPROXY" >> /etc/profile.d/go.sh && \
-        echo "export GOPRIVATE=" >> /etc/profile.d/go.sh && \
-        echo "export GONOSUMDB=" >> /etc/profile.d/go.sh; \
-    fi
   test_command: go version
 entrypoint_setup: |
   # Go 1.22 specific setup
@@ -40,12 +59,7 @@ entrypoint_setup: |
       echo '# Go environment' >> "$BASHRC"
       echo 'export GOPATH="$HOME/go"' >> "$BASHRC"
       echo 'export PATH="/usr/local/go/bin:$GOPATH/bin:$PATH"' >> "$BASHRC"
-      # Add proxy settings if configured
-      if [ -n "$GOPROXY" ]; then
-          echo "export GOPROXY=\"$GOPROXY\"" >> "$BASHRC"
-          echo 'export GOPRIVATE=""' >> "$BASHRC"
-          echo 'export GONOSUMDB=""' >> "$BASHRC"
-      fi
+      # Repository configuration is now handled via mounted go-env.sh
   fi
   
   # Ensure proper ownership

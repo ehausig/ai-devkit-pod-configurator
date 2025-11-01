@@ -4,7 +4,32 @@ version: "latest"
 group: build-tools
 requires: java
 description: Apache Maven - Build automation and dependency management for Java
+command_permissions:
+  allow:
+    - "Bash(mvn:*)"
+    - "Bash(./mvnw:*)"
+    - "Bash(mvn clean:*)"
+    - "Bash(mvn install:*)"
+    - "Bash(mvn test:*)"
+    - "Bash(mvn package:*)"
+    - "Bash(mvn verify:*)"
+    - "Bash(mvn dependency:*)"
 installation:
+  repos:
+    enabled: true
+    format: "maven2"
+    config_type: "file"
+    config_file: "settings.xml"
+    config_path: "~/.m2/"
+    recommended:
+      - name: "Maven Central"
+        url: "https://repo1.maven.org/maven2"
+        type: "remote"
+        reason: "Official central repository for Maven artifacts"
+      - name: "JCenter"
+        url: "https://jcenter.bintray.com"
+        type: "remote"
+        reason: "Popular alternative repository (deprecated but still used)"
   dockerfile: |
     RUN export DEBIAN_FRONTEND=noninteractive && \
         apt-get update && \

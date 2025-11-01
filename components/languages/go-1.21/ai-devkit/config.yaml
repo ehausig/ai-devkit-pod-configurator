@@ -1,0 +1,6 @@
+# Configuration metadata for go-1.21 component
+configuration:
+  templates:
+    - template: go-env.sh
+      output_file: go-env.sh
+      repository_format: go
