@@ -816,17 +816,58 @@ load_image_to_runtime() {
             # Check if using nerdctl - if so, image is already in the right place!
             if [[ "$container_tool" == "nerdctl" ]]; then
                 echo "Using nerdctl with K3s - checking if image is in containerd" >> "$LOG_FILE"
-                # Use the configured command which includes socket and namespace settings
-                if container_exec images 2>/dev/null | grep -q "$image_name"; then
-                    echo "Image $image_name available in K3s containerd (built with nerdctl)" >> "$LOG_FILE"
+
+                # First check if image is in the k8s.io namespace (ideal case)
+                if sudo k3s ctr -n k8s.io images list 2>/dev/null | grep -q "$image_name"; then
+                    echo "Image $image_name available in K3s containerd namespace k8s.io" >> "$LOG_FILE"
                     return 0
                 fi
-                # Also check with k3s ctr as a fallback
-                if sudo k3s ctr -n k8s.io images list | grep -q "$image_name"; then
-                    echo "Image $image_name available in K3s containerd" >> "$LOG_FILE"
-                    return 0
+
+                # If using save-load method, we need to import the image
+                if [[ "$import_method" == "save-load" ]]; then
+                    echo "Image not in k8s.io namespace, performing save-load import..." >> "$LOG_FILE"
+
+                    # Extract the base command without --namespace flag for save operation
+                    local build_cmd=$(read_config "container.build_command")
+                    local save_cmd="${build_cmd// --namespace k8s.io/}"
+                    local save_cmd="${save_cmd// -n k8s.io/}"
+
+                    echo "Saving image from nerdctl (checking all namespaces)..." >> "$LOG_FILE"
+                    echo "Save command: $save_cmd save $image_name" >> "$LOG_FILE"
+
+                    # Save the image to a tar file (without namespace restriction)
+                    $save_cmd save "$image_name" > /tmp/ai-devkit-image.tar 2>> "$LOG_FILE"
+
+                    if [[ ! -f /tmp/ai-devkit-image.tar || ! -s /tmp/ai-devkit-image.tar ]]; then
+                        error "Failed to export image from nerdctl"
+                        rm -f /tmp/ai-devkit-image.tar
+                        return 1
+                    fi
+
+                    echo "Importing image into K3s containerd namespace k8s.io (this may take a moment)..." >> "$LOG_FILE"
+                    sudo k3s ctr -n k8s.io images import /tmp/ai-devkit-image.tar >> "$LOG_FILE" 2>&1
+                    local import_result=$?
+                    rm -f /tmp/ai-devkit-image.tar
+
+                    if [[ $import_result -eq 0 ]]; then
+                        echo "Verifying image availability in K3s..." >> "$LOG_FILE"
+                        if sudo k3s ctr -n k8s.io images list | grep -q "$image_name"; then
+                            echo "Image $image_name successfully imported into K3s" >> "$LOG_FILE"
+                            echo "Image confirmed in K3s containerd namespace k8s.io" >> "$LOG_FILE"
+                            return 0
+                        else
+                            echo "Warning: Image import reported success but image not found in K3s" >> "$LOG_FILE" 2>&1
+                            return 1
+                        fi
+                    else
+                        error "Failed to import image into K3s containerd"
+                        return 1
+                    fi
+                else
+                    # Not using save-load, so image should already be available
+                    echo "Warning: Image not found in k8s.io namespace and import method is not save-load" >> "$LOG_FILE" 2>&1
+                    return 1
                 fi
-                echo "Warning: Image not found via nerdctl, may need import" >> "$LOG_FILE" 2>&1
             else
                 # Using docker or podman - need to import
                 echo "Using K3s image import method from $container_tool" >> "$LOG_FILE"
