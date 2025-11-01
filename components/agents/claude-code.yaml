@@ -38,13 +38,13 @@ installation:
     # Claude Code CLI will be installed via container initialization
     # No installation needed in Dockerfile - it's handled at runtime
   inject_files:
-    - source: claude-code/CLAUDE.md.template
+    - source: CLAUDE.md.template
       destination: /tmp/CLAUDE.md.template
       permissions: "644"
-    - source: claude-code/settings.json.template
+    - source: settings.json.template
       destination: /tmp/claude-settings.json.template
       permissions: "644"
-    - source: claude-code/settings.local.json.template
+    - source: settings.local.json.template
       destination: /tmp/claude-settings.local.json.template
       permissions: "644"
     - source: commands/
