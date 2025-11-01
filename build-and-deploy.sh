@@ -3446,19 +3446,20 @@ execute_pre_build_scripts() {
         
         # Extract pre_build_script
         local script_name=$(extract_pre_build_script "$yaml_file")
-        
+
         if [[ -n "$script_name" ]]; then
-            local script_dir=$(dirname "$yaml_file")
-            local script_path="$script_dir/$script_name"
-            
+            # Component directory is the yaml filename without .yaml extension
+            local component_dir="${yaml_file%.yaml}"
+            local script_path="$component_dir/$script_name"
+
             if [[ -f "$script_path" ]]; then
                 log "Running pre-build script for $component_name..."
-                
+
                 # Make script executable
                 chmod +x "$script_path"
-                
-                # Execute with standard arguments
-                if "$script_path" "$TEMP_DIR" "$selected_ids" "$selected_names" "$selected_yaml_files" "$script_dir"; then
+
+                # Execute with standard arguments (pass component_dir as last arg)
+                if "$script_path" "$TEMP_DIR" "$selected_ids" "$selected_names" "$selected_yaml_files" "$component_dir"; then
                     success "Pre-build script completed for $component_name"
                 else
                     error "Pre-build script failed for $component_name"

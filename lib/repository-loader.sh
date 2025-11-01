@@ -263,7 +263,6 @@ resolve_repositories() {
     # Log what we're doing
     if [[ -n "$user_repos" ]] && [[ "$user_repos" != "[]" ]]; then
         echo "Loading user repositories for $component_id" >&2
-    else
     fi
     
     if [[ "$include_defaults" == "true" ]] && [[ -n "$default_repos" ]] && [[ "$default_repos" != "[]" ]]; then
