@@ -145,8 +145,6 @@ entrypoint_setup: |
     # Make hooks executable
     find /home/devuser/.claude/hooks -type f -name "*.sh" -exec chmod 755 {} \;
 
-    chmod 755 /home/devuser/.claude/hooks/*.sh
-
     echo "Created default hook scripts"
   fi
 
