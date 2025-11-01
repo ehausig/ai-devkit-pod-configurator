@@ -5,166 +5,165 @@ requires: nodejs
 description: AI coding assistant with autonomous development system. Agent personas are now provided by the ai-kanban component
 pre_build_script: claude-code/claude-code-setup.sh
 command_permissions:
-allow:
-# Journal write operations (JSON format)
-- "Bash(journal-log-json.sh:*)"
+  allow:
+    # Journal write operations (JSON format)
+    - "Bash(journal-log-json.sh:*)"
 
-# Journal query operations (read-only)
-- "Bash(journal-query.sh:*)"
+    # Journal query operations (read-only)
+    - "Bash(journal-query.sh:*)"
 
-# Kanban card operations
-- "Bash(kanban-create-card-id.sh:*)"
-- "Bash(kanban-try-assign-card.sh:*)"
-- "Bash(kanban-get-available-cards.sh:*)"
-- "Bash(kanban-check-dependencies.sh:*)"
-- "Bash(kanban-state.sh:*)"
-- "Bash(kanban-count-cards.sh:*)"
+    # Kanban card operations
+    - "Bash(kanban-create-card-id.sh:*)"
+    - "Bash(kanban-try-assign-card.sh:*)"
+    - "Bash(kanban-get-available-cards.sh:*)"
+    - "Bash(kanban-check-dependencies.sh:*)"
+    - "Bash(kanban-state.sh:*)"
+    - "Bash(kanban-count-cards.sh:*)"
 
-# Agent context operations
-- "Bash(set-agent-name.sh:*)"
-- "Bash(get-agent-name.sh:*)"
+    # Agent context operations
+    - "Bash(set-agent-name.sh:*)"
+    - "Bash(get-agent-name.sh:*)"
 
-# Read access to journal and workspace
-- "Read(/home/devuser/workspace/JOURNAL.md)"
-- "Read(/home/devuser/workspace/PROMPT.md)"
-- "Read(/home/devuser/workspace/**/*)"
+    # Read access to journal and workspace
+    - "Read(/home/devuser/workspace/JOURNAL.md)"
+    - "Read(/home/devuser/workspace/PROMPT.md)"
+    - "Read(/home/devuser/workspace/**/*)"
 
-# Workspace operations
-- "Write(/home/devuser/workspace/**/*)"
-- "Edit(/home/devuser/workspace/**/*)"
-
-deny: []
+    # Workspace operations
+    - "Write(/home/devuser/workspace/**/*)"
+    - "Edit(/home/devuser/workspace/**/*)"
+  deny: []
 installation:
-dockerfile: |
-# Claude Code CLI will be installed via container initialization
-# No installation needed in Dockerfile - it's handled at runtime
-inject_files:
-- source: claude-code/CLAUDE.md.template
-  destination: /tmp/CLAUDE.md.template
-  permissions: "644"
-- source: claude-code/settings.json.template
-  destination: /tmp/claude-settings.json.template
-  permissions: "644"
-- source: claude-code/settings.local.json.template
-  destination: /tmp/claude-settings.local.json.template
-  permissions: "644"
+  dockerfile: |
+    # Claude Code CLI will be installed via container initialization
+    # No installation needed in Dockerfile - it's handled at runtime
+  inject_files:
+    - source: claude-code/CLAUDE.md.template
+      destination: /tmp/CLAUDE.md.template
+      permissions: "644"
+    - source: claude-code/settings.json.template
+      destination: /tmp/claude-settings.json.template
+      permissions: "644"
+    - source: claude-code/settings.local.json.template
+      destination: /tmp/claude-settings.local.json.template
+      permissions: "644"
 entrypoint_setup: |
-# Create Claude Code directories
-echo "Setting up Claude Code..."
-mkdir -p /home/devuser/.claude/{commands,docs,hooks,scripts,agents}
+  # Create Claude Code directories
+  echo "Setting up Claude Code..."
+  mkdir -p /home/devuser/.claude/{commands,docs,hooks,scripts,agents}
 
-# Copy CLAUDE.md from template if it exists
-if [ -f /tmp/CLAUDE.md.template ]; then
-  if [ ! -f /home/devuser/.claude/CLAUDE.md ]; then
-      echo "Copying CLAUDE.md to .claude folder..."
-      cp /tmp/CLAUDE.md.template /home/devuser/.claude/CLAUDE.md
-      echo "CLAUDE.md copied successfully to /home/devuser/.claude/"
-  else
-      echo "CLAUDE.md already exists in .claude folder"
+  # Copy CLAUDE.md from template if it exists
+  if [ -f /tmp/CLAUDE.md.template ]; then
+    if [ ! -f /home/devuser/.claude/CLAUDE.md ]; then
+        echo "Copying CLAUDE.md to .claude folder..."
+        cp /tmp/CLAUDE.md.template /home/devuser/.claude/CLAUDE.md
+        echo "CLAUDE.md copied successfully to /home/devuser/.claude/"
+    else
+        echo "CLAUDE.md already exists in .claude folder"
+    fi
   fi
-fi
 
-# Copy commands
-if [ -d /tmp/claude-commands ]; then
-  echo "Installing Claude Code commands..."
-  for cmd_file in /tmp/claude-commands/*.md; do
-      if [ -f "$cmd_file" ]; then
-          basename_file=$(basename "$cmd_file")
-          cp "$cmd_file" "/home/devuser/.claude/commands/$basename_file"
-      fi
-  done
-fi
-
-# Copy agent definitions
-if [ -d /tmp/claude-agents ]; then
-  echo "Installing Claude Code agents..."
-  for agent_file in /tmp/claude-agents/*.md; do
-      if [ -f "$agent_file" ]; then
-          basename_file=$(basename "$agent_file")
-          cp "$agent_file" "/home/devuser/.claude/agents/$basename_file"
-      fi
-  done
-fi
-
-# Copy hooks
-if [ -d /tmp/claude-hooks ]; then
-  echo "Installing Claude Code hooks..."
-  for hook_file in /tmp/claude-hooks/*.sh; do
-      if [ -f "$hook_file" ]; then
-          basename_file=$(basename "$hook_file")
-          cp "$hook_file" "/home/devuser/.claude/hooks/$basename_file"
-      fi
-  done
-fi
-
-# Copy documentation
-if [ -d /tmp/claude-docs ]; then
-  echo "Installing Claude Code documentation..."
-  for md_file in /tmp/claude-docs/*.md; do
-      if [ -f "$md_file" ]; then
-          basename_file=$(basename "$md_file")
-          cp "$md_file" "/home/devuser/.claude/docs/$basename_file"
-      fi
-  done
-fi
-
-# Copy slash commands if they exist
-if [ -d /tmp/claude-commands ]; then
-  echo "Installing Claude Code slash commands..."
-  mkdir -p /home/devuser/.claude/commands
-
-  # Copy all files and maintain directory structure
-  cp -r /tmp/claude-commands/* /home/devuser/.claude/commands/ 2>/dev/null || true
-
-  # Set proper permissions
-  find /home/devuser/.claude/commands -type f -name "*.md" -exec chmod 644 {} \;
-fi
-
-# Copy hooks if they exist
-if [ -d /tmp/claude-hooks ]; then
-  echo "Installing Claude Code hooks..."
-  mkdir -p /home/devuser/.claude/hooks
-
-  # Copy all hook scripts
-  cp -r /tmp/claude-hooks/* /home/devuser/.claude/hooks/ 2>/dev/null || true
-
-  # Make hooks executable
-  find /home/devuser/.claude/hooks -type f -name "*.sh" -exec chmod 755 {} \;
-
-  chmod 755 /home/devuser/.claude/hooks/*.sh
-
-  echo "Created default hook scripts"
-fi
-
-# Copy settings.json from template if it exists
-echo "Checking for settings.json..."
-if [ -f /tmp/claude-settings.json.template ]; then
-  echo "Found /tmp/claude-settings.json.template"
-  if [ ! -f /home/devuser/.claude/settings.json ]; then
-      echo "Copying settings.json to .claude folder..."
-      cp /tmp/claude-settings.json.template /home/devuser/.claude/settings.json
-      echo "settings.json copied successfully to /home/devuser/.claude/"
-  else
-      echo "settings.json already exists in .claude folder"
+  # Copy commands
+  if [ -d /tmp/claude-commands ]; then
+    echo "Installing Claude Code commands..."
+    for cmd_file in /tmp/claude-commands/*.md; do
+        if [ -f "$cmd_file" ]; then
+            basename_file=$(basename "$cmd_file")
+            cp "$cmd_file" "/home/devuser/.claude/commands/$basename_file"
+        fi
+    done
   fi
-else
-  echo "No /tmp/claude-settings.json.template found in image"
-fi
 
-# Copy and setup scripts (from feature branch)
-if [ -d /tmp/scripts ]; then
-  cp /tmp/scripts/*.sh /home/devuser/.claude/scripts/
-  chmod +x /home/devuser/.claude/scripts/*.sh
+  # Copy agent definitions
+  if [ -d /tmp/claude-agents ]; then
+    echo "Installing Claude Code agents..."
+    for agent_file in /tmp/claude-agents/*.md; do
+        if [ -f "$agent_file" ]; then
+            basename_file=$(basename "$agent_file")
+            cp "$agent_file" "/home/devuser/.claude/agents/$basename_file"
+        fi
+    done
+  fi
 
-  for sh_file in /home/devuser/.claude/scripts/*.sh; do
-      if [ -f "$sh_file" ]; then
-          basename_file=$(basename "$sh_file")
-          ln -sf "$sh_file" "/usr/local/bin/$basename_file" 2>/dev/null || true
-      fi
-  done
-fi
+  # Copy hooks
+  if [ -d /tmp/claude-hooks ]; then
+    echo "Installing Claude Code hooks..."
+    for hook_file in /tmp/claude-hooks/*.sh; do
+        if [ -f "$hook_file" ]; then
+            basename_file=$(basename "$hook_file")
+            cp "$hook_file" "/home/devuser/.claude/hooks/$basename_file"
+        fi
+    done
+  fi
 
-# Set ownership
-chown -R devuser:devuser /home/devuser/.claude
+  # Copy documentation
+  if [ -d /tmp/claude-docs ]; then
+    echo "Installing Claude Code documentation..."
+    for md_file in /tmp/claude-docs/*.md; do
+        if [ -f "$md_file" ]; then
+            basename_file=$(basename "$md_file")
+            cp "$md_file" "/home/devuser/.claude/docs/$basename_file"
+        fi
+    done
+  fi
 
-echo "Claude Code setup complete"
+  # Copy slash commands if they exist
+  if [ -d /tmp/claude-commands ]; then
+    echo "Installing Claude Code slash commands..."
+    mkdir -p /home/devuser/.claude/commands
+
+    # Copy all files and maintain directory structure
+    cp -r /tmp/claude-commands/* /home/devuser/.claude/commands/ 2>/dev/null || true
+
+    # Set proper permissions
+    find /home/devuser/.claude/commands -type f -name "*.md" -exec chmod 644 {} \;
+  fi
+
+  # Copy hooks if they exist
+  if [ -d /tmp/claude-hooks ]; then
+    echo "Installing Claude Code hooks..."
+    mkdir -p /home/devuser/.claude/hooks
+
+    # Copy all hook scripts
+    cp -r /tmp/claude-hooks/* /home/devuser/.claude/hooks/ 2>/dev/null || true
+
+    # Make hooks executable
+    find /home/devuser/.claude/hooks -type f -name "*.sh" -exec chmod 755 {} \;
+
+    chmod 755 /home/devuser/.claude/hooks/*.sh
+
+    echo "Created default hook scripts"
+  fi
+
+  # Copy settings.json from template if it exists
+  echo "Checking for settings.json..."
+  if [ -f /tmp/claude-settings.json.template ]; then
+    echo "Found /tmp/claude-settings.json.template"
+    if [ ! -f /home/devuser/.claude/settings.json ]; then
+        echo "Copying settings.json to .claude folder..."
+        cp /tmp/claude-settings.json.template /home/devuser/.claude/settings.json
+        echo "settings.json copied successfully to /home/devuser/.claude/"
+    else
+        echo "settings.json already exists in .claude folder"
+    fi
+  else
+    echo "No /tmp/claude-settings.json.template found in image"
+  fi
+
+  # Copy and setup scripts (from feature branch)
+  if [ -d /tmp/scripts ]; then
+    cp /tmp/scripts/*.sh /home/devuser/.claude/scripts/
+    chmod +x /home/devuser/.claude/scripts/*.sh
+
+    for sh_file in /home/devuser/.claude/scripts/*.sh; do
+        if [ -f "$sh_file" ]; then
+            basename_file=$(basename "$sh_file")
+            ln -sf "$sh_file" "/usr/local/bin/$basename_file" 2>/dev/null || true
+        fi
+    done
+  fi
+
+  # Set ownership
+  chown -R devuser:devuser /home/devuser/.claude
+
+  echo "Claude Code setup complete"
