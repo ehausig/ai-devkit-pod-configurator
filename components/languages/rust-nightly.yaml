@@ -65,4 +65,5 @@ entrypoint_setup: |
   # Ensure proper ownership (skip if config is mounted)
   if [ ! -f /home/devuser/.cargo/config.toml ]; then
       chown -R devuser:devuser /home/devuser/.cargo 2>/dev/null || true
+      chown -R devuser:devuser /opt/rust 2>/dev/null || true
   fi
