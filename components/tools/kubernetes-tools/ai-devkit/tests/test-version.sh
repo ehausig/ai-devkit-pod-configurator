@@ -50,7 +50,7 @@ else
 fi
 
 # stern version check
-if stern --version 2>&1 | grep -q "v1.33"; then
+if stern --version 2>&1 | grep -q "1.33"; then
     echo -e "${GREEN}✓${NC} stern version: v1.33.x"
 else
     echo -e "${RED}✗${NC} stern version incorrect or not found"

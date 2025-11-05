@@ -1,6 +1,6 @@
 id: KUBERNETES_TOOLS
 name: Kubernetes Tools
-version: "1.34.0"
+version: "1.34.1"
 group: kubernetes-cli
 requires: []
 description: Kubernetes CLI tools - kubectl, helm, k9s, kubectx/kubens, stern
@@ -36,8 +36,8 @@ installation:
         else \
             echo "Unsupported architecture: ${ARCH}" && exit 1; \
         fi && \
-        # Install kubectl v1.34.0
-        curl -LO "https://dl.k8s.io/release/v1.34.0/bin/linux/${KUBECTL_ARCH}/kubectl" && \
+        # Install kubectl v1.34.1
+        curl -LO "https://dl.k8s.io/release/v1.34.1/bin/linux/${KUBECTL_ARCH}/kubectl" && \
         chmod +x kubectl && \
         mv kubectl /usr/local/bin/kubectl && \
         # Install helm v3.19.0
@@ -59,11 +59,11 @@ installation:
         tar -zxf kubens_v0.9.5_linux_${KUBECTL_ARCH}.tar.gz && \
         mv kubens /usr/local/bin/kubens && \
         rm kubens_v0.9.5_linux_${KUBECTL_ARCH}.tar.gz && \
-        # Install stern v1.33.0
-        wget -q "https://github.com/stern/stern/releases/download/v1.33.0/stern_1.33.0_linux_${KUBECTL_ARCH}.tar.gz" && \
-        tar -zxf stern_1.33.0_linux_${KUBECTL_ARCH}.tar.gz && \
+        # Install stern v1.33.1
+        wget -q "https://github.com/stern/stern/releases/download/v1.33.1/stern_1.33.1_linux_${KUBECTL_ARCH}.tar.gz" && \
+        tar -zxf stern_1.33.1_linux_${KUBECTL_ARCH}.tar.gz && \
         mv stern /usr/local/bin/stern && \
-        rm stern_1.33.0_linux_${KUBECTL_ARCH}.tar.gz && \
+        rm stern_1.33.1_linux_${KUBECTL_ARCH}.tar.gz && \
         # Verify installations
         kubectl version --client && \
         helm version && \
@@ -94,12 +94,12 @@ entrypoint_setup: |
 
   The following Kubernetes tools are now available:
 
-    - kubectl (v1.34.0)   - Kubernetes command-line tool
+    - kubectl (v1.34.1)   - Kubernetes command-line tool
     - helm (v3.19.0)      - Kubernetes package manager
     - k9s (v0.50.16)      - Kubernetes TUI
     - kubectx (v0.9.5)    - Switch between Kubernetes contexts
     - kubens (v0.9.5)     - Switch between Kubernetes namespaces
-    - stern (v1.33.0)     - Multi-pod log tailing
+    - stern (v1.33.1)     - Multi-pod log tailing
 
   ================================================================================
                        Kubeconfig Setup Required

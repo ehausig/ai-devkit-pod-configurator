@@ -3,12 +3,12 @@
 A comprehensive suite of Kubernetes CLI tools for cluster management and operations.
 
 **Installed Tools**:
-- **kubectl (v1.34.0)** - Kubernetes command-line tool for cluster operations
+- **kubectl (v1.34.1)** - Kubernetes command-line tool for cluster operations
 - **helm (v3.19.0)** - Kubernetes package manager for deploying applications
 - **k9s (v0.50.16)** - Terminal UI for managing Kubernetes clusters
 - **kubectx (v0.9.5)** - Fast context switching between Kubernetes clusters
 - **kubens (v0.9.5)** - Fast namespace switching for kubectl
-- **stern (v1.33.0)** - Multi-pod and multi-container log tailing
+- **stern (v1.33.1)** - Multi-pod and multi-container log tailing
 
 **Initial Setup**:
 
