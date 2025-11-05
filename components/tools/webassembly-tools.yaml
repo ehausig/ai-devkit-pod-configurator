@@ -2,7 +2,7 @@ id: WEBASSEMBLY_TOOLS
 name: WebAssembly Tools
 version: "1.0.0"
 group: wasm-tools
-requires: [rust-version]
+requires: [rust]
 description: WebAssembly development tools - wash, wasm-tools, wasmtime, wit-bindgen, wac
 command_permissions:
   allow:
