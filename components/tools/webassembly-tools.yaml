@@ -1,0 +1,156 @@
+id: WEBASSEMBLY_TOOLS
+name: WebAssembly Tools
+version: "1.0.0"
+group: wasm-tools
+requires: [rust-version]
+description: WebAssembly development tools - wash, wasm-tools, wasmtime, wit-bindgen, wac
+command_permissions:
+  allow:
+    - "Bash(wash:*)"
+    - "Bash(wasm-tools:*)"
+    - "Bash(wasmtime:*)"
+    - "Bash(wit-bindgen:*)"
+    - "Bash(wac:*)"
+  deny: []
+installation:
+  dockerfile: |
+    # Install WebAssembly development tools with explicit versions
+    RUN export DEBIAN_FRONTEND=noninteractive && \
+        ARCH=$(dpkg --print-architecture) && \
+        # Determine architecture for downloads
+        if [ "${ARCH}" = "arm64" ]; then \
+            WASH_ARCH="aarch64"; \
+            WASM_TOOLS_ARCH="aarch64"; \
+            WASMTIME_ARCH="aarch64"; \
+        elif [ "${ARCH}" = "amd64" ]; then \
+            WASH_ARCH="x86_64"; \
+            WASM_TOOLS_ARCH="x86_64"; \
+            WASMTIME_ARCH="x86_64"; \
+        else \
+            echo "Unsupported architecture: ${ARCH}" && exit 1; \
+        fi && \
+        # Install wash v1.0.0-beta.10
+        wget -q "https://github.com/wasmCloud/wash/releases/download/wash-v1.0.0-beta.10/wash-${WASH_ARCH}-unknown-linux-musl" -O /tmp/wash && \
+        chmod +x /tmp/wash && \
+        mv /tmp/wash /usr/local/bin/wash && \
+        # Install wasm-tools v1.240.0
+        wget -q "https://github.com/bytecodealliance/wasm-tools/releases/download/v1.240.0/wasm-tools-1.240.0-${WASM_TOOLS_ARCH}-linux.tar.gz" && \
+        tar -zxf wasm-tools-1.240.0-${WASM_TOOLS_ARCH}-linux.tar.gz && \
+        mv wasm-tools-1.240.0-${WASM_TOOLS_ARCH}-linux/wasm-tools /usr/local/bin/wasm-tools && \
+        rm -rf wasm-tools-1.240.0-${WASM_TOOLS_ARCH}-linux.tar.gz wasm-tools-1.240.0-${WASM_TOOLS_ARCH}-linux && \
+        # Install wasmtime v38.0.3
+        wget -q "https://github.com/bytecodealliance/wasmtime/releases/download/v38.0.3/wasmtime-v38.0.3-${WASMTIME_ARCH}-linux.tar.xz" && \
+        tar -xJf wasmtime-v38.0.3-${WASMTIME_ARCH}-linux.tar.xz && \
+        mv wasmtime-v38.0.3-${WASMTIME_ARCH}-linux/wasmtime /usr/local/bin/wasmtime && \
+        rm -rf wasmtime-v38.0.3-${WASMTIME_ARCH}-linux.tar.xz wasmtime-v38.0.3-${WASMTIME_ARCH}-linux && \
+        # Install wit-bindgen v0.45.1 via cargo
+        /opt/rust/bin/cargo install --locked --version 0.45.1 wit-bindgen-cli && \
+        ln -sf /opt/rust/bin/wit-bindgen /usr/local/bin/wit-bindgen && \
+        # Install wac v0.6.1 via cargo
+        /opt/rust/bin/cargo install --locked --version 0.6.1 wac-cli && \
+        ln -sf /opt/rust/bin/wac /usr/local/bin/wac && \
+        # Verify installations
+        wash --version && \
+        wasm-tools --version && \
+        wasmtime --version && \
+        wit-bindgen --version && \
+        wac --version
+  test_command: wash --version && wasm-tools --version && wasmtime --version && wit-bindgen --version && wac --version
+entrypoint_setup: |
+  # WebAssembly tools specific setup
+  echo "Setting up WebAssembly development environment..."
+
+  # Create workspace directory for WASM projects
+  mkdir -p /home/devuser/wasm-workspace
+
+  # Set proper ownership
+  chown -R devuser:devuser /home/devuser/wasm-workspace
+
+  # Create welcome message with setup instructions
+  cat > /home/devuser/.webassembly-tools-readme.txt << 'READMEEOF'
+  ================================================================================
+                        WebAssembly Tools Installed
+  ================================================================================
+
+  The following WebAssembly development tools are now available:
+
+    - wash (v1.0.0-beta.10)      - wasmCloud Shell for building & deploying
+    - wasm-tools (v1.240.0)      - WebAssembly module manipulation utilities
+    - wasmtime (v38.0.3)         - WebAssembly runtime for testing
+    - wit-bindgen (v0.45.1)      - WIT language binding generator
+    - wac (v0.6.1)               - WebAssembly composition tool
+
+  ================================================================================
+                              Quick Start
+  ================================================================================
+
+  Get started with wasmCloud development:
+
+    1. Create a new project:
+       wash new component hello
+
+    2. Build your component:
+       cd hello && wash build
+
+    3. Start development environment:
+       wash dev
+
+  Common Commands:
+
+    wash new <type> <name>     - Create new project (component, provider, etc.)
+    wash build                 - Build your project
+    wash dev                   - Start hot-reload development environment
+    wash inspect               - Inspect WebAssembly components
+    wash up                    - Start wasmCloud host locally
+    wash app list              - List deployed applications
+
+    wasm-tools validate        - Validate WebAssembly modules
+    wasm-tools print           - Print WebAssembly in text format
+    wasm-tools compose         - Compose components together
+    wasm-tools component new   - Create component from module
+
+    wasmtime <file.wasm>       - Run WebAssembly component
+    wasmtime --invoke <func>   - Invoke specific function
+
+    wit-bindgen rust           - Generate Rust bindings
+    wit-bindgen c              - Generate C bindings
+
+    wac plug                   - Plug components together
+    wac compose                - Compose using .wac files
+
+  Documentation:
+
+    wasmCloud:   https://wasmcloud.com/docs
+    wash:        https://wasmcloud.com/docs/cli/wash
+    wasm-tools:  https://github.com/bytecodealliance/wasm-tools
+    wasmtime:    https://docs.wasmtime.dev
+    Component Model: https://component-model.bytecodealliance.org
+
+  READMEEOF
+
+  chown devuser:devuser /home/devuser/.webassembly-tools-readme.txt
+
+  # Add one-time welcome message to bashrc
+  if ! grep -q "webassembly-tools-welcome" "$BASHRC" 2>/dev/null; then
+      echo '' >> "$BASHRC"
+      echo '# WebAssembly Tools - One-time welcome message' >> "$BASHRC"
+      echo 'if [ ! -f ~/.webassembly-tools-welcomed ]; then' >> "$BASHRC"
+      echo '    echo ""' >> "$BASHRC"
+      echo '    echo "==============================================================="' >> "$BASHRC"
+      echo '    echo "          WebAssembly Development Tools Ready"' >> "$BASHRC"
+      echo '    echo "==============================================================="' >> "$BASHRC"
+      echo '    echo ""' >> "$BASHRC"
+      echo '    echo "  Tools: wash, wasm-tools, wasmtime, wit-bindgen, wac"' >> "$BASHRC"
+      echo '    echo ""' >> "$BASHRC"
+      echo '    echo "  Quick start:"' >> "$BASHRC"
+      echo '    echo "    wash new component my-app    # Create new component"' >> "$BASHRC"
+      echo '    echo "    wash dev                     # Start dev environment"' >> "$BASHRC"
+      echo '    echo ""' >> "$BASHRC"
+      echo '    echo "  Full docs: cat ~/.webassembly-tools-readme.txt"' >> "$BASHRC"
+      echo '    echo ""' >> "$BASHRC"
+      echo '    touch ~/.webassembly-tools-welcomed' >> "$BASHRC"
+      echo 'fi' >> "$BASHRC"
+  fi
+
+  echo "✓ WebAssembly tools configured successfully"
+  echo "  Quick start: wash new component my-app"
