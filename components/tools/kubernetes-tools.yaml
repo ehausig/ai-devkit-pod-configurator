@@ -28,11 +28,13 @@ installation:
             HELM_ARCH="arm64"; \
             K9S_ARCH="arm64"; \
             STERN_ARCH="arm64"; \
+            KUBECTX_ARCH="arm64"; \
         elif [ "${ARCH}" = "amd64" ]; then \
             KUBECTL_ARCH="amd64"; \
             HELM_ARCH="amd64"; \
             K9S_ARCH="amd64"; \
             STERN_ARCH="amd64"; \
+            KUBECTX_ARCH="x86_64"; \
         else \
             echo "Unsupported architecture: ${ARCH}" && exit 1; \
         fi && \
@@ -51,14 +53,14 @@ installation:
         mv k9s /usr/local/bin/k9s && \
         rm k9s_linux_${KUBECTL_ARCH}.tar.gz && \
         # Install kubectx and kubens v0.9.5
-        wget -q "https://github.com/ahmetb/kubectx/releases/download/v0.9.5/kubectx_v0.9.5_linux_${KUBECTL_ARCH}.tar.gz" && \
-        tar -zxf kubectx_v0.9.5_linux_${KUBECTL_ARCH}.tar.gz && \
+        wget -q "https://github.com/ahmetb/kubectx/releases/download/v0.9.5/kubectx_v0.9.5_linux_${KUBECTX_ARCH}.tar.gz" && \
+        tar -zxf kubectx_v0.9.5_linux_${KUBECTX_ARCH}.tar.gz && \
         mv kubectx /usr/local/bin/kubectx && \
-        rm kubectx_v0.9.5_linux_${KUBECTL_ARCH}.tar.gz && \
-        wget -q "https://github.com/ahmetb/kubectx/releases/download/v0.9.5/kubens_v0.9.5_linux_${KUBECTL_ARCH}.tar.gz" && \
-        tar -zxf kubens_v0.9.5_linux_${KUBECTL_ARCH}.tar.gz && \
+        rm kubectx_v0.9.5_linux_${KUBECTX_ARCH}.tar.gz && \
+        wget -q "https://github.com/ahmetb/kubectx/releases/download/v0.9.5/kubens_v0.9.5_linux_${KUBECTX_ARCH}.tar.gz" && \
+        tar -zxf kubens_v0.9.5_linux_${KUBECTX_ARCH}.tar.gz && \
         mv kubens /usr/local/bin/kubens && \
-        rm kubens_v0.9.5_linux_${KUBECTL_ARCH}.tar.gz && \
+        rm kubens_v0.9.5_linux_${KUBECTX_ARCH}.tar.gz && \
         # Install stern v1.33.1
         wget -q "https://github.com/stern/stern/releases/download/v1.33.1/stern_1.33.1_linux_${KUBECTL_ARCH}.tar.gz" && \
         tar -zxf stern_1.33.1_linux_${KUBECTL_ARCH}.tar.gz && \
