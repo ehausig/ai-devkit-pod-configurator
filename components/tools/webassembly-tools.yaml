@@ -11,6 +11,10 @@ command_permissions:
     - "Bash(wasmtime:*)"
     - "Bash(wit-bindgen:*)"
     - "Bash(wac:*)"
+    - "Bash(configure-wash.sh:*)"
+    - "Read(/home/devuser/.wash/*)"
+    - "Write(/home/devuser/.wash/*)"
+    - "Edit(/home/devuser/.wash/*)"
   deny: []
 installation:
   dockerfile: |
@@ -59,6 +63,10 @@ installation:
         wit-bindgen --version && \
         wac --version
   test_command: wash --version && wasm-tools --version && wasmtime --version && wit-bindgen --version && wac --version
+  inject_files:
+    - source: configure-wash.sh
+      destination: /usr/local/bin/configure-wash.sh
+      permissions: "755"
 entrypoint_setup: |
   # WebAssembly tools specific setup
   echo "Setting up WebAssembly development environment..."
@@ -70,7 +78,7 @@ entrypoint_setup: |
   chown -R devuser:devuser /home/devuser/wasm-workspace
 
   # Create welcome message with setup instructions
-  cat > /home/devuser/.webassembly-tools-readme.txt << 'READMEEOF'
+  cat > /home/devuser/webassembly-tools-README.txt << 'READMEEOF'
   ================================================================================
                         WebAssembly Tools Installed
   ================================================================================
@@ -84,18 +92,35 @@ entrypoint_setup: |
     - wac (v0.6.1)               - WebAssembly composition tool
 
   ================================================================================
+                    wasmCloud Connection Configuration
+  ================================================================================
+
+  To connect to a wasmCloud host (on your host machine, K8s, or remote), run:
+
+      configure-wash.sh
+
+  This interactive script will help you configure wash CLI to connect to:
+    - wasmCloud running on your host machine (via NATS)
+    - wasmCloud in a Kubernetes/K3s cluster
+    - Remote wasmCloud instances
+    - Local wasmCloud (wash up)
+
+  ================================================================================
                               Quick Start
   ================================================================================
 
   Get started with wasmCloud development:
 
-    1. Create a new project:
+    1. Configure connection (optional for local dev):
+       configure-wash.sh
+
+    2. Create a new project:
        wash new component hello
 
-    2. Build your component:
+    3. Build your component:
        cd hello && wash build
 
-    3. Start development environment:
+    4. Start development environment:
        wash dev
 
   Common Commands:
@@ -131,7 +156,7 @@ entrypoint_setup: |
 
   READMEEOF
 
-  chown devuser:devuser /home/devuser/.webassembly-tools-readme.txt
+  chown devuser:devuser /home/devuser/webassembly-tools-README.txt
 
   # Add one-time welcome message to bashrc
   if ! grep -q "webassembly-tools-welcome" "$BASHRC" 2>/dev/null; then
@@ -145,11 +170,15 @@ entrypoint_setup: |
       echo '    echo ""' >> "$BASHRC"
       echo '    echo "  Tools: wash, wasm-tools, wasmtime, wit-bindgen, wac"' >> "$BASHRC"
       echo '    echo ""' >> "$BASHRC"
-      echo '    echo "  Quick start:"' >> "$BASHRC"
+      echo '    echo "  To connect wash to a wasmCloud host, run:"' >> "$BASHRC"
+      echo '    echo ""' >> "$BASHRC"
+      echo '    echo "    configure-wash.sh"' >> "$BASHRC"
+      echo '    echo ""' >> "$BASHRC"
+      echo '    echo "  Quick start (local dev):"' >> "$BASHRC"
       echo '    echo "    wash new component my-app    # Create new component"' >> "$BASHRC"
       echo '    echo "    wash dev                     # Start dev environment"' >> "$BASHRC"
       echo '    echo ""' >> "$BASHRC"
-      echo '    echo "  Full docs: cat ~/.webassembly-tools-readme.txt"' >> "$BASHRC"
+      echo '    echo "  Full docs: cat ~/webassembly-tools-README.txt"' >> "$BASHRC"
       echo '    echo ""' >> "$BASHRC"
       echo '    touch ~/.webassembly-tools-welcomed' >> "$BASHRC"
       echo 'fi' >> "$BASHRC"
