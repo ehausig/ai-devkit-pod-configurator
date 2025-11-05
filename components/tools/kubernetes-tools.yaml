@@ -127,5 +127,26 @@ entrypoint_setup: |
 
   chown devuser:devuser /home/devuser/.kubernetes-tools-readme.txt
 
+  # Add one-time welcome message to bashrc
+  if ! grep -q "kubernetes-tools-welcome" "$BASHRC" 2>/dev/null; then
+      echo '' >> "$BASHRC"
+      echo '# Kubernetes Tools - One-time welcome message' >> "$BASHRC"
+      echo 'if [ ! -f ~/.kubernetes-tools-welcomed ]; then' >> "$BASHRC"
+      echo '    echo ""' >> "$BASHRC"
+      echo '    echo "================================================================"' >> "$BASHRC"
+      echo '    echo "               Kubernetes Tools Ready"' >> "$BASHRC"
+      echo '    echo "================================================================"' >> "$BASHRC"
+      echo '    echo ""' >> "$BASHRC"
+      echo '    echo "  To configure kubectl access to your cluster, run:"' >> "$BASHRC"
+      echo '    echo ""' >> "$BASHRC"
+      echo '    echo "    configure-kubeconfig.sh"' >> "$BASHRC"
+      echo '    echo ""' >> "$BASHRC"
+      echo '    echo "  Tools installed: kubectl, helm, k9s, kubectx, kubens, stern"' >> "$BASHRC"
+      echo '    echo "  Full docs: cat ~/.kubernetes-tools-readme.txt"' >> "$BASHRC"
+      echo '    echo ""' >> "$BASHRC"
+      echo '    touch ~/.kubernetes-tools-welcomed' >> "$BASHRC"
+      echo 'fi' >> "$BASHRC"
+  fi
+
   echo "✓ Kubernetes tools configured successfully"
   echo "  Run 'configure-kubeconfig.sh' to set up cluster access"
