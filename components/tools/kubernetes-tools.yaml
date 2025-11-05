@@ -86,43 +86,42 @@ entrypoint_setup: |
   # Set proper ownership
   chown -R devuser:devuser /home/devuser/.kube
 
-  # Display welcome message with setup instructions
-  cat << 'EOF' > /home/devuser/.kubernetes-tools-readme.txt
+  # Create welcome message with setup instructions
+  cat > /home/devuser/.kubernetes-tools-readme.txt << 'READMEEOF'
+  ================================================================================
+                       Kubernetes Tools Installed
+  ================================================================================
 
-╔══════════════════════════════════════════════════════════════════════════════╗
-║                     Kubernetes Tools Installed                              ║
-╚══════════════════════════════════════════════════════════════════════════════╝
+  The following Kubernetes tools are now available:
 
-The following Kubernetes tools are now available:
+    - kubectl (v1.34.0)   - Kubernetes command-line tool
+    - helm (v3.19.0)      - Kubernetes package manager
+    - k9s (v0.50.16)      - Kubernetes TUI
+    - kubectx (v0.9.5)    - Switch between Kubernetes contexts
+    - kubens (v0.9.5)     - Switch between Kubernetes namespaces
+    - stern (v1.33.0)     - Multi-pod log tailing
 
-  • kubectl (v1.34.0)   - Kubernetes command-line tool
-  • helm (v3.19.0)      - Kubernetes package manager
-  • k9s (v0.50.16)      - Kubernetes TUI
-  • kubectx (v0.9.5)    - Switch between Kubernetes contexts
-  • kubens (v0.9.5)     - Switch between Kubernetes namespaces
-  • stern (v1.33.0)     - Multi-pod log tailing
+  ================================================================================
+                       Kubeconfig Setup Required
+  ================================================================================
 
-╔══════════════════════════════════════════════════════════════════════════════╗
-║                     Kubeconfig Setup Required                                ║
-╚══════════════════════════════════════════════════════════════════════════════╝
+  To connect to your Kubernetes cluster, run:
 
-To connect to your Kubernetes cluster, run:
+      configure-kubeconfig.sh
 
-    configure-kubeconfig.sh
+  This interactive script will help you set up your ~/.kube/config file by:
+    1. Detecting K3s on your host machine (if available)
+    2. Configuring access to remote Kubernetes clusters
+    3. Setting up multiple contexts for cluster management
 
-This interactive script will help you set up your ~/.kube/config file by:
-  1. Detecting K3s on your host machine (if available)
-  2. Configuring access to remote Kubernetes clusters
-  3. Setting up multiple contexts for cluster management
+  Quick Start:
+    - View this help:    configure-kubeconfig.sh --help
+    - List contexts:     kubectl config get-contexts
+    - Switch context:    kubectx <context-name>
+    - Switch namespace:  kubens <namespace-name>
+    - Kubernetes TUI:    k9s
 
-Quick Start:
-  • View this help:    configure-kubeconfig.sh --help
-  • List contexts:     kubectl config get-contexts
-  • Switch context:    kubectx <context-name>
-  • Switch namespace:  kubens <namespace-name>
-  • Kubernetes TUI:    k9s
-
-EOF
+  READMEEOF
 
   chown devuser:devuser /home/devuser/.kubernetes-tools-readme.txt
 
