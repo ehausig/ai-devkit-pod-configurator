@@ -1,7 +1,7 @@
 id: RUST_NIGHTLY
 name: Rust (Nightly Channel)
 version: "nightly"
-group: rust-version
+group: rust
 requires: []
 description: Rust programming language - nightly channel with latest features
 command_permissions:

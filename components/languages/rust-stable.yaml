@@ -1,7 +1,7 @@
 id: RUST_STABLE
 name: Rust (Stable Channel)
 version: "stable"
-group: rust-version
+group: rust
 requires: []
 description: Rust programming language - stable channel
 command_permissions:
