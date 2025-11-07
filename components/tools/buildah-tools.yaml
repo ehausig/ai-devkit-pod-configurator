@@ -23,7 +23,15 @@ installation:
     RUN export DEBIAN_FRONTEND=noninteractive && \
         # Add Kubic repository for latest buildah/podman
         apt-get update && \
-        apt-get install -y software-properties-common && \
+        apt-get install -y \
+            software-properties-common \
+            wget \
+            gnupg2 \
+            ca-certificates && \
+        # Add Kubic OBS repository for Ubuntu 22.04
+        echo "deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_22.04/ /" | tee /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list && \
+        wget -nv https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/xUbuntu_22.04/Release.key -O- | apt-key add - && \
+        apt-get update && \
         # Install dependencies for rootless containers
         apt-get install -y \
             buildah \
@@ -36,7 +44,7 @@ installation:
             --no-install-recommends && \
         apt-get clean && \
         rm -rf /var/lib/apt/lists/* && \
-        # Verify installations
+        # Verify installations and versions
         buildah --version && \
         podman --version && \
         skopeo --version
