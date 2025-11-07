@@ -224,11 +224,16 @@ echo -e "${BLUE}[9/10] Deploying to Kubernetes cluster...${NC}"
 TEST_NAMESPACE="buildah-test-$$"
 TEST_DEPLOYMENT="buildah-test"
 
+# Initialize K8s test status
+K8S_SUCCESS="skipped"
+
 # Check kubectl access
 if ! command -v kubectl &> /dev/null; then
     echo -e "${YELLOW}⚠ kubectl not found - skipping K8s deployment test${NC}"
     echo -e "${YELLOW}  Image build and push completed successfully${NC}"
 else
+    # Set to false when we start the K8s test
+    K8S_SUCCESS="false"
     # Create test namespace
     echo "Creating test namespace: ${TEST_NAMESPACE}"
     if kubectl create namespace "${TEST_NAMESPACE}" > /dev/null 2>&1; then
@@ -275,10 +280,9 @@ EOF
             echo -e "${BLUE}[10/10] Verifying pod pulls image from registry...${NC}"
             echo "Waiting for pod to be ready (timeout: 60s)..."
 
-            K8S_SUCCESS=false
             if kubectl wait --for=condition=ready pod -l app=${TEST_DEPLOYMENT} -n ${TEST_NAMESPACE} --timeout=60s > /dev/null 2>&1; then
                 echo -e "${GREEN}✓ Pod is running${NC}"
-                K8S_SUCCESS=true
+                K8S_SUCCESS="true"
 
                 # Check events to verify image was pulled
                 EVENTS=$(kubectl get events -n ${TEST_NAMESPACE} --field-selector involvedObject.kind=Pod 2>/dev/null | grep -i "pull")
@@ -369,24 +373,70 @@ EOF
 fi
 echo ""
 
-# Success summary
-echo -e "${GREEN}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║                                                                ║${NC}"
-echo -e "${GREEN}║                    ✓ ALL TESTS PASSED!                         ║${NC}"
-echo -e "${GREEN}║                                                                ║${NC}"
-echo -e "${GREEN}╚════════════════════════════════════════════════════════════════╝${NC}"
-echo ""
-echo -e "${BLUE}Summary:${NC}"
-echo -e "  Build time:      ${BUILD_TIME}s"
-echo -e "  Push time:       ${PUSH_TIME}s"
-echo -e "  Registry:        ${REGISTRY_URL}"
-echo -e "  Image:           ${FULL_IMAGE_NAME}"
-echo -e "  Image size:      ${SIZE}"
-echo ""
-echo -e "${BLUE}Next steps:${NC}"
-echo "  1. Deploy this image to your Kubernetes cluster"
-echo "  2. Use 'podman images' to see local images"
-echo "  3. Use 'skopeo inspect docker://${FULL_IMAGE_NAME}' to inspect remote image"
-echo ""
-echo -e "${GREEN}Buildah/Podman is working correctly! 🎉${NC}"
-echo ""
+# Success summary based on K8s test result
+if [[ "$K8S_SUCCESS" == "true" ]]; then
+    # Full success - build, push, and K8s deployment all worked
+    echo -e "${GREEN}╔════════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}║                                                                ║${NC}"
+    echo -e "${GREEN}║                    ✓ ALL TESTS PASSED!                         ║${NC}"
+    echo -e "${GREEN}║                                                                ║${NC}"
+    echo -e "${GREEN}╚════════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo -e "${BLUE}Summary:${NC}"
+    echo -e "  Build time:      ${BUILD_TIME}s"
+    echo -e "  Push time:       ${PUSH_TIME}s"
+    echo -e "  Registry:        ${REGISTRY_URL}"
+    echo -e "  Image:           ${FULL_IMAGE_NAME}"
+    echo -e "  Image size:      ${SIZE}"
+    echo -e "  K8s deployment:  ${GREEN}✓ Success${NC}"
+    echo ""
+    echo -e "${GREEN}Buildah/Podman is working correctly! 🎉${NC}"
+    echo ""
+elif [[ "$K8S_SUCCESS" == "skipped" ]]; then
+    # Partial success - build and push worked, K8s test skipped
+    echo -e "${YELLOW}╔════════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${YELLOW}║                                                                ║${NC}"
+    echo -e "${YELLOW}║              ✓ BUILD AND PUSH TESTS PASSED                     ║${NC}"
+    echo -e "${YELLOW}║                                                                ║${NC}"
+    echo -e "${YELLOW}╚════════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo -e "${BLUE}Summary:${NC}"
+    echo -e "  Build time:      ${BUILD_TIME}s"
+    echo -e "  Push time:       ${PUSH_TIME}s"
+    echo -e "  Registry:        ${REGISTRY_URL}"
+    echo -e "  Image:           ${FULL_IMAGE_NAME}"
+    echo -e "  Image size:      ${SIZE}"
+    echo -e "  K8s deployment:  ${YELLOW}⚠ Skipped (kubectl not available)${NC}"
+    echo ""
+    echo -e "${BLUE}Next steps:${NC}"
+    echo "  1. Deploy this image to your Kubernetes cluster"
+    echo "  2. Use 'podman images' to see local images"
+    echo "  3. Use 'skopeo inspect docker://${FULL_IMAGE_NAME}' to inspect remote image"
+    echo ""
+    echo -e "${GREEN}Buildah/Podman build and push working correctly! 🎉${NC}"
+    echo ""
+else
+    # Failure - build and push worked but K8s deployment failed
+    echo -e "${YELLOW}╔════════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${YELLOW}║                                                                ║${NC}"
+    echo -e "${YELLOW}║              ⚠ PARTIAL SUCCESS - K8S DEPLOY FAILED            ║${NC}"
+    echo -e "${YELLOW}║                                                                ║${NC}"
+    echo -e "${YELLOW}╚════════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo -e "${BLUE}Summary:${NC}"
+    echo -e "  Build time:      ${BUILD_TIME}s"
+    echo -e "  Push time:       ${PUSH_TIME}s"
+    echo -e "  Registry:        ${REGISTRY_URL}"
+    echo -e "  Image:           ${FULL_IMAGE_NAME}"
+    echo -e "  Image size:      ${SIZE}"
+    echo -e "  K8s deployment:  ${RED}✗ Failed${NC}"
+    echo ""
+    echo -e "${GREEN}✓ Image build and push successful${NC}"
+    echo -e "${RED}✗ Kubernetes deployment failed${NC}"
+    echo ""
+    echo -e "${YELLOW}The image was successfully built and pushed to the registry,${NC}"
+    echo -e "${YELLOW}but the Kubernetes cluster could not pull it.${NC}"
+    echo ""
+    echo -e "${YELLOW}See error details above for troubleshooting steps.${NC}"
+    echo ""
+fi
