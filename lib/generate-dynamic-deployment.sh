@@ -30,16 +30,6 @@ spec:
         app: ai-devkit
       annotations:
         kubectl.kubernetes.io/default-container: ai-devkit
-EOF
-
-    # Check if AppArmor annotation is required (e.g., for buildah/podman)
-    local apparmor_file=".build-temp/deployment-patches/buildah-apparmor-annotation.txt"
-    if [[ -f "$apparmor_file" ]]; then
-        echo "        # AppArmor annotation for rootless container building" >> "$output_file"
-        sed 's/^/        /' "$apparmor_file" >> "$output_file"
-    fi
-
-    cat >> "$output_file" << 'EOF'
     spec:
       initContainers:
       # Init container to set up configuration files

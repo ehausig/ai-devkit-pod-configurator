@@ -4206,10 +4206,20 @@ deploy_to_kubernetes() {
     # Generate and apply dynamic deployment
     local deployment_yaml=$(generate_dynamic_deployment)
     kubectl apply -f "$deployment_yaml" >> "$LOG_FILE" 2>&1
-    
+
+    # Apply any component post-deployment patches
+    if [[ -d "$TEMP_DIR/deployment-patches" ]]; then
+        for patch_script in "$TEMP_DIR/deployment-patches"/*.sh; do
+            if [[ -f "$patch_script" && -x "$patch_script" ]]; then
+                log "Applying deployment patch: $(basename $patch_script)"
+                "$patch_script" >> "$LOG_FILE" 2>&1 || log "Warning: Patch script $(basename $patch_script) failed"
+            fi
+        done
+    fi
+
     # Wait for deployment
     kubectl wait --for=condition=available --timeout=120s deployment/ai-devkit -n ${NAMESPACE} >> "$LOG_FILE" 2>&1
-    
+
     POD_NAME=$(kubectl get pods -n ${NAMESPACE} -l app=ai-devkit -o jsonpath="{.items[0].metadata.name}")
 }
 
