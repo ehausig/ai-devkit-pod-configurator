@@ -275,8 +275,10 @@ EOF
             echo -e "${BLUE}[10/10] Verifying pod pulls image from registry...${NC}"
             echo "Waiting for pod to be ready (timeout: 60s)..."
 
+            K8S_SUCCESS=false
             if kubectl wait --for=condition=ready pod -l app=${TEST_DEPLOYMENT} -n ${TEST_NAMESPACE} --timeout=60s > /dev/null 2>&1; then
                 echo -e "${GREEN}✓ Pod is running${NC}"
+                K8S_SUCCESS=true
 
                 # Check events to verify image was pulled
                 EVENTS=$(kubectl get events -n ${TEST_NAMESPACE} --field-selector involvedObject.kind=Pod 2>/dev/null | grep -i "pull")
@@ -290,14 +292,72 @@ EOF
                     echo -e "${YELLOW}⚠ Could not verify image pull event (pod may have used cached image)${NC}"
                 fi
             else
-                echo -e "${YELLOW}⚠ Pod did not become ready in time${NC}"
-                kubectl get pods -n ${TEST_NAMESPACE} 2>/dev/null || true
+                echo ""
+                echo -e "${RED}✗ Pod failed to start${NC}"
+                echo ""
+
+                # Get pod status
+                POD_NAME=$(kubectl get pod -n ${TEST_NAMESPACE} -l app=${TEST_DEPLOYMENT} -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+                if [[ -n "$POD_NAME" ]]; then
+                    POD_STATUS=$(kubectl get pod "$POD_NAME" -n ${TEST_NAMESPACE} -o jsonpath='{.status.phase}' 2>/dev/null)
+                    echo "Pod: $POD_NAME"
+                    echo "Status: $POD_STATUS"
+                    echo ""
+
+                    # Check for ImagePullBackOff
+                    CONTAINER_STATUS=$(kubectl get pod "$POD_NAME" -n ${TEST_NAMESPACE} -o jsonpath='{.status.containerStatuses[0].state.waiting.reason}' 2>/dev/null)
+                    if [[ "$CONTAINER_STATUS" =~ "ImagePullBackOff" ]] || [[ "$CONTAINER_STATUS" =~ "ErrImagePull" ]]; then
+                        echo -e "${RED}Issue: ImagePullBackOff${NC}"
+                        echo ""
+                        echo "The Kubernetes cluster cannot pull the image from the registry."
+                        echo ""
+                        echo -e "${YELLOW}Common causes:${NC}"
+                        echo "  1. K8s nodes don't trust the registry's TLS certificate"
+                        echo "  2. K8s needs authentication (imagePullSecret)"
+                        echo "  3. Registry URL is not accessible from K8s nodes"
+                        echo ""
+                        echo -e "${YELLOW}To fix:${NC}"
+                        echo ""
+                        echo "  For self-signed certificates:"
+                        echo "    - Add registry cert to K8s nodes:"
+                        echo "      sudo mkdir -p /etc/containerd/certs.d/${REGISTRY_URL}"
+                        echo "      sudo cp registry-ca.crt /etc/containerd/certs.d/${REGISTRY_URL}/ca.crt"
+                        echo "      sudo systemctl restart k3s"
+                        echo ""
+                        echo "  For authentication:"
+                        echo "    - Create imagePullSecret:"
+                        echo "      kubectl create secret docker-registry regcred \\"
+                        echo "        --docker-server=${REGISTRY_URL} \\"
+                        echo "        --docker-username=<username> \\"
+                        echo "        --docker-password=<password> \\"
+                        echo "        -n ${TEST_NAMESPACE}"
+                        echo ""
+                        echo "Events:"
+                        kubectl get events -n ${TEST_NAMESPACE} --sort-by='.lastTimestamp' | tail -10
+                    else
+                        echo "Container status: $CONTAINER_STATUS"
+                        echo ""
+                        echo "Events:"
+                        kubectl get events -n ${TEST_NAMESPACE} --sort-by='.lastTimestamp' | tail -10
+                    fi
+                    echo ""
+                    echo -e "${YELLOW}Namespace ${TEST_NAMESPACE} NOT deleted - inspect with:${NC}"
+                    echo "  kubectl get pods -n ${TEST_NAMESPACE}"
+                    echo "  kubectl describe pod $POD_NAME -n ${TEST_NAMESPACE}"
+                    echo "  kubectl logs $POD_NAME -n ${TEST_NAMESPACE}"
+                    echo ""
+                    echo -e "${YELLOW}Cleanup when done:${NC}"
+                    echo "  kubectl delete namespace ${TEST_NAMESPACE}"
+                    echo ""
+                fi
             fi
 
-            # Cleanup
-            echo "Cleaning up Kubernetes resources..."
-            kubectl delete namespace "${TEST_NAMESPACE}" > /dev/null 2>&1 &
-            echo -e "${GREEN}✓ Cleanup initiated (namespace will be deleted in background)${NC}"
+            # Cleanup only on success
+            if [[ "$K8S_SUCCESS" == "true" ]]; then
+                echo "Cleaning up Kubernetes resources..."
+                kubectl delete namespace "${TEST_NAMESPACE}" > /dev/null 2>&1 &
+                echo -e "${GREEN}✓ Cleanup initiated (namespace will be deleted in background)${NC}"
+            fi
         else
             echo -e "${RED}✗ Failed to create deployment${NC}"
             kubectl delete namespace "${TEST_NAMESPACE}" > /dev/null 2>&1 || true
