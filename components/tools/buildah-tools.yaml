@@ -65,17 +65,16 @@ entrypoint_setup: |
   fi
 
   # Create storage.conf for rootless mode
+  # Use VFS driver for container-in-container compatibility
+  # VFS is more compatible with Kubernetes environments and doesn't require overlay mounts
   cat > /home/devuser/.config/containers/storage.conf << 'STORAGEEOF'
   [storage]
-  driver = "overlay"
+  driver = "vfs"
   runroot = "/run/user/1000/containers"
   graphroot = "/home/devuser/.local/share/containers/storage"
 
-  [storage.options]
-  mount_program = "/usr/bin/fuse-overlayfs"
-
-  [storage.options.overlay]
-  mountopt = "nodev,metacopy=on"
+  [storage.options.vfs]
+  ignore_chown_errors = "true"
   STORAGEEOF
 
   # Create basic containers.conf
