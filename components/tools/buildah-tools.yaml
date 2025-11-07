@@ -126,6 +126,15 @@ entrypoint_setup: |
       echo '# XDG_RUNTIME_DIR for rootless containers' >> "$BASHRC"
       echo 'export XDG_RUNTIME_DIR=/run/user/1000' >> "$BASHRC"
   fi
+
+  # Add BUILDAH_ISOLATION to bashrc for container-in-container builds
+  if ! grep -q "export BUILDAH_ISOLATION=" "$BASHRC" 2>/dev/null; then
+      echo '' >> "$BASHRC"
+      echo '# Use chroot isolation for buildah/podman in Kubernetes' >> "$BASHRC"
+      echo '# This avoids remount permission errors when building containers' >> "$BASHRC"
+      echo 'export BUILDAH_ISOLATION=chroot' >> "$BASHRC"
+  fi
+
   if [ -f "$BASHRC" ]; then
       if ! grep -q "alias docker=" "$BASHRC" 2>/dev/null; then
           echo '' >> "$BASHRC"
@@ -311,6 +320,12 @@ entrypoint_setup: |
           echo '' >> "$ZSHRC"
           echo '# XDG_RUNTIME_DIR for rootless containers' >> "$ZSHRC"
           echo 'export XDG_RUNTIME_DIR=/run/user/1000' >> "$ZSHRC"
+      fi
+      if ! grep -q "export BUILDAH_ISOLATION=" "$ZSHRC" 2>/dev/null; then
+          echo '' >> "$ZSHRC"
+          echo '# Use chroot isolation for buildah/podman in Kubernetes' >> "$ZSHRC"
+          echo '# This avoids remount permission errors when building containers' >> "$ZSHRC"
+          echo 'export BUILDAH_ISOLATION=chroot' >> "$ZSHRC"
       fi
       if ! grep -q "alias docker=" "$ZSHRC" 2>/dev/null; then
           echo '' >> "$ZSHRC"
