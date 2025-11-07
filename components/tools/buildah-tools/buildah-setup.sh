@@ -31,21 +31,8 @@ securityContext:
       - SETGID     # Required for gid mapping
 EOF
 
-# Create kubectl patch script for AppArmor annotation
-cat > "$TEMP_DIR/deployment-patches/apply-buildah-apparmor.sh" << 'EOF'
-#!/bin/bash
-# Patch deployment with AppArmor annotation for buildah/podman
-kubectl patch deployment ai-devkit -n ai-devkit --type=json -p='[
-  {
-    "op": "add",
-    "path": "/spec/template/metadata/annotations/container.apparmor.security.beta.kubernetes.io~1ai-devkit",
-    "value": "unconfined"
-  }
-]' 2>&1
-EOF
-
-chmod +x "$TEMP_DIR/deployment-patches/apply-buildah-apparmor.sh"
-
-echo -e "${GREEN}✓ Security context and AppArmor patch script created${NC}"
+echo -e "${GREEN}✓ Security context configuration created${NC}"
 echo -e "  Rootless container building will be enabled in deployment"
-echo -e "  AppArmor patch will be applied post-deployment"
+echo -e ""
+echo -e "${YELLOW}⚠ IMPORTANT: After deployment, you must manually apply AppArmor annotation${NC}"
+echo -e "  See: components/tools/buildah-tools/POST-DEPLOYMENT-MANUAL-STEPS.md"
