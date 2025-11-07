@@ -81,6 +81,8 @@ entrypoint_setup: |
   cat > /home/devuser/.config/containers/containers.conf << 'CONTAINERSEOF'
   [containers]
   netns="slirp4netns"
+  # Don't use pivot_root - avoids remount permission issues in Kubernetes
+  no_pivot_root = true
 
   [engine]
   cgroup_manager = "cgroupfs"
