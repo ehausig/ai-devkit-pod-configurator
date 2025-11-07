@@ -31,5 +31,10 @@ securityContext:
       - SETGID     # Required for gid mapping
 EOF
 
-echo -e "${GREEN}✓ Security context configuration created${NC}"
+# Create AppArmor annotation to allow filesystem operations
+cat > "$TEMP_DIR/deployment-patches/buildah-apparmor-annotation.txt" << 'EOF'
+container.apparmor.security.beta.kubernetes.io/ai-devkit: unconfined
+EOF
+
+echo -e "${GREEN}✓ Security context and AppArmor configuration created${NC}"
 echo -e "  Rootless container building will be enabled in deployment"
