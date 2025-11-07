@@ -1,0 +1,308 @@
+id: BUILDAH_TOOLS
+name: Buildah Tools
+version: "1.0.0"
+group: container-build-tools
+requires: []
+description: Container image build tools - buildah, podman, skopeo for rootless OCI image building
+command_permissions:
+  allow:
+    - "Bash(buildah:*)"
+    - "Bash(podman:*)"
+    - "Bash(docker:*)"
+    - "Bash(skopeo:*)"
+    - "Bash(configure-buildah.sh:*)"
+    - "Read(/home/devuser/.config/containers/*)"
+    - "Read(/home/devuser/.local/share/containers/*)"
+    - "Write(/home/devuser/.config/containers/*)"
+    - "Edit(/home/devuser/.config/containers/*)"
+  deny: []
+installation:
+  dockerfile: |
+    # Install Buildah and Podman for rootless container image building
+    RUN export DEBIAN_FRONTEND=noninteractive && \
+        # Add Kubic repository for latest buildah/podman
+        apt-get update && \
+        apt-get install -y software-properties-common && \
+        # Install dependencies for rootless containers
+        apt-get install -y \
+            buildah \
+            podman \
+            skopeo \
+            fuse-overlayfs \
+            slirp4netns \
+            uidmap \
+            crun \
+            --no-install-recommends && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/* && \
+        # Verify installations
+        buildah --version && \
+        podman --version && \
+        skopeo --version
+  test_command: buildah --version && podman --version && skopeo --version
+  inject_files:
+    - source: configure-buildah.sh
+      destination: /usr/local/bin/configure-buildah.sh
+      permissions: "755"
+entrypoint_setup: |
+  # Buildah and Podman rootless setup
+  echo "Setting up Buildah and Podman for rootless container building..."
+
+  # Create necessary directories for containers
+  mkdir -p /home/devuser/.config/containers
+  mkdir -p /home/devuser/.local/share/containers/storage
+
+  # Configure subuid and subgid for devuser if not already configured
+  if ! grep -q "^devuser:" /etc/subuid; then
+      echo "devuser:100000:65536" >> /etc/subuid
+      echo "✓ Configured subuid for devuser"
+  fi
+
+  if ! grep -q "^devuser:" /etc/subgid; then
+      echo "devuser:100000:65536" >> /etc/subgid
+      echo "✓ Configured subgid for devuser"
+  fi
+
+  # Create storage.conf for rootless mode
+  cat > /home/devuser/.config/containers/storage.conf << 'STORAGEEOF'
+  [storage]
+  driver = "overlay"
+  runroot = "/run/user/1000/containers"
+  graphroot = "/home/devuser/.local/share/containers/storage"
+
+  [storage.options]
+  mount_program = "/usr/bin/fuse-overlayfs"
+
+  [storage.options.overlay]
+  mountopt = "nodev,metacopy=on"
+  STORAGEEOF
+
+  # Create basic containers.conf
+  cat > /home/devuser/.config/containers/containers.conf << 'CONTAINERSEOF'
+  [containers]
+  netns="slirp4netns"
+
+  [engine]
+  cgroup_manager = "cgroupfs"
+  events_logger = "file"
+  runtime = "crun"
+  CONTAINERSEOF
+
+  # Create empty registries.conf (user will configure with configure-buildah.sh)
+  cat > /home/devuser/.config/containers/registries.conf << 'REGISTRIESEOF'
+  # Container registries configuration
+  # Use configure-buildah.sh to add registries
+
+  unqualified-search-registries = ["docker.io"]
+
+  # Add your registries here or use configure-buildah.sh
+  REGISTRIESEOF
+
+  # Create policy.json for image signature verification
+  cat > /home/devuser/.config/containers/policy.json << 'POLICYEOF'
+  {
+    "default": [
+      {
+        "type": "insecureAcceptAnything"
+      }
+    ]
+  }
+  POLICYEOF
+
+  # Set proper ownership
+  chown -R devuser:devuser /home/devuser/.config/containers
+  chown -R devuser:devuser /home/devuser/.local/share/containers
+
+  # Add docker alias to bashrc
+  BASHRC="/home/devuser/.bashrc"
+  if [ -f "$BASHRC" ]; then
+      if ! grep -q "alias docker=" "$BASHRC" 2>/dev/null; then
+          echo '' >> "$BASHRC"
+          echo '# Docker alias for Podman compatibility' >> "$BASHRC"
+          echo 'alias docker=podman' >> "$BASHRC"
+          echo '✓ Added docker→podman alias to .bashrc'
+      fi
+  fi
+
+  # Create README for buildah tools
+  cat > /home/devuser/buildah-tools-README.txt << 'READMEEOF'
+  ================================================================================
+                      Buildah Container Build Tools Installed
+  ================================================================================
+  
+  The following rootless container build tools are now available:
+  
+    - buildah     - Build OCI/Docker images without daemon
+    - podman      - Run and manage containers (Docker-compatible CLI)
+    - skopeo      - Inspect and copy container images
+    - docker      - Alias to podman for familiar Docker experience
+  
+  ================================================================================
+                      Getting Started with Container Building
+  ================================================================================
+  
+  IMPORTANT: Before pushing images to a registry, you must configure it:
+  
+      configure-buildah.sh
+  
+  This interactive script helps you:
+    - Add container registries (k3s internal, Nexus, Docker Hub, etc.)
+    - Configure authentication (if required)
+    - Install custom CA certificates
+    - Test registry connectivity
+  
+  ================================================================================
+                           Quick Start - Building Images
+  ================================================================================
+  
+  1. Build an image from a Dockerfile:
+  
+     cd ~/workspace/my-project
+     buildah bud -t my-app:latest .
+  
+     # Or use podman (same syntax as Docker)
+     podman build -t my-app:latest .
+  
+     # Or use the docker alias
+     docker build -t my-app:latest .
+  
+  2. List built images:
+  
+     podman images
+     # or
+     docker images
+  
+  3. Tag for a registry:
+  
+     podman tag my-app:latest registry.example.com:443/my-app:latest
+  
+  4. Push to registry:
+  
+     podman push registry.example.com:443/my-app:latest
+     # or
+     docker push registry.example.com:443/my-app:latest
+  
+  ================================================================================
+                           Rootless Container Features
+  ================================================================================
+  
+  All operations run without root privileges:
+    - No Docker daemon required
+    - Runs as devuser (UID 1000)
+    - Uses fuse-overlayfs for storage
+    - Fully OCI compliant
+  
+  Storage location:
+    - Images: ~/.local/share/containers/storage
+    - Config:  ~/.config/containers/
+  
+  ================================================================================
+                           Working with Registries
+  ================================================================================
+  
+  Configure registries with:
+  
+      configure-buildah.sh
+  
+  Common registry types:
+    - k3s internal registry (e.g., registry.namespace.svc.cluster.local:443)
+    - Nexus repository manager
+    - Docker Hub
+    - Private registries with custom CA certificates
+  
+  Manual configuration files:
+    - ~/.config/containers/registries.conf  - Registry settings
+    - ~/.config/containers/auth.json        - Authentication
+    - ~/.config/containers/policy.json      - Security policies
+  
+  ================================================================================
+                           Podman vs Docker Commands
+  ================================================================================
+  
+  Podman is 100% Docker CLI compatible. These commands work identically:
+  
+    Docker Command                    Podman Command
+    --------------                    --------------
+    docker build -t app .             podman build -t app .
+    docker run -it app                podman run -it app .
+    docker push registry/app          podman push registry/app
+    docker images                     podman images
+    docker ps                         podman ps
+    docker exec -it <id> bash         podman exec -it <id> bash
+  
+  A 'docker' alias is configured to point to podman for convenience.
+  
+  ================================================================================
+                           Advanced Tools
+  ================================================================================
+  
+  Skopeo - Inspect and copy images without pulling:
+  
+    # Inspect a remote image
+    skopeo inspect docker://registry/image:tag
+  
+    # Copy between registries
+    skopeo copy docker://source/image docker://dest/image
+  
+    # Delete remote image
+    skopeo delete docker://registry/image:tag
+  
+  Buildah - Advanced building:
+  
+    # Build without Dockerfile
+    container=$(buildah from ubuntu:22.04)
+    buildah run $container apt-get update
+    buildah run $container apt-get install -y nginx
+    buildah commit $container my-nginx:latest
+  
+  ================================================================================
+                           Documentation
+  ================================================================================
+  
+    Buildah:  https://buildah.io
+    Podman:   https://podman.io
+    Skopeo:   https://github.com/containers/skopeo
+  
+  READMEEOF
+
+  chown devuser:devuser /home/devuser/buildah-tools-README.txt
+
+  # Add one-time welcome message to bashrc
+  if ! grep -q "buildah-tools-welcome" "$BASHRC" 2>/dev/null; then
+      echo '' >> "$BASHRC"
+      echo '# Buildah Tools - One-time welcome message' >> "$BASHRC"
+      echo 'if [ ! -f ~/.buildah-tools-welcomed ]; then' >> "$BASHRC"
+      echo '    echo ""' >> "$BASHRC"
+      echo '    echo "==============================================================="' >> "$BASHRC"
+      echo '    echo "          Container Build Tools Ready"' >> "$BASHRC"
+      echo '    echo "==============================================================="' >> "$BASHRC"
+      echo '    echo ""' >> "$BASHRC"
+      echo '    echo "  Tools: buildah, podman (docker alias), skopeo"' >> "$BASHRC"
+      echo '    echo ""' >> "$BASHRC"
+      echo '    echo "  IMPORTANT: Configure registries before pushing images:"' >> "$BASHRC"
+      echo '    echo ""' >> "$BASHRC"
+      echo '    echo "    configure-buildah.sh"' >> "$BASHRC"
+      echo '    echo ""' >> "$BASHRC"
+      echo '    echo "  Quick start (after configuring registry):"' >> "$BASHRC"
+      echo '    echo "    docker build -t my-app .      # Build image"' >> "$BASHRC"
+      echo '    echo "    docker push registry/my-app   # Push to registry"' >> "$BASHRC"
+      echo '    echo ""' >> "$BASHRC"
+      echo '    echo "  Full docs: cat ~/buildah-tools-README.txt"' >> "$BASHRC"
+      echo '    echo ""' >> "$BASHRC"
+      echo '    touch ~/.buildah-tools-welcomed' >> "$BASHRC"
+      echo 'fi' >> "$BASHRC"
+  fi
+
+  # Also add alias to .zshrc if it exists or when user creates it
+  ZSHRC="/home/devuser/.zshrc"
+  if [ -f "$ZSHRC" ]; then
+      if ! grep -q "alias docker=" "$ZSHRC" 2>/dev/null; then
+          echo '' >> "$ZSHRC"
+          echo '# Docker alias for Podman compatibility' >> "$ZSHRC"
+          echo 'alias docker=podman' >> "$ZSHRC"
+          echo '✓ Added docker→podman alias to .zshrc'
+      fi
+  fi
+
+  echo "✓ Buildah and Podman configured for rootless operation"
+  echo "  Run 'configure-buildah.sh' to add container registries"
