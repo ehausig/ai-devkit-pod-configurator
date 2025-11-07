@@ -33,6 +33,3 @@ EOF
 
 echo -e "${GREEN}✓ Security context configuration created${NC}"
 echo -e "  Rootless container building will be enabled in deployment"
-echo -e ""
-echo -e "${YELLOW}⚠ IMPORTANT: After deployment, you must manually apply AppArmor annotation${NC}"
-echo -e "  See: components/tools/buildah-tools/POST-DEPLOYMENT-MANUAL-STEPS.md"
