@@ -30,6 +30,7 @@ spec:
         app: ai-devkit
       annotations:
         kubectl.kubernetes.io/default-container: ai-devkit
+        container.apparmor.security.beta.kubernetes.io/ai-devkit: unconfined
     spec:
       initContainers:
       # Init container to set up configuration files
