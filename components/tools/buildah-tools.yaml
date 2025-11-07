@@ -43,6 +43,9 @@ installation:
     - source: configure-buildah.sh
       destination: /usr/local/bin/configure-buildah.sh
       permissions: "755"
+    - source: test-registry-workflow.sh
+      destination: /usr/local/bin/test-registry-workflow.sh
+      permissions: "755"
 entrypoint_setup: |
   # Buildah and Podman rootless setup
   echo "Setting up Buildah and Podman for rootless container building..."
