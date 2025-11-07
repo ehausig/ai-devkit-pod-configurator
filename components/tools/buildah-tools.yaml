@@ -4,6 +4,7 @@ version: "1.0.0"
 group: container-build-tools
 requires: []
 description: Container image build tools - buildah, podman, skopeo for rootless OCI image building
+pre_build_script: buildah-setup.sh
 command_permissions:
   allow:
     - "Bash(buildah:*)"
