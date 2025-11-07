@@ -113,8 +113,21 @@ entrypoint_setup: |
   chown -R devuser:devuser /home/devuser/.config/containers
   chown -R devuser:devuser /home/devuser/.local/share/containers
 
+  # Set up XDG_RUNTIME_DIR for rootless containers
+  # Create runtime directory
+  mkdir -p /run/user/1000
+  chown devuser:devuser /run/user/1000
+  chmod 700 /run/user/1000
+
   # Add docker alias to bashrc
   BASHRC="/home/devuser/.bashrc"
+
+  # Add XDG_RUNTIME_DIR to bashrc
+  if ! grep -q "export XDG_RUNTIME_DIR=" "$BASHRC" 2>/dev/null; then
+      echo '' >> "$BASHRC"
+      echo '# XDG_RUNTIME_DIR for rootless containers' >> "$BASHRC"
+      echo 'export XDG_RUNTIME_DIR=/run/user/1000' >> "$BASHRC"
+  fi
   if [ -f "$BASHRC" ]; then
       if ! grep -q "alias docker=" "$BASHRC" 2>/dev/null; then
           echo '' >> "$BASHRC"
@@ -293,9 +306,14 @@ entrypoint_setup: |
       echo 'fi' >> "$BASHRC"
   fi
 
-  # Also add alias to .zshrc if it exists or when user creates it
+  # Also add alias and XDG_RUNTIME_DIR to .zshrc if it exists or when user creates it
   ZSHRC="/home/devuser/.zshrc"
   if [ -f "$ZSHRC" ]; then
+      if ! grep -q "export XDG_RUNTIME_DIR=" "$ZSHRC" 2>/dev/null; then
+          echo '' >> "$ZSHRC"
+          echo '# XDG_RUNTIME_DIR for rootless containers' >> "$ZSHRC"
+          echo 'export XDG_RUNTIME_DIR=/run/user/1000' >> "$ZSHRC"
+      fi
       if ! grep -q "alias docker=" "$ZSHRC" 2>/dev/null; then
           echo '' >> "$ZSHRC"
           echo '# Docker alias for Podman compatibility' >> "$ZSHRC"
