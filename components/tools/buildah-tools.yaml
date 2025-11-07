@@ -20,19 +20,9 @@ command_permissions:
 installation:
   dockerfile: |
     # Install Buildah and Podman for rootless container image building
+    # Ubuntu 24.04 LTS includes podman 4.9+ and buildah 1.33+ in official repos
     RUN export DEBIAN_FRONTEND=noninteractive && \
-        # Add Kubic repository for latest buildah/podman
         apt-get update && \
-        apt-get install -y \
-            software-properties-common \
-            wget \
-            gnupg2 \
-            ca-certificates && \
-        # Add Kubic OBS repository for Ubuntu 22.04
-        echo "deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_22.04/ /" | tee /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list && \
-        wget -nv https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/xUbuntu_22.04/Release.key -O- | apt-key add - && \
-        apt-get update && \
-        # Install dependencies for rootless containers
         apt-get install -y \
             buildah \
             podman \
