@@ -12,7 +12,7 @@ DOCKERFILE
 
 echo ""
 echo "Importing to k3s containerd..."
-import-to-k8s-containerd.sh containerd-import-test:v1
+/usr/local/bin/import-to-k8s-containerd.sh containerd-import-test:v1
 
 echo ""
 echo "Creating test pod to verify..."

@@ -46,6 +46,12 @@ installation:
     - source: test-registry-workflow.sh
       destination: /usr/local/bin/test-registry-workflow.sh
       permissions: "755"
+    - source: import-to-k8s-containerd.sh
+      destination: /usr/local/bin/import-to-k8s-containerd.sh
+      permissions: "755"
+    - source: test-containerd-import.sh
+      destination: /usr/local/bin/test-containerd-import.sh
+      permissions: "755"
 entrypoint_setup: |
   # Buildah and Podman rootless setup
   echo "Setting up Buildah and Podman for rootless container building..."
