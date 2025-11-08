@@ -17,7 +17,7 @@ echo "Importing to k3s containerd..."
 echo ""
 echo "Creating test pod to verify..."
 kubectl delete pod containerd-import-test 2>/dev/null || true
-kubectl run containerd-import-test --image=containerd-import-test:v1 --image-pull-policy=Never --restart=Never
+kubectl run containerd-import-test --image=localhost/containerd-import-test:v1 --image-pull-policy=Never --restart=Never
 
 echo "Waiting for pod to complete..."
 kubectl wait --for=condition=Ready pod/containerd-import-test --timeout=30s || true
