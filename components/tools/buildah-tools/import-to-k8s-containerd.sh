@@ -126,8 +126,9 @@ info "[4/5] Importing into containerd (k8s.io namespace)..."
 
 # Use kubectl debug to run ctr import on the node
 # Suppress the deprecation warning with 2>&1 | grep -v deprecated
+# Use k3s containerd socket at /run/k3s/containerd/containerd.sock
 IMPORT_OUTPUT=$(kubectl debug node/"$NODE_NAME" -it --image=alpine -- \
-  chroot /host ctr --namespace k8s.io images import /tmp/"$TAR_BASENAME" 2>&1 | \
+  chroot /host ctr --address /run/k3s/containerd/containerd.sock --namespace k8s.io images import /tmp/"$TAR_BASENAME" 2>&1 | \
   grep -v "profile=legacy is deprecated" || true)
 
 if echo "$IMPORT_OUTPUT" | grep -q "unpacking"; then
