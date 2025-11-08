@@ -1,4 +1,4 @@
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 ARG CACHEBUST=1
 
@@ -63,6 +63,7 @@ RUN apt-get update && \
         sudo \
         locales \
         netcat-openbsd \
+        iputils-ping \
         --no-install-recommends 2>&1 | \
     { grep -v "update-alternatives: warning: skip creation of .* because associated file .* doesn't exist" || true; } && \
     apt-get clean && \

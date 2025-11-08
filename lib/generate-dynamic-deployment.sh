@@ -30,6 +30,7 @@ spec:
         app: ai-devkit
       annotations:
         kubectl.kubernetes.io/default-container: ai-devkit
+        container.apparmor.security.beta.kubernetes.io/ai-devkit: unconfined
     spec:
       initContainers:
       # Init container to set up configuration files
@@ -55,6 +56,16 @@ spec:
       - name: ai-devkit
         image: ai-devkit:latest
         imagePullPolicy: IfNotPresent
+EOF
+
+    # Check if security context is required (e.g., for buildah/podman)
+    local security_context_file=".build-temp/deployment-patches/buildah-security-context.yaml"
+    if [[ -f "$security_context_file" ]]; then
+        # Inject security context (indented with 8 spaces for container level)
+        sed 's/^/        /' "$security_context_file" >> "$output_file"
+    fi
+
+    cat >> "$output_file" << 'EOF'
         ports:
         - containerPort: 22
           name: ssh
