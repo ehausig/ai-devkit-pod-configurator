@@ -43,14 +43,11 @@ installation:
     - source: configure-buildah.sh
       destination: /usr/local/bin/configure-buildah.sh
       permissions: "755"
-    - source: test-registry-workflow.sh
-      destination: /usr/local/bin/test-registry-workflow.sh
-      permissions: "755"
     - source: import-to-k8s-containerd.sh
       destination: /usr/local/bin/import-to-k8s-containerd.sh
       permissions: "755"
-    - source: test-containerd-import.sh
-      destination: /usr/local/bin/test-containerd-import.sh
+    - source: test-buildah-workflow.sh
+      destination: /usr/local/bin/test-buildah-workflow.sh
       permissions: "755"
 entrypoint_setup: |
   # Buildah and Podman rootless setup
