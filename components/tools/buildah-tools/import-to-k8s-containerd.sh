@@ -111,6 +111,10 @@ cleanup() {
     info "Cleaning up..."
     rm -f "$TAR_FILE"
     kubectl delete pod "$LOADER_POD" --force --grace-period=0 2>/dev/null || true
+    # Clean up kubectl debug pods (node-debugger-*)
+    kubectl delete pod -l app=kubectl-debug --field-selector status.phase=Succeeded 2>/dev/null || true
+    # Fallback: delete any completed node-debugger pods
+    kubectl get pods -o name | grep "node-debugger-$NODE_NAME" | xargs -r kubectl delete --force --grace-period=0 2>/dev/null || true
     success "Cleanup complete"
 }
 trap cleanup EXIT
