@@ -56,9 +56,21 @@ if [ -f /tmp/git-mounted/.git-credentials ]; then
     cp /tmp/git-mounted/.git-credentials /home/devuser/.git-credentials
     chown devuser:devuser /home/devuser/.git-credentials
     chmod 600 /home/devuser/.git-credentials
+
+    # Extract GitHub token from git-credentials and set as GH_TOKEN for automatic gh CLI authentication
+    # Format is: https://username:token@github.com
+    GITHUB_TOKEN=$(grep "github.com" /home/devuser/.git-credentials | sed -n 's|https://[^:]*:\([^@]*\)@github.com|\1|p' | head -1)
+    if [ -n "$GITHUB_TOKEN" ]; then
+        echo "Configuring GitHub CLI (gh) authentication via GH_TOKEN"
+        # Set for root user entrypoint scripts
+        export GH_TOKEN="$GITHUB_TOKEN"
+        # Add to devuser's environment
+        echo "export GH_TOKEN='$GITHUB_TOKEN'" >> /home/devuser/.bashrc
+        echo "✓ GitHub CLI (gh) will authenticate automatically"
+    fi
 fi
 
-# Handle GitHub CLI configuration
+# Handle GitHub CLI configuration (backup method)
 if [ -f /tmp/git-mounted/gh-hosts.yml ]; then
     echo "Found mounted GitHub CLI configuration"
     mkdir -p /home/devuser/.config/gh
