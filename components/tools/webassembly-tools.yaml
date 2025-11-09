@@ -1,9 +1,9 @@
 id: WEBASSEMBLY_TOOLS
 name: WebAssembly Tools
-version: "1.0.0"
+version: "2.0.0"
 group: wasm-tools
 requires: rust
-description: WebAssembly development tools - wash, wasm-tools, wasmtime, wit-bindgen, wac
+description: WebAssembly development tools (latest versions) - wash, wasm-tools, wasmtime, wit-bindgen, wac
 command_permissions:
   allow:
     - "Bash(wash:*)"
@@ -18,43 +18,25 @@ command_permissions:
   deny: []
 installation:
   dockerfile: |
-    # Install WebAssembly development tools with explicit versions
+    # Install WebAssembly development tools using best practices
     RUN export DEBIAN_FRONTEND=noninteractive && \
         export PATH="/opt/rust/bin:$PATH" && \
         export CARGO_HOME="/opt/rust" && \
         export RUSTUP_HOME="/opt/rust" && \
-        ARCH=$(dpkg --print-architecture) && \
-        # Determine architecture for downloads
-        if [ "${ARCH}" = "arm64" ]; then \
-            WASH_ARCH="aarch64"; \
-            WASM_TOOLS_ARCH="aarch64"; \
-            WASMTIME_ARCH="aarch64"; \
-        elif [ "${ARCH}" = "amd64" ]; then \
-            WASH_ARCH="x86_64"; \
-            WASM_TOOLS_ARCH="x86_64"; \
-            WASMTIME_ARCH="x86_64"; \
-        else \
-            echo "Unsupported architecture: ${ARCH}" && exit 1; \
-        fi && \
-        # Install wash v1.0.0-beta.10
-        wget -q "https://github.com/wasmCloud/wash/releases/download/wash-v1.0.0-beta.10/wash-${WASH_ARCH}-unknown-linux-musl" -O /tmp/wash && \
-        chmod +x /tmp/wash && \
-        mv /tmp/wash /usr/local/bin/wash && \
-        # Install wasm-tools v1.240.0
-        wget -q "https://github.com/bytecodealliance/wasm-tools/releases/download/v1.240.0/wasm-tools-1.240.0-${WASM_TOOLS_ARCH}-linux.tar.gz" && \
-        tar -zxf wasm-tools-1.240.0-${WASM_TOOLS_ARCH}-linux.tar.gz && \
-        mv wasm-tools-1.240.0-${WASM_TOOLS_ARCH}-linux/wasm-tools /usr/local/bin/wasm-tools && \
-        rm -rf wasm-tools-1.240.0-${WASM_TOOLS_ARCH}-linux.tar.gz wasm-tools-1.240.0-${WASM_TOOLS_ARCH}-linux && \
-        # Install wasmtime v38.0.3
-        wget -q "https://github.com/bytecodealliance/wasmtime/releases/download/v38.0.3/wasmtime-v38.0.3-${WASMTIME_ARCH}-linux.tar.xz" && \
-        tar -xJf wasmtime-v38.0.3-${WASMTIME_ARCH}-linux.tar.xz && \
-        mv wasmtime-v38.0.3-${WASMTIME_ARCH}-linux/wasmtime /usr/local/bin/wasmtime && \
-        rm -rf wasmtime-v38.0.3-${WASMTIME_ARCH}-linux.tar.xz wasmtime-v38.0.3-${WASMTIME_ARCH}-linux && \
-        # Install wit-bindgen v0.45.1 via cargo
-        cargo install --locked --version 0.45.1 wit-bindgen-cli && \
+        # Install wash via apt (recommended by wasmCloud)
+        curl -s https://packagecloud.io/install/repositories/wasmcloud/core/script.deb.sh | bash && \
+        apt-get install -y wash && \
+        # Install wasm-tools via cargo (recommended method)
+        cargo install wasm-tools && \
+        ln -sf /opt/rust/bin/wasm-tools /usr/local/bin/wasm-tools && \
+        # Install wasmtime via cargo
+        cargo install wasmtime-cli && \
+        ln -sf /opt/rust/bin/wasmtime /usr/local/bin/wasmtime && \
+        # Install wit-bindgen via cargo
+        cargo install wit-bindgen-cli && \
         ln -sf /opt/rust/bin/wit-bindgen /usr/local/bin/wit-bindgen && \
-        # Install wac v0.6.1 via cargo
-        cargo install --locked --version 0.6.1 wac-cli && \
+        # Install wac via cargo
+        cargo install wac-cli && \
         ln -sf /opt/rust/bin/wac /usr/local/bin/wac && \
         # Verify installations
         wash --version && \
@@ -83,13 +65,13 @@ entrypoint_setup: |
                         WebAssembly Tools Installed
   ================================================================================
 
-  The following WebAssembly development tools are now available:
+  The following WebAssembly development tools are now available (latest versions):
 
-    - wash (v1.0.0-beta.10)      - wasmCloud Shell for building & deploying
-    - wasm-tools (v1.240.0)      - WebAssembly module manipulation utilities
-    - wasmtime (v38.0.3)         - WebAssembly runtime for testing
-    - wit-bindgen (v0.45.1)      - WIT language binding generator
-    - wac (v0.6.1)               - WebAssembly composition tool
+    - wash                       - wasmCloud Shell for building & deploying
+    - wasm-tools                 - WebAssembly module manipulation utilities
+    - wasmtime                   - WebAssembly runtime for testing
+    - wit-bindgen                - WIT language binding generator
+    - wac                        - WebAssembly composition tool
 
   ================================================================================
                     wasmCloud Connection Configuration
