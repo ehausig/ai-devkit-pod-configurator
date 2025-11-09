@@ -29,9 +29,9 @@ installation:
         # Install wasm-tools via cargo (recommended method)
         cargo install wasm-tools && \
         ln -sf /opt/rust/bin/wasm-tools /usr/local/bin/wasm-tools && \
-        # Install wasmtime using official install script
-        curl https://wasmtime.dev/install.sh -sSf | bash && \
-        ln -sf /root/.wasmtime/bin/wasmtime /usr/local/bin/wasmtime && \
+        # Install wasmtime via cargo
+        cargo install wasmtime-cli && \
+        ln -sf /opt/rust/bin/wasmtime /usr/local/bin/wasmtime && \
         # Install wit-bindgen via cargo
         cargo install wit-bindgen-cli && \
         ln -sf /opt/rust/bin/wit-bindgen /usr/local/bin/wit-bindgen && \
