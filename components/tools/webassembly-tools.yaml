@@ -25,6 +25,8 @@ installation:
         export RUSTUP_HOME="/opt/rust" && \
         # Install wash using prebuilt binaries (latest version for wasmCloud 1.9)
         curl -fsSL https://raw.githubusercontent.com/wasmcloud/wash/refs/heads/main/install.sh | bash && \
+        # The install script places wash in ~/.local/bin, create symlink to standard location
+        ln -sf /root/.local/bin/wash /usr/local/bin/wash && \
         # Install wasm-tools via cargo (recommended method)
         cargo install wasm-tools && \
         ln -sf /opt/rust/bin/wasm-tools /usr/local/bin/wasm-tools && \
