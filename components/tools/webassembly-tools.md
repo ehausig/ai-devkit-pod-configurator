@@ -13,7 +13,7 @@ A comprehensive suite of WebAssembly and wasmCloud development tools for buildin
 This component requires a Rust installation (stable or nightly channel).
 
 **Installation Methods**:
-- **wash**: Installed via cargo from git repository (latest version compatible with wasmCloud 1.9+)
+- **wash**: Downloaded as prebuilt binary from GitHub releases (latest version compatible with wasmCloud 1.9+)
 - **wasm-tools, wasmtime, wit-bindgen, wac**: Installed via cargo (Rust package manager)
 
 **wash - wasmCloud Shell**:
