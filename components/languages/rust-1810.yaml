@@ -35,13 +35,13 @@ installation:
         echo 'export RUSTUP_HOME=/opt/rust' >> /etc/profile.d/rust.sh && \
         echo 'export CARGO_HOME=$HOME/.cargo' >> /etc/profile.d/rust.sh && \
         ln -s /opt/rust/bin/* /usr/local/bin/ && \
-        # Install Rust 1.81.0 specifically
-        /opt/rust/bin/rustup install 1.81.0 && \
-        /opt/rust/bin/rustup default 1.81.0 && \
+        # Install Rust 1.81.0 specifically (with env vars for all rustup/cargo commands)
+        RUSTUP_HOME=/opt/rust CARGO_HOME=/opt/rust /opt/rust/bin/rustup install 1.81.0 && \
+        RUSTUP_HOME=/opt/rust CARGO_HOME=/opt/rust /opt/rust/bin/rustup default 1.81.0 && \
         # Add wasm32-wasip2 target for WebAssembly development
-        /opt/rust/bin/rustup target add wasm32-wasip2 && \
+        RUSTUP_HOME=/opt/rust CARGO_HOME=/opt/rust /opt/rust/bin/rustup target add wasm32-wasip2 && \
         # Install commonly used cargo tools
-        /opt/rust/bin/cargo install cargo-watch
+        RUSTUP_HOME=/opt/rust CARGO_HOME=/opt/rust /opt/rust/bin/cargo install cargo-watch
   nexus_config: |
     if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
         mkdir -p /etc/skel/.cargo && \
