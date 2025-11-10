@@ -3,7 +3,7 @@
 A comprehensive suite of WebAssembly and wasmCloud development tools for building, testing, and deploying WebAssembly components.
 
 **Installed Tools** (latest versions):
-- **wash** - wasmCloud Shell for project management and deployment (installed via apt)
+- **wash** - wasmCloud Shell for project management and deployment (installed via prebuilt binaries)
 - **wasm-tools** - Low-level WebAssembly module manipulation utilities (installed via cargo)
 - **wasmtime** - Fast and secure WebAssembly runtime (installed via cargo)
 - **wit-bindgen** - Generate language bindings from WIT definitions (installed via cargo)
@@ -13,7 +13,7 @@ A comprehensive suite of WebAssembly and wasmCloud development tools for buildin
 This component requires a Rust installation (stable or nightly channel).
 
 **Installation Methods**:
-- **wash**: Installed via apt package manager using wasmCloud's official repository
+- **wash**: Installed using official prebuilt binaries install script (ensures latest version for wasmCloud 1.9+)
 - **wasm-tools, wasmtime, wit-bindgen, wac**: Installed via cargo (Rust package manager)
 
 **wash - wasmCloud Shell**:

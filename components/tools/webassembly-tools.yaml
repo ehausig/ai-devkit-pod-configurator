@@ -23,9 +23,8 @@ installation:
         export PATH="/opt/rust/bin:$PATH" && \
         export CARGO_HOME="/opt/rust" && \
         export RUSTUP_HOME="/opt/rust" && \
-        # Install wash via apt (recommended by wasmCloud)
-        curl -s https://packagecloud.io/install/repositories/wasmcloud/core/script.deb.sh | bash && \
-        apt-get install -y wash && \
+        # Install wash using prebuilt binaries (latest version for wasmCloud 1.9)
+        curl -fsSL https://raw.githubusercontent.com/wasmcloud/wash/refs/heads/main/install.sh | bash && \
         # Install wasm-tools via cargo (recommended method)
         cargo install wasm-tools && \
         ln -sf /opt/rust/bin/wasm-tools /usr/local/bin/wasm-tools && \
