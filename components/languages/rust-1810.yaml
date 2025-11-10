@@ -39,9 +39,7 @@ installation:
         RUSTUP_HOME=/opt/rust CARGO_HOME=/opt/rust /opt/rust/bin/rustup install 1.81.0 && \
         RUSTUP_HOME=/opt/rust CARGO_HOME=/opt/rust /opt/rust/bin/rustup default 1.81.0 && \
         # Add wasm32-wasip1 target for WebAssembly development
-        RUSTUP_HOME=/opt/rust CARGO_HOME=/opt/rust /opt/rust/bin/rustup target add wasm32-wasip1 && \
-        # Install commonly used cargo tools
-        RUSTUP_HOME=/opt/rust CARGO_HOME=/opt/rust /opt/rust/bin/cargo install cargo-watch
+        RUSTUP_HOME=/opt/rust CARGO_HOME=/opt/rust /opt/rust/bin/rustup target add wasm32-wasip1
   nexus_config: |
     if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
         mkdir -p /etc/skel/.cargo && \
@@ -51,7 +49,7 @@ installation:
         echo '[source.nexus]' >> /etc/skel/.cargo/config.toml && \
         echo "registry = \"sparse+${NEXUS_APT_URL}/repository/cargo-proxy/\"" >> /etc/skel/.cargo/config.toml; \
     fi
-  test_command: rustc --version && cargo watch --version
+  test_command: rustc --version
 entrypoint_setup: |
   # Rust specific setup
   echo "Setting up Rust environment..."
