@@ -29,15 +29,17 @@ installation:
         reason: "Official Rust package registry"
   dockerfile: |
     RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
-        RUSTUP_HOME=/opt/rust CARGO_HOME=/opt/rust sh -s -- -y --no-modify-path --default-toolchain 1.81.0 && \
+        RUSTUP_HOME=/opt/rust CARGO_HOME=/opt/rust sh -s -- -y --no-modify-path --default-toolchain stable && \
         chmod -R 755 /opt/rust && \
         echo 'export PATH=/opt/rust/bin:$PATH' >> /etc/profile.d/rust.sh && \
         echo 'export RUSTUP_HOME=/opt/rust' >> /etc/profile.d/rust.sh && \
         echo 'export CARGO_HOME=$HOME/.cargo' >> /etc/profile.d/rust.sh && \
         ln -s /opt/rust/bin/* /usr/local/bin/ && \
+        # Install Rust 1.81.0 specifically
+        /opt/rust/bin/rustup install 1.81.0 && \
         /opt/rust/bin/rustup default 1.81.0 && \
         # Add wasm32-wasip2 target for WebAssembly development
-        /opt/rust/bin/rustup target add wasm32-wasip2 --toolchain 1.81.0 && \
+        /opt/rust/bin/rustup target add wasm32-wasip2 && \
         # Install commonly used cargo tools
         /opt/rust/bin/cargo install cargo-watch
   nexus_config: |
