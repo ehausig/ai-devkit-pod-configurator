@@ -3,7 +3,7 @@ name: Rust 1.81.0
 version: "1.81.0"
 group: rust
 requires: []
-description: Rust programming language - version 1.81.0 (with wasm32-wasip2 target support)
+description: Rust programming language - version 1.81.0 (with wasm32-wasip1 target support)
 command_permissions:
   allow:
     - "Bash(cargo:*)"
@@ -38,8 +38,8 @@ installation:
         # Install Rust 1.81.0 specifically (with env vars for all rustup/cargo commands)
         RUSTUP_HOME=/opt/rust CARGO_HOME=/opt/rust /opt/rust/bin/rustup install 1.81.0 && \
         RUSTUP_HOME=/opt/rust CARGO_HOME=/opt/rust /opt/rust/bin/rustup default 1.81.0 && \
-        # Add wasm32-wasip2 target for WebAssembly development
-        RUSTUP_HOME=/opt/rust CARGO_HOME=/opt/rust /opt/rust/bin/rustup target add wasm32-wasip2 && \
+        # Add wasm32-wasip1 target for WebAssembly development
+        RUSTUP_HOME=/opt/rust CARGO_HOME=/opt/rust /opt/rust/bin/rustup target add wasm32-wasip1 && \
         # Install commonly used cargo tools
         RUSTUP_HOME=/opt/rust CARGO_HOME=/opt/rust /opt/rust/bin/cargo install cargo-watch
   nexus_config: |
