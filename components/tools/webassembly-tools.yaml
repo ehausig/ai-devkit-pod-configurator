@@ -3,7 +3,7 @@ name: WebAssembly Tools
 version: "2.0.0"
 group: wasm-tools
 requires: rust
-description: WebAssembly development tools (latest versions) - wash, wasm-tools, wasmtime, wit-bindgen, wac
+description: WebAssembly development tools - wash (v1.0.0-beta.1), wasm-tools, wasmtime, wit-bindgen, wac
 command_permissions:
   allow:
     - "Bash(wash:*)"
@@ -32,8 +32,8 @@ installation:
         else \
             echo "Unsupported architecture: ${ARCH}" && exit 1; \
         fi && \
-        # Download latest wash prebuilt binary (latest version for wasmCloud 1.9)
-        WASH_VERSION=$(curl -s https://api.github.com/repos/wasmCloud/wash/releases/latest | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/') && \
+        # Download wash v1.0.0-beta.1 prebuilt binary (compatible with current wasmCloud version)
+        WASH_VERSION="wash-v1.0.0-beta.1" && \
         wget -q "https://github.com/wasmCloud/wash/releases/download/${WASH_VERSION}/wash-${WASH_ARCH}-unknown-linux-musl" -O /usr/local/bin/wash && \
         chmod +x /usr/local/bin/wash && \
         # Install wasm-tools via cargo (recommended method)
@@ -75,13 +75,13 @@ entrypoint_setup: |
                         WebAssembly Tools Installed
   ================================================================================
 
-  The following WebAssembly development tools are now available (latest versions):
+  The following WebAssembly development tools are now available:
 
-    - wash                       - wasmCloud Shell for building & deploying
-    - wasm-tools                 - WebAssembly module manipulation utilities
-    - wasmtime                   - WebAssembly runtime for testing
-    - wit-bindgen                - WIT language binding generator
-    - wac                        - WebAssembly composition tool
+    - wash (v1.0.0-beta.1)       - wasmCloud Shell for building & deploying
+    - wasm-tools (latest)        - WebAssembly module manipulation utilities
+    - wasmtime (latest)          - WebAssembly runtime for testing
+    - wit-bindgen (latest)       - WIT language binding generator
+    - wac (latest)               - WebAssembly composition tool
 
   ================================================================================
                     wasmCloud Connection Configuration
