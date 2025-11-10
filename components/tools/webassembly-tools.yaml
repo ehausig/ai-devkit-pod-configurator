@@ -23,8 +23,8 @@ installation:
         export PATH="/opt/rust/bin:$PATH" && \
         export CARGO_HOME="/opt/rust" && \
         export RUSTUP_HOME="/opt/rust" && \
-        # Install wash via cargo (latest version for wasmCloud 1.9)
-        cargo install wash-cli && \
+        # Install wash from git repository (latest version for wasmCloud 1.9)
+        cargo install --git https://github.com/wasmCloud/wash wash-cli && \
         ln -sf /opt/rust/bin/wash /usr/local/bin/wash && \
         # Install wasm-tools via cargo (recommended method)
         cargo install wasm-tools && \
