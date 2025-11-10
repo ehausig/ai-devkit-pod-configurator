@@ -14,7 +14,9 @@ This component requires a Rust installation (stable or nightly channel).
 
 **Installation Methods**:
 - **wash**: Downloaded as prebuilt binary from GitHub releases (v0.42.0 for compatibility with current wasmCloud)
-- **wasm-tools, wasmtime, wit-bindgen, wac**: Installed via cargo (Rust package manager)
+- **wasm-tools, wasmtime, wit-bindgen, wac**: Installed via cargo using stable Rust toolchain (latest versions may require edition 2024)
+
+**Note**: These tools are compiled with the stable Rust toolchain during build but work with any Rust version once installed
 
 **wash - wasmCloud Shell**:
 

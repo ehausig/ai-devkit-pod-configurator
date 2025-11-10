@@ -36,17 +36,17 @@ installation:
         WASH_VERSION="wash-v0.42.0" && \
         wget -q "https://github.com/wasmCloud/wasmCloud/releases/download/${WASH_VERSION}/wash-${WASH_ARCH}-unknown-linux-musl" -O /usr/local/bin/wash && \
         chmod +x /usr/local/bin/wash && \
-        # Install wasm-tools via cargo (recommended method)
-        cargo install wasm-tools && \
+        # Install wasm-tools via cargo using stable toolchain (latest tools may require edition 2024)
+        rustup run stable cargo install wasm-tools && \
         ln -sf /opt/rust/bin/wasm-tools /usr/local/bin/wasm-tools && \
         # Install wasmtime via cargo
-        cargo install wasmtime-cli && \
+        rustup run stable cargo install wasmtime-cli && \
         ln -sf /opt/rust/bin/wasmtime /usr/local/bin/wasmtime && \
         # Install wit-bindgen via cargo
-        cargo install wit-bindgen-cli && \
+        rustup run stable cargo install wit-bindgen-cli && \
         ln -sf /opt/rust/bin/wit-bindgen /usr/local/bin/wit-bindgen && \
         # Install wac via cargo
-        cargo install wac-cli && \
+        rustup run stable cargo install wac-cli && \
         ln -sf /opt/rust/bin/wac /usr/local/bin/wac && \
         # Verify installations
         wash --version && \
