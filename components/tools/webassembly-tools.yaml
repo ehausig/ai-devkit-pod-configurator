@@ -32,7 +32,7 @@ installation:
         else \
             echo "Unsupported architecture: ${ARCH}" && exit 1; \
         fi && \
-        # Download wash v0.42.0 prebuilt binary (compatible with current wasmCloud version)
+        # Install wash prebuilt binary
         WASH_VERSION="wash-v0.42.1" && \
         cargo bininstall wash --version ${WASH_VERSION} \
         chmod +x /usr/local/bin/wash && \
