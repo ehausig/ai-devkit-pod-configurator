@@ -23,33 +23,23 @@ installation:
         export PATH="/opt/rust/bin:$PATH" && \
         export CARGO_HOME="/opt/rust" && \
         export RUSTUP_HOME="/opt/rust" && \
-        ARCH=$(dpkg --print-architecture) && \
-        # Determine architecture for wash download
-        if [ "${ARCH}" = "arm64" ]; then \
-            WASH_ARCH="aarch64"; \
-        elif [ "${ARCH}" = "amd64" ]; then \
-            WASH_ARCH="x86_64"; \
-        else \
-            echo "Unsupported architecture: ${ARCH}" && exit 1; \
-        fi && \
-        # Install wash prebuilt binary
-        WASH_VERSION="v0.42.1" && \
-        # cargo binstall wash && \
-        # chmod +x /usr/local/bin/wash && \
-        # Install wasm-tools via cargo using stable toolchain (latest tools may require edition 2024)
-        rustup run stable cargo install wasm-tools && \
+        # Install wash using cargo-binstall (much faster than compiling)
+        cargo binstall --no-confirm --force wash-cli && \
+        ln -sf /opt/rust/bin/wash /usr/local/bin/wash && \
+        # Install wasm-tools using binstall
+        cargo binstall --no-confirm --force wasm-tools && \
         ln -sf /opt/rust/bin/wasm-tools /usr/local/bin/wasm-tools && \
-        # Install wasmtime via cargo
-        rustup run stable cargo install wasmtime-cli && \
+        # Install wasmtime using binstall
+        cargo binstall --no-confirm --force wasmtime-cli && \
         ln -sf /opt/rust/bin/wasmtime /usr/local/bin/wasmtime && \
-        # Install wit-bindgen via cargo
-        rustup run stable cargo install wit-bindgen-cli && \
+        # Install wit-bindgen using binstall
+        cargo binstall --no-confirm --force wit-bindgen-cli && \
         ln -sf /opt/rust/bin/wit-bindgen /usr/local/bin/wit-bindgen && \
-        # Install wac via cargo
-        rustup run stable cargo install wac-cli && \
+        # Install wac using binstall
+        cargo binstall --no-confirm --force wac-cli && \
         ln -sf /opt/rust/bin/wac /usr/local/bin/wac && \
         # Verify installations
-        # wash --version && \
+        wash --version && \
         wasm-tools --version && \
         wasmtime --version && \
         wit-bindgen --version && \
