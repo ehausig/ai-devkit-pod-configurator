@@ -39,7 +39,8 @@ installation:
         /opt/rust/bin/rustup default stable && \
         # Install commonly used cargo tools
         /opt/rust/bin/cargo install cargo-watch && \
-        /opt/rust/bin/cargo install cargo-binstall
+        /opt/rust/bin/cargo install cargo-binstall && \
+        /opt/rust/bin/cargo install cargo-edit
   nexus_config: |
     if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
         mkdir -p /etc/skel/.cargo && \
