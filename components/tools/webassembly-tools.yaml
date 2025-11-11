@@ -24,7 +24,7 @@ installation:
         export CARGO_HOME="/opt/rust" && \
         export RUSTUP_HOME="/opt/rust" && \
         # Install wash using cargo-binstall (much faster than compiling)
-        cargo binstall --no-confirm --force wash-cli && \
+        cargo binstall --no-confirm --force wash && \
         ln -sf /opt/rust/bin/wash /usr/local/bin/wash && \
         # Install wasm-tools using binstall
         cargo binstall --no-confirm --force wasm-tools && \
