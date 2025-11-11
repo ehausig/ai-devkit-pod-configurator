@@ -9,7 +9,6 @@ command_permissions:
     - "Bash(cargo:*)"
     - "Bash(rustc:*)"
     - "Bash(rustup:*)"
-    - "Bash(cargo watch:*)"
     - "Bash(cargo build:*)"
     - "Bash(cargo run:*)"
     - "Bash(cargo test:*)"
@@ -40,7 +39,6 @@ installation:
         # Install cargo-binstall first (from source, needed for other tools)
         CARGO_HOME=/opt/rust /opt/rust/bin/cargo install cargo-binstall && \
         # Use binstall for remaining tools (much faster)
-        CARGO_HOME=/opt/rust /opt/rust/bin/cargo binstall --no-confirm --force cargo-watch && \
         CARGO_HOME=/opt/rust /opt/rust/bin/cargo binstall --no-confirm --force cargo-edit
   nexus_config: |
     if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
@@ -51,7 +49,7 @@ installation:
         echo '[source.nexus]' >> /etc/skel/.cargo/config.toml && \
         echo "registry = \"sparse+${NEXUS_APT_URL}/repository/cargo-proxy/\"" >> /etc/skel/.cargo/config.toml; \
     fi
-  test_command: rustc --version && cargo watch --version
+  test_command: rustc --version && cargo --version
 entrypoint_setup: |
   # Rust specific setup
   echo "Setting up Rust environment..."
