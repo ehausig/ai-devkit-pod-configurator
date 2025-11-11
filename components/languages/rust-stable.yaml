@@ -54,8 +54,19 @@ entrypoint_setup: |
   echo "Setting up Rust environment..."
   
   # Create .cargo directory for Rust/Cargo
-  mkdir -p /home/devuser/.cargo
-  
+  mkdir -p /home/devuser/.cargo/bin
+
+  # Symlink pre-installed cargo tools to user's cargo bin
+  if [ -d /opt/rust/bin ]; then
+      for tool in /opt/rust/bin/cargo-*; do
+          if [ -f "$tool" ]; then
+              toolname=$(basename "$tool")
+              ln -sf "$tool" "/home/devuser/.cargo/bin/$toolname"
+          fi
+      done
+      echo "Linked system cargo tools to user cargo bin"
+  fi
+
   # Check if cargo config is properly mounted
   if [ -f /home/devuser/.cargo/config.toml ]; then
       echo "Cargo config detected at /home/devuser/.cargo/config.toml"
@@ -66,14 +77,11 @@ entrypoint_setup: |
       cat >> "$BASHRC" << 'EOF'
   
   # Rust/Cargo paths
-  export PATH="/opt/rust/bin:$PATH"
+  export PATH="$HOME/.cargo/bin:/opt/rust/bin:$PATH"
   export RUSTUP_HOME="/opt/rust"
   export CARGO_HOME="$HOME/.cargo"
   EOF
   fi
   
-  # Ensure proper ownership (skip if config is mounted)
-  if [ ! -f /home/devuser/.cargo/config.toml ]; then
-      chown -R devuser:devuser /home/devuser/.cargo 2>/dev/null || true
-      chown -R devuser:devuser /opt/rust 2>/dev/null || true
-  fi
+  # Ensure proper ownership
+  chown -R devuser:devuser /home/devuser/.cargo 2>/dev/null || true
