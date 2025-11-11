@@ -33,8 +33,8 @@ installation:
             echo "Unsupported architecture: ${ARCH}" && exit 1; \
         fi && \
         # Download wash v0.42.0 prebuilt binary (compatible with current wasmCloud version)
-        WASH_VERSION="wash-v0.42.0" && \
-        wget -q "https://github.com/wasmCloud/wasmCloud/releases/download/${WASH_VERSION}/wash-${WASH_ARCH}-unknown-linux-musl" -O /usr/local/bin/wash && \
+        WASH_VERSION="wash-v0.42.1" && \
+        cargo bininstall wash --version ${WASH_VERSION} \
         chmod +x /usr/local/bin/wash && \
         # Install wasm-tools via cargo using stable toolchain (latest tools may require edition 2024)
         rustup run stable cargo install wasm-tools && \
