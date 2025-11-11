@@ -37,10 +37,11 @@ installation:
         echo 'export CARGO_HOME=$HOME/.cargo' >> /etc/profile.d/rust.sh && \
         ln -s /opt/rust/bin/* /usr/local/bin/ && \
         /opt/rust/bin/rustup default stable && \
-        # Install commonly used cargo tools
-        CARGO_HOME=/opt/rust /opt/rust/bin/cargo install cargo-watch && \
+        # Install cargo-binstall first (from source, needed for other tools)
         CARGO_HOME=/opt/rust /opt/rust/bin/cargo install cargo-binstall && \
-        CARGO_HOME=/opt/rust /opt/rust/bin/cargo install cargo-edit
+        # Use binstall for remaining tools (much faster)
+        CARGO_HOME=/opt/rust /opt/rust/bin/cargo binstall --no-confirm --force cargo-watch && \
+        CARGO_HOME=/opt/rust /opt/rust/bin/cargo binstall --no-confirm --force cargo-edit
   nexus_config: |
     if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
         mkdir -p /etc/skel/.cargo && \
