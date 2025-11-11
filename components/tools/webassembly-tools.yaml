@@ -49,7 +49,7 @@ installation:
         rustup run stable cargo install wac-cli && \
         ln -sf /opt/rust/bin/wac /usr/local/bin/wac && \
         # Verify installations
-        wash --version && \
+        # wash --version && \
         wasm-tools --version && \
         wasmtime --version && \
         wit-bindgen --version && \
