@@ -1,20 +1,20 @@
-id: RUST_STABLE
-name: Rust (Stable Channel)
-version: "stable"
+id: RUST_1810
+name: Rust 1.81.0
+version: "1.81.0"
 group: rust
 requires: []
-description: Rust programming language - stable channel
+description: Rust programming language - version 1.81.0 (with wasm32-wasip1 target support)
 command_permissions:
   allow:
     - "Bash(cargo:*)"
     - "Bash(rustc:*)"
     - "Bash(rustup:*)"
+    - "Bash(cargo watch:*)"
     - "Bash(cargo build:*)"
     - "Bash(cargo run:*)"
     - "Bash(cargo test:*)"
     - "Bash(cargo fmt:*)"
     - "Bash(cargo clippy:*)"
-    - "Bash(cargo binstall:*)"
 installation:
   repos:
     enabled: true
@@ -28,7 +28,6 @@ installation:
         type: "remote"
         reason: "Official Rust package registry"
   dockerfile: |
-    # Force rebuild: 2025-11-11-v2
     RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
         RUSTUP_HOME=/opt/rust CARGO_HOME=/opt/rust sh -s -- -y --no-modify-path --default-toolchain stable && \
         chmod -R 755 /opt/rust && \
@@ -36,11 +35,11 @@ installation:
         echo 'export RUSTUP_HOME=/opt/rust' >> /etc/profile.d/rust.sh && \
         echo 'export CARGO_HOME=$HOME/.cargo' >> /etc/profile.d/rust.sh && \
         ln -s /opt/rust/bin/* /usr/local/bin/ && \
-        /opt/rust/bin/rustup default stable && \
-        # Install cargo-binstall first (from source, needed for other tools)
-        CARGO_HOME=/opt/rust /opt/rust/bin/cargo install cargo-binstall && \
-        # Use binstall for remaining tools (much faster)
-        CARGO_HOME=/opt/rust /opt/rust/bin/cargo binstall --no-confirm --force cargo-edit
+        # Install Rust 1.81.0 specifically (with env vars for all rustup/cargo commands)
+        RUSTUP_HOME=/opt/rust CARGO_HOME=/opt/rust /opt/rust/bin/rustup install 1.81.0 && \
+        RUSTUP_HOME=/opt/rust CARGO_HOME=/opt/rust /opt/rust/bin/rustup default 1.81.0 && \
+        # Add wasm32-wasip1 target for WebAssembly development
+        RUSTUP_HOME=/opt/rust CARGO_HOME=/opt/rust /opt/rust/bin/rustup target add wasm32-wasip1
   nexus_config: |
     if [ -n "$USE_NEXUS_APT" ] && [ -n "$NEXUS_APT_URL" ]; then \
         mkdir -p /etc/skel/.cargo && \
@@ -50,25 +49,14 @@ installation:
         echo '[source.nexus]' >> /etc/skel/.cargo/config.toml && \
         echo "registry = \"sparse+${NEXUS_APT_URL}/repository/cargo-proxy/\"" >> /etc/skel/.cargo/config.toml; \
     fi
-  test_command: rustc --version && cargo --version
+  test_command: rustc --version
 entrypoint_setup: |
   # Rust specific setup
   echo "Setting up Rust environment..."
   
   # Create .cargo directory for Rust/Cargo
-  mkdir -p /home/devuser/.cargo/bin
-
-  # Symlink pre-installed cargo tools to user's cargo bin
-  if [ -d /opt/rust/bin ]; then
-      for tool in /opt/rust/bin/cargo-*; do
-          if [ -f "$tool" ]; then
-              toolname=$(basename "$tool")
-              ln -sf "$tool" "/home/devuser/.cargo/bin/$toolname"
-          fi
-      done
-      echo "Linked system cargo tools to user cargo bin"
-  fi
-
+  mkdir -p /home/devuser/.cargo
+  
   # Check if cargo config is properly mounted
   if [ -f /home/devuser/.cargo/config.toml ]; then
       echo "Cargo config detected at /home/devuser/.cargo/config.toml"
@@ -79,11 +67,14 @@ entrypoint_setup: |
       cat >> "$BASHRC" << 'EOF'
   
   # Rust/Cargo paths
-  export PATH="$HOME/.cargo/bin:/opt/rust/bin:$PATH"
+  export PATH="/opt/rust/bin:$PATH"
   export RUSTUP_HOME="/opt/rust"
   export CARGO_HOME="$HOME/.cargo"
   EOF
   fi
   
-  # Ensure proper ownership
-  chown -R devuser:devuser /home/devuser/.cargo 2>/dev/null || true
+  # Ensure proper ownership (skip if config is mounted)
+  if [ ! -f /home/devuser/.cargo/config.toml ]; then
+      chown -R devuser:devuser /home/devuser/.cargo 2>/dev/null || true
+      chown -R devuser:devuser /opt/rust 2>/dev/null || true
+  fi

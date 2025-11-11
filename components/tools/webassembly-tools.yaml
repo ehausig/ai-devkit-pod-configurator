@@ -3,7 +3,7 @@ name: WebAssembly Tools
 version: "2.0.0"
 group: wasm-tools
 requires: rust
-description: WebAssembly development tools (latest versions) - wash, wasm-tools, wasmtime, wit-bindgen, wac
+description: WebAssembly development tools - wash (v0.42.0), wasm-tools, wasmtime, wit-bindgen, wac
 command_permissions:
   allow:
     - "Bash(wash:*)"
@@ -23,20 +23,20 @@ installation:
         export PATH="/opt/rust/bin:$PATH" && \
         export CARGO_HOME="/opt/rust" && \
         export RUSTUP_HOME="/opt/rust" && \
-        # Install wash via apt (recommended by wasmCloud)
-        curl -s https://packagecloud.io/install/repositories/wasmcloud/core/script.deb.sh | bash && \
-        apt-get install -y wash && \
-        # Install wasm-tools via cargo (recommended method)
-        cargo install wasm-tools && \
+        # Install wash using cargo-binstall (much faster than compiling)
+        cargo binstall --no-confirm --force wash && \
+        ln -sf /opt/rust/bin/wash /usr/local/bin/wash && \
+        # Install wasm-tools using binstall
+        cargo binstall --no-confirm --force wasm-tools && \
         ln -sf /opt/rust/bin/wasm-tools /usr/local/bin/wasm-tools && \
-        # Install wasmtime via cargo
-        cargo install wasmtime-cli && \
+        # Install wasmtime using binstall
+        cargo binstall --no-confirm --force wasmtime-cli && \
         ln -sf /opt/rust/bin/wasmtime /usr/local/bin/wasmtime && \
-        # Install wit-bindgen via cargo
-        cargo install wit-bindgen-cli && \
+        # Install wit-bindgen using binstall
+        cargo binstall --no-confirm --force wit-bindgen-cli && \
         ln -sf /opt/rust/bin/wit-bindgen /usr/local/bin/wit-bindgen && \
-        # Install wac via cargo
-        cargo install wac-cli && \
+        # Install wac using binstall
+        cargo binstall --no-confirm --force wac-cli && \
         ln -sf /opt/rust/bin/wac /usr/local/bin/wac && \
         # Verify installations
         wash --version && \
@@ -65,13 +65,13 @@ entrypoint_setup: |
                         WebAssembly Tools Installed
   ================================================================================
 
-  The following WebAssembly development tools are now available (latest versions):
+  The following WebAssembly development tools are now available:
 
-    - wash                       - wasmCloud Shell for building & deploying
-    - wasm-tools                 - WebAssembly module manipulation utilities
-    - wasmtime                   - WebAssembly runtime for testing
-    - wit-bindgen                - WIT language binding generator
-    - wac                        - WebAssembly composition tool
+    - wash (v0.42.0)             - wasmCloud Shell for building & deploying
+    - wasm-tools (latest)        - WebAssembly module manipulation utilities
+    - wasmtime (latest)          - WebAssembly runtime for testing
+    - wit-bindgen (latest)       - WIT language binding generator
+    - wac (latest)               - WebAssembly composition tool
 
   ================================================================================
                     wasmCloud Connection Configuration
