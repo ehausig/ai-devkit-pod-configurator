@@ -14,6 +14,7 @@ command_permissions:
     - "Bash(cargo test:*)"
     - "Bash(cargo fmt:*)"
     - "Bash(cargo clippy:*)"
+    - "Bash(cargo binstall:*)"
 installation:
   repos:
     enabled: true
