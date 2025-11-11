@@ -34,8 +34,8 @@ installation:
         fi && \
         # Install wash prebuilt binary
         WASH_VERSION="v0.42.1" && \
-        cargo binstall wash && \
-        chmod +x /usr/local/bin/wash && \
+        # cargo binstall wash && \
+        # chmod +x /usr/local/bin/wash && \
         # Install wasm-tools via cargo using stable toolchain (latest tools may require edition 2024)
         rustup run stable cargo install wasm-tools && \
         ln -sf /opt/rust/bin/wasm-tools /usr/local/bin/wasm-tools && \
