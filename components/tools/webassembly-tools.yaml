@@ -3,7 +3,7 @@ name: WebAssembly Tools
 version: "2.0.0"
 group: wasm-tools
 requires: rust
-description: WebAssembly development tools - wash (v0.42.0), wasm-tools, wasmtime, wit-bindgen, wac
+description: WebAssembly development tools - wash, wasm-tools, wasmtime, wit-bindgen, wac, nats-cli
 command_permissions:
   allow:
     - "Bash(wash:*)"
@@ -11,6 +11,7 @@ command_permissions:
     - "Bash(wasmtime:*)"
     - "Bash(wit-bindgen:*)"
     - "Bash(wac:*)"
+    - "Bash(nats:*)"
     - "Bash(configure-wash.sh:*)"
     - "Read(/home/devuser/.wash/*)"
     - "Write(/home/devuser/.wash/*)"
@@ -38,13 +39,20 @@ installation:
         # Install wac using binstall
         cargo binstall --no-confirm --force wac-cli && \
         ln -sf /opt/rust/bin/wac /usr/local/bin/wac && \
+        # Install NATS CLI from prebuilt binary
+        NATS_VERSION="0.3.0" && \
+        ARCH=$(dpkg --print-architecture) && \
+        curl -fsSL "https://github.com/nats-io/natscli/releases/download/v${NATS_VERSION}/nats-${NATS_VERSION}-${ARCH}.deb" -o /tmp/nats.deb && \
+        dpkg -i /tmp/nats.deb && \
+        rm /tmp/nats.deb && \
         # Verify installations
         wash --version && \
         wasm-tools --version && \
         wasmtime --version && \
         wit-bindgen --version && \
-        wac --version
-  test_command: wash --version && wasm-tools --version && wasmtime --version && wit-bindgen --version && wac --version
+        wac --version && \
+        nats --version
+  test_command: wash --version && wasm-tools --version && wasmtime --version && wit-bindgen --version && wac --version && nats --version
   inject_files:
     - source: configure-wash.sh
       destination: /usr/local/bin/configure-wash.sh
@@ -67,11 +75,12 @@ entrypoint_setup: |
 
   The following WebAssembly development tools are now available:
 
-    - wash (v0.42.0)             - wasmCloud Shell for building & deploying
+    - wash (latest)              - wasmCloud Shell for building & deploying
     - wasm-tools (latest)        - WebAssembly module manipulation utilities
     - wasmtime (latest)          - WebAssembly runtime for testing
     - wit-bindgen (latest)       - WIT language binding generator
     - wac (latest)               - WebAssembly composition tool
+    - nats (latest)              - NATS CLI for messaging & pub/sub
 
   ================================================================================
                     wasmCloud Connection Configuration
@@ -128,12 +137,18 @@ entrypoint_setup: |
     wac plug                   - Plug components together
     wac compose                - Compose using .wac files
 
+    nats pub <subject> <msg>   - Publish a message
+    nats sub <subject>         - Subscribe to messages
+    nats stream add            - Create a stream
+    nats consumer add          - Create a consumer
+
   Documentation:
 
     wasmCloud:   https://wasmcloud.com/docs
     wash:        https://wasmcloud.com/docs/cli/wash
     wasm-tools:  https://github.com/bytecodealliance/wasm-tools
     wasmtime:    https://docs.wasmtime.dev
+    NATS:        https://docs.nats.io
     Component Model: https://component-model.bytecodealliance.org
 
   READMEEOF
@@ -150,7 +165,7 @@ entrypoint_setup: |
       echo '    echo "          WebAssembly Development Tools Ready"' >> "$BASHRC"
       echo '    echo "==============================================================="' >> "$BASHRC"
       echo '    echo ""' >> "$BASHRC"
-      echo '    echo "  Tools: wash, wasm-tools, wasmtime, wit-bindgen, wac"' >> "$BASHRC"
+      echo '    echo "  Tools: wash, wasm-tools, wasmtime, wit-bindgen, wac, nats"' >> "$BASHRC"
       echo '    echo ""' >> "$BASHRC"
       echo '    echo "  To connect wash to a wasmCloud host, run:"' >> "$BASHRC"
       echo '    echo ""' >> "$BASHRC"
