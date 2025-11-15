@@ -20,12 +20,14 @@ installation:
         export PATH="/opt/nodejs/bin:$PATH" && \
         # Install Playwright globally
         npm install -g @playwright/test && \
+        # Set browsers to install in system location
+        export PLAYWRIGHT_BROWSERS_PATH=/opt/playwright-browsers && \
         # Install all browsers and system dependencies
         npx playwright install --with-deps chromium firefox webkit && \
-        # Create cache directory for Playwright
-        mkdir -p /home/devuser/.cache/ms-playwright && \
-        chown -R root:root /home/devuser/.cache/ms-playwright && \
-        chmod -R 755 /home/devuser/.cache/ms-playwright && \
+        # Make browsers accessible to all users
+        chmod -R 755 /opt/playwright-browsers && \
+        # Add environment variable to profile
+        echo 'export PLAYWRIGHT_BROWSERS_PATH=/opt/playwright-browsers' >> /etc/profile.d/playwright.sh && \
         # Verify installation
         npx playwright --version
   test_command: npx playwright --version
@@ -39,9 +41,11 @@ entrypoint_setup: |
   # Set proper ownership
   chown -R devuser:devuser /home/devuser/playwright-tests
 
-  # Ensure playwright cache is accessible
-  if [ -d /home/devuser/.cache/ms-playwright ]; then
-      chmod -R 755 /home/devuser/.cache/ms-playwright
+  # Add Playwright environment to bashrc
+  if ! grep -q "PLAYWRIGHT_BROWSERS_PATH" "$BASHRC" 2>/dev/null; then
+      echo '' >> "$BASHRC"
+      echo '# Playwright browsers path' >> "$BASHRC"
+      echo 'export PLAYWRIGHT_BROWSERS_PATH=/opt/playwright-browsers' >> "$BASHRC"
   fi
 
   # Create welcome message with setup instructions
