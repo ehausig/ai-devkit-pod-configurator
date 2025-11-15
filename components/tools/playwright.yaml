@@ -1,0 +1,161 @@
+id: PLAYWRIGHT
+name: Playwright
+version: "1.0.0"
+group: testing-tools
+requires: nodejs
+description: Playwright end-to-end testing framework for web applications
+command_permissions:
+  allow:
+    - "Bash(playwright:*)"
+    - "Bash(npx playwright:*)"
+    - "Bash(npx pwt:*)"
+    - "Read(/home/devuser/playwright-tests/*)"
+    - "Write(/home/devuser/playwright-tests/*)"
+    - "Edit(/home/devuser/playwright-tests/*)"
+  deny: []
+installation:
+  dockerfile: |
+    # Install Playwright and system dependencies
+    RUN export DEBIAN_FRONTEND=noninteractive && \
+        export PATH="/opt/nodejs/bin:$PATH" && \
+        # Install Playwright globally
+        npm install -g @playwright/test && \
+        # Install all browsers and system dependencies
+        npx playwright install --with-deps chromium firefox webkit && \
+        # Create cache directory for Playwright
+        mkdir -p /home/devuser/.cache/ms-playwright && \
+        chown -R root:root /home/devuser/.cache/ms-playwright && \
+        chmod -R 755 /home/devuser/.cache/ms-playwright && \
+        # Verify installation
+        npx playwright --version
+  test_command: npx playwright --version
+entrypoint_setup: |
+  # Playwright specific setup
+  echo "Setting up Playwright testing environment..."
+
+  # Create workspace directory for test projects
+  mkdir -p /home/devuser/playwright-tests
+
+  # Set proper ownership
+  chown -R devuser:devuser /home/devuser/playwright-tests
+
+  # Ensure playwright cache is accessible
+  if [ -d /home/devuser/.cache/ms-playwright ]; then
+      chmod -R 755 /home/devuser/.cache/ms-playwright
+  fi
+
+  # Create welcome message with setup instructions
+  cat > /home/devuser/playwright-README.txt << 'READMEEOF'
+  ================================================================================
+                           Playwright Testing Framework
+  ================================================================================
+
+  Playwright is a powerful end-to-end testing framework for web applications.
+
+  Installed browsers:
+    - Chromium (latest)
+    - Firefox (latest)
+    - WebKit (latest)
+
+  ================================================================================
+                              Quick Start
+  ================================================================================
+
+  1. Create a new test project:
+     cd ~/playwright-tests
+     npm init playwright@latest
+
+  2. Or create a simple test file:
+     mkdir -p ~/playwright-tests
+     cd ~/playwright-tests
+     cat > example.spec.js << 'EOF'
+     const { test, expect } = require('@playwright/test');
+
+     test('basic test', async ({ page }) => {
+       await page.goto('https://playwright.dev/');
+       await expect(page).toHaveTitle(/Playwright/);
+     });
+     EOF
+
+  3. Run tests:
+     npx playwright test
+
+  4. Run tests in UI mode (interactive):
+     npx playwright test --ui
+
+  5. Run tests in headed mode (see browser):
+     npx playwright test --headed
+
+  6. Run specific test file:
+     npx playwright test example.spec.js
+
+  ================================================================================
+                            Common Commands
+  ================================================================================
+
+    npx playwright test                    - Run all tests
+    npx playwright test --ui               - Run tests in UI mode
+    npx playwright test --headed           - Run tests in headed mode
+    npx playwright test --debug            - Run tests in debug mode
+    npx playwright show-report             - Show last test report
+    npx playwright codegen <url>           - Generate test code by recording
+    npx playwright inspector               - Open Playwright Inspector
+
+    # Run tests in specific browser
+    npx playwright test --project=chromium
+    npx playwright test --project=firefox
+    npx playwright test --project=webkit
+
+    # Generate test code interactively
+    npx playwright codegen https://example.com
+
+  ================================================================================
+                            Browser Testing
+  ================================================================================
+
+  Playwright supports testing across multiple browsers:
+    - Chromium (Chrome, Edge)
+    - Firefox
+    - WebKit (Safari)
+
+  All browsers run in headless mode by default for CI/CD compatibility.
+  Use --headed flag to see the browser during test execution.
+
+  ================================================================================
+                            Documentation
+  ================================================================================
+
+    Official Docs:  https://playwright.dev/docs/intro
+    API Reference:  https://playwright.dev/docs/api/class-playwright
+    Examples:       https://playwright.dev/docs/test-examples
+    Best Practices: https://playwright.dev/docs/best-practices
+
+  READMEEOF
+
+  chown devuser:devuser /home/devuser/playwright-README.txt
+
+  # Add one-time welcome message to bashrc
+  if ! grep -q "playwright-welcome" "$BASHRC" 2>/dev/null; then
+      echo '' >> "$BASHRC"
+      echo '# Playwright - One-time welcome message' >> "$BASHRC"
+      echo 'if [ ! -f ~/.playwright-welcomed ]; then' >> "$BASHRC"
+      echo '    echo ""' >> "$BASHRC"
+      echo '    echo "==============================================================="' >> "$BASHRC"
+      echo '    echo "          Playwright Testing Framework Ready"' >> "$BASHRC"
+      echo '    echo "==============================================================="' >> "$BASHRC"
+      echo '    echo ""' >> "$BASHRC"
+      echo '    echo "  Browsers: Chromium, Firefox, WebKit"' >> "$BASHRC"
+      echo '    echo ""' >> "$BASHRC"
+      echo '    echo "  Quick start:"' >> "$BASHRC"
+      echo '    echo "    cd ~/playwright-tests"' >> "$BASHRC"
+      echo '    echo "    npx playwright test              # Run tests"' >> "$BASHRC"
+      echo '    echo "    npx playwright codegen <url>     # Generate tests"' >> "$BASHRC"
+      echo '    echo ""' >> "$BASHRC"
+      echo '    echo "  Full docs: cat ~/playwright-README.txt"' >> "$BASHRC"
+      echo '    echo ""' >> "$BASHRC"
+      echo '    touch ~/.playwright-welcomed' >> "$BASHRC"
+      echo 'fi' >> "$BASHRC"
+  fi
+
+  echo "✓ Playwright configured successfully"
+  echo "  Quick start: cd ~/playwright-tests && npx playwright codegen"
