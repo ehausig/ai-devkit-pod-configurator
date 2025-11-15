@@ -1,7 +1,7 @@
 id: PLAYWRIGHT
 name: Playwright
 version: "1.0.0"
-group: testing-tools
+group: playwright
 requires: nodejs
 description: Playwright end-to-end testing framework for web applications
 command_permissions:
