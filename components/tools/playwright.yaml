@@ -15,21 +15,19 @@ command_permissions:
   deny: []
 installation:
   dockerfile: |
-    # Install Playwright and system dependencies
+    # Install Playwright globally as root
     RUN export DEBIAN_FRONTEND=noninteractive && \
         export PATH="/opt/nodejs/bin:$PATH" && \
-        # Install Playwright globally
-        npm install -g @playwright/test && \
-        # Set browsers to install in system location
-        export PLAYWRIGHT_BROWSERS_PATH=/opt/playwright-browsers && \
-        # Install all browsers and system dependencies
+        npm install -g @playwright/test
+
+    # Switch to devuser to install browsers and dependencies in user space
+    USER devuser
+    RUN export PATH="/opt/nodejs/bin:$PATH" && \
         npx playwright install --with-deps chromium firefox webkit && \
-        # Make browsers accessible to all users
-        chmod -R 755 /opt/playwright-browsers && \
-        # Add environment variable to profile
-        echo 'export PLAYWRIGHT_BROWSERS_PATH=/opt/playwright-browsers' >> /etc/profile.d/playwright.sh && \
-        # Verify installation
         npx playwright --version
+
+    # Switch back to root for remaining build steps
+    USER root
   test_command: npx playwright --version
 entrypoint_setup: |
   # Playwright specific setup
@@ -40,13 +38,6 @@ entrypoint_setup: |
 
   # Set proper ownership
   chown -R devuser:devuser /home/devuser/playwright-tests
-
-  # Add Playwright environment to bashrc
-  if ! grep -q "PLAYWRIGHT_BROWSERS_PATH" "$BASHRC" 2>/dev/null; then
-      echo '' >> "$BASHRC"
-      echo '# Playwright browsers path' >> "$BASHRC"
-      echo 'export PLAYWRIGHT_BROWSERS_PATH=/opt/playwright-browsers' >> "$BASHRC"
-  fi
 
   # Create welcome message with setup instructions
   cat > /home/devuser/playwright-README.txt << 'READMEEOF'
