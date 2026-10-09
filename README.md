@@ -9,14 +9,11 @@ A powerful, modular system for creating containerized development environments i
 ## 📖 Documentation
 
 - **[Architecture Overview](docs/architecture.md)** - System design and component structure
-- **[Creating Components](docs/components.md)** - Build your own custom components
+- **[Component System](components/)** - How to add, modify, and manage components
 - **[Theme Customization](docs/themes.md)** - Customize the TUI appearance
-- **[Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions
-- **[Roadmap](docs/roadmap.md)** - Future plans and enhancements
 
-### For Contributors
-- **[Developer Guide](docs/developer.md)** - Contributing code and creating pull requests
-- **[Maintainer Guide](docs/maintainer.md)** - Release management and repository maintenance
+### For LLM/AI Assistants
+- **[LLM Context Documentation](llm/)** - Project state and development journal for AI assistants working with this codebase
 
 ## 🎯 Overview
 
@@ -25,14 +22,15 @@ AI DevKit Pod Configurator provides a beautiful TUI (Terminal User Interface) fo
 ### Key Features
 
 - 🎨 **Beautiful TUI** - Interactive component selection with theme support
-- 🧩 **Modular Architecture** - Add only what you need: languages, tools, AI assistants
+- 🧩 **Pure Bash Architecture** - Component-owned configuration with zero Python dependencies
 - 🔧 **Language Support** - Python, Java, Go, Rust, Ruby, Scala, Kotlin, Node.js, and more
 - 🤖 **AI Integration** - Claude Code with Team Topologies-based autonomous development
-- 📦 **Build Tools** - Maven, Gradle, SBT with optional Nexus proxy support
-- 🧪 **Testing Tools** - Microsoft TUI Test for terminal application testing
+- 📦 **Build Tools** - Maven, Gradle, SBT with dynamic repository configuration
+- 🧪 **Component Testing** - Every component includes executable verification tests
 - 💾 **Persistent Storage** - Your code and configuration persist across restarts
 - 🌐 **Web File Manager** - Built-in Filebrowser for easy file management
 - 🔒 **Secure** - Runs as non-root user with proper isolation
+- ✅ **Test Injection** - Run `~/.ai-devkit/tests/run-all.sh` to verify all components
 
 ## 📸 Screenshots
 
@@ -57,9 +55,13 @@ AI DevKit Pod Configurator provides a beautiful TUI (Terminal User Interface) fo
 
 - Kubernetes cluster (k3s, minikube, Colima, or any Kubernetes distribution)
 - kubectl configured to access your cluster
-- Docker or compatible container runtime
-- `yq` and `jq` for YAML/JSON processing
-- For macOS users: [Colima](https://github.com/abiosoft/colima) is recommended
+- Container build tool: **Docker**, **nerdctl**, or **Podman**
+- `yq` for YAML processing (supports both [mikefarah/yq](https://github.com/mikefarah/yq) v4+ and [kislyuk/yq](https://github.com/kislyuk/yq))
+- `ssh-keygen` for generating SSH host keys
+- **Recommended setups:**
+  - macOS: [Colima](https://github.com/abiosoft/colima) with Docker
+  - Linux with K3s: **nerdctl** for seamless integration (no image transfer needed)
+  - Linux with Docker/Podman: Works with automatic image transfer
 
 ### macOS Quick Setup with Colima
 
@@ -74,6 +76,68 @@ colima start --kubernetes --cpu 4 --memory 8
 kubectl get nodes
 ```
 
+### Ubuntu/Linux Quick Setup with K3s
+
+```bash
+# Install dependencies
+sudo apt-get update
+sudo apt-get install -y curl
+
+# Install kubectl
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+
+# Install yq
+sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+sudo chmod +x /usr/local/bin/yq
+
+# Install jq
+sudo apt-get install -y jq
+
+# Install K3s (lightweight Kubernetes)
+curl -sfL https://get.k3s.io | sh -
+
+# Configure kubectl for K3s
+mkdir -p ~/.kube
+sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
+sudo chown $USER:$USER ~/.kube/config
+
+# RECOMMENDED: Install nerdctl for seamless K3s integration
+wget https://github.com/containerd/nerdctl/releases/download/v1.7.2/nerdctl-1.7.2-linux-amd64.tar.gz
+sudo tar -xzf nerdctl-1.7.2-linux-amd64.tar.gz -C /usr/local/bin
+rm nerdctl-1.7.2-linux-amd64.tar.gz
+
+# Optional: Create docker alias for compatibility
+sudo ln -s /usr/local/bin/nerdctl /usr/local/bin/docker
+
+# Verify setup
+kubectl get nodes
+nerdctl version  # or docker version if aliased
+
+# Alternative: Install Docker or Podman if preferred
+# sudo apt-get install -y docker.io  # for Docker
+# sudo apt-get install -y podman      # for Podman
+```
+
+### Cross-Platform Support
+
+The AI DevKit supports multiple container runtime environments through a configuration-first approach:
+
+**Supported Kubernetes Runtimes:**
+- **Colima** (macOS) - VM-based Docker/Kubernetes
+- **K3s** (Linux) - Lightweight Kubernetes distribution
+- **Docker Desktop** (macOS/Windows/Linux) - Native Docker with Kubernetes
+- **Minikube** - Cross-platform Kubernetes for development
+- **Kind** - Kubernetes in Docker
+- **Generic containerd** - Standard container runtime
+
+**Supported Container Build Tools:**
+- **Docker** - Traditional container engine
+- **nerdctl** - containerd-native CLI (best for K3s)
+- **Podman** - Rootless container engine
+
+The system uses a configuration file (`~/.ai-devkit/config.yaml`) to store your preferences, ensuring consistent behavior across builds.
+
 ### Basic Usage
 
 ```bash
@@ -84,10 +148,28 @@ cd ai-devkit-pod-configurator
 # Make scripts executable
 chmod +x *.sh
 
-# (Optional) Configure git credentials for automatic injection
-./configure-git-host.sh
+# Step 1: Configure AI DevKit (REQUIRED on first run)
+# Create ~/.ai-devkit/config.yaml with your container runtime preferences
+mkdir -p ~/.ai-devkit
+cat > ~/.ai-devkit/config.yaml << 'EOF'
+container:
+  # Container build tool: docker, nerdctl, or podman
+  build_tool: docker  # Change to nerdctl or podman if preferred
 
-# Build and deploy with interactive component selection
+  # Kubernetes runtime: k3s, colima, docker-desktop, minikube, kind, or containerd
+  runtime: colima  # Change to match your setup (k3s for Linux, colima for macOS)
+
+  # Import method:
+  #   - direct: nerdctl builds directly into K3s containerd (fastest, K3s only)
+  #   - save-load: Export/import image tar (for Docker/Podman with K3s)
+  #   - none: No import needed (Docker Desktop, minikube with Docker)
+  runtime_import: none  # Use 'direct' for nerdctl+k3s, 'save-load' for docker+k3s
+EOF
+
+# Step 2: (Optional) Configure git credentials for automatic injection
+./setup-container-git-credentials.sh
+
+# Step 3: Build and deploy with interactive component selection
 ./build-and-deploy.sh
 
 # Access your development environment
@@ -112,12 +194,34 @@ The selector shows:
 - Dependencies and conflicts
 - Real-time build status with animations
 
+## 📦 Repository Configuration
+
+AI DevKit supports custom artifact repository configuration for all your package managers:
+
+### Supported Repository Types
+- **PyPI** - Python Package Index and custom registries
+- **NPM** - Node.js package registries
+- **Maven** - Java/Scala artifact repositories
+- **Go Proxy** - Go module proxies
+- **Cargo** - Rust crate registries
+- **RubyGems** - Ruby gem sources
+- **Gradle** - Gradle plugin and dependency repositories
+- **SBT** - Scala Build Tool repositories
+
+### Configuration Features
+- Component-specific repository settings
+- Authentication support (basic auth, tokens)
+- Recommended repository suggestions per component
+- Build-time and runtime configuration application
+
+Repository configuration is integrated into the main setup script (`./configure-ai-devkit.sh`) and automatically applies during builds.
+
 ## 🔐 Git Configuration
 
 Configure git credentials once on your host machine:
 
 ```bash
-./configure-git-host.sh
+./setup-container-git-credentials.sh
 ```
 
 This creates an isolated git configuration that's automatically injected into your containers, including:
@@ -216,35 +320,62 @@ Available themes: `default`, `dark`, `matrix`, `ocean`, `minimal`, `neon`
 
 ## 🧹 Disk Management
 
-### Colima Disk Cleanup
+### Cross-Platform Container Cleanup
 
-Colima uses a virtual machine with a fixed disk size. Over time, Docker images and containers can fill up this disk, causing deployment failures.
+The AI DevKit includes a smart cleanup script that automatically detects your container runtime and performs appropriate cleanup operations.
 
-**The Problem**: When Colima's disk fills up, you'll see errors like:
-- "No space left on device"
+**The Problem**: Container runtimes accumulate unused images, containers, and volumes over time, leading to:
+- "No space left on device" errors
 - Image pull failures
 - Build failures
+- Slow performance
 
-**The Solution**: The `cleanup-colima.sh` script helps reclaim disk space:
+**The Solution**: The `scripts/cleanup-runtime.sh` script provides cross-platform cleanup:
 
 ```bash
-# Check what can be cleaned (dry run)
-./cleanup-colima.sh --check
+# Check what can be cleaned (dry run) - works on any runtime
+./scripts/cleanup-runtime.sh --check
 
-# Clean up disk space
-./cleanup-colima.sh
+# Clean up disk space with runtime detection
+./scripts/cleanup-runtime.sh
 
 # Force cleanup without prompts
-./cleanup-colima.sh --force
+./scripts/cleanup-runtime.sh --force
 ```
 
-**⚠️ CRITICAL WARNING**: 
-- **DO NOT USE** the `--overlay2` option - it will corrupt Docker
-- If you need to completely reset, delete and recreate the Colima VM:
-  ```bash
-  colima delete
-  colima start --kubernetes --cpu 4 --memory 8 --disk 100
-  ```
+**Runtime-Specific Features**:
+- **Colima**: VM disk cleanup, overlay2 orphan removal, journal cleanup
+- **K3s**: containerd cleanup, system service management
+- **Docker Desktop**: Docker system cleanup with UI integration
+- **Generic**: Universal container cleanup commands
+
+**Advanced Options**:
+```bash
+# Colima-specific overlay2 cleanup (use with caution)
+./scripts/cleanup-runtime.sh --overlay2
+
+# Safe mode (skip risky operations)
+./scripts/cleanup-runtime.sh --safe
+```
+
+**⚠️ CRITICAL WARNINGS**:
+- **Colima users**: The `--overlay2` option can be risky - use only when necessary
+- **K3s users**: Cleanup requires sudo permissions for containerd access
+- **All platforms**: System images required for Kubernetes are automatically protected
+
+**Complete Reset Options**:
+```bash
+# Colima (macOS)
+colima delete
+colima start --kubernetes --cpu 4 --memory 8 --disk 100
+
+# K3s (Linux)
+/usr/local/bin/k3s-uninstall.sh
+curl -sfL https://get.k3s.io | sh -
+
+# Docker Desktop
+# Use "Reset to factory defaults" from Docker Desktop settings
+```
 
 ## 📚 Creating Custom Components
 
@@ -284,6 +415,61 @@ my-tool --help
 ```
 
 ## 🛠️ Advanced Features
+
+### Container Runtime Configuration
+
+The AI DevKit uses a configuration-first approach to manage container tools and runtimes through `~/.ai-devkit/config.yaml`:
+
+**Example Configuration:**
+```yaml
+container:
+  build_tool: docker       # or nerdctl, podman
+  runtime: colima          # or k3s, docker-desktop, minikube, kind
+  runtime_import: none     # or direct, save-load
+```
+
+**Configuration Options:**
+- **build_tool**: The container build command (docker, nerdctl, or podman)
+- **runtime**: Your Kubernetes distribution (k3s, colima, docker-desktop, minikube, kind, or containerd)
+- **runtime_import**: How images are loaded into Kubernetes:
+  - `direct`: Build directly into K3s containerd (nerdctl+k3s only, fastest)
+  - `save-load`: Export/import image tar (docker or podman with K3s)
+  - `none`: No import needed (Docker Desktop, minikube with Docker)
+
+**Benefits:**
+- **Explicit control**: Choose which tool to use when multiple are available
+- **Optimal pairing**: Configure the best tool/runtime combination for your setup
+- **Faster builds**: No repeated runtime detection on every run
+- **Clear configuration**: See exactly what will be used
+
+To reconfigure, simply edit `~/.ai-devkit/config.yaml` with your preferred settings.
+
+### Container Tool and K3s Image Management
+
+#### Recommended: nerdctl with K3s
+When using nerdctl, images are built directly into K3s's containerd - no transfer needed:
+```bash
+# Build directly into K3s containerd
+nerdctl build -t ai-devkit:latest .
+# or with docker alias
+docker build -t ai-devkit:latest .
+
+# Images are immediately available to K3s
+nerdctl -n k8s.io images | grep ai-devkit
+```
+
+#### Alternative: Podman/Docker with K3s
+When using Podman or Docker with K3s, images must be transferred:
+```bash
+# Automatic import during build
+./build-and-deploy.sh  # Handles import automatically
+
+# Manual import if needed
+./import-image-to-k3s.sh ai-devkit:latest
+
+# Check image availability
+sudo k3s ctr -n k8s.io images list | grep ai-devkit
+```
 
 ### Command Permissions
 
@@ -334,7 +520,7 @@ The build system includes:
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Developer Guide](docs/developer.md) for information on:
+We welcome contributions! The project includes information on:
 - Setting up your development environment
 - Creating feature branches
 - Writing tests
@@ -349,10 +535,10 @@ For maintainers, see the [Maintainer Guide](docs/maintainer.md) for release proc
 1. **Permission Denied**: Make scripts executable with `chmod +x *.sh`
 2. **Kubernetes Connection**: Ensure your cluster is running and `kubectl` is configured
 3. **Build Failures**: Check `build-and-deploy.log` for detailed error messages
-4. **Disk Space**: Use `cleanup-colima.sh` to free up space in Colima
+4. **Disk Space**: Use `scripts/cleanup-runtime.sh` to free up container runtime space
 5. **Missing Dependencies**: Install `yq` and `jq` with your package manager
+6. **Update-alternatives Warnings**: These are harmless and expected - the base image excludes man pages to reduce size
 
-See the [Troubleshooting Guide](docs/troubleshooting.md) for comprehensive solutions.
 
 ## 📋 System Requirements
 

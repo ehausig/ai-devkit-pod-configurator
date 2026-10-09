@@ -1,0 +1,23 @@
+# File mapping specifications for Node.js 22
+files:
+  # Generated npm configuration
+  - source: generated/.npmrc
+    dest: /home/devuser/.npmrc
+    mode: "0644"
+  
+  # Test files
+  - source: tests/verify.sh
+    dest: /home/devuser/.ai-devkit/tests/nodejs-22-verify.sh
+    mode: "0755"
+  - source: tests/test-version.sh
+    dest: /home/devuser/.ai-devkit/tests/nodejs-22-test-version.sh
+    mode: "0755"
+  - source: tests/test-npm.sh
+    dest: /home/devuser/.ai-devkit/tests/nodejs-22-test-npm.sh
+    mode: "0755"
+  - source: tests/test-installation.sh
+    dest: /home/devuser/.ai-devkit/tests/nodejs-22-test-installation.sh
+    mode: "0755"
+  - source: tests/test-functionality.sh
+    dest: /home/devuser/.ai-devkit/tests/nodejs-22-test-functionality.sh
+    mode: "0755"

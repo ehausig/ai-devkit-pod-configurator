@@ -20,6 +20,21 @@ command_permissions:
     - "Bash(textual run:*)"
     - "Bash(uvicorn:*)"
 installation:
+  repos:
+    enabled: true
+    format: "pypi"
+    config_type: "both"
+    config_file: "pip.conf"
+    config_path: "~/.config/pip/"
+    recommended:
+      - name: "PyPI"
+        url: "https://pypi.org"
+        type: "remote"
+        reason: "Official Python Package Index - required for most packages"
+      - name: "PyPI Test"
+        url: "https://test.pypi.org"
+        type: "remote"
+        reason: "Test repository for package development"
   dockerfile: |
     RUN export DEBIAN_FRONTEND=noninteractive && \
         apt-get update && \

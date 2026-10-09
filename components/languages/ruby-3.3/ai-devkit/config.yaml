@@ -1,0 +1,6 @@
+# Configuration metadata for ruby-3.3 component
+configuration:
+  templates:
+    - template: .gemrc
+      output_file: .gemrc
+      repository_format: gem

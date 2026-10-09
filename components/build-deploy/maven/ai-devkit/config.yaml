@@ -1,0 +1,6 @@
+# Configuration metadata for maven component
+configuration:
+  templates:
+    - template: settings.xml
+      output_file: settings.xml
+      repository_format: maven

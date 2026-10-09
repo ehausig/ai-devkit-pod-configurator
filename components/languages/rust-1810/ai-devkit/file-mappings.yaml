@@ -1,0 +1,6 @@
+# File mapping specifications for Rust component
+files:
+  # Generated cargo configuration
+  - source: generated/cargo-config.toml
+    dest: /home/devuser/.cargo/config.toml
+    mode: "0644"

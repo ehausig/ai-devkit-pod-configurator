@@ -1,0 +1,185 @@
+id: WEBASSEMBLY_TOOLS
+name: WebAssembly Tools
+version: "2.0.0"
+group: wasm-tools
+requires: rust
+description: WebAssembly development tools - wash, wasm-tools, wasmtime, wit-bindgen, wac, nats-cli
+command_permissions:
+  allow:
+    - "Bash(wash:*)"
+    - "Bash(wasm-tools:*)"
+    - "Bash(wasmtime:*)"
+    - "Bash(wit-bindgen:*)"
+    - "Bash(wac:*)"
+    - "Bash(nats:*)"
+    - "Bash(configure-wash.sh:*)"
+    - "Read(/home/devuser/.wash/*)"
+    - "Write(/home/devuser/.wash/*)"
+    - "Edit(/home/devuser/.wash/*)"
+  deny: []
+installation:
+  dockerfile: |
+    # Install WebAssembly development tools using best practices
+    RUN export DEBIAN_FRONTEND=noninteractive && \
+        export PATH="/opt/rust/bin:$PATH" && \
+        export CARGO_HOME="/opt/rust" && \
+        export RUSTUP_HOME="/opt/rust" && \
+        # Install wash using cargo-binstall (much faster than compiling)
+        cargo binstall --no-confirm --force wash && \
+        ln -sf /opt/rust/bin/wash /usr/local/bin/wash && \
+        # Install wasm-tools using binstall
+        cargo binstall --no-confirm --force wasm-tools && \
+        ln -sf /opt/rust/bin/wasm-tools /usr/local/bin/wasm-tools && \
+        # Install wasmtime using binstall
+        cargo binstall --no-confirm --force wasmtime-cli && \
+        ln -sf /opt/rust/bin/wasmtime /usr/local/bin/wasmtime && \
+        # Install wit-bindgen using binstall
+        cargo binstall --no-confirm --force wit-bindgen-cli && \
+        ln -sf /opt/rust/bin/wit-bindgen /usr/local/bin/wit-bindgen && \
+        # Install wac using binstall
+        cargo binstall --no-confirm --force wac-cli && \
+        ln -sf /opt/rust/bin/wac /usr/local/bin/wac && \
+        # Install NATS CLI from prebuilt binary
+        NATS_VERSION="0.3.0" && \
+        ARCH=$(dpkg --print-architecture) && \
+        curl -fsSL "https://github.com/nats-io/natscli/releases/download/v${NATS_VERSION}/nats-${NATS_VERSION}-${ARCH}.deb" -o /tmp/nats.deb && \
+        dpkg -i /tmp/nats.deb && \
+        rm /tmp/nats.deb && \
+        # Verify installations
+        wash --version && \
+        wasm-tools --version && \
+        wasmtime --version && \
+        wit-bindgen --version && \
+        wac --version && \
+        nats --version
+  test_command: wash --version && wasm-tools --version && wasmtime --version && wit-bindgen --version && wac --version && nats --version
+  inject_files:
+    - source: configure-wash.sh
+      destination: /usr/local/bin/configure-wash.sh
+      permissions: "755"
+entrypoint_setup: |
+  # WebAssembly tools specific setup
+  echo "Setting up WebAssembly development environment..."
+
+  # Create workspace directory for WASM projects
+  mkdir -p /home/devuser/wasm-workspace
+
+  # Set proper ownership
+  chown -R devuser:devuser /home/devuser/wasm-workspace
+
+  # Create welcome message with setup instructions
+  cat > /home/devuser/webassembly-tools-README.txt << 'READMEEOF'
+  ================================================================================
+                        WebAssembly Tools Installed
+  ================================================================================
+
+  The following WebAssembly development tools are now available:
+
+    - wash (latest)              - wasmCloud Shell for building & deploying
+    - wasm-tools (latest)        - WebAssembly module manipulation utilities
+    - wasmtime (latest)          - WebAssembly runtime for testing
+    - wit-bindgen (latest)       - WIT language binding generator
+    - wac (latest)               - WebAssembly composition tool
+    - nats (latest)              - NATS CLI for messaging & pub/sub
+
+  ================================================================================
+                    wasmCloud Connection Configuration
+  ================================================================================
+
+  To connect to a wasmCloud host (on your host machine, K8s, or remote), run:
+
+      configure-wash.sh
+
+  This interactive script will help you configure wash CLI to connect to:
+    - wasmCloud running on your host machine (via NATS)
+    - wasmCloud in a Kubernetes/K3s cluster
+    - Remote wasmCloud instances
+    - Local wasmCloud (wash up)
+
+  ================================================================================
+                              Quick Start
+  ================================================================================
+
+  Get started with wasmCloud development:
+
+    1. Configure connection (optional for local dev):
+       configure-wash.sh
+
+    2. Create a new project:
+       wash new component hello
+
+    3. Build your component:
+       cd hello && wash build
+
+    4. Start development environment:
+       wash dev
+
+  Common Commands:
+
+    wash new <type> <name>     - Create new project (component, provider, etc.)
+    wash build                 - Build your project
+    wash dev                   - Start hot-reload development environment
+    wash inspect               - Inspect WebAssembly components
+    wash up                    - Start wasmCloud host locally
+    wash app list              - List deployed applications
+
+    wasm-tools validate        - Validate WebAssembly modules
+    wasm-tools print           - Print WebAssembly in text format
+    wasm-tools compose         - Compose components together
+    wasm-tools component new   - Create component from module
+
+    wasmtime <file.wasm>       - Run WebAssembly component
+    wasmtime --invoke <func>   - Invoke specific function
+
+    wit-bindgen rust           - Generate Rust bindings
+    wit-bindgen c              - Generate C bindings
+
+    wac plug                   - Plug components together
+    wac compose                - Compose using .wac files
+
+    nats pub <subject> <msg>   - Publish a message
+    nats sub <subject>         - Subscribe to messages
+    nats stream add            - Create a stream
+    nats consumer add          - Create a consumer
+
+  Documentation:
+
+    wasmCloud:   https://wasmcloud.com/docs
+    wash:        https://wasmcloud.com/docs/cli/wash
+    wasm-tools:  https://github.com/bytecodealliance/wasm-tools
+    wasmtime:    https://docs.wasmtime.dev
+    NATS:        https://docs.nats.io
+    Component Model: https://component-model.bytecodealliance.org
+
+  READMEEOF
+
+  chown devuser:devuser /home/devuser/webassembly-tools-README.txt
+
+  # Add one-time welcome message to bashrc
+  if ! grep -q "webassembly-tools-welcome" "$BASHRC" 2>/dev/null; then
+      echo '' >> "$BASHRC"
+      echo '# WebAssembly Tools - One-time welcome message' >> "$BASHRC"
+      echo 'if [ ! -f ~/.webassembly-tools-welcomed ]; then' >> "$BASHRC"
+      echo '    echo ""' >> "$BASHRC"
+      echo '    echo "==============================================================="' >> "$BASHRC"
+      echo '    echo "          WebAssembly Development Tools Ready"' >> "$BASHRC"
+      echo '    echo "==============================================================="' >> "$BASHRC"
+      echo '    echo ""' >> "$BASHRC"
+      echo '    echo "  Tools: wash, wasm-tools, wasmtime, wit-bindgen, wac, nats"' >> "$BASHRC"
+      echo '    echo ""' >> "$BASHRC"
+      echo '    echo "  To connect wash to a wasmCloud host, run:"' >> "$BASHRC"
+      echo '    echo ""' >> "$BASHRC"
+      echo '    echo "    configure-wash.sh"' >> "$BASHRC"
+      echo '    echo ""' >> "$BASHRC"
+      echo '    echo "  Quick start (local dev):"' >> "$BASHRC"
+      echo '    echo "    wash new component my-app    # Create new component"' >> "$BASHRC"
+      echo '    echo "    wash dev                     # Start dev environment"' >> "$BASHRC"
+      echo '    echo ""' >> "$BASHRC"
+      echo '    echo "  Full docs: cat ~/webassembly-tools-README.txt"' >> "$BASHRC"
+      echo '    echo ""' >> "$BASHRC"
+      echo '    touch ~/.webassembly-tools-welcomed' >> "$BASHRC"
+      echo 'fi' >> "$BASHRC"
+  fi
+
+  echo "✓ WebAssembly tools configured successfully"
+  echo "  Quick start: wash new component my-app"

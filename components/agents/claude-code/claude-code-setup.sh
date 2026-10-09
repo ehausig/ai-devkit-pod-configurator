@@ -23,13 +23,13 @@ error() { echo -e "${RED}✗ $1${NC}"; exit 1; }
 info() { echo -e "${BLUE}ℹ $1${NC}"; }
 
 # Verify required files exist
-CLAUDE_TEMPLATE="$SCRIPT_DIR/claude-code/CLAUDE.md.template"
-SETTINGS_TEMPLATE="$SCRIPT_DIR/claude-code/settings.json.template"
-USER_LOCAL_SETTINGS="$SCRIPT_DIR/claude-code/settings.local.json.template"
+CLAUDE_TEMPLATE="$SCRIPT_DIR/CLAUDE.md.template"
+SETTINGS_TEMPLATE="$SCRIPT_DIR/settings.json.template"
+USER_LOCAL_SETTINGS="$SCRIPT_DIR/settings.local.json.template"
 
-[[ ! -f "$CLAUDE_TEMPLATE" ]] && error "$CLAUDE_TEMPLATE not found in $SCRIPT_DIR/claude-code"
-[[ ! -f "$SETTINGS_TEMPLATE" ]] && error "$SETTINGS_TEMPLATE not found in $SCRIPT_DIR/claude-code"
-[[ ! -f "$USER_LOCAL_SETTINGS" ]] && error "$USER_LOCAL_SETTINGS not found in $SCRIPT_DIR/claude-code"
+[[ ! -f "$CLAUDE_TEMPLATE" ]] && error "$CLAUDE_TEMPLATE not found in $SCRIPT_DIR"
+[[ ! -f "$SETTINGS_TEMPLATE" ]] && error "$SETTINGS_TEMPLATE not found in $SCRIPT_DIR"
+[[ ! -f "$USER_LOCAL_SETTINGS" ]] && error "$USER_LOCAL_SETTINGS not found in $SCRIPT_DIR"
 
 log "Setting up Claude Code autonomous development system..."
 
@@ -50,10 +50,10 @@ cp "$SETTINGS_TEMPLATE" "$TEMP_DIR/settings.json"
 cp "$USER_LOCAL_SETTINGS" "$TEMP_DIR/settings.local.json"
 
 # Copy commands (all .md files)
-if [[ -d "$SCRIPT_DIR/claude-code/commands" ]]; then
+if [[ -d "$SCRIPT_DIR/commands" ]]; then
     log "Copying autonomous development commands..."
-    if ls "$SCRIPT_DIR/claude-code/commands/"*.md >/dev/null 2>&1; then
-        cp "$SCRIPT_DIR/claude-code/commands/"*.md "$TEMP_DIR/commands/"
+    if ls "$SCRIPT_DIR/commands/"*.md >/dev/null 2>&1; then
+        cp "$SCRIPT_DIR/commands/"*.md "$TEMP_DIR/commands/"
         success "Copied $(ls -1 "$TEMP_DIR/commands/"*.md 2>/dev/null | wc -l) commands"
     else
         log "No command files found"
@@ -75,9 +75,9 @@ if [[ "$ai_kanban_selected" == "true" ]]; then
 else
     log "AI Kanban component not selected - creating stub agent references for compatibility"
     # Create stub agent files for backward compatibility
-    if [[ -d "$SCRIPT_DIR/claude-code/agents" ]]; then
-        if ls "$SCRIPT_DIR/claude-code/agents/"*.md >/dev/null 2>&1; then
-            for agent_file in "$SCRIPT_DIR/claude-code/agents/"*.md; do
+    if [[ -d "$SCRIPT_DIR/agents" ]]; then
+        if ls "$SCRIPT_DIR/agents/"*.md >/dev/null 2>&1; then
+            for agent_file in "$SCRIPT_DIR/agents/"*.md; do
                 agent_name=$(basename "$agent_file")
                 # Create a stub file that indicates agents are in ai-kanban
                 cat > "$TEMP_DIR/agents/$agent_name" << EOF
@@ -105,10 +105,10 @@ EOF
 fi
 
 # Copy hooks (all .sh files if directory exists)
-if [[ -d "$SCRIPT_DIR/claude-code/hooks" ]]; then
+if [[ -d "$SCRIPT_DIR/hooks" ]]; then
     log "Copying hook scripts..."
-    if ls "$SCRIPT_DIR/claude-code/hooks/"*.sh >/dev/null 2>&1; then
-        cp "$SCRIPT_DIR/claude-code/hooks/"*.sh "$TEMP_DIR/hooks/"
+    if ls "$SCRIPT_DIR/hooks/"*.sh >/dev/null 2>&1; then
+        cp "$SCRIPT_DIR/hooks/"*.sh "$TEMP_DIR/hooks/"
         chmod +x "$TEMP_DIR/hooks/"*.sh
         success "Copied $(ls -1 "$TEMP_DIR/hooks/"*.sh 2>/dev/null | wc -l) hooks"
     else
@@ -117,10 +117,10 @@ if [[ -d "$SCRIPT_DIR/claude-code/hooks" ]]; then
 fi
 
 # Copy utility scripts
-if [[ -d "$SCRIPT_DIR/claude-code/scripts" ]]; then
+if [[ -d "$SCRIPT_DIR/scripts" ]]; then
     log "Copying utility scripts..."
-    if ls "$SCRIPT_DIR/claude-code/scripts/"*.sh >/dev/null 2>&1; then
-        cp "$SCRIPT_DIR/claude-code/scripts/"*.sh "$TEMP_DIR/scripts/"
+    if ls "$SCRIPT_DIR/scripts/"*.sh >/dev/null 2>&1; then
+        cp "$SCRIPT_DIR/scripts/"*.sh "$TEMP_DIR/scripts/"
         chmod +x "$TEMP_DIR/scripts/"*.sh
         success "Copied $(ls -1 "$TEMP_DIR/scripts/"*.sh 2>/dev/null | wc -l) scripts"
     else
@@ -132,7 +132,7 @@ fi
 # This script only needs to generate the import references
 
 # Count component docs for logging
-local docs_count=$(ls -1 "$TEMP_DIR/docs/"*.md 2>/dev/null | wc -l)
+docs_count=$(ls -1 "$TEMP_DIR/docs/"*.md 2>/dev/null | wc -l)
 if [[ $docs_count -gt 0 ]]; then
     log "Found $docs_count component documentation files in docs folder"
 else
@@ -162,10 +162,10 @@ TEMP_COMPONENTS="$TEMP_DIR/.components.tmp"
 # Process each YAML file
 for yaml_file in $SELECTED_YAML_FILES; do
     if [ -f "$yaml_file" ]; then
-        # Extract component info using yq
-        comp_name=$(yq eval '.name // ""' "$yaml_file")
-        comp_version=$(yq eval '.version // ""' "$yaml_file")
-        comp_description=$(yq eval '.description // ""' "$yaml_file")
+        # Extract component info using yq (compatible with both versions)
+        comp_name=$(yq '.name // ""' "$yaml_file" 2>/dev/null || echo "")
+        comp_version=$(yq '.version // ""' "$yaml_file" 2>/dev/null || echo "")
+        comp_description=$(yq '.description // ""' "$yaml_file" 2>/dev/null || echo "")
         
         # Extract category
         category=$(basename "$(dirname "$yaml_file")")
@@ -253,14 +253,14 @@ for yaml_file in $SELECTED_YAML_FILES; do
             if [ -n "$perm" ]; then
                 all_allow_perms+=("$perm")
             fi
-        done < <(yq eval '.command_permissions.allow[]' "$yaml_file" 2>/dev/null || true)
+        done < <(yq '.command_permissions.allow[]' "$yaml_file" 2>/dev/null || true)
         
         # Extract deny permissions using yq
         while IFS= read -r perm; do
             if [ -n "$perm" ]; then
                 all_deny_perms+=("$perm")
             fi
-        done < <(yq eval '.command_permissions.deny[]' "$yaml_file" 2>/dev/null || true)
+        done < <(yq '.command_permissions.deny[]' "$yaml_file" 2>/dev/null || true)
     fi
 done
 

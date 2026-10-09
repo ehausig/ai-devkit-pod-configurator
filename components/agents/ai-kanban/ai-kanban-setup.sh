@@ -23,30 +23,30 @@ error() { echo -e "${RED}✗ $1${NC}"; exit 1; }
 info() { echo -e "${BLUE}ℹ $1${NC}"; }
 
 # Verify we're in the right directory
-AI_KANBAN_DIR="$SCRIPT_DIR/ai-kanban"
-[[ ! -d "$AI_KANBAN_DIR" ]] && error "AI Kanban directory not found at $AI_KANBAN_DIR"
+# $SCRIPT_DIR is already the ai-kanban component directory
+[[ ! -d "$SCRIPT_DIR" ]] && error "AI Kanban directory not found at $SCRIPT_DIR"
 
 log "Setting up AI Kanban Dashboard for build..."
 
 # Copy package.json
-cp "$AI_KANBAN_DIR/package.json" "$TEMP_DIR/package.json" || error "Failed to copy package.json"
+cp "$SCRIPT_DIR/package.json" "$TEMP_DIR/package.json" || error "Failed to copy package.json"
 success "Copied package.json"
 
 # Copy server.js
-cp "$AI_KANBAN_DIR/server.js" "$TEMP_DIR/server.js" || error "Failed to copy server.js"
+cp "$SCRIPT_DIR/server.js" "$TEMP_DIR/server.js" || error "Failed to copy server.js"
 success "Copied server.js"
 
 # Copy lib directory
-if [[ -d "$AI_KANBAN_DIR/lib" ]]; then
-    cp -r "$AI_KANBAN_DIR/lib" "$TEMP_DIR/lib" || error "Failed to copy lib directory"
+if [[ -d "$SCRIPT_DIR/lib" ]]; then
+    cp -r "$SCRIPT_DIR/lib" "$TEMP_DIR/lib" || error "Failed to copy lib directory"
     success "Copied lib directory with $(ls -1 "$TEMP_DIR/lib/"*.js 2>/dev/null | wc -l) files"
 else
     error "lib directory not found"
 fi
 
 # Copy public directory
-if [[ -d "$AI_KANBAN_DIR/public" ]]; then
-    cp -r "$AI_KANBAN_DIR/public" "$TEMP_DIR/public" || error "Failed to copy public directory"
+if [[ -d "$SCRIPT_DIR/public" ]]; then
+    cp -r "$SCRIPT_DIR/public" "$TEMP_DIR/public" || error "Failed to copy public directory"
     
     # Count files in subdirectories
     html_count=$(find "$TEMP_DIR/public" -name "*.html" | wc -l)
@@ -144,11 +144,11 @@ EOF
 success "Created health check script"
 
 # Copy agent definitions (the personas) - NEW FUNCTIONALITY
-if [[ -d "$AI_KANBAN_DIR/agents" ]]; then
+if [[ -d "$SCRIPT_DIR/agents" ]]; then
     log "Copying agent persona definitions..."
     mkdir -p "$TEMP_DIR/agents"
-    if ls "$AI_KANBAN_DIR/agents/"*.md >/dev/null 2>&1; then
-        cp "$AI_KANBAN_DIR/agents/"*.md "$TEMP_DIR/agents/"
+    if ls "$SCRIPT_DIR/agents/"*.md >/dev/null 2>&1; then
+        cp "$SCRIPT_DIR/agents/"*.md "$TEMP_DIR/agents/"
         success "Copied $(ls -1 "$TEMP_DIR/agents/"*.md 2>/dev/null | wc -l) agent personas"
     else
         log "No agent persona files found"

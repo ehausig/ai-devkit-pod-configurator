@@ -1,0 +1,5 @@
+# Default repository configuration for Python 3.11
+repositories:
+  - name: "pypi"
+    url: "https://pypi.org/simple"
+    access: "read_only"

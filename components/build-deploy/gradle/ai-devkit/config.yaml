@@ -1,0 +1,6 @@
+# Configuration metadata for gradle component
+configuration:
+  templates:
+    - template: init.gradle
+      output_file: init.gradle
+      repository_format: gradle

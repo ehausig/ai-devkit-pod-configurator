@@ -13,6 +13,21 @@ command_permissions:
     - "Bash(pnpm:*)"
     - "Bash(bun:*)"
 installation:
+  repos:
+    enabled: true
+    format: "npm"
+    config_type: "file"
+    config_file: ".npmrc"
+    config_path: "~/"
+    recommended:
+      - name: "NPM Registry"
+        url: "https://registry.npmjs.org"
+        type: "remote"
+        reason: "Official NPM registry - required for most packages"
+      - name: "Yarn Registry"
+        url: "https://registry.yarnpkg.com"
+        type: "remote"
+        reason: "Alternative registry with better performance in some regions"
   dockerfile: |
     RUN export DEBIAN_FRONTEND=noninteractive && \
         ARCH=$(dpkg --print-architecture) && \

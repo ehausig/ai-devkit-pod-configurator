@@ -53,7 +53,7 @@ Enhancement suggestions are welcome! Please:
 
 1. **Find an issue** - Look for issues tagged `good first issue` or `help wanted`
 2. **Comment on the issue** - Let others know you're working on it
-3. **Follow the development workflow** - See [Developer Guide](docs/developer.md)
+3. **Follow the development workflow** - Create feature branches and test your changes
 4. **Write tests** - Include tests for new functionality
 5. **Update documentation** - Keep docs in sync with code changes
 
@@ -63,12 +63,19 @@ Enhancement suggestions are welcome! Please:
 
 ```bash
 # Required tools
-brew install kubectl yq jq          # macOS
-sudo apt-get install kubectl yq jq  # Linux
+brew install kubectl yq jq ssh-keygen     # macOS
+sudo apt-get install kubectl yq jq openssh-client  # Ubuntu/Debian
+sudo dnf install kubectl yq jq openssh-clients     # RHEL/Fedora
+
+# Container runtime (choose one)
+brew install docker                 # macOS with Docker Desktop
+brew install colima                 # macOS with Colima
+# OR install nerdctl for K3s
+# OR install podman
 
 # Kubernetes (choose one)
 brew install colima                 # macOS recommended
-# OR minikube, kind, k3s, etc.
+# OR install K3s, minikube, kind, etc.
 
 # Development tools
 brew install shellcheck            # Shell script linting
@@ -89,6 +96,15 @@ git checkout -b feature/your-feature-name
 
 # Make scripts executable
 chmod +x *.sh
+
+# Configure container runtime (create ~/.ai-devkit/config.yaml)
+mkdir -p ~/.ai-devkit
+cat > ~/.ai-devkit/config.yaml << 'EOF'
+container:
+  build_tool: docker  # or nerdctl, podman
+  runtime: colima     # or k3s, docker-desktop, minikube, kind
+  runtime_import: none  # or direct (nerdctl+k3s), save-load (docker+k3s)
+EOF
 
 # Start development
 ./build-and-deploy.sh

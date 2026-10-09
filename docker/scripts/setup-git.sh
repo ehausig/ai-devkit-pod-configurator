@@ -81,32 +81,21 @@ echo "  Default branch: $(git config --global init.defaultBranch)"
 echo "  Default editor: $(git config --global core.editor)"
 echo ""
 
-# Ask about GitHub CLI authentication
-echo -n "Would you like to authenticate with GitHub CLI (gh)? (y/N): "
-read -r setup_gh
-
-if [[ "$setup_gh" =~ ^[Yy]$ ]]; then
-    echo ""
-    echo -e "${YELLOW}Setting up GitHub CLI authentication...${NC}"
-    echo "This will open a browser window for authentication."
-    echo ""
-    
-    if command -v gh >/dev/null 2>&1; then
-        gh auth login
-        
-        if gh auth status >/dev/null 2>&1; then
-            echo ""
-            echo -e "${GREEN}✓ GitHub CLI authenticated successfully!${NC}"
-        else
-            echo ""
-            echo -e "${RED}GitHub CLI authentication failed or was cancelled.${NC}"
-        fi
+# Check if gh is available and test authentication
+if command -v gh >/dev/null 2>&1; then
+    echo -e "${BLUE}GitHub CLI Status:${NC}"
+    if gh auth status >/dev/null 2>&1; then
+        echo -e "  ${GREEN}✓${NC} GitHub CLI is authenticated and ready"
+        echo ""
+        echo "You can now use gh commands like:"
+        echo "  gh repo create, gh pr create, gh issue list, etc."
     else
-        echo -e "${RED}GitHub CLI (gh) is not installed.${NC}"
+        echo -e "  ${YELLOW}ℹ${NC} GitHub CLI will authenticate automatically when container starts"
+        echo "  ${YELLOW}ℹ${NC} (using the GitHub token from git configuration)"
     fi
+    echo ""
 fi
 
-echo ""
 echo -e "${GREEN}Git setup complete!${NC}"
 echo ""
 echo "You can always run this script again with:"

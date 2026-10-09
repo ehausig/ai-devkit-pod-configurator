@@ -1,0 +1,6 @@
+# Configuration metadata for sbt component
+configuration:
+  templates:
+    - template: repositories
+      output_file: repositories
+      repository_format: sbt

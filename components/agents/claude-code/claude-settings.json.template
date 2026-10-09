@@ -1,0 +1,298 @@
+{
+  "theme": "dark",
+  "verbose": true,
+  "includeCoAuthoredBy": true,
+  "env": {
+    "CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR": "0",
+    "DISABLE_AUTOUPDATER": "1",
+    "DISABLE_BUG_COMMAND": "1",
+    "DISABLE_COST_WARNINGS": "0",
+    "DISABLE_ERROR_REPORTING": "1",
+    "DISABLE_NON_ESSENTIAL_MODEL_CALLS": "0",
+    "DISABLE_TELEMETRY": "1"
+  },
+"permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Bash(*)",
+      "Bash(*:*)",
+      "Bash(autoexpect:*)",
+      "Bash(awk:*)",
+      "Bash(black:*)",
+      "Bash(bundle:*)",
+      "Bash(cargo:*)",
+      "Bash(cargo init:*)",
+      "Bash(cat:*)",
+      "Bash(cd:*)",
+      "Bash(chmod:*)",
+      "Bash(composer:*)",
+      "Bash(conda:*)",
+      "Bash(conda create:*)",
+      "Bash(conda install:*)",
+      "Bash(cp:~/workspace/*)",
+      "Bash(curl:*)",
+      "Bash(cut:*)",
+      "Bash(date:*)",
+      "Bash(df:*)",
+      "Bash(diff:*)",
+      "Bash(docker:*)",
+      "Bash(du:*)",
+      "Bash(echo:*)",
+      "Bash(echo *)",
+      "Bash(echo *:*)",
+      "Bash(env:*)",
+      "Bash(eval:*)",
+      "Bash(expect:*)",
+      "Bash(export:*)",
+      "Bash(find:*)",
+      "Bash(flake8:*)",
+      "Bash(free:*)",
+      "Bash(gh:*)",
+      "Bash(gh pr create:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(gh repo edit:*)",
+      "Bash(git:*)",
+      "Bash(git add:*)",
+      "Bash(git checkout:*)",
+      "Bash(git commit:*)",
+      "Bash(git init:*)",
+      "Bash(git push:*)",
+      "Bash(git merge:*)",
+      "Bash(git remote add:*)",
+      "Bash(git reset:*)",
+      "Bash(go:*)",
+      "Bash(go:*)",
+      "Bash(gradle:*)",
+      "Bash(grep:*)",
+      "Bash(groups:*)",
+      "Bash(gunzip:*)",
+      "Bash(gzip:*)",
+      "Bash(head:*)",
+      "Bash(hostname:*)",
+      "Bash(htop:*)",
+      "Bash(id:*)",
+      "Bash(java:*)",
+      "Bash(jq:*)",
+      "Bash(kill:*)",
+      "Bash(killall:*)",
+      "Bash(less:*)",
+      "Bash(ls:*)",
+      "Bash(lsof:*)",
+      "Bash(make:*)",
+      "Bash(mamba:*)",
+      "Bash(mkdir:*)",
+      "Bash(mvn:*)",
+      "Bash(netstat:*)",
+      "Bash(node:*)",
+      "Bash(npm:*)",
+      "Bash(patch:*)",
+      "Bash(pip:*)",
+      "Bash(pip install:*)",
+      "Bash(pkill:*)",
+      "Bash(printenv:*)",
+      "Bash(ps:*)",
+      "Bash(pwd:*)",
+      "Bash(pytest:*)",
+      "Bash(python:*)",
+      "Bash(python3:*)",
+      "Bash(ruby:*)",
+      "Bash(rustc:*)",
+      "Bash(sbt:*)",
+      "Bash(sed:*)",
+      "Bash(sort:*)",
+      "Bash(source:*)",
+      "Bash(ss:*)",
+      "Bash(tail:*)",
+      "Bash(tar:*)",
+      "Bash(timeout:*)",
+      "Bash(top:*)",
+      "Bash(touch:*)",
+      "Bash(uname:*)",
+      "Bash(uniq:*)",
+      "Bash(unzip:*)",
+      "Bash(wc:*)",
+      "Bash(wget:*)",
+      "Bash(whereis:*)",
+      "Bash(which:*)",
+      "Bash(whoami:*)",
+      "Bash(xmllint:*)",
+      "Bash(yarn:*)",
+      "Bash(yq:*)",
+      "Bash(zip:*)",
+      "Edit(~/workspace/*)",
+      "Glob(~/workspace/*)",
+      "Grep(~/workspace/*)",
+      "LS(~/workspace/*)",
+      "MultiEdit(~/workspace/*)",
+      "NotebookEdit(~/workspace/*)",
+      "NotebookRead(~/workspace/*)",
+      "Read(~/.bash_profile)",
+      "Read(~/.bashrc)",
+      "Read(~/.cargo/config.toml)",
+      "Read(~/.claude/*)",
+      "Read(~/.gitconfig)",
+      "Read(~/.m2/settings.xml)",
+      "Read(~/.npmrc)",
+      "Read(~/.profile)",
+      "Read(~/workspace/*)",
+      "WebFetch(*)",
+      "WebSearch(*)",
+      "Write(~/workspace/*)"
+    ],
+    "deny": [
+      "Bash(apt-get:*)",
+      "Bash(apt:*)",
+      "Bash(chmod:~/.claude/*)",
+      "Bash(chmod:~/.ssh/*)",
+      "Bash(crontab:*)",
+      "Bash(dnf:*)",
+      "Bash(dpkg:*)",
+      "Bash(fdisk:*)",
+      "Bash(firewall-cmd:*)",
+      "Bash(groupadd:*)",
+      "Bash(halt:*)",
+      "Bash(iptables:*)",
+      "Bash(mkfs:*)",
+      "Bash(mount:*)",
+      "Bash(passwd:*)",
+      "Bash(poweroff:*)",
+      "Bash(reboot:*)",
+      "Bash(rm:~/.bundle/*)",
+      "Bash(rm:~/.cargo/*)",
+      "Bash(rm:~/.claude/*)",
+      "Bash(rm:~/.config/*)",
+      "Bash(rm:~/.local/*)",
+      "Bash(rm:~/.m2/*)",
+      "Bash(rm:~/.npm-global/*)",
+      "Bash(rm:~/.ssh/*)",
+      "Bash(rpm:*)",
+      "Bash(service:*)",
+      "Bash(shutdown:*)",
+      "Bash(su:*)",
+      "Bash(sudo:*)",
+      "Bash(systemctl:*)",
+      "Bash(umount:*)",
+      "Bash(useradd:*)",
+      "Bash(userdel:*)",
+      "Bash(usermod:*)",
+      "Bash(yum:*)",
+      "Edit(/etc/*)",
+      "MultiEdit(/etc/*)",
+      "Read(/etc/passwd)",
+      "Read(/etc/shadow)",
+      "Read(/etc/sudoers)",
+      "Read(~/.aws/config)",
+      "Read(~/.aws/credentials)",
+      "Read(~/.docker/config.json)",
+      "Read(~/.kube/config)",
+      "Read(~/.ssh/*_dsa)",
+      "Read(~/.ssh/*_ecdsa)",
+      "Read(~/.ssh/*_ed25519)",
+      "Read(~/.ssh/*_rsa)",
+      "Read(~/.ssh/id_*)",
+      "Write(/bin/*)",
+      "Write(/etc/*)",
+      "Write(/lib/*)",
+      "Write(/opt/*)",
+      "Write(/root/*)",
+      "Write(/sbin/*)",
+      "Write(/usr/*)",
+      "Write(/var/*)",
+      "Write(~/.claude/*)",
+      "Write(~/.ssh/*)"
+    ]
+  },
+  "hooks": {
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/devuser/.claude/hooks/notification.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/devuser/.claude/hooks/journal.sh"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/devuser/.claude/hooks/bash-logger.sh"
+          },
+          {
+            "type": "command",
+            "command": "/home/devuser/.claude/hooks/session-tracker.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/devuser/.claude/hooks/decision-tracker.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/devuser/.claude/hooks/bash-logger.sh"
+          },
+          {
+            "type": "command",
+            "command": "/home/devuser/.claude/hooks/project-lifecycle.sh"
+          },
+          {
+            "type": "command",
+            "command": "/home/devuser/.claude/hooks/test-tracker.sh"
+          },
+          {
+            "type": "command",
+            "command": "/home/devuser/.claude/hooks/error-recovery.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/devuser/.claude/hooks/format-code.sh"
+          },
+          {
+            "type": "command",
+            "command": "/home/devuser/.claude/hooks/decision-tracker.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/devuser/.claude/hooks/file-milestone.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

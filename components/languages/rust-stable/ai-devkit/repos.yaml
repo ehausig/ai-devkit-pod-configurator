@@ -1,0 +1,5 @@
+# Default repository configuration for Rust
+repositories:
+  - name: "crates-io"
+    url: "https://github.com/rust-lang/crates.io-index"
+    access: "read_only"

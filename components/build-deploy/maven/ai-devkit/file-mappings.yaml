@@ -1,0 +1,6 @@
+# File mapping specifications for Maven
+files:
+  # Generated Maven settings
+  - source: generated/settings.xml
+    dest: /home/devuser/.m2/settings.xml
+    mode: "0644"

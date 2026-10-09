@@ -1,0 +1,6 @@
+# Configuration metadata for Go 1.22 component
+configuration:
+  format: "go"
+  templates:
+    - source: "config-templates/go-env.sh.j2"
+      output: "go-env.sh"

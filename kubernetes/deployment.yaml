@@ -16,12 +16,20 @@ spec:
         app: ai-devkit
       annotations:
         kubectl.kubernetes.io/default-container: ai-devkit
+        container.apparmor.security.beta.kubernetes.io/ai-devkit: unconfined
     spec:
       containers:
       # Main AI DevKit container
       - name: ai-devkit
         image: ai-devkit:latest
         imagePullPolicy: IfNotPresent
+        securityContext:
+          # Required for rootless container building with buildah/podman
+          capabilities:
+            add:
+              - SYS_ADMIN  # Required for user namespaces
+              - SETUID     # Required for uid mapping
+              - SETGID     # Required for gid mapping
         ports:
         - containerPort: 22
           name: ssh
@@ -335,7 +343,7 @@ data:
       "database": "/database/filebrowser.db",
       "root": "/srv",
       "username": "admin",
-      "password": "admin",
+      "password": "$2a$10$vI8aWBnW3fID.ZQ4/zo1G.q1lRps.9cGLcZEiGDMVr5yUP1KUOYTa",
       "branding": {
         "name": "AI DevKit Workspace",
         "disableExternal": false,

@@ -1,0 +1,10 @@
+# Environment variables for Go 1.22
+env_vars:
+  - name: "GOPROXY"
+    value: "${REPO_URL},direct"
+  - name: "GOSUMDB"
+    value: "sum.golang.org"
+  - name: "GONOSUMDB"
+    value: ""
+  - name: "GOPRIVATE"
+    value: ""

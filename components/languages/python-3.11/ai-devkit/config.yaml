@@ -1,0 +1,9 @@
+# Configuration metadata for Python 3.11 component
+configuration:
+  format: "pypi"
+  templates:
+    - source: "config-templates/pip.conf.j2"
+      output: "pip.conf"
+  environment:
+    - source: "env_vars.yaml"
+      output: "python-env.sh"

@@ -1,0 +1,6 @@
+# File mapping specifications for Gradle
+files:
+  # Generated Gradle init script
+  - source: generated/init.gradle
+    dest: /home/devuser/.gradle/init.gradle
+    mode: "0644"

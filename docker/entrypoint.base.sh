@@ -56,9 +56,21 @@ if [ -f /tmp/git-mounted/.git-credentials ]; then
     cp /tmp/git-mounted/.git-credentials /home/devuser/.git-credentials
     chown devuser:devuser /home/devuser/.git-credentials
     chmod 600 /home/devuser/.git-credentials
+
+    # Extract GitHub token from git-credentials and set as GH_TOKEN for automatic gh CLI authentication
+    # Format is: https://username:token@github.com
+    GITHUB_TOKEN=$(grep "github.com" /home/devuser/.git-credentials | sed -n 's|https://[^:]*:\([^@]*\)@github.com|\1|p' | head -1)
+    if [ -n "$GITHUB_TOKEN" ]; then
+        echo "Configuring GitHub CLI (gh) authentication via GH_TOKEN"
+        # Set for root user entrypoint scripts
+        export GH_TOKEN="$GITHUB_TOKEN"
+        # Add to devuser's environment
+        echo "export GH_TOKEN='$GITHUB_TOKEN'" >> /home/devuser/.bashrc
+        echo "✓ GitHub CLI (gh) will authenticate automatically"
+    fi
 fi
 
-# Handle GitHub CLI configuration
+# Handle GitHub CLI configuration (backup method)
 if [ -f /tmp/git-mounted/gh-hosts.yml ]; then
     echo "Found mounted GitHub CLI configuration"
     mkdir -p /home/devuser/.config/gh
@@ -84,6 +96,13 @@ chown -R devuser:devuser /home/devuser/workspace 2>/dev/null || true
 chown -R devuser:devuser /home/devuser/.config/ai-devkit 2>/dev/null || true
 chown -R devuser:devuser /home/devuser/.local 2>/dev/null || true
 chown -R devuser:devuser /home/devuser/.tui-test-templates 2>/dev/null || true
+
+# Copy README to ai-devkit config directory (in case PVC mount overwrote it)
+if [ -f /usr/local/share/ai-devkit-README.md ] && [ ! -f /home/devuser/.config/ai-devkit/README.md ]; then
+    echo "Restoring ai-devkit README to config directory..."
+    cp /usr/local/share/ai-devkit-README.md /home/devuser/.config/ai-devkit/README.md
+    chown devuser:devuser /home/devuser/.config/ai-devkit/README.md
+fi
 
 # Add user's local bin to PATH
 add_if_not_exists 'export PATH="$HOME/.local/bin:$PATH"' "$BASHRC"
@@ -114,6 +133,17 @@ fi
 EOF
 fi
 
+# Source Go environment if it exists
+if ! grep -q "Source Go environment" "$BASHRC" 2>/dev/null; then
+    cat >> "$BASHRC" << 'EOF'
+
+# Source Go environment if it exists
+if [ -f ~/.config/go-env.sh ]; then
+    . ~/.config/go-env.sh
+fi
+EOF
+fi
+
 # Ensure proper ownership of .bashrc
 chown devuser:devuser "$BASHRC"
 
@@ -131,20 +161,17 @@ if [ "$(id -u)" = "0" ]; then
         exec sleep infinity
     else
         echo "Switching to devuser to run: $*"
-        # Build environment preservation string dynamically
+        # Build environment preservation string - only essential environment variables
         ENV_PRESERVE="export TERM='$TERM' && export FORCE_COLOR='$FORCE_COLOR' && export CI='$CI'"
         
-        # Add component-specific environment variables if they exist
-        [ -n "$PIP_INDEX_URL" ] && ENV_PRESERVE="$ENV_PRESERVE && export PIP_INDEX_URL='$PIP_INDEX_URL'"
-        [ -n "$PIP_TRUSTED_HOST" ] && ENV_PRESERVE="$ENV_PRESERVE && export PIP_TRUSTED_HOST='$PIP_TRUSTED_HOST'"
-        [ -n "$NPM_CONFIG_REGISTRY" ] && ENV_PRESERVE="$ENV_PRESERVE && export NPM_CONFIG_REGISTRY='$NPM_CONFIG_REGISTRY'"
-        [ -n "$GOPROXY" ] && ENV_PRESERVE="$ENV_PRESERVE && export GOPROXY='$GOPROXY'"
-        [ -n "$CARGO_REGISTRIES_CRATES_IO_PROTOCOL" ] && ENV_PRESERVE="$ENV_PRESERVE && export CARGO_REGISTRIES_CRATES_IO_PROTOCOL='$CARGO_REGISTRIES_CRATES_IO_PROTOCOL'"
-        [ -n "$CARGO_HTTP_CHECK_REVOKE" ] && ENV_PRESERVE="$ENV_PRESERVE && export CARGO_HTTP_CHECK_REVOKE='$CARGO_HTTP_CHECK_REVOKE'"
-        [ -n "$CARGO_NET_GIT_FETCH_WITH_CLI" ] && ENV_PRESERVE="$ENV_PRESERVE && export CARGO_NET_GIT_FETCH_WITH_CLI='$CARGO_NET_GIT_FETCH_WITH_CLI'"
+        # Preserve proxy settings if they exist (generic, not language-specific)
+        [ -n "$HTTP_PROXY" ] && ENV_PRESERVE="$ENV_PRESERVE && export HTTP_PROXY='$HTTP_PROXY'"
+        [ -n "$HTTPS_PROXY" ] && ENV_PRESERVE="$ENV_PRESERVE && export HTTPS_PROXY='$HTTPS_PROXY'"
         [ -n "$NO_PROXY" ] && ENV_PRESERVE="$ENV_PRESERVE && export NO_PROXY='$NO_PROXY'"
         [ -n "$no_proxy" ] && ENV_PRESERVE="$ENV_PRESERVE && export no_proxy='$no_proxy'"
-        [ -n "$SBT_OPTS" ] && ENV_PRESERVE="$ENV_PRESERVE && export SBT_OPTS='$SBT_OPTS'"
+        
+        # Component-specific environment variables are now handled via mounted config files
+        # Repository configurations are mounted directly to the appropriate locations
         
         exec su - devuser -c "$ENV_PRESERVE && $*"
     fi

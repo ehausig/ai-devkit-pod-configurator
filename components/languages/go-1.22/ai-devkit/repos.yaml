@@ -1,0 +1,5 @@
+# Default repository configuration for Go 1.22
+repositories:
+  - name: "go-proxy"
+    url: "https://proxy.golang.org"
+    access: "read_only"

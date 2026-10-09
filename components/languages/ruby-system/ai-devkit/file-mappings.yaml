@@ -1,0 +1,6 @@
+# File mapping specifications for Ruby component
+files:
+  # Generated gem configuration
+  - source: generated/.gemrc
+    dest: /home/devuser/.gemrc
+    mode: "0644"
