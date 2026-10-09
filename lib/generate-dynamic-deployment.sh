@@ -9,7 +9,9 @@ DEVUSER_HOME="${DEVUSER_HOME:-/home/devuser}"
 generate_dynamic_kubernetes_deployment() {
     local output_file="$1"
     local manifest_file="${2:-}"  # Optional manifest file to detect needed mounts
-    
+    local image="${3:-ai-devkit:latest}"  # e.g., a registry reference
+    local pull_policy="${4:-IfNotPresent}"
+
     # Start with the deployment header including init container
     cat > "$output_file" << 'EOF'
 apiVersion: apps/v1
@@ -30,7 +32,6 @@ spec:
         app: ai-devkit
       annotations:
         kubectl.kubernetes.io/default-container: ai-devkit
-        container.apparmor.security.beta.kubernetes.io/ai-devkit: unconfined
     spec:
       initContainers:
       # Init container to set up configuration files
@@ -54,15 +55,27 @@ spec:
       containers:
       # Main AI DevKit container
       - name: ai-devkit
-        image: ai-devkit:latest
-        imagePullPolicy: IfNotPresent
+        image: __AI_DEVKIT_IMAGE__
+        imagePullPolicy: __AI_DEVKIT_PULL_POLICY__
+EOF
+    sed -i.bak -e "s|__AI_DEVKIT_IMAGE__|${image}|" \
+        -e "s|__AI_DEVKIT_PULL_POLICY__|${pull_policy}|" "$output_file" && \
+        rm -f "$output_file.bak"
+
+    # Run the main container without AppArmor confinement, which would block
+    # rootless container builds (Kubernetes 1.30+ field; replaces the
+    # deprecated container.apparmor.security.beta.kubernetes.io annotation)
+    cat >> "$output_file" << 'EOF'
+        securityContext:
+          appArmorProfile:
+            type: Unconfined
 EOF
 
-    # Check if security context is required (e.g., for buildah/podman)
+    # Add capabilities if required (e.g., for buildah/podman). The patch holds
+    # keys that go under securityContext, so indent it to that level.
     local security_context_file=".build-temp/deployment-patches/buildah-security-context.yaml"
     if [[ -f "$security_context_file" ]]; then
-        # Inject security context (indented with 8 spaces for container level)
-        sed 's/^/        /' "$security_context_file" >> "$output_file"
+        sed 's/^/          /' "$security_context_file" >> "$output_file"
     fi
 
     cat >> "$output_file" << 'EOF'
@@ -282,6 +295,12 @@ data:
       "hideDotfiles": false
     }
 EOF
+
+    # The heredocs above are quoted, so ${DEVUSER_HOME} is still literal.
+    # Expand it, or Kubernetes mounts the volumes at a directory literally
+    # named "${DEVUSER_HOME}" instead of the user's home.
+    sed -i.bak "s|\${DEVUSER_HOME}|${DEVUSER_HOME}|g" "$output_file" && \
+        rm -f "$output_file.bak"
 }
 
 # Export the function for use in other scripts

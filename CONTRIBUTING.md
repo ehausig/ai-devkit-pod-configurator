@@ -102,8 +102,9 @@ mkdir -p ~/.ai-devkit
 cat > ~/.ai-devkit/config.yaml << 'EOF'
 container:
   build_tool: docker  # or nerdctl, podman
-  runtime: colima     # or k3s, docker-desktop, minikube, kind
-  runtime_import: none  # or direct (nerdctl+k3s), save-load (docker+k3s)
+  runtime: colima     # or k3s, k3d, docker-desktop, minikube, kind
+  runtime_import: none  # or direct (nerdctl+k3s), save-load (docker+k3s), registry (k3d)
+  # registry: localhost:5001  # with runtime_import: registry
 EOF
 
 # Start development

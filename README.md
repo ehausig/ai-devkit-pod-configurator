@@ -60,6 +60,7 @@ AI DevKit Pod Configurator provides a beautiful TUI (Terminal User Interface) fo
 - `ssh-keygen` for generating SSH host keys
 - **Recommended setups:**
   - macOS: [Colima](https://github.com/abiosoft/colima) with Docker
+  - macOS or Linux: [k3d](https://k3d.io) clusters with a local registry (images are pushed, so only changed layers move)
   - Linux with K3s: **nerdctl** for seamless integration (no image transfer needed)
   - Linux with Docker/Podman: Works with automatic image transfer
 
@@ -75,6 +76,27 @@ colima start --kubernetes --cpu 4 --memory 8
 # Verify setup
 kubectl get nodes
 ```
+
+### macOS Setup with Colima and k3d
+
+Colima provides Docker only, and k3d runs Kubernetes as containers in it. Images go to a local registry, so rebuilds push only the layers that changed.
+
+```bash
+# Install dependencies
+brew install colima docker docker-buildx k3d kubectl yq jq
+
+# Start Docker (no Colima Kubernetes needed)
+colima start --cpu 4 --memory 8
+
+# Create a registry and a cluster that pulls from it
+k3d registry create registry.localhost --port 5001
+k3d cluster create dev --registry-use k3d-registry.localhost:5001
+
+# Verify setup
+kubectl get nodes
+```
+
+Then set `runtime: k3d` and `runtime_import: registry` in `~/.ai-devkit/config.yaml` (see [Basic Usage](#basic-usage)).
 
 ### Ubuntu/Linux Quick Setup with K3s
 
@@ -126,6 +148,7 @@ The AI DevKit supports multiple container runtime environments through a configu
 **Supported Kubernetes Runtimes:**
 - **Colima** (macOS) - VM-based Docker/Kubernetes
 - **K3s** (Linux) - Lightweight Kubernetes distribution
+- **k3d** - K3s clusters running in Docker, fed from a local registry
 - **Docker Desktop** (macOS/Windows/Linux) - Native Docker with Kubernetes
 - **Minikube** - Cross-platform Kubernetes for development
 - **Kind** - Kubernetes in Docker
@@ -156,14 +179,24 @@ container:
   # Container build tool: docker, nerdctl, or podman
   build_tool: docker  # Change to nerdctl or podman if preferred
 
-  # Kubernetes runtime: k3s, colima, docker-desktop, minikube, kind, or containerd
+  # Kubernetes runtime: k3s, k3d, colima, docker-desktop, minikube, kind, or containerd
   runtime: colima  # Change to match your setup (k3s for Linux, colima for macOS)
 
   # Import method:
   #   - direct: nerdctl builds directly into K3s containerd (fastest, K3s only)
-  #   - save-load: Export/import image tar (for Docker/Podman with K3s)
+  #   - save-load: Export/import image tar (for Docker/Podman with K3s; k3d image import with k3d)
+  #   - registry: Push to a registry the cluster pulls from (k3d, or any cluster with a registry)
   #   - none: No import needed (Docker Desktop, minikube with Docker)
   runtime_import: none  # Use 'direct' for nerdctl+k3s, 'save-load' for docker+k3s
+
+  # With runtime_import: registry
+  # registry: localhost:5001                    # where the build pushes
+  # registry_pull: k3d-registry.localhost:5001  # how the cluster pulls (default: registry)
+
+# Optional: storage class for the config and workspace volume claims
+# (default: the cluster's default class). Applies only to newly created claims.
+# kubernetes:
+#   storage_class: persistent
 EOF
 
 # Step 2: (Optional) Configure git credentials for automatic injection

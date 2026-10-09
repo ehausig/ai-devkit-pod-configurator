@@ -626,6 +626,11 @@ check_runtime_status() {
         "docker-desktop")
             docker version &> /dev/null || error "Docker Desktop is not running. Please start Docker Desktop."
             ;;
+        "k3d")
+            docker version &> /dev/null || error "Docker is not running. Start it (for example: colima start) and try again."
+            local context=$(kubectl config current-context 2>/dev/null)
+            [[ "$context" == k3d-* ]] || error "The current Kubernetes context is '${context:-none}', not a k3d cluster. Switch with: kubectl config use-context k3d-<cluster>"
+            ;;
         *)
             # Don't fail on unknown runtime, just warn
             echo "Warning: Unable to verify runtime status for: $runtime" >> "$LOG_FILE" 2>&1
@@ -701,8 +706,9 @@ get_container_tool() {
     echo "Required configuration:"
     echo "  container:"
     echo "    build_command: \"<docker|nerdctl|podman or full command>\""
-    echo "    runtime: \"<k3s|minikube|kind|docker-desktop|colima>\""
-    echo "    runtime_import: \"<direct|save-load|none>\""
+    echo "    runtime: \"<k3s|k3d|minikube|kind|docker-desktop|colima>\""
+    echo "    runtime_import: \"<direct|save-load|registry|none>\""
+    echo "    registry: \"<host:port>\"  # with runtime_import: registry"
     echo ""
     exit 1
 }
@@ -731,10 +737,59 @@ get_import_method() {
             echo "direct"
         elif [[ "$runtime" == "docker-desktop" ]]; then
             echo "none"
+        elif [[ "$runtime" == "k3d" ]] && [[ -n "$(get_push_registry)" ]]; then
+            echo "registry"
         else
             echo "save-load"
         fi
     fi
+}
+
+# Get the registry the build pushes to (runtime_import: registry)
+get_push_registry() {
+    read_config "container.registry"
+}
+
+# Get the registry the cluster pulls from; defaults to the push registry.
+# They differ when the cluster reaches the registry under another name, as
+# with k3d: localhost:5001 from the host, k3d-registry.localhost:5001 inside.
+get_pull_registry() {
+    local registry=$(read_config "container.registry_pull")
+    if [[ -n "$registry" ]]; then
+        echo "$registry"
+    else
+        get_push_registry
+    fi
+}
+
+# Get the image reference and pull policy the deployment uses
+get_deploy_image() {
+    local image="$1"
+    if [[ "$(get_import_method)" == "registry" ]]; then
+        echo "$(get_pull_registry)/${image}"
+    else
+        echo "$image"
+    fi
+}
+
+get_deploy_pull_policy() {
+    # The tag is reused on every build, so pull from a registry every time
+    if [[ "$(get_import_method)" == "registry" ]]; then
+        echo "Always"
+    else
+        echo "IfNotPresent"
+    fi
+}
+
+# Get the storage class for persistent volume claims (optional)
+get_storage_class() {
+    read_config "kubernetes.storage_class"
+}
+
+# Get the k3d cluster name from the current context (k3d-<cluster>)
+get_k3d_cluster() {
+    local context=$(kubectl config current-context 2>/dev/null)
+    echo "${context#k3d-}"
 }
 
 # Container tool abstraction functions
@@ -762,6 +817,14 @@ container_save() {
 
 container_rmi() {
     container_exec rmi "$@" 2>/dev/null || true
+}
+
+container_tag() {
+    container_exec tag "$@"
+}
+
+container_push() {
+    container_exec push "$@"
 }
 
 
@@ -796,6 +859,22 @@ load_image_to_runtime() {
             echo "No import needed - runtime shares storage with build tool" >> "$LOG_FILE"
             return 0
             ;;
+
+        "registry")
+            # Push to a registry the cluster pulls from (e.g., a k3d registry).
+            # Only changed layers are uploaded.
+            local registry=$(get_push_registry)
+            if [[ -z "$registry" ]]; then
+                error "runtime_import is 'registry', but container.registry is not set in ~/.ai-devkit/config.yaml"
+            fi
+            echo "Pushing $image_name to registry $registry" >> "$LOG_FILE"
+            if container_tag "$image_name" "$registry/$image_name" >> "$LOG_FILE" 2>&1 && \
+               container_push "$registry/$image_name" >> "$LOG_FILE" 2>&1; then
+                echo "Image pushed to $registry/$image_name" >> "$LOG_FILE"
+                return 0
+            fi
+            error "Failed to push $image_name to registry $registry"
+            ;;
             
         "save-load")
             # Traditional save and load method
@@ -811,6 +890,10 @@ load_image_to_runtime() {
         "colima")
             echo "Using Colima image import method" >> "$LOG_FILE"
             container_save "$image_name" | colima ssh -- sudo ctr -n k8s.io images import - >> "$LOG_FILE" 2>&1
+            ;;
+        "k3d")
+            echo "Using k3d image import method" >> "$LOG_FILE"
+            k3d image import "$image_name" --cluster "$(get_k3d_cluster)" >> "$LOG_FILE" 2>&1
             ;;
         "k3s")
             # Check if using nerdctl - if so, image is already in the right place!
@@ -966,8 +1049,33 @@ verify_image_in_runtime() {
     local container_tool=$(get_container_tool)
     
     echo "Verifying image $image_with_tag is available in $runtime..." >> "$LOG_FILE"
-    
+
+    # With a registry, ask the registry whether the image's manifest exists
+    if [[ "$(get_import_method)" == "registry" ]]; then
+        local registry=$(get_push_registry)
+        local accept="application/vnd.oci.image.index.v1+json,application/vnd.oci.image.manifest.v1+json,application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.docker.distribution.manifest.v2+json"
+        local scheme
+        for scheme in http https; do
+            if curl -fsSI -o /dev/null -H "Accept: $accept" \
+                "${scheme}://${registry}/v2/${image_name}/manifests/${image_tag}" 2>/dev/null; then
+                echo "Image $image_with_tag found in registry $registry" >> "$LOG_FILE"
+                return 0
+            fi
+        done
+        echo "Error: Image $image_with_tag not found in registry $registry" >> "$LOG_FILE"
+        echo "  Check with: curl ${registry}/v2/${image_name}/tags/list" >> "$LOG_FILE"
+        return 1
+    fi
+
     case "$runtime" in
+        "k3d")
+            # Check the server node's containerd for an imported image
+            if docker exec "k3d-$(get_k3d_cluster)-server-0" crictl images 2>/dev/null | \
+                grep -qE "(^|/)${image_name}[[:space:]]+${image_tag}[[:space:]]"; then
+                echo "Image $image_with_tag found in k3d cluster $(get_k3d_cluster)" >> "$LOG_FILE"
+                return 0
+            fi
+            ;;
         "colima")
             # Check if image exists in Colima's containerd
             if colima ssh -- sudo ctr -n k8s.io images list 2>/dev/null | grep -q "$image_with_tag"; then
@@ -1099,6 +1207,10 @@ provide_installation_guidance() {
             echo "  Linux:    curl -sfL https://get.k3s.io | sh -"
             echo "  macOS:    Not recommended - use Colima or Docker Desktop instead"
             ;;
+        "k3d")
+            echo "  macOS:    brew install k3d"
+            echo "  Linux:    curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash"
+            ;;
         "docker")
             echo "  macOS:    brew install --cask docker  # or Docker Desktop"
             echo "  Ubuntu:   sudo apt-get install docker.io"
@@ -1223,6 +1335,14 @@ check_deps() {
             else
                 echo "✗"
                 error "Colima not found. Please install Colima or reconfigure."
+            fi
+            ;;
+        "k3d")
+            if command -v k3d &> /dev/null; then
+                echo "✓"
+            else
+                echo "✗"
+                provide_installation_guidance "k3d"
             fi
             ;;
         "docker-desktop")
@@ -4151,12 +4271,27 @@ generate_dynamic_deployment() {
     local manifest_file="$TEMP_DIR/staging/manifest.txt"
     
     # Generate truly dynamic deployment with template-based volume mounts
-    generate_dynamic_kubernetes_deployment "$deployment_file" "$manifest_file" 2>> "$LOG_FILE"
+    generate_dynamic_kubernetes_deployment "$deployment_file" "$manifest_file" \
+        "$(get_deploy_image "${IMAGE_NAME}:${IMAGE_TAG}")" "$(get_deploy_pull_policy)" 2>> "$LOG_FILE"
     
     echo "Generated dynamic deployment at $deployment_file" >> "$LOG_FILE"
     
     # Only output the deployment file path to stdout (for command substitution)
     echo "$deployment_file"
+}
+
+# Apply the persistent volume claims, with kubernetes.storage_class if set.
+# A claim's storage class can't change after it exists, so the setting only
+# affects newly created claims.
+apply_pvcs() {
+    local storage_class=$(get_storage_class)
+    if [[ -n "$storage_class" ]]; then
+        echo "Applying PVCs with storage class $storage_class" >> "$LOG_FILE"
+        awk -v sc="$storage_class" '{ print } /^spec:$/ { print "  storageClassName: " sc }' \
+            kubernetes/pvc.yaml | kubectl apply -f - >> "$LOG_FILE" 2>&1
+    else
+        kubectl apply -f kubernetes/pvc.yaml >> "$LOG_FILE" 2>&1
+    fi
 }
 
 # Function to deploy to Kubernetes
@@ -4175,7 +4310,7 @@ deploy_to_kubernetes() {
     fi
     
     kubectl apply -f kubernetes/namespace.yaml >> "$LOG_FILE" 2>&1
-    kubectl apply -f kubernetes/pvc.yaml >> "$LOG_FILE" 2>&1
+    apply_pvcs
     
     # Create git config secret if using host configuration
     if [[ "$USE_HOST_GIT_CONFIG" = true ]]; then
