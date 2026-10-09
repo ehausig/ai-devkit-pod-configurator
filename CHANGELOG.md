@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Registry import method** (`runtime_import: registry`): pushes the image to `container.registry` and deploys it from `container.registry_pull` (defaults to `container.registry`) with `imagePullPolicy: Always`, so rebuilds move only changed layers
 - **Configurable storage class** (`kubernetes.storage_class`) for the config and workspace volume claims; applies only to newly created claims
 
+### Fixed
+- **Volumes mounted at the wrong path** since the September 2025 refactor: the deployment template is a quoted heredoc, so `${DEVUSER_HOME}` was never expanded and the workspace, config, and injected-file volumes were mounted at a directory literally named `${DEVUSER_HOME}`. Work saved in `~/workspace` lived in the container layer and was lost on every redeploy. They now mount under `/home/devuser`.
+- **Component test runner** (`~/.ai-devkit/tests/run-all.sh`) failed with `DEVUSER_HOME: unbound variable`; it now falls back to `$HOME`
+
 ## [0.4.0] - 2025-11-01
 
 This is a major release bringing comprehensive cross-platform container runtime support to the AI DevKit Pod Configurator. This release enables seamless use of Docker, nerdctl, and Podman across multiple Kubernetes distributions including K3s, Colima, Docker Desktop, minikube, and kind.
