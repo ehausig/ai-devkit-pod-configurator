@@ -21,14 +21,14 @@ echo -e "${YELLOW}Configuring deployment for rootless container building...${NC}
 mkdir -p "$TEMP_DIR/deployment-patches"
 
 cat > "$TEMP_DIR/deployment-patches/buildah-security-context.yaml" << 'EOF'
-# Security context required for buildah/podman rootless container building
-# This file is read by generate-dynamic-deployment.sh
-securityContext:
-  capabilities:
-    add:
-      - SYS_ADMIN  # Required for user namespaces
-      - SETUID     # Required for uid mapping
-      - SETGID     # Required for gid mapping
+# Security context settings required for buildah/podman rootless container
+# building. generate-dynamic-deployment.sh adds these under the container's
+# securityContext.
+capabilities:
+  add:
+    - SYS_ADMIN  # Required for user namespaces
+    - SETUID     # Required for uid mapping
+    - SETGID     # Required for gid mapping
 EOF
 
 echo -e "${GREEN}✓ Security context configuration created${NC}"

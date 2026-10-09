@@ -32,7 +32,6 @@ spec:
         app: ai-devkit
       annotations:
         kubectl.kubernetes.io/default-container: ai-devkit
-        container.apparmor.security.beta.kubernetes.io/ai-devkit: unconfined
     spec:
       initContainers:
       # Init container to set up configuration files
@@ -63,11 +62,20 @@ EOF
         -e "s|__AI_DEVKIT_PULL_POLICY__|${pull_policy}|" "$output_file" && \
         rm -f "$output_file.bak"
 
-    # Check if security context is required (e.g., for buildah/podman)
+    # Run the main container without AppArmor confinement, which would block
+    # rootless container builds (Kubernetes 1.30+ field; replaces the
+    # deprecated container.apparmor.security.beta.kubernetes.io annotation)
+    cat >> "$output_file" << 'EOF'
+        securityContext:
+          appArmorProfile:
+            type: Unconfined
+EOF
+
+    # Add capabilities if required (e.g., for buildah/podman). The patch holds
+    # keys that go under securityContext, so indent it to that level.
     local security_context_file=".build-temp/deployment-patches/buildah-security-context.yaml"
     if [[ -f "$security_context_file" ]]; then
-        # Inject security context (indented with 8 spaces for container level)
-        sed 's/^/        /' "$security_context_file" >> "$output_file"
+        sed 's/^/          /' "$security_context_file" >> "$output_file"
     fi
 
     cat >> "$output_file" << 'EOF'
