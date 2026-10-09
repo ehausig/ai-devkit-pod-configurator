@@ -23,9 +23,9 @@ This project adheres to the [Contributor Covenant Code of Conduct](CODE_OF_CONDU
 
 1. **Fork the repository** on GitHub
 2. **Clone your fork** locally
-3. **Create a feature branch** from `develop`
+3. **Create a feature branch** from `main`
 4. **Make your changes** with clear commits
-5. **Push to your fork** and submit a pull request to `develop`
+5. **Push to your fork** and submit a pull request to `main`
 
 ## How to Contribute
 
@@ -90,8 +90,8 @@ cd ai-devkit-pod-configurator
 git remote add upstream https://github.com/ehausig/ai-devkit-pod-configurator.git
 
 # Create feature branch
-git checkout develop
-git pull upstream develop
+git checkout main
+git pull upstream main
 git checkout -b feature/your-feature-name
 
 # Make scripts executable
@@ -195,11 +195,11 @@ bash -x script.sh  # Debug mode
 1. **Update your branch**:
    ```bash
    git fetch upstream
-   git rebase upstream/develop
+   git rebase upstream/main
    ```
 
 2. **Create pull request**:
-   - Target branch: `develop` (never `main`)
+   - Target branch: `main`
    - Clear title and description
    - Reference related issues
    - Include screenshots for UI changes
