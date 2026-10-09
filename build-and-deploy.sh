@@ -520,8 +520,19 @@ error() {
     exit 1
 }
 
-success() { 
+success() {
     log "$1" "$LOG_SUCCESS_STYLE"
+}
+
+# Count warnings in the build log. BuildKit echoes each step's command in a
+# "#N [stage x/y] RUN ..." header line; a command that merely contains
+# "warning:" isn't a warning, so skip those lines.
+count_log_warnings() {
+    if [[ ! -f "$LOG_FILE" ]]; then
+        echo 0
+        return
+    fi
+    grep -i "warning:" "$LOG_FILE" | grep -cvE '^#[0-9]+ \['
 }
 
 info() { 
@@ -4600,7 +4611,7 @@ main() {
     done
     
     # Check for warnings in the log
-    local warning_count=$(grep -ci "warning:" "$LOG_FILE" 2>/dev/null || echo "0")
+    local warning_count=$(count_log_warnings)
     
     # Center the final prompt
     local final_prompt_text="Press ENTER to return to terminal"
@@ -4632,7 +4643,7 @@ main() {
     # Display simplified connection instructions at terminal
     if [[ $all_success == true ]]; then
         # Check for warnings again
-        local warning_count=$(grep -ci "warning:" "$LOG_FILE" 2>/dev/null || echo "0")
+        local warning_count=$(count_log_warnings)
         if [[ $warning_count -gt 0 ]]; then
             echo ""
             style_line "$COLOR_YELLOW" "⚠ Build completed with $warning_count warning(s)"
