@@ -7,17 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-09
+
+This release adds k3d as a runtime, with images pushed through a local registry, and new components for Kubernetes, WebAssembly, rootless container builds, and browser testing. It also fixes a bug, present since September 2025, that lost work saved in `~/workspace` on every redeploy. Development now happens on feature branches off `main`; the `develop` branch is retired.
+
 ### Added
-- **k3d runtime** (`runtime: k3d`): checks that Docker is up and the current context is a k3d cluster; `runtime_import: save-load` uses `k3d image import`
-- **Registry import method** (`runtime_import: registry`): pushes the image to `container.registry` and deploys it from `container.registry_pull` (defaults to `container.registry`) with `imagePullPolicy: Always`, so rebuilds move only changed layers
-- **Configurable storage class** (`kubernetes.storage_class`) for the config and workspace volume claims; applies only to newly created claims
+- **k3d runtime** (`runtime: k3d`): checks that Docker is up and the current context is a k3d cluster; `runtime_import: save-load` uses `k3d image import` ([#64](https://github.com/ehausig/ai-devkit-pod-configurator/pull/64))
+- **Registry import method** (`runtime_import: registry`): pushes the image to `container.registry` and deploys it from `container.registry_pull` (defaults to `container.registry`) with `imagePullPolicy: Always`, so rebuilds move only changed layers ([#64](https://github.com/ehausig/ai-devkit-pod-configurator/pull/64))
+- **Configurable storage class** (`kubernetes.storage_class`) for the config and workspace volume claims; applies only to newly created claims ([#64](https://github.com/ehausig/ai-devkit-pod-configurator/pull/64))
+- **Kubernetes tools** component ([#54](https://github.com/ehausig/ai-devkit-pod-configurator/pull/54))
+- **WebAssembly tools** component ([#55](https://github.com/ehausig/ai-devkit-pod-configurator/pull/55)), using the recommended installation methods ([#57](https://github.com/ehausig/ai-devkit-pod-configurator/pull/57)), prebuilt `wash` binaries ([#59](https://github.com/ehausig/ai-devkit-pod-configurator/pull/59)), and the NATS CLI ([#60](https://github.com/ehausig/ai-devkit-pod-configurator/pull/60))
+- **Buildah tools** component for rootless container builds, with dual workflow support ([#56](https://github.com/ehausig/ai-devkit-pod-configurator/pull/56))
+- **Playwright** end-to-end testing component ([#61](https://github.com/ehausig/ai-devkit-pod-configurator/pull/61))
 
 ### Changed
-- The main container is unconfined by AppArmor through `securityContext.appArmorProfile` instead of the `container.apparmor.security.beta.kubernetes.io` annotation, deprecated since Kubernetes 1.30. Requires Kubernetes 1.30 or later. The buildah/podman capabilities now go under the same `securityContext`.
+- The main container is unconfined by AppArmor through `securityContext.appArmorProfile` instead of the `container.apparmor.security.beta.kubernetes.io` annotation, deprecated since Kubernetes 1.30. Requires Kubernetes 1.30 or later. The buildah/podman capabilities now go under the same `securityContext` ([#65](https://github.com/ehausig/ai-devkit-pod-configurator/pull/65))
+- GitHub CLI installation is more reliable and authenticates automatically ([#58](https://github.com/ehausig/ai-devkit-pod-configurator/pull/58))
+- Contributions and the in-container Claude Code workflow branch off `main`; the `develop` branch is retired
 
 ### Fixed
-- **Volumes mounted at the wrong path** since the September 2025 refactor: the deployment template is a quoted heredoc, so `${DEVUSER_HOME}` was never expanded and the workspace, config, and injected-file volumes were mounted at a directory literally named `${DEVUSER_HOME}`. Work saved in `~/workspace` lived in the container layer and was lost on every redeploy. They now mount under `/home/devuser`.
-- **Component test runner** (`~/.ai-devkit/tests/run-all.sh`) failed with `DEVUSER_HOME: unbound variable`; it now falls back to `$HOME`
+- **Volumes mounted at the wrong path** since the September 2025 refactor: the deployment template is a quoted heredoc, so `${DEVUSER_HOME}` was never expanded and the workspace, config, and injected-file volumes were mounted at a directory literally named `${DEVUSER_HOME}`. Work saved in `~/workspace` lived in the container layer and was lost on every redeploy. They now mount under `/home/devuser` ([#66](https://github.com/ehausig/ai-devkit-pod-configurator/pull/66))
+- **Component test runner** (`~/.ai-devkit/tests/run-all.sh`) failed with `DEVUSER_HOME: unbound variable`; it now falls back to `$HOME` ([#66](https://github.com/ehausig/ai-devkit-pod-configurator/pull/66))
+- **Claude Code component**: visibility in the component list ([#49](https://github.com/ehausig/ai-devkit-pod-configurator/pull/49)), file injection ([#50](https://github.com/ehausig/ai-devkit-pod-configurator/pull/50), [#51](https://github.com/ehausig/ai-devkit-pod-configurator/pull/51)), a container crash from a redundant `chmod` ([#52](https://github.com/ehausig/ai-devkit-pod-configurator/pull/52)), and its npm installation ([#53](https://github.com/ehausig/ai-devkit-pod-configurator/pull/53))
+- **Filebrowser** authentication uses a bcrypt-hashed password ([#62](https://github.com/ehausig/ai-devkit-pod-configurator/pull/62))
 
 ## [0.4.0] - 2025-11-01
 
@@ -259,7 +271,8 @@ Initial release of AI DevKit Pod Configurator
 
 ---
 
-[Unreleased]: https://github.com/ehausig/ai-devkit-pod-configurator/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/ehausig/ai-devkit-pod-configurator/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/ehausig/ai-devkit-pod-configurator/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/ehausig/ai-devkit-pod-configurator/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/ehausig/ai-devkit-pod-configurator/compare/v0.1.2...v0.3.0
 [0.1.2]: https://github.com/ehausig/ai-devkit-pod-configurator/compare/v0.1.0...v0.1.2

@@ -65,10 +65,7 @@ Begin by understanding the task requirements and determining the appropriate pro
 
 5. **Initialize Git workflow**:
    ```bash
-   # Create develop branch
-   git checkout -b develop
-   git push -u origin develop 2>/dev/null || echo "Working locally only"
-   
+   # Feature branches come off main; there is no develop branch
    # Enable auto-merge if on GitHub
    gh repo edit --enable-auto-merge 2>/dev/null || true
    ```
@@ -130,8 +127,8 @@ Begin by understanding the task requirements and determining the appropriate pro
 
 #### 3.1 Create Feature Branch (ALWAYS DO THIS FIRST)
 ```bash
-git checkout develop  # Always branch from develop
-git pull origin develop  # Ensure up to date
+git checkout main  # Always branch from main
+git pull origin main  # Ensure up to date
 git checkout -b feat/FEATURE_NAME
 ```
 
@@ -225,7 +222,7 @@ if git remote get-url origin &>/dev/null && gh repo view &>/dev/null; then
 - [ ] Documentation updated
 - [ ] No security vulnerabilities
 - [ ] Follows code style guidelines" \
-      --base develop
+      --base main
       
     # Enable auto-merge if available
     gh pr merge --auto --squash --delete-branch 2>/dev/null || true
