@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - The main container is unconfined by AppArmor through `securityContext.appArmorProfile` instead of the `container.apparmor.security.beta.kubernetes.io` annotation, deprecated since Kubernetes 1.30. Requires Kubernetes 1.30 or later. The buildah/podman capabilities now go under the same `securityContext`.
 
+### Fixed
+- **Volumes mounted at the wrong path** since the September 2025 refactor: the deployment template is a quoted heredoc, so `${DEVUSER_HOME}` was never expanded and the workspace, config, and injected-file volumes were mounted at a directory literally named `${DEVUSER_HOME}`. Work saved in `~/workspace` lived in the container layer and was lost on every redeploy. They now mount under `/home/devuser`.
+- **Component test runner** (`~/.ai-devkit/tests/run-all.sh`) failed with `DEVUSER_HOME: unbound variable`; it now falls back to `$HOME`
+
 ## [0.4.0] - 2025-11-01
 
 This is a major release bringing comprehensive cross-platform container runtime support to the AI DevKit Pod Configurator. This release enables seamless use of Docker, nerdctl, and Podman across multiple Kubernetes distributions including K3s, Colima, Docker Desktop, minikube, and kind.

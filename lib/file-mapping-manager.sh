@@ -260,8 +260,9 @@ echo "AI DevKit Component Test Suite"
 echo "========================================="
 echo ""
 
-# Test directory
-TEST_DIR="${DEVUSER_HOME}/.ai-devkit/tests"
+# Test directory. DEVUSER_HOME isn't set in the container, so fall back to
+# the home of the user running the tests.
+TEST_DIR="${DEVUSER_HOME:-$HOME}/.ai-devkit/tests"
 
 # Check if test directory exists
 if [[ ! -d "$TEST_DIR" ]]; then

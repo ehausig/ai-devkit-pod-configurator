@@ -295,6 +295,12 @@ data:
       "hideDotfiles": false
     }
 EOF
+
+    # The heredocs above are quoted, so ${DEVUSER_HOME} is still literal.
+    # Expand it, or Kubernetes mounts the volumes at a directory literally
+    # named "${DEVUSER_HOME}" instead of the user's home.
+    sed -i.bak "s|\${DEVUSER_HOME}|${DEVUSER_HOME}|g" "$output_file" && \
+        rm -f "$output_file.bak"
 }
 
 # Export the function for use in other scripts
