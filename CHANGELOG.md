@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **k3d runtime** (`runtime: k3d`): checks that Docker is up and the current context is a k3d cluster; `runtime_import: save-load` uses `k3d image import`
+- **Registry import method** (`runtime_import: registry`): pushes the image to `container.registry` and deploys it from `container.registry_pull` (defaults to `container.registry`) with `imagePullPolicy: Always`, so rebuilds move only changed layers
+- **Configurable storage class** (`kubernetes.storage_class`) for the config and workspace volume claims; applies only to newly created claims
+
 ## [0.4.0] - 2025-11-01
 
 This is a major release bringing comprehensive cross-platform container runtime support to the AI DevKit Pod Configurator. This release enables seamless use of Docker, nerdctl, and Podman across multiple Kubernetes distributions including K3s, Colima, Docker Desktop, minikube, and kind.
