@@ -9,7 +9,9 @@ DEVUSER_HOME="${DEVUSER_HOME:-/home/devuser}"
 generate_dynamic_kubernetes_deployment() {
     local output_file="$1"
     local manifest_file="${2:-}"  # Optional manifest file to detect needed mounts
-    
+    local image="${3:-ai-devkit:latest}"  # e.g., a registry reference
+    local pull_policy="${4:-IfNotPresent}"
+
     # Start with the deployment header including init container
     cat > "$output_file" << 'EOF'
 apiVersion: apps/v1
@@ -54,9 +56,12 @@ spec:
       containers:
       # Main AI DevKit container
       - name: ai-devkit
-        image: ai-devkit:latest
-        imagePullPolicy: IfNotPresent
+        image: __AI_DEVKIT_IMAGE__
+        imagePullPolicy: __AI_DEVKIT_PULL_POLICY__
 EOF
+    sed -i.bak -e "s|__AI_DEVKIT_IMAGE__|${image}|" \
+        -e "s|__AI_DEVKIT_PULL_POLICY__|${pull_policy}|" "$output_file" && \
+        rm -f "$output_file.bak"
 
     # Check if security context is required (e.g., for buildah/podman)
     local security_context_file=".build-temp/deployment-patches/buildah-security-context.yaml"
