@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Registry import method** (`runtime_import: registry`): pushes the image to `container.registry` and deploys it from `container.registry_pull` (defaults to `container.registry`) with `imagePullPolicy: Always`, so rebuilds move only changed layers
 - **Configurable storage class** (`kubernetes.storage_class`) for the config and workspace volume claims; applies only to newly created claims
 
+### Changed
+- The main container is unconfined by AppArmor through `securityContext.appArmorProfile` instead of the `container.apparmor.security.beta.kubernetes.io` annotation, deprecated since Kubernetes 1.30. Requires Kubernetes 1.30 or later. The buildah/podman capabilities now go under the same `securityContext`.
+
 ## [0.4.0] - 2025-11-01
 
 This is a major release bringing comprehensive cross-platform container runtime support to the AI DevKit Pod Configurator. This release enables seamless use of Docker, nerdctl, and Podman across multiple Kubernetes distributions including K3s, Colima, Docker Desktop, minikube, and kind.
